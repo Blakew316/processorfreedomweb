@@ -210,3 +210,148 @@ test('uploads accept images only and are served safely', async () => {
   assert.match(got.headers.get('content-security-policy'), /sandbox/);
   assert.equal((await client()('GET', '/u/..%2Fsites.db')).status, 404);
 });
+
+/* ---------- online ordering ---------- */
+
+import { parsePrice, parseCsv, parseMenuCsv, MENU_TEMPLATE_CSV, orderTotals, defaultOrdering } from '../shared/core.js';
+
+test('prices are read from the formats people actually type', () => {
+  const cases = { '$1,234.50': 123450, '12': 1200, '9,50': 950, '1.234,50': 123450, '12.5': 1250, ' $ 3.00 ': 300, 'Free': 0, '4.99 USD': 499, '0': 0, 'abc': null, '': null, '-5': null, 'call': null };
+  for (const [text, cents] of Object.entries(cases)) assert.equal(parsePrice(text), cents, text);
+});
+
+test('item lists are parsed for name and price', () => {
+  assert.deepEqual(parseCsv('a,"b ""q"", c",d\r\n"multi\nline",2,3\n\n'), [['a', 'b "q", c', 'd'], ['multi\nline', '2', '3']]);
+  const t = parseMenuCsv(MENU_TEMPLATE_CSV);
+  assert.equal(t.errors.length, 0);
+  assert.deepEqual(t.items.map((x) => [x.category, x.name, x.price, x.stock]), [['Tacos', 'Taco al pastor', 350, null], ['Tacos', 'Carne asada taco', 375, null], ['Plates', 'Enchiladas verdes', 1299, null], ['Drinks', 'Horchata', 300, 40], ['Desserts', 'Churros', 550, 12]]);
+  // Different column order and names, a BOM, quoted prices with commas, and bad rows
+  const odd = parseMenuCsv('﻿PRICE,Product Name,Section\n"$1,200.00",Catering tray,Catering\n8,Quesadilla,\nabc,Mystery,\n,No price,\n5.5,,\n');
+  assert.deepEqual(odd.items.map((x) => [x.name, x.price, x.category]), [['Catering tray', 120000, 'Catering'], ['Quesadilla', 800, 'Catering']]);
+  assert.deepEqual(odd.errors.map((e) => e.row), [4, 5, 6]);
+  // No header row at all
+  assert.deepEqual(parseMenuCsv('Taco,3.50\nBurrito,$9\nNachos,7.25').items.map((x) => [x.name, x.price]), [['Taco', 350], ['Burrito', 900], ['Nachos', 725]]);
+  // Semicolons with decimal commas
+  assert.deepEqual(parseMenuCsv('Item;Price\nAgua fresca;2,50').items[0].price, 250);
+  assert.equal(parseMenuCsv('just some words\nmore words').items.length, 0);
+  assert.equal(parseMenuCsv('').items.length, 0);
+});
+
+test('order totals', () => {
+  const o = { ...defaultOrdering(), taxRate: 8.25, deliveryFee: 399 };
+  assert.deepEqual(orderTotals([{ price: 350, qty: 3 }, { price: 1299, qty: 1 }], 'delivery', o, 15), { subtotal: 2349, tax: 194, fee: 399, tip: 352, total: 3294 });
+  assert.equal(orderTotals([{ price: 350, qty: 1 }], 'pickup', o, 0).fee, 0);
+});
+
+test('ordering: build from an item list, take an order, track stock, send emails', async () => {
+  const sent = [];
+  const dir2 = mkdtempSync(join(tmpdir(), 'pfsites-'));
+  const app2 = createApp({ dataDir: dir2, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const server2 = createServer(app2);
+  await new Promise((r) => server2.listen(0, r));
+  const prevBase = base; base = `http://127.0.0.1:${server2.address().port}`;
+  try {
+    const me = client(), anon = client();
+    await me('POST', '/api/auth/signup', { email: 'cafe@shop.test', password: 'long-enough-pw' });
+    let r = await me('POST', '/api/sites', { name: 'Los Socios', template: 'restaurant', kind: 'ordering', methods: { pickup: true, curbside: true, delivery: true }, csv: MENU_TEMPLATE_CSV, email: 'owner@lossocios.test' });
+    const site = r.data.site;
+    assert.equal(site.ordering.enabled, true);
+    assert.ok(site.draft.sections.some((s) => s.type === 'menu'));
+    r = await me('GET', `/api/sites/${site.id}/menu`);
+    assert.equal(r.data.items.length, 5);
+    const [taco, , , , churros] = r.data.items;
+    const host = { host: 'lossocios.pfsites.test' };
+
+    // Import: add, then replace; bad files are refused with a reason
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/import`, { csv: 'nothing useful' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/import`, { csv: 'Flan,4.50' })).data.items.length, 6);
+    assert.equal((await client()('POST', `/api/sites/${site.id}/menu/import`, { csv: 'Flan,4.50' })).status, 401);
+
+    // Item edits: price text is parsed, photo must be an uploaded or https image
+    r = await me('PUT', `/api/sites/${site.id}/menu/${taco.id}`, { price: '$4.25', image: 'javascript:x' });
+    assert.deepEqual([r.data.items[0].price, r.data.items[0].image], [425, '']);
+    assert.equal((await me('PUT', `/api/sites/${site.id}/menu/${taco.id}`, { price: 'lots' })).status, 400);
+
+    // Settings
+    assert.equal((await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { enabled: true, methods: {} } })).status, 400);
+    r = await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25, deliveryFee: 399, deliveryMin: 1500 } });
+    assert.equal(r.data.ordering.deliveryFee, 399);
+
+    // Nothing is orderable until the site is published
+    const place = (b) => anon('POST', '/_order', b, host);
+    const who = { name: 'Ana Ruiz', phone: '903-555-0100', email: 'ana@example.com' };
+    assert.equal((await place({ ...who, method: 'pickup', items: [{ id: taco.id, qty: 1 }] })).status, 404);
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    r = await anon('GET', '/order', null, host);
+    assert.equal(r.status, 200);
+    assert.match(r.data, /Taco al pastor/);
+    assert.match(r.data, /\$4\.25/);
+    assert.match((await anon('GET', '/', null, host)).data, /Order online/);
+    assert.match((await anon('GET', '/sitemap.xml', null, host)).data, /\/order</);
+
+    // Validation
+    assert.equal((await place({ ...who, method: 'pickup', items: [] })).status, 400);
+    assert.equal((await place({ ...who, email: 'nope', method: 'pickup', items: [{ id: taco.id, qty: 1 }] })).status, 400);
+    assert.equal((await place({ ...who, method: 'dinein', items: [{ id: taco.id, qty: 1 }] })).status, 400);
+    assert.equal((await place({ ...who, method: 'delivery', items: [{ id: taco.id, qty: 1 }] })).status, 400, 'delivery needs an address');
+    assert.equal((await place({ ...who, method: 'delivery', address: '1 Main St', items: [{ id: taco.id, qty: 1 }] })).status, 400, 'below delivery minimum');
+    assert.equal((await place({ ...who, method: 'curbside', items: [{ id: taco.id, qty: 1 }] })).status, 400, 'curbside needs a vehicle');
+    assert.equal((await place({ ...who, method: 'pickup', items: [{ id: 'made-up', qty: 1 }] })).status, 409);
+    assert.equal((await place({ ...who, method: 'pickup', items: [{ id: churros.id, qty: 13 }] })).status, 409, 'only 12 in stock');
+    assert.equal(sent.length, 0);
+
+    // A real order: prices come from the server, never the browser
+    r = await place({ ...who, method: 'delivery', address: '14758 FM 59, Athens TX', tip: 15, notes: 'Extra salsa', items: [{ id: taco.id, qty: 2, price: 1 }, { id: churros.id, qty: 2 }] });
+    assert.equal(r.status, 201);
+    assert.equal(r.data.number, 1001);
+    await new Promise((x) => setTimeout(x, 20));
+    r = await me('GET', `/api/sites/${site.id}/orders`);
+    const order = r.data.orders[0];
+    assert.deepEqual([order.subtotal, order.tax, order.fee, order.tip, order.total], [1950, 161, 399, 293, 2803]);
+    assert.equal(order.status, 'new');
+    assert.equal((await me('GET', `/api/sites/${site.id}/menu`)).data.items.find((x) => x.id === churros.id).stock, 10);
+
+    // Emails: one to the customer, one to the business
+    assert.deepEqual(sent.map((m) => m.to).sort(), ['ana@example.com', 'cafe@shop.test']);
+    const toCustomer = sent.find((m) => m.to === 'ana@example.com');
+    assert.match(toCustomer.subject, /We have your order · Los Socios #1001/);
+    assert.match(toCustomer.html, /2 × Taco al pastor/);
+    assert.match(toCustomer.html, /\$28\.03/);
+    assert.match(toCustomer.html, new RegExp(`https://lossocios\\.pfsites\\.test/order/${order.token}`));
+    assert.match(sent.find((m) => m.to === 'cafe@shop.test').subject, /New delivery order #1001/);
+
+    // Customer status page; guessing a token gets nothing
+    r = await anon('GET', `/order/${order.token}`, null, host);
+    assert.equal(r.status, 200);
+    assert.match(r.data, /We have your order/);
+    assert.equal((await anon('GET', '/order/aaaaaaaaaaaaaaaaaaaaaaaa', null, host)).status, 404);
+
+    // Confirm, ready, then a second order is cancelled and its stock returns
+    sent.length = 0;
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'confirmed' })).data.order.status, 'confirmed');
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready' });
+    await new Promise((x) => setTimeout(x, 20));
+    assert.deepEqual(sent.map((m) => m.subject.split(' · ')[0]), ['Your order is confirmed', 'Your order is on its way']);
+    assert.match((await anon('GET', `/order/${order.token}`, null, host)).data, /on its way/);
+    assert.equal((await client()('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' })).status, 401);
+    r = await place({ ...who, method: 'curbside', vehicle: 'Blue Tacoma', items: [{ id: churros.id, qty: 10 }] });
+    assert.equal(r.data.number, 1002);
+    assert.match((await anon('GET', '/order', null, host)).data, /Sold out/);
+    assert.equal((await place({ ...who, method: 'pickup', items: [{ id: churros.id, qty: 1 }] })).status, 409);
+    const second = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    await me('POST', `/api/sites/${site.id}/orders/${second.id}`, { status: 'cancelled' });
+    assert.equal((await me('GET', `/api/sites/${site.id}/menu`)).data.items.find((x) => x.id === churros.id).stock, 10);
+
+    // Pausing stops new orders
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, accepting: false } });
+    assert.equal((await place({ ...who, method: 'pickup', items: [{ id: taco.id, qty: 1 }] })).status, 409);
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, enabled: false } });
+    assert.equal((await anon('GET', '/order', null, host)).status, 404);
+
+    // A plain website has no order page
+    const plain = (await me('POST', '/api/sites', { name: 'Plain Shop', template: 'retail', kind: 'website' })).data.site;
+    assert.equal(plain.ordering.enabled, false);
+    await me('POST', `/api/sites/${plain.id}/publish`, {});
+    assert.equal((await anon('GET', '/order', null, { host: 'plainshop.pfsites.test' })).status, 404);
+  } finally { base = prevBase; server2.close(); app2.close(); rmSync(dir2, { recursive: true, force: true }); }
+});

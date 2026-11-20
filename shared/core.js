@@ -114,6 +114,7 @@ export const SECTION_TYPES = {
   hero: { name: 'Hero', blurb: 'The first thing visitors see' },
   about: { name: 'About', blurb: 'Your story, with optional photo and numbers' },
   services: { name: 'Services or menu', blurb: 'What you offer, with prices' },
+  menu: { name: 'Online menu', blurb: 'Your item list, always up to date' },
   features: { name: 'Highlights', blurb: 'Reasons to choose you' },
   gallery: { name: 'Gallery', blurb: 'A grid of photos' },
   testimonials: { name: 'Reviews', blurb: 'What customers say' },
@@ -154,6 +155,7 @@ export const SECTION_DEFAULTS = {
   hero: () => ({ eyebrow: '', title: 'A headline that says what you do', subtitle: 'One or two sentences about who you help and why it matters.', primary: link('Get in touch', '#contact'), secondary: link('', ''), image: '', layout: 'center' }),
   about: () => ({ title: 'About us', body: 'Tell your story here. How you started, what you care about, and what customers can expect when they work with you.', image: '', stats: [] }),
   services: () => ({ title: 'What we offer', subtitle: '', layout: 'cards', items: [{ name: 'First service', desc: 'A short description of what is included.', price: '', image: '' }, { name: 'Second service', desc: 'A short description of what is included.', price: '', image: '' }, { name: 'Third service', desc: 'A short description of what is included.', price: '', image: '' }] }),
+  menu: () => ({ title: 'Our menu', subtitle: '', showPhotos: true }),
   features: () => ({ title: 'Why choose us', subtitle: '', items: [{ icon: 'star', title: 'Quality first', desc: 'We sweat the details so you do not have to.' }, { icon: 'clock', title: 'On your schedule', desc: 'Fast, reliable and respectful of your time.' }, { icon: 'shield', title: 'Guaranteed', desc: 'If something is not right, we make it right.' }] }),
   gallery: () => ({ title: 'Gallery', images: [] }),
   testimonials: () => ({ title: 'What customers say', items: [{ quote: 'Add a favourite review from a customer here.', name: 'Customer name', role: '' }] }),
@@ -337,6 +339,16 @@ export function createSite(name, templateId, o = {}) {
   const t = getTemplate(templateId);
   const n = str(name, 80).trim() || 'My Business';
   const b = t.build(n);
+  if (o.kind === 'ordering') {
+    // An ordering site leads with the live menu and an Order online button.
+    const order = link('Order online', '/order');
+    b.cta = order;
+    const at = b.sections.findIndex((x) => x.type === 'services');
+    const menu = sec('menu', 'Menu', SECTION_DEFAULTS.menu());
+    if (at >= 0) b.sections.splice(at, 1, menu); else b.sections.splice(1, 0, menu);
+    const h0 = b.sections.find((x) => x.type === 'hero');
+    if (h0) { h0.data.primary = order; h0.data.secondary = link('See the menu', '#menu'); }
+  }
   return {
     v: 1,
     template: t.id,
@@ -517,4 +529,155 @@ Accessibility is an ongoing effort. We review this website regularly and work to
 
 ## Feedback
 If you have difficulty using any part of this website, or need information in another format, please let us know and we will do our best to help. ${contactLine}`;
+}
+
+/* ---------- Online ordering ---------- */
+
+export const ORDER_METHODS = {
+  pickup: { name: 'Pickup', blurb: 'Takeout orders collected at the counter' },
+  curbside: { name: 'Curbside', blurb: 'You bring the order out to their car' },
+  delivery: { name: 'Delivery', blurb: 'You deliver to their address' },
+};
+export const ORDER_STATUSES = { new: 'Received', confirmed: 'Confirmed', ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled' };
+export const readyLabel = (method) => (method === 'delivery' ? 'Out for delivery' : method === 'curbside' ? 'Ready for curbside' : 'Ready for pickup');
+
+export const money = (cents) => `$${(Math.round(Number(cents) || 0) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+
+/** "$1,234.50", "12", "9,50", "Free" → cents. Returns null when it is not a price. */
+export function parsePrice(input) {
+  const raw = String(input ?? '').trim();
+  if (!raw) return null;
+  if (/^(free|no charge|n\/c)$/i.test(raw)) return 0;
+  if (/-\s*\d|\(\s*\$?\d/.test(raw)) return null;
+  let t = raw.replace(/[^\d.,]/g, '');
+  if (!/\d/.test(t)) return null;
+  const last = Math.max(t.lastIndexOf(','), t.lastIndexOf('.'));
+  if (last >= 0) {
+    const decimals = t.length - last - 1;
+    t = decimals >= 1 && decimals <= 2 ? `${t.slice(0, last).replace(/[.,]/g, '')}.${t.slice(last + 1)}` : t.replace(/[.,]/g, '');
+  }
+  const n = Math.round(parseFloat(t) * 100);
+  return Number.isFinite(n) && n >= 0 && n <= 100_000_00 ? n : null;
+}
+
+/** Reads CSV text into rows. Handles quotes, line breaks inside quotes, and comma, semicolon or tab separators. */
+export function parseCsv(text) {
+  const src = String(text ?? '').replace(/^﻿/, '');
+  const first = src.split(/\r?\n/, 1)[0] || '';
+  const count = (ch) => first.split(ch).length - 1;
+  const sep = count('\t') > count(',') && count('\t') >= count(';') ? '\t' : count(';') > count(',') ? ';' : ',';
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quoted) {
+      if (c === '"') { if (src[i + 1] === '"') { cell += '"'; i++; } else quoted = false; } else cell += c;
+    } else if (c === '"' && cell.trim() === '') { cell = ''; quoted = true; }
+    else if (c === sep) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && src[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.map((r) => r.map((x) => x.trim())).filter((r) => r.some((x) => x !== ''));
+}
+
+const COLS = [
+  ['category', /^(menu\s*)?(categor(y|ies)|section|group|department|type)$/i],
+  ['name', /^((item|product|menu\s*item|dish)(\s*name)?|name|title)$/i],
+  ['price', /price|cost|amount|^\$$/i],
+  ['desc', /desc|details|notes?$/i],
+  ['stock', /stock|qty|quantity|inventory|on\s*hand|count/i],
+  ['image', /image|photo|picture|img/i],
+  ['available', /availab|active|enabled|in\s*stock|visible/i],
+];
+
+export const MENU_TEMPLATE_CSV = `Category,Item name,Price,Description,Stock,Photo URL
+Tacos,Taco al pastor,3.50,"Marinated pork, pineapple, onion and cilantro",,
+Tacos,Carne asada taco,3.75,"Grilled steak, onion and cilantro",,
+Plates,Enchiladas verdes,12.99,"Three chicken enchiladas with rice and beans",,
+Drinks,Horchata,3.00,House-made rice and cinnamon drink,40,
+Desserts,Churros,5.50,"Cinnamon sugar, chocolate sauce",12,
+`;
+
+/** Turns an uploaded item list into menu items. Only a name and a price are required on each row. */
+export function parseMenuCsv(text) {
+  const rows = parseCsv(text);
+  const out = { items: [], errors: [], rows: 0 };
+  if (!rows.length) { out.errors.push({ row: 0, reason: 'The file is empty.' }); return out; }
+  let map = {};
+  const head = rows[0];
+  head.forEach((h, i) => { const hit = COLS.find(([key, re]) => map[key] === undefined && re.test(h)); if (hit) map[hit[0]] = i; });
+  let body = rows.slice(1);
+  let offset = 2;
+  if (map.name === undefined || map.price === undefined) {
+    // No header row: work out which column holds prices from the data itself.
+    const width = Math.max(...rows.map((r) => r.length));
+    const score = (i) => rows.filter((r) => /\d/.test(r[i] || '') && parsePrice(r[i]) !== null && !/[a-z]{3,}/i.test(r[i])).length;
+    let priceCol = -1;
+    for (let i = 1; i < width; i++) if (score(i) >= rows.length * 0.6 && (priceCol < 0 || score(i) > score(priceCol))) priceCol = i;
+    if (priceCol < 0) { out.errors.push({ row: 1, reason: 'We could not find a column of item names and a column of prices. Download the template to see the layout.' }); return out; }
+    map = { name: priceCol - 1, price: priceCol, category: priceCol >= 2 ? priceCol - 2 : undefined, desc: priceCol + 1 < width ? priceCol + 1 : undefined };
+    const firstIsHeader = parsePrice(head[priceCol]) === null || !/\d/.test(head[priceCol] || '');
+    body = firstIsHeader ? rows.slice(1) : rows; offset = firstIsHeader ? 2 : 1;
+  }
+  const get = (r, k) => (map[k] === undefined ? '' : str(r[map[k]], 2000).trim());
+  let category = '';
+  body.forEach((r, i) => {
+    out.rows++;
+    const row = i + offset;
+    const name = get(r, 'name');
+    const priceText = get(r, 'price');
+    if (get(r, 'category')) category = get(r, 'category').slice(0, 60);
+    if (!name && !priceText) return;
+    if (!name) return out.errors.push({ row, reason: 'Missing item name.' });
+    const price = parsePrice(priceText);
+    if (price === null) return out.errors.push({ row, reason: priceText ? `“${priceText.slice(0, 20)}” is not a price.` : `No price for “${name.slice(0, 40)}”.` });
+    if (out.items.length >= 1000) return out.errors.push({ row, reason: 'Only the first 1,000 items are imported.' });
+    const stockText = get(r, 'stock');
+    const stock = /^\d{1,6}$/.test(stockText) ? Number(stockText) : null;
+    const avail = get(r, 'available');
+    out.items.push({
+      category: category || 'Menu', name: name.slice(0, 120), price, desc: get(r, 'desc').slice(0, 500), stock,
+      image: /^https:\/\/\S+$/i.test(get(r, 'image')) ? get(r, 'image').slice(0, 500) : '',
+      available: !/^(no|n|false|0|off|hidden|unavailable|sold\s*out)$/i.test(avail),
+    });
+  });
+  if (!out.items.length && !out.errors.length) out.errors.push({ row: 0, reason: 'No items were found in the file.' });
+  return out;
+}
+
+export function defaultOrdering() {
+  return {
+    enabled: false, accepting: true,
+    methods: { pickup: true, curbside: false, delivery: false },
+    prepMinutes: 20, deliveryMinutes: 45, deliveryFee: 0, deliveryMin: 0, deliveryArea: '',
+    pickupNote: '', curbsideNote: 'Park in a curbside space and call us when you arrive.',
+    taxRate: 0, tips: true, allowNotes: true, notifyEmail: '',
+  };
+}
+const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+export function normalizeOrdering(input) {
+  const d = defaultOrdering();
+  const o = input && typeof input === 'object' ? input : {};
+  const m = o.methods && typeof o.methods === 'object' ? o.methods : d.methods;
+  const rate = Number(o.taxRate);
+  return {
+    enabled: o.enabled === true, accepting: o.accepting !== false,
+    methods: { pickup: m.pickup === true, curbside: m.curbside === true, delivery: m.delivery === true },
+    prepMinutes: int(o.prepMinutes, 0, 600, d.prepMinutes), deliveryMinutes: int(o.deliveryMinutes, 0, 600, d.deliveryMinutes),
+    deliveryFee: int(o.deliveryFee, 0, 1_000_00, 0), deliveryMin: int(o.deliveryMin, 0, 10_000_00, 0), deliveryArea: str(o.deliveryArea, 300),
+    pickupNote: str(o.pickupNote, 300), curbsideNote: str(o.curbsideNote ?? d.curbsideNote, 300),
+    taxRate: Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0,
+    tips: o.tips !== false, allowNotes: o.allowNotes !== false, notifyEmail: str(o.notifyEmail, 200).trim(),
+  };
+}
+export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
+
+/** The one place order totals are calculated. Amounts are in cents. */
+export function orderTotals(lines, method, ordering, tipPercent = 0) {
+  const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
+  const tax = Math.round((subtotal * (ordering.taxRate || 0)) / 100);
+  const fee = method === 'delivery' ? ordering.deliveryFee || 0 : 0;
+  const tip = ordering.tips ? Math.round((subtotal * Math.min(100, Math.max(0, Number(tipPercent) || 0))) / 100) : 0;
+  return { subtotal, tax, fee, tip, total: subtotal + tax + fee + tip };
 }

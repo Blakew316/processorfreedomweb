@@ -22,3 +22,7 @@ services:
         sync: false
       - key: ADMIN_EMAILS   # comma separated staff emails
         sync: false
+      - key: RESEND_API_KEY # optional: turns on order emails
+        sync: false
+      - key: EMAIL_FROM     # e.g. Orders <orders@pfsites.com>
+        sync: false

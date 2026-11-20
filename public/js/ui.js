@@ -24,14 +24,15 @@ const P = {
   wand: '<path d="M5 19L16 8M14 5.500l.800 1.700 1.700.800-1.700.800L14 10.500l-.800-1.700L11.500 8l1.700-.800zM18.500 12.500l.500 1 1 .500-1 .500-.500 1-.500-1-1-.500 1-.500z"/>',
   globe: '<circle cx="12" cy="12" r="8.500"/><path d="M3.500 12h17M12 3.500c2.500 2.500 3.500 5.500 3.500 8.500s-1 6-3.500 8.500c-2.500-2.500-3.500-5.500-3.500-8.500s1-6 3.500-8.500z"/>',
   phone: '<rect x="7" y="3" width="10" height="18" rx="2.500"/><path d="M11 18h2"/>', lock: '<rect x="5" y="10.500" width="14" height="9.500" rx="2.500"/><path d="M8.500 10.500V8a3.500 3.500 0 017 0v2.500"/>',
+  bag: '<path d="M6 8h12l1 12H5z"/><path d="M9 8V6.500a3 3 0 016 0V8"/>', list: '<path d="M8.500 7h11M8.500 12h11M8.500 17h11M4.500 7h.010M4.500 12h.010M4.500 17h.010"/>', sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>', brush: '<path d="M14 4l6 6-8.500 8.500H5.500V12.500z"/>', store: '<path d="M4 9.500l1.500-5h13l1.500 5M5 9.500V20h14V9.500M4 9.500h16M10 20v-5.500h4V20"/>', up2: '<path d="M12 16V5M7.500 9.500L12 5l4.500 4.500M5 19h14"/>', dl: '<path d="M12 5v11M7.500 11.500L12 16l4.500-4.500M5 19h14"/>',
   inbox: '<path d="M4 13l2.500-7.500h11L20 13v5a1.500 1.500 0 01-1.500 1.500h-13A1.500 1.500 0 014 18z"/><path d="M4 13h4.500l1 2.500h5l1-2.500H20"/>', doc: '<path d="M7 3.500h7l4 4V20a.500.500 0 01-.500.500h-10.500A.500.500 0 016.500 20V4a.500.500 0 01.500-.500z"/><path d="M9.500 12h5M9.500 15.500h5"/>',
 };
 export const ic = (name, size = 18) => h('span', { style: 'display:inline-flex', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>` });
 export const svg = (inner, size = 22) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
-export const LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#1d1d1f"/><path d="M23 46V18h11a9 9 0 010 18H23" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+export const LOGO = '<img src="/assets/logo.png" alt="" width="28" height="28">';
 
-export const state = { user: null, config: { addressPrefix: '', addressSuffix: '', cnameTarget: '' } };
+export const state = { user: null, config: { addressPrefix: '', addressSuffix: '', cnameTarget: '', emailEnabled: false } };
 
 export async function api(method, path, body) {
   const opts = { method, headers: {}, credentials: 'same-origin' };
@@ -78,10 +79,10 @@ export function confirmSheet({ title, text, action = 'Continue', danger = false 
 
 /* A real page, scaled down to a thumbnail. */
 const ro = new ResizeObserver((entries) => { for (const e of entries) e.target.style.setProperty('--s', e.contentRect.width / 1280); });
-export function thumb(site, page = 'home') {
+export function thumb(site, page = 'home', extra = {}) {
   const frame = h('iframe', { tabindex: '-1', 'aria-hidden': 'true', scrolling: 'no', loading: 'lazy', title: '' });
   const wrap = h('div', { class: 'thumb' }, frame);
-  wrap.paint = (s) => { frame.srcdoc = renderPage(s, page, { preview: true }).html; };
+  wrap.paint = (s) => { frame.srcdoc = renderPage(s, page, { preview: true, ...extra }).html; };
   wrap.paint(site);
   ro.observe(wrap);
   return wrap;
@@ -108,9 +109,9 @@ export async function uploadImage(file) {
   return (await api('POST', '/api/uploads', blob)).url;
 }
 
-export function pickFiles(multiple = false) {
+export function pickFiles(multiple = false, accept = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml') {
   return new Promise((done) => {
-    const input = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml', multiple, onchange: () => done([...input.files]) });
+    const input = h('input', { type: 'file', accept, multiple, onchange: () => done([...input.files]) });
     input.click();
   });
 }

@@ -5,7 +5,8 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, LEGAL_PAGES, PLATFORM } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES } from '../shared/core.js';
+import { createMailer, orderEmail } from './mail.js';
 import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
@@ -51,6 +52,7 @@ export function createApp(options = {}) {
   const uploadDir = dataDir === ':memory:' ? options.uploadDir : join(dataDir, 'uploads');
   if (uploadDir) mkdirSync(uploadDir, { recursive: true });
   const dns = options.dns || dnsp;
+  const mailer = options.mailer || createMailer(env);
 
   const SITES_DOMAIN = cleanDomain(env.SITES_DOMAIN || '');
   const APP_URL = String(env.APP_URL || '').replace(/\/$/, '');
@@ -144,9 +146,37 @@ export function createApp(options = {}) {
       dirty: !!s.published && s.published !== s.draft,
       customDomain: s.custom_domain || '', domainVerified: !!s.domain_verified,
     };
+    out.ordering = orderingOf(s);
     if (full) out.draft = JSON.parse(s.draft);
     return out;
   }
+  const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock });
+  const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
+  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
+  function cleanItem(b, prev = {}) {
+    const price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
+    const name = str(b.name ?? prev.name, 120).trim();
+    if (!name) bad(400, 'Give the item a name.');
+    if (price == null || !(price >= 0) || price > 100_000_00) bad(400, 'Enter a price like 9.99.');
+    const stock = b.stock === undefined ? prev.stock ?? null : b.stock === null || b.stock === '' ? null : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
+    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, stock };
+  }
+  function insertItems(siteId, items) {
+    let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
+    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, stock, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.stock ?? null, sort++);
+  }
+  function businessOf(site) {
+    const c = JSON.parse(site.published || site.draft);
+    const b = c.business || {};
+    return { name: c.brand?.name || site.name, phone: str(b.phone), email: str(b.email), address: [b.address1, b.city, b.state].filter(Boolean).join(', ') };
+  }
+  function mail(kind, req, site, order, to) {
+    const business = businessOf(site);
+    const msg = orderEmail(kind, { business, order, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
+    Promise.resolve().then(() => mailer.send({ to, ...msg, fromName: business.name, replyTo: kind === 'merchant' ? order.email : business.email })).catch((e) => console.error('Order email failed:', e.message));
+  }
+
   function ownSite(req, id) {
     const user = requireUser(req);
     const site = db.get('SELECT * FROM sites WHERE id = ?', id);
@@ -187,7 +217,7 @@ export function createApp(options = {}) {
   const route = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
 
   route('GET', '/api/config', (req, res) => json(res, 200, {
-    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req),
+    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled,
   }));
 
   route('GET', '/api/me', (req, res) => json(res, 200, { user: currentUser(req) }));
@@ -239,7 +269,7 @@ export function createApp(options = {}) {
   route('GET', '/api/sites', (req, res) => {
     const user = requireUser(req);
     const rows = db.all('SELECT s.*, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads FROM sites s WHERE user_id = ? ORDER BY updated_at DESC', user.id);
-    json(res, 200, { sites: rows.map((s) => ({ ...present(req, s, true), leads: s.leads })) });
+    json(res, 200, { sites: rows.map((s) => ({ ...present(req, s, true), leads: s.leads, menu: menuOf(s.id).slice(0, 12), newOrders: db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND status = 'new'", s.id).n })) });
   });
 
   route('POST', '/api/sites', async (req, res) => {
@@ -249,10 +279,14 @@ export function createApp(options = {}) {
     if (!name) bad(400, 'Give your business a name to continue.');
     if (db.get('SELECT COUNT(*) AS n FROM sites WHERE user_id = ?', user.id).n >= MAX_SITES) bad(400, `You can have up to ${MAX_SITES} sites.`);
     const slug = freeSlug(b.slug ? cleanSlug(b.slug) : slugify(name));
-    const draft = packDraft(createSite(name, str(b.template, 40), { ...b, email: b.email ?? user.email }));
+    const ordering = b.kind === 'ordering';
+    const draft = packDraft(createSite(name, str(b.template, 40), { ...b, kind: ordering ? 'ordering' : 'website', email: b.email ?? user.email }));
     const id = newId();
     const now = Date.now();
-    db.run('INSERT INTO sites (id, user_id, slug, name, draft, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', id, user.id, slug, name, draft, now, now);
+    const settings = normalizeOrdering({ ...defaultOrdering(), enabled: ordering, methods: b.methods && typeof b.methods === 'object' ? b.methods : defaultOrdering().methods, notifyEmail: user.email });
+    if (ordering && !openMethods(settings).length) settings.methods.pickup = true;
+    db.run('INSERT INTO sites (id, user_id, slug, name, draft, ordering, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, user.id, slug, name, draft, JSON.stringify(settings), now, now);
+    if (typeof b.csv === 'string' && b.csv.trim()) insertItems(id, parseMenuCsv(b.csv.slice(0, 1_000_000)).items);
     json(res, 201, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', id), true) });
   });
 
@@ -350,6 +384,74 @@ export function createApp(options = {}) {
     json(res, 200, { ok: true });
   });
 
+  /* Menu and inventory. Changes here apply to the live site straight away. */
+  route('GET', '/api/sites/:id/menu', (req, res, p) => json(res, 200, { items: menuOf(ownSite(req, p.id).site.id) }));
+
+  route('POST', '/api/sites/:id/menu', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    if (db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n >= 1000) bad(400, 'A menu can hold up to 1,000 items.');
+    insertItems(site.id, [cleanItem(await readJson(req))]);
+    json(res, 201, { items: menuOf(site.id) });
+  });
+
+  route('POST', '/api/sites/:id/menu/import', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const b = await readJson(req, 1_500_000);
+    const parsed = parseMenuCsv(str(b.csv, 1_000_000));
+    if (!parsed.items.length) bad(400, parsed.errors[0]?.reason || 'No items were found in the file.');
+    const existing = b.replace ? 0 : db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n;
+    const room = Math.max(0, 1000 - existing);
+    db.raw.exec('BEGIN');
+    try {
+      if (b.replace) db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
+      insertItems(site.id, parsed.items.slice(0, room));
+      db.raw.exec('COMMIT');
+    } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
+    json(res, 200, { imported: Math.min(room, parsed.items.length), skipped: parsed.errors, items: menuOf(site.id) });
+  });
+
+  route('PUT', '/api/sites/:id/menu/:item', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const prev = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id) || bad(404, 'That item no longer exists.');
+    const it = cleanItem(await readJson(req), prev);
+    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, stock = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.stock, prev.id);
+    json(res, 200, { items: menuOf(site.id) });
+  });
+
+  route('DELETE', '/api/sites/:id/menu/:item', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    if (p.item === 'all') db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
+    else db.run('DELETE FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id);
+    json(res, 200, { items: menuOf(site.id) });
+  });
+
+  route('PUT', '/api/sites/:id/ordering', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const o = normalizeOrdering((await readJson(req)).ordering);
+    if (o.enabled && !openMethods(o).length) bad(400, 'Turn on at least one way to order: pickup, curbside or delivery.');
+    db.run('UPDATE sites SET ordering = ?, updated_at = ? WHERE id = ?', JSON.stringify(o), Date.now(), site.id);
+    json(res, 200, { ordering: o });
+  });
+
+  route('GET', '/api/sites/:id/orders', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    json(res, 200, { orders: db.all('SELECT * FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 300', site.id).map(toOrder) });
+  });
+
+  route('POST', '/api/sites/:id/orders/:order', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
+    const status = str((await readJson(req)).status, 20);
+    if (!ORDER_STATUSES[status]) bad(400, 'Unknown status.');
+    if (status !== row.status) {
+      db.run('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?', status, Date.now(), row.id);
+      if (status === 'cancelled') for (const l of JSON.parse(row.items)) db.run('UPDATE menu_items SET stock = stock + ? WHERE id = ? AND stock IS NOT NULL', l.qty, l.id);
+      const order = toOrder({ ...row, status });
+      if (['confirmed', 'ready', 'cancelled'].includes(status)) mail(status, req, site, order, order.email);
+    }
+    json(res, 200, { order: toOrder(db.get('SELECT * FROM orders WHERE id = ?', row.id)) });
+  });
+
   route('POST', '/api/uploads', async (req, res) => {
     const user = requireUser(req);
     if (!uploadDir) bad(503, 'Uploads are not available.');
@@ -421,9 +523,56 @@ export function createApp(options = {}) {
       }
       return isJson ? json(res, 200, { ok: true }) : redirect(res, `${base}/?sent=1#contact`, 303);
     }
+    const ordering = orderingOf(site);
+    if (path === '/_order' && req.method === 'POST' && !draft) {
+      limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000);
+      const b = await readJson(req, 50_000);
+      if (!ordering.enabled || !ordering.accepting) bad(409, 'Online ordering is paused right now. Please call us to order.');
+      const method = str(b.method, 20);
+      if (!ordering.methods[method]) bad(400, 'Choose how you would like to receive your order.');
+      const who = { name: str(b.name, 120).trim(), phone: str(b.phone, 40).trim(), email: str(b.email, 200).trim(), address: method === 'delivery' ? str(b.address, 300).trim() : '', vehicle: method === 'curbside' ? str(b.vehicle, 120).trim() : '', notes: ordering.allowNotes ? str(b.notes, 500).trim() : '' };
+      if (!who.name || who.phone.replace(/\D/g, '').length < 7 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(who.email)) bad(400, 'Please add your name, phone number and a valid email address.');
+      if (method === 'delivery' && !who.address) bad(400, 'Please add your delivery address.');
+      if (method === 'curbside' && !who.vehicle) bad(400, 'Please describe your vehicle so we can find you.');
+      const want = new Map();
+      for (const l of Array.isArray(b.items) ? b.items.slice(0, 100) : []) { const q = Math.round(Number(l?.qty)); if (q > 0 && q <= 50) want.set(str(l.id, 40), (want.get(str(l.id, 40)) || 0) + q); }
+      if (!want.size) bad(400, 'Your order is empty.');
+      let order;
+      db.raw.exec('BEGIN IMMEDIATE');
+      try {
+        const lines = [];
+        for (const [itemId, qty] of want) {
+          const it = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', itemId, site.id);
+          if (!it || !it.available || it.stock === 0) bad(409, `${it ? it.name : 'One of your items'} is no longer available. Please remove it and try again.`);
+          if (it.stock != null && it.stock < qty) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
+          lines.push({ id: it.id, name: it.name, price: it.price, qty });
+        }
+        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0);
+        if (method === 'delivery' && t.subtotal < ordering.deliveryMin) bad(400, 'Your order is below the delivery minimum.');
+        for (const l of lines) db.run('UPDATE menu_items SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL', l.qty, l.id);
+        const number = (db.get('SELECT MAX(number) AS n FROM orders WHERE site_id = ?', site.id).n || 1000) + 1;
+        const oid = newId(); const now = Date.now();
+        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, tax, fee, tip, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.tax, t.fee, t.tip, t.total, now, now);
+        db.raw.exec('COMMIT');
+        order = toOrder(db.get('SELECT * FROM orders WHERE id = ?', oid));
+      } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
+      mail('placed', req, site, order, order.email);
+      const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
+      mail('merchant', req, site, order, ordering.notifyEmail || businessOf(site).email || owner?.email);
+      return json(res, 201, { number: order.number, url: `${base}/order/${order.token}` });
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
 
-    const pages = ['', ...Object.keys(LEGAL_PAGES).filter((k) => config.legal?.[k]?.enabled !== false)];
+    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? menuOf(site.id) : [], siteKey: site.id };
+    const tracked = path.match(/^\/order\/([\w-]{10,40})$/);
+    if (tracked) {
+      const row = db.get('SELECT * FROM orders WHERE token = ? AND site_id = ?', tracked[1], site.id);
+      const out = renderPage(config, row ? 'order-status' : 'missing', { ...shared, order: row && toOrder(row) });
+      return html(res, out.status, out.html, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+    }
+
+    const pages = ['', ...(ordering.enabled ? ['order'] : []), ...Object.keys(LEGAL_PAGES).filter((k) => config.legal?.[k]?.enabled !== false)];
     if (path === '/robots.txt') return send(res, 200, draft ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\nSitemap: ${home}sitemap.xml\n`, { 'Content-Type': 'text/plain; charset=utf-8' });
     if (path === '/sitemap.xml') {
       const mod = new Date(site.published_at || site.updated_at).toISOString().slice(0, 10);
@@ -431,8 +580,8 @@ export function createApp(options = {}) {
     }
     const page = path === '/' ? 'home' : path.slice(1);
     const sent = new URL(req.url, 'http://x').searchParams.get('sent') === '1';
-    const out = renderPage(config, page, { base, url: page === 'home' ? home : `${home}${page}`, sent });
-    return html(res, out.status, out.html, { 'Cache-Control': draft ? 'no-store' : 'public, max-age=60', ...(draft ? { 'X-Robots-Tag': 'noindex' } : {}) });
+    const out = renderPage(config, page, { ...shared, url: page === 'home' ? home : `${home}${page}`, sent });
+    return html(res, out.status, out.html, { 'Cache-Control': draft || shared.menu.length ? 'no-store' : 'public, max-age=60', ...(draft ? { 'X-Robots-Tag': 'noindex' } : {}) });
   }
 
   function siteForHost(host) {

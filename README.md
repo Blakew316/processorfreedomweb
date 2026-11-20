@@ -1,10 +1,11 @@
 # Processor Freedom Sites
 
-A branded website builder for Processor Freedom merchants. A merchant types their business name,
-picks a template, adjusts the design and content with a live preview, and publishes with one click.
+A branded website and online ordering builder for Processor Freedom merchants. A merchant chooses a website or
+an online ordering website, types their business name, picks a template, uploads their item list, and publishes with one click.
 
 ## What is in it
 
+- **Two kinds of site**: a website, or an online ordering website. Ordering can be switched on or off later.
 - **Guided setup**: business name (the web address fills in as you type), template, colour and typeface, contact details.
 - **Nine templates**: restaurant, café, retail, salon, professional services, home services, fitness, auto repair, and a simple start. Each ships with written content.
 - **Editor with live preview**: brand, logo, colour, light or dark, typeface, corners, header, announcement bar, footer. Add, reorder, hide and edit sections. Click any section in the preview to edit it. Desktop, tablet and phone views.
@@ -14,6 +15,14 @@ picks a template, adjusts the design and content with a live preview, and publis
 - **Domains**: a free address, a checker with live rules, connecting a domain the merchant owns (DNS check included), or a request for Processor Freedom to set one up.
 - **Publishing**: draft and live versions are separate. Publish, republish, unpublish. QR code and share links once live.
 - **Inbox**: messages from each site's contact form.
+- **Menu and inventory**: upload a CSV of items (a template is provided) and the menu is built from it. Item names and prices are
+  required; category, description, stock and photo link are optional. Column order and header names are flexible, and files without
+  a header row work too. Each item can have a photo, be hidden, or have its stock counted down to sold out.
+- **Online ordering**: pickup, curbside and delivery, each with its own settings (ready time, instructions, delivery fee, minimum and
+  area), sales tax, tips and order notes. Customers get an order page with a cart and a status page that updates as the order moves.
+- **Orders**: new orders appear in the builder and refresh on their own. Confirm, mark ready, complete or cancel.
+- **Order emails**: the customer is emailed when the order is received, confirmed, ready or cancelled; the business is emailed for
+  every new order. Requires `RESEND_API_KEY` and `EMAIL_FROM`.
 - **Staff tools** at `/app/admin`: totals, every site, and domain requests with one-step attach.
 
 ## Run it
@@ -53,6 +62,8 @@ See `.env.example` for every setting.
 | --- | --- |
 | `shared/core.js` | Templates, design options, validation, policy text. Runs on the server and in the browser. |
 | `shared/render.js` | Turns a site into HTML. The preview and the published site use this same code. |
+| `shared/order.js` | The order page, cart and order status page. |
+| `server/mail.js` | Order emails. |
 | `server/app.js` | Accounts, API, uploads, and serving published sites by hostname or path. |
 | `public/` | The builder interface. Plain JavaScript modules, no build step. |
 | `test/` | Unit tests and a full sign-up-to-publish flow. |
@@ -62,6 +73,7 @@ system face elsewhere. Apple does not license those fonts for embedding on the w
 
 ## Not included yet
 
-- Password reset and lead notifications by email (both need an email provider).
-- Online ordering and checkout. Sites link to a Processor Freedom payment page instead.
+- Card payment inside checkout. Orders are paid on receipt, or through the merchant's Processor Freedom payment link shown after ordering.
+- Item options and modifiers (sizes, add-ons), scheduled orders for a later time, and ordering hours. Ordering is paused with a switch.
+- Password reset and contact-form notifications by email.
 - Billing for the builder itself.

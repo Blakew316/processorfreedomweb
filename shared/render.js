@@ -1,6 +1,7 @@
 // Turns a site definition into finished HTML. The same code draws the live preview
 // in the builder and the published site, so what people see is what goes live.
 
+import { ORDER_CSS, ORDER_JS, menuSection, orderPage, orderStatusPage } from './order.js';
 import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM } from './core.js';
 
 const icon = (name, size = 24) =>
@@ -275,12 +276,15 @@ export function renderPage(site, page = 'home', opts = {}) {
   const biz = site.business || {};
   const name = str(brand.name, 80) || 'My Business';
   const sections = arr(site.sections).filter((s) => s && s.enabled !== false);
+  const ordering = opts.ordering || null;
+  const menu = arr(opts.menu);
   const legalOn = Object.keys(LEGAL_PAGES).filter((k) => site.legal?.[k]?.enabled !== false);
 
   // Links: "#anchor" stays on the home page; from a legal page it points back home.
   const href = (u) => {
     const s = safeUrl(u);
     if (!s) return '';
+    if (s === '/order') return ordering?.enabled ? pageHref('order') : '';
     if (s[0] === '#') return isHome ? `href="${esc(s)}"` : `href="${esc(home + s)}" data-page="home" data-hash="${esc(s.slice(1))}"`;
     return /^https?:/i.test(s) ? `href="${esc(s)}" target="_blank" rel="noopener"` : `href="${esc(s)}"`;
   };
@@ -320,6 +324,7 @@ export function renderPage(site, page = 'home', opts = {}) {
           : `<div class="grid">${items.map((x) => `<article class="card">${safeImg(x.image) ? `<div class="pic">${img(x.image, x.name)}</div>` : ''}<div class="body"><h3>${esc(x.name)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${x.price ? `<div class="price">${esc(x.price)}</div>` : ''}</div></article>`).join('')}</div>`;
       return `<div class="wrap">${head(d)}${body}</div>`;
     },
+    menu(d) { return menuSection(d, { menu, ordering, preview, orderHref: pageHref('order') }); },
     features(d) {
       const items = arr(d.items).filter((x) => x && str(x.title).trim());
       return `<div class="wrap">${head(d)}<div class="feat">${items.map((x) => `<div><div class="ic">${icon(x.icon, 34)}</div><h3>${esc(x.title)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}</div>`).join('')}</div></div>`;
@@ -379,6 +384,12 @@ export function renderPage(site, page = 'home', opts = {}) {
       return `<section class="${cls}" id="${esc(anchorFor(s))}" data-sec="${esc(s.id)}">${inner}</section>`;
     }).join('\n');
     if (!main && preview) main = `<section><div class="wrap">${emptyBox('Your page is empty. Add a section to get started.')}</div></section>`;
+  } else if (page === 'order' && ordering?.enabled) {
+    pageTitle = 'Order online';
+    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', payNote: safeUrl(biz.payUrl) ? 'You can pay online after placing your order, or when you receive it.' : 'Payment is collected when you receive your order.' });
+  } else if (page === 'order-status' && opts.order) {
+    pageTitle = `Order #${opts.order.number}`;
+    main = orderStatusPage({ order: opts.order, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>Call ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home') });
   } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
     pageTitle = LEGAL_PAGES[page];
     main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">Effective ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;
@@ -394,7 +405,7 @@ export function renderPage(site, page = 'home', opts = {}) {
   const payUrl = safeUrl(biz.payUrl);
   const footer = `<footer class="ftr"><div class="wrap"><div class="top">
 <div><a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}</div>
-<div><h3>Explore</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${payUrl ? `<li><a ${href(payUrl)}>Pay online</a></li>` : ''}</ul></div>
+<div><h3>Explore</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>Order online</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>Pay online</a></li>` : ''}</ul></div>
 <div><h3>Contact</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
 <div><h3>Legal</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${LEGAL_PAGES[k]}</a></li>`).join('')}</ul></div>
 </div><div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. All rights reserved.</span><span>${ft.showPayments !== false ? 'Visa · Mastercard · American Express · Discover accepted' : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `Website by <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
@@ -420,11 +431,11 @@ export function renderPage(site, page = 'home', opts = {}) {
   const vars = themeVars(site);
   const headHtml = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>${desc ? `<meta name="description" content="${esc(desc)}">` : ''}
-${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywords, 300))}">` : ''}${url ? `<link rel="canonical" href="${esc(url)}">` : ''}${status === 404 || preview ? '<meta name="robots" content="noindex">' : ''}
+${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywords, 300))}">` : ''}${url ? `<link rel="canonical" href="${esc(url)}">` : ''}${status === 404 || preview || page === 'order-status' ? '<meta name="robots" content="noindex">' : ''}
 <meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}">${desc ? `<meta property="og:description" content="${esc(desc)}">` : ''}${url ? `<meta property="og:url" content="${esc(url)}">` : ''}${ogImg ? `<meta property="og:image" content="${esc(ogImg)}"><meta name="twitter:card" content="summary_large_image">` : ''}
 <meta name="theme-color" content="${site.theme?.mode === 'dark' ? '#000000' : '#ffffff'}"><link rel="icon" href="${favicon}">
-<style id="pf-vars">${vars}</style><style>${SITE_CSS}</style>${ld}`;
+<style id="pf-vars">${vars}</style><style>${SITE_CSS}${ordering?.enabled || menu.length ? ORDER_CSS : ''}</style>${ld}${page === 'order-status' && !['completed', 'cancelled'].includes(opts.order?.status) ? '<meta http-equiv="refresh" content="30">' : ''}`;
   const body = `${header}\n<main id="main">${main}</main>\n${footer}`;
-  const html = `<!doctype html><html lang="en"${preview ? ' data-preview' : ''}><head>${headHtml}</head><body>${body}<script>${SITE_JS}</script></body></html>`;
+  const html = `<!doctype html><html lang="en"${preview ? ' data-preview' : ''}><head>${headHtml}</head><body>${body}<script>${SITE_JS}</script>${ordering?.enabled ? `<script>${ORDER_JS}</script>` : ''}</body></html>`;
   return { html, body, vars, title, status };
 }

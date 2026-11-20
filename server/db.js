@@ -35,7 +35,23 @@ export function openDb(dataDir) {
       id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL,
       desired TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS menu_items (
+      id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+      category TEXT NOT NULL DEFAULT 'Menu', name TEXT NOT NULL, price INTEGER NOT NULL, description TEXT NOT NULL DEFAULT '',
+      image TEXT NOT NULL DEFAULT '', available INTEGER NOT NULL DEFAULT 1, stock INTEGER, sort INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS menu_site ON menu_items(site_id, sort);
+    CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, number INTEGER NOT NULL, token TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'new', method TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT NOT NULL,
+      address TEXT NOT NULL DEFAULT '', vehicle TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', items TEXT NOT NULL,
+      subtotal INTEGER NOT NULL, tax INTEGER NOT NULL, fee INTEGER NOT NULL, tip INTEGER NOT NULL, total INTEGER NOT NULL,
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS orders_site ON orders(site_id, created_at);
   `);
+  // Added after the first release; older databases gain the column here.
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('sites') WHERE name = 'ordering'").get()) db.exec('ALTER TABLE sites ADD COLUMN ordering TEXT');
   const q = (sql) => db.prepare(sql);
   return {
     raw: db,

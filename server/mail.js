@@ -1,0 +1,61 @@
+// Order emails. Sending uses Resend's HTTP API when RESEND_API_KEY and EMAIL_FROM are set;
+// without them, messages are skipped and logged so the rest of the system keeps working.
+
+import { esc, money, ORDER_METHODS, readyLabel } from '../shared/core.js';
+
+export function createMailer(env) {
+  const key = env.RESEND_API_KEY;
+  const from = String(env.EMAIL_FROM || '').trim();
+  const address = (from.match(/<([^>]+)>/) || [, from])[1];
+  const enabled = !!(key && address);
+  return {
+    enabled,
+    async send({ to, subject, html, text, fromName, replyTo }) {
+      if (!to) return { skipped: true };
+      if (!enabled) { console.log(`[email not configured] to ${to}: ${subject}`); return { skipped: true }; }
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: fromName ? `${fromName.replace(/[<>"]/g, '')} <${address}>` : from, to: [to], subject, html, text, reply_to: replyTo || undefined }),
+      });
+      if (!res.ok) throw new Error(`Email provider answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      return { sent: true };
+    },
+  };
+}
+
+const HEAD = {
+  placed: (o) => ['We have your order', `Thanks, ${o.name.split(' ')[0]}. We received your order and will confirm it shortly.`],
+  confirmed: () => ['Your order is confirmed', 'We are preparing your order now.'],
+  ready: (o) => [o.method === 'delivery' ? 'Your order is on its way' : `Your order is ${readyLabel(o.method).toLowerCase()}`, o.method === 'delivery' ? 'Your order has left and will be with you soon.' : o.method === 'curbside' ? 'Pull up and let us know you are here. We will bring it out.' : 'Come on in. Your order is waiting at the counter.'],
+  cancelled: () => ['Your order was cancelled', 'Your order has been cancelled. Please contact us if you have any questions.'],
+  merchant: (o) => [`New ${ORDER_METHODS[o.method].name.toLowerCase()} order`, `${o.name} placed an order for ${money(o.total)}.`],
+};
+
+/** Builds one order email. `kind` is placed, confirmed, ready, cancelled or merchant. */
+export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta }) {
+  const [title, intro] = HEAD[kind](order);
+  const forMerchant = kind === 'merchant';
+  const rows = order.items.map((l) => [`${l.qty} × ${l.name}`, money(l.price * l.qty)]);
+  const totals = [['Subtotal', order.subtotal], ['Tax', order.tax], ['Delivery', order.fee], ['Tip', order.tip]].filter(([, v]) => v > 0).map(([k, v]) => [k, money(v)]);
+  const details = [
+    [ORDER_METHODS[order.method].name, kind === 'placed' && eta ? `About ${eta} minutes` : ''],
+    forMerchant && ['Customer', `${order.name} · ${order.phone} · ${order.email}`],
+    order.address && ['Deliver to', order.address], order.vehicle && ['Vehicle', order.vehicle], order.notes && ['Notes', order.notes],
+  ].filter(Boolean);
+  const url = forMerchant ? manageUrl : statusUrl;
+  const td = 'padding:8px 0;border-bottom:1px solid #e8e8ed;font-size:15px';
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1d1d1f;-webkit-font-smoothing:antialiased">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:18px"><tr><td style="padding:36px 32px">
+<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)} · Order #${esc(order.number)}</p>
+<h1 style="margin:0 0 10px;font-size:28px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1>
+<p style="margin:0 0 24px;font-size:17px;line-height:1.45;color:#6e6e73">${esc(intro)}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px">${details.map(([k, v]) => `<tr><td style="${td};color:#6e6e73;width:110px;vertical-align:top">${esc(k)}</td><td style="${td}">${esc(v)}</td></tr>`).join('')}</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([k, v]) => `<tr><td style="${td}">${esc(k)}</td><td align="right" style="${td}">${v}</td></tr>`).join('')}${totals.map(([k, v]) => `<tr><td style="padding:6px 0;font-size:14px;color:#6e6e73">${k}</td><td align="right" style="padding:6px 0;font-size:14px;color:#6e6e73">${v}</td></tr>`).join('')}<tr><td style="padding:10px 0;font-size:17px;font-weight:600">Total</td><td align="right" style="padding:10px 0;font-size:17px;font-weight:600">${money(order.total)}</td></tr></table>
+${url ? `<p style="margin:24px 0 0"><a href="${esc(url)}" style="display:inline-block;background:#1d1d1f;color:#fff;text-decoration:none;border-radius:980px;padding:12px 24px;font-size:15px;font-weight:500">${forMerchant ? 'Open orders' : 'View your order'}</a></p>` : ''}
+${forMerchant ? '' : `<p style="margin:28px 0 0;font-size:13px;line-height:1.5;color:#86868b">${esc([business.name, business.address, business.phone].filter(Boolean).join(' · '))}</p>`}
+</td></tr></table></td></tr></table></body></html>`;
+  const text = [`${business.name} · Order #${order.number}`, '', title, intro, '', ...details.map(([k, v]) => `${k}: ${v}`), '', ...rows.map(([k, v]) => `${k}  ${v}`), ...totals.map(([k, v]) => `${k}: ${v}`), `Total: ${money(order.total)}`, '', url || ''].join('\n');
+  return { subject: forMerchant ? `${title} #${order.number} · ${money(order.total)}` : `${title} · ${business.name} #${order.number}`, html, text };
+}

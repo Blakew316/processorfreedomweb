@@ -1,8 +1,13 @@
-import { ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str } from '/shared/core.js';
+import { ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, showAddress, qrCanvas } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas } from './ui.js';
 
-const TABS = [['design', 'Design'], ['sections', 'Sections'], ['business', 'Business'], ['policies', 'Policies'], ['seo', 'SEO'], ['domain', 'Domain'], ['inbox', 'Inbox']];
+const NAV = [
+  ['Website', [['design', 'Design', 'Logo, colours and typeface', 'brush'], ['sections', 'Sections', 'What appears on your home page', 'list'], ['business', 'Business details', 'Contact, hours and social profiles', 'store'], ['policies', 'Policies', 'Privacy, terms and store policies', 'doc'], ['seo', 'SEO', 'How you appear in search', 'search'], ['domain', 'Domain', 'Your web address', 'globe']]],
+  ['Online ordering', [['menu', 'Menu and inventory', 'Items, prices, photos and stock', 'list'], ['ordering', 'Ordering options', 'Pickup, curbside and delivery', 'sliders'], ['orders', 'Orders', 'Incoming and past orders', 'bag']]],
+  ['Customers', [['inbox', 'Inbox', 'Messages from your contact form', 'inbox']]],
+];
+const TABS = NAV.flatMap(([, rows]) => rows);
 
 export async function editor(id, mount, title) {
   const loaded = (await api('GET', `/api/sites/${id}`)).site;
@@ -11,7 +16,7 @@ export async function editor(id, mount, title) {
   title(meta.name);
 
   const q = new URLSearchParams(location.search);
-  let tab = TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : 'design';
+  let tab = TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : null;   // null shows the list of everything
   let sel = null;            // id of the section being edited
   let page = 'home';
   let device = 'desktop';
@@ -19,6 +24,12 @@ export async function editor(id, mount, title) {
   let leads = null;
   let request;               // latest "get me a domain" request
   const openItems = new Set();
+  let ordering = loaded.ordering;
+  let menu = (await api('GET', `/api/sites/${id}/menu`)).items;
+  let orders = null;
+  let editItem = null;       // menu item being edited
+  let orderFilter = 'active';
+  let notify = null;         // set while building a form whose changes are not part of the site draft
 
   /* ---------- saving and preview ---------- */
 
@@ -26,12 +37,13 @@ export async function editor(id, mount, title) {
   const stageIn = h('div', { class: 'stage-in' }, frame);
   let painted = '';
   function paint(force) {
-    const out = renderPage(draft, page, { preview: true, base: '' });
+    const out = renderPage(draft, page, { preview: true, base: '', menu, ordering, siteKey: id });
     const doc = frame.contentDocument;
     const vars = doc?.getElementById('pf-vars');
     if (!force && vars && painted === page && doc.body) {
       vars.textContent = out.vars;
       doc.body.innerHTML = out.body;
+      frame.contentWindow.pfOrderInit?.();
     } else {
       frame.srcdoc = out.html;
       painted = page;
@@ -52,15 +64,16 @@ export async function editor(id, mount, title) {
     } catch (e) { saveState = 'error'; toast(e.message, true); }
     paintTop();
   }, 800);
+  const draftChanged = () => changed();
   function changed() { saveState = 'dirty'; if (meta.live) meta.dirty = true; repaint(); save(); paintTop(); }
   const flush = async () => { if (saveState !== 'saved') await save.flush(); };
 
   /* ---------- form controls ---------- */
 
   const wrap = (label, control, hint) => h('label', { class: 'field' }, label && h('span', {}, label), control, hint && h('small', {}, hint));
-  const text = (label, o, k, { hint, ...a } = {}) => wrap(label, h('input', { value: str(o[k]), oninput: (e) => { o[k] = e.target.value; changed(); }, ...a }), hint);
-  const area = (label, o, k, { hint, ...a } = {}) => wrap(label, h('textarea', { rows: 3, value: str(o[k], 60000), oninput: (e) => { o[k] = e.target.value; changed(); }, ...a }), hint);
-  const toggle = (label, o, k, on = (v) => v !== false, after) => h('label', { class: 'switch' }, h('span', {}, label), h('input', { type: 'checkbox', checked: on(o[k]), onchange: (e) => { o[k] = e.target.checked; changed(); after?.(); } }), h('i'));
+  const text = (label, o, k, { hint, ...a } = {}, fire = notify || changed) => wrap(label, h('input', { value: str(o[k]), oninput: (e) => { o[k] = e.target.value; fire(); }, ...a }), hint);
+  const area = (label, o, k, { hint, ...a } = {}, fire = notify || changed) => wrap(label, h('textarea', { rows: 3, value: str(o[k], 60000), oninput: (e) => { o[k] = e.target.value; fire(); }, ...a }), hint);
+  const toggle = (label, o, k, on = (v) => v !== false, after, fire = notify || changed) => h('label', { class: 'switch' }, h('span', {}, label), h('input', { type: 'checkbox', checked: (on || ((v) => v !== false))(o[k]), onchange: (e) => { o[k] = e.target.checked; fire(); after?.(); } }), h('i'));
   function seg(label, o, k, options, after) {
     const el = h('div', { class: 'seg', role: 'group', 'aria-label': label });
     const draw = () => el.replaceChildren(...Object.entries(options).map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String(o[k] === v), onclick: () => { o[k] = v; draw(); changed(); after?.(); } }, l.name || l)));
@@ -68,6 +81,7 @@ export async function editor(id, mount, title) {
     return h('div', { class: 'field' }, h('span', {}, label), el);
   }
   function image(label, o, k, a = {}) {
+    const changed = notify || draftChanged;
     const box = h('div', { class: 'field' });
     const draw = () => {
       const has = !!o[k];
@@ -154,6 +168,8 @@ export async function editor(id, mount, title) {
     faq: (d) => [text('Heading', d, 'title'),
       list('Questions', d, 'items', { add: 'Add question', make: () => ({ q: '', a: '' }), name: (x) => x.q || 'New question', fields: (x) => [text('Question', x, 'q'), area('Answer', x, 'a')] })],
     cta: (d) => [area('Heading', d, 'title', { rows: 2 }), area('Supporting text', d, 'subtitle', { rows: 2 }), linkField('Button', d, 'button')],
+    menu: (d) => [text('Heading', d, 'title'), text('Supporting text', d, 'subtitle'), toggle('Show item photos', d, 'showPhotos'),
+      note('This section shows your live item list. Edit items, prices and stock in ', h('b', {}, 'Menu and inventory'), '.')],
     contact: (d) => [text('Heading', d, 'title'), area('Supporting text', d, 'subtitle', { rows: 2 }), toggle('Message form', d, 'showForm'), toggle('Show opening hours', d, 'showHours'),
       note('Your address, phone, email and hours come from the ', h('b', {}, 'Business'), ' tab. Messages arrive in your ', h('b', {}, 'Inbox'), '.')],
   };
@@ -325,6 +341,98 @@ export async function editor(id, mount, title) {
       return out;
     },
 
+    menu() {
+      const cats = [...new Set(menu.map((x) => x.category))];
+      const it = editItem && menu.find((x) => x.id === editItem);
+      if (it) {
+        const saveItem = debounce(async () => { try { await api('PUT', `/api/sites/${id}/menu/${it.id}`, it); paint(true); } catch (e) { toast(e.message, true); } }, 500);
+        notify = saveItem;
+        const priceIn = h('input', { value: (it.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Price', oninput: () => { const c = parsePrice(priceIn.value); if (c !== null) { it.price = c; saveItem(); } priceIn.style.borderColor = c === null ? 'var(--red)' : ''; } });
+        const stockBox = h('div', { class: 'stack' });
+        const drawStock = () => stockBox.replaceChildren(
+          h('label', { class: 'switch' }, h('span', {}, 'Track how many are left'), h('input', { type: 'checkbox', checked: it.stock != null, onchange: (e) => { it.stock = e.target.checked ? 10 : null; saveItem(); drawStock(); } }), h('i')),
+          it.stock != null && wrap('In stock', h('input', { type: 'number', min: 0, max: 999999, value: it.stock, oninput: (e) => { it.stock = Math.max(0, Math.round(Number(e.target.value)) || 0); saveItem(); } }), 'Goes down with every order. The item shows as sold out at zero.'));
+        drawStock();
+        const listId = uid('dl');
+        const out = [h('button', { class: 'back', onclick: () => { saveItem.flush(); editItem = null; paintPanel(); } }, ic('back', 16), 'All items'), h('h2', {}, it.name || 'Item'),
+          group('', text('Item name', it, 'name', { maxlength: 120 }), h('div', { class: 'pair' }, wrap('Price', priceIn), text('Category', it, 'category', { list: listId, maxlength: 60 })), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))),
+            area('Description', it, 'desc', { rows: 3, maxlength: 500 }), image('Photo', it, 'image', { hint: 'Shown beside the item on your menu and order page.' })),
+          group('Availability', toggle('Available to order', it, 'available', (v) => v !== false), stockBox),
+          group('', h('button', { class: 'btn danger', style: 'justify-self:start', onclick: async () => { menu = (await api('DELETE', `/api/sites/${id}/menu/${it.id}`)).items; editItem = null; paintPanel(); paint(true); } }, 'Delete item'))];
+        notify = null;
+        return out;
+      }
+      const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : x.stock != null ? `${x.stock} left` : '');
+      return [
+        group('Menu and inventory', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
+          h('button', { class: 'drop', onclick: importCsv }, ic('up2', 24), h('b', {}, menu.length ? 'Upload a new item list' : 'Upload your item list'), h('span', { class: 'small' }, 'CSV file with item names and prices')),
+          h('div', { class: 'row', style: 'flex-wrap:wrap' },
+            h('a', { class: 'btn soft sm', download: 'menu-template.csv', href: `data:text/csv;charset=utf-8,${encodeURIComponent(MENU_TEMPLATE_CSV)}` }, ic('dl', 14), 'Download template'),
+            h('button', { class: 'btn soft sm', onclick: async () => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: cats.at(-1) || 'Menu' })).items; editItem = menu.find((x) => !before.has(x.id))?.id; paintPanel(); paint(true); } catch (e) { toast(e.message, true); } } }, ic('plus', 14), 'Add item'))),
+        ...cats.map((c) => group(c, h('div', { class: 'slist' }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}` },
+          h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
+          h('button', { class: 't', onclick: () => { editItem = x.id; paintPanel(); } }, h('b', {}, x.name), h('span', {}, [money(x.price), stockText(x)].filter(Boolean).join(' · '))),
+          h('label', { class: 'switch', title: 'Available to order' }, h('input', { type: 'checkbox', 'aria-label': `${x.name} available`, checked: x.available !== false, onchange: async (e) => { x.available = e.target.checked; await api('PUT', `/api/sites/${id}/menu/${x.id}`, x); paintPanel(); paint(true); } }), h('i'))))))),
+        menu.length > 0 && group('', h('p', { class: 'hint' }, `${menu.length} item${menu.length === 1 ? '' : 's'} in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}.`),
+          !ordering.enabled && note('Online ordering is off, so customers can browse this menu but not order. Turn it on in ', h('b', {}, 'Ordering options'), '.'),
+          h('button', { class: 'btn danger sm', style: 'justify-self:start', onclick: async () => { if (!await confirmSheet({ title: 'Remove every item?', text: 'Your whole menu will be deleted. Past orders are kept.', action: 'Remove all', danger: true })) return; menu = (await api('DELETE', `/api/sites/${id}/menu/all`)).items; paintPanel(); paint(true); } }, 'Remove all items')),
+      ];
+    },
+
+    ordering() {
+      const o = ordering;
+      const saveOrdering = debounce(async () => {
+        try { ordering = (await api('PUT', `/api/sites/${id}/ordering`, { ordering: o })).ordering; Object.assign(o, ordering); ordering = o; if (page === 'order' && !o.enabled) page = 'home'; paint(true); paintTop(); }
+        catch (e) { toast(e.message, true); }
+      }, 450);
+      notify = saveOrdering;
+      const redraw = () => { paintPanel(); };
+      const num = (label, k, suffix, hint) => wrap(label, h('input', { type: 'number', min: 0, value: o[k], inputmode: 'decimal', oninput: (e) => { o[k] = Number(e.target.value) || 0; saveOrdering(); } }), hint || suffix);
+      const cash = (label, k, hint) => { const el = h('input', { value: (o[k] / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const c = parsePrice(el.value || '0'); if (c !== null) { o[k] = c; saveOrdering(); } el.style.borderColor = c === null ? 'var(--red)' : ''; } }); return wrap(label, el, hint); };
+      const method = (k, ...fields) => group(ORDER_METHODS[k].name, h('label', { class: 'switch' }, h('span', {}, ORDER_METHODS[k].blurb), h('input', { type: 'checkbox', checked: o.methods[k], onchange: (e) => {
+        if (!e.target.checked && o.enabled && openMethods(o).length === 1) { e.target.checked = true; return toast('Keep at least one way to order turned on.', true); }
+        o.methods[k] = e.target.checked; saveOrdering(); redraw();
+      } }), h('i')), o.methods[k] && fields);
+      const out = [
+        group('Online ordering', toggle('Take orders on my website', o, 'enabled', (v) => v === true, () => { if (o.enabled && !openMethods(o).length) o.methods.pickup = true; redraw(); }),
+          o.enabled && toggle('Accepting orders right now', o, 'accepting', undefined, redraw),
+          o.enabled && !o.accepting && note('Ordering is paused. Customers can see your menu but cannot place orders.'),
+          o.enabled && !menu.length && note(h('b', {}, 'Your menu is empty. '), 'Add items in Menu and inventory so customers have something to order.'),
+          o.enabled && h('button', { class: 'btn soft sm', style: 'justify-self:start', onclick: () => setPage('order') }, 'View order page')),
+        ...(o.enabled ? [
+          method('pickup', num('Ready in (minutes)', 'prepMinutes'), text('Pickup instructions', o, 'pickupNote', { placeholder: 'Collect at the front counter', maxlength: 300 })),
+          method('curbside', text('Curbside instructions', o, 'curbsideNote', { maxlength: 300, hint: 'Customers are asked for their vehicle make, model and colour.' })),
+          method('delivery', h('div', { class: 'pair' }, cash('Delivery fee', 'deliveryFee'), cash('Minimum order', 'deliveryMin')), num('Delivered in (minutes)', 'deliveryMinutes'), text('Delivery area', o, 'deliveryArea', { placeholder: 'Within 5 miles of the restaurant', maxlength: 300 })),
+          group('Checkout', wrap('Sales tax (%)', h('input', { type: 'number', min: 0, max: 30, step: '0.001', value: o.taxRate, oninput: (e) => { o.taxRate = Number(e.target.value) || 0; saveOrdering(); } }), 'Added to every order. Enter 0 if your prices include tax.'),
+            toggle('Let customers add a tip', o, 'tips'), toggle('Let customers add notes', o, 'allowNotes'),
+            note(h('b', {}, 'Payment. '), draft.business.payUrl ? 'Customers can pay through your online payment link after ordering, or pay when they receive their order.' : 'Customers pay when they receive their order. Add your Processor Freedom payment link in Business details to offer online payment.')),
+          group('Order emails', text('Send new orders to', o, 'notifyEmail', { type: 'email', placeholder: draft.business.email || state.user.email }),
+            note(state.config.emailEnabled ? 'Customers get an email when their order is received, confirmed, ready and if it is cancelled. You get an email for every new order.' : h('span', {}, h('b', {}, 'Email is not switched on yet. '), 'Orders still arrive in your Orders list. Processor Freedom needs to connect an email service before confirmations are sent.'))),
+        ] : [note('Turn this on to add an order page to your site. Customers choose items from your menu, pick how they want to receive them, and you get the order here and by email.')]),
+      ];
+      notify = null;
+      return out;
+    },
+
+    orders() {
+      if (!orders) { loadOrders(); return [h('div', { class: 'loading', style: 'min-height:200px' }, h('div', { class: 'spinner' }))]; }
+      const active = orders.filter((x) => !['completed', 'cancelled'].includes(x.status));
+      const shown = orderFilter === 'active' ? active : orders;
+      const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); Object.assign(x, r.order); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const next = { new: ['confirmed', 'Confirm order'], confirmed: ['ready', 'Mark ready'], ready: ['completed', 'Complete'] };
+      const seg = h('div', { class: 'seg' }, [['active', `Active · ${active.length}`], ['all', 'All orders']].map(([k, l]) => h('button', { 'aria-pressed': String(orderFilter === k), onclick: () => { orderFilter = k; paintPanel(); } }, l)));
+      return [group('Orders', seg,
+        !shown.length && note(orders.length ? 'No active orders right now.' : h('span', {}, h('b', {}, 'No orders yet. '), ordering.enabled ? 'New orders appear here as they come in. This list refreshes on its own.' : 'Turn on online ordering in Ordering options to start taking orders.')),
+        shown.map((x) => h('article', { class: `ocard ${x.status === 'new' ? 'new' : ''}` },
+          h('header', {}, h('b', {}, `#${x.number} · ${x.name}`), h('span', { class: `status ${x.status === 'cancelled' ? 'bad' : x.status === 'completed' ? '' : x.status === 'new' ? 'warn' : 'ok'}` }, x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status])),
+          h('div', { class: 'small muted' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`),
+          h('div', { class: 'its' }, x.items.map((l) => h('div', {}, h('span', {}, `${l.qty} × ${l.name}`), h('span', {}, money(l.price * l.qty)))), h('div', { style: 'font-weight:600;margin-top:4px' }, h('span', {}, 'Total'), h('span', {}, money(x.total)))),
+          h('div', { class: 'small' }, h('a', { href: `tel:${x.phone.replace(/[^\d+]/g, '')}` }, x.phone), ' · ', h('a', { href: `mailto:${x.email}` }, x.email)),
+          x.address && h('div', { class: 'small' }, h('b', {}, 'Deliver to '), x.address), x.vehicle && h('div', { class: 'small' }, h('b', {}, 'Vehicle '), x.vehicle), x.notes && h('div', { class: 'small' }, h('b', {}, 'Notes '), x.notes),
+          next[x.status] && h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => setStatus(x, next[x.status][0]) }, next[x.status][0] === 'ready' ? `Mark ${readyLabel(x.method).toLowerCase()}` : next[x.status][1]),
+            h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Cancel order #${x.number}?`, text: 'The customer is told by email and any stock is returned.', action: 'Cancel order', danger: true })) setStatus(x, 'cancelled'); } }, 'Cancel')))))];
+    },
+
     inbox() {
       if (!leads) {
         api('GET', `/api/sites/${id}/leads`).then((r) => { leads = r.leads; if (tab === 'inbox') paintPanel(); });
@@ -340,6 +448,55 @@ export async function editor(id, mount, title) {
     },
   };
 
+  async function loadOrders(quiet) {
+    try {
+      const fresh = (await api('GET', `/api/sites/${id}/orders`)).orders;
+      const had = orders ? new Set(orders.map((x) => x.id)) : null;
+      const arrived = had ? fresh.filter((x) => !had.has(x.id)).length : 0;
+      const changed = !orders || JSON.stringify(fresh) !== JSON.stringify(orders);
+      orders = fresh;
+      if (arrived) toast(arrived === 1 ? 'New order received' : `${arrived} new orders received`);
+      if (changed && (tab === 'orders' || tab === null)) paintPanel();
+    } catch (e) { if (!quiet) toast(e.message, true); }
+  }
+  const poll = setInterval(() => { if (ordering.enabled && document.visibilityState === 'visible') loadOrders(true); }, 20000);
+  if (ordering.enabled) loadOrders(true);
+
+  async function importCsv() {
+    const [file] = await pickFiles(false, '.csv,.tsv,.txt,text/csv');
+    if (!file) return;
+    const csv = await file.text();
+    const p = parseMenuCsv(csv);
+    sheet((close) => {
+      const run = async (replace, btn) => {
+        btn.disabled = true; btn.textContent = 'Building your menu…';
+        try {
+          const r = await api('POST', `/api/sites/${id}/menu/import`, { csv, replace });
+          menu = r.items; close(); toast(`${r.imported} item${r.imported === 1 ? '' : 's'} added to your menu`); editItem = null; paintPanel(); paint(true);
+        } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Try again'; }
+      };
+      const cats = new Set(p.items.map((x) => x.category)).size;
+      return [h('h2', {}, p.items.length ? `${p.items.length} item${p.items.length === 1 ? '' : 's'} found` : 'We could not read that file'),
+        h('p', { class: 'muted' }, p.items.length ? `From ${file.name}, in ${cats} categor${cats === 1 ? 'y' : 'ies'}. Check a few before we build your menu.` : p.errors[0]?.reason || 'No items were found.'),
+        p.items.length > 0 && h('table', { class: 'ptable' }, h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', {}, 'Category'), h('th', {}, 'Price'))), h('tbody', {}, p.items.slice(0, 6).map((x) => h('tr', {}, h('td', {}, x.name), h('td', { class: 'muted' }, x.category), h('td', {}, money(x.price)))))),
+        p.items.length > 6 && h('p', { class: 'small muted' }, `and ${p.items.length - 6} more`),
+        p.items.length > 0 && p.errors.length > 0 && h('div', { class: 'note' }, h('b', {}, `${p.errors.length} row${p.errors.length === 1 ? '' : 's'} will be skipped. `), p.errors.slice(0, 3).map((e) => h('div', {}, `${e.row ? `Row ${e.row}: ` : ''}${e.reason}`))),
+        !p.items.length && h('p', { class: 'hint' }, 'Your file needs a column of item names and a column of prices. Download the template to see the layout. If you use Excel or Sheets, save the file as CSV first.'),
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'),
+          p.items.length > 0 && menu.length > 0 && h('button', { class: 'btn soft', onclick: (e) => run(false, e.currentTarget) }, 'Add to my menu'),
+          p.items.length > 0 && h('button', { class: 'btn', onclick: (e) => run(menu.length > 0, e.currentTarget) }, menu.length ? 'Replace my menu' : 'Build my menu'))];
+    });
+  }
+
+  function homeList() {
+    const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
+    const side = { menu: menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'}` : '', ordering: ordering.enabled ? (ordering.accepting ? 'On' : 'Paused') : 'Off', domain: meta.customDomain && meta.domainVerified ? meta.customDomain : '' };
+    return NAV.map(([name, rows]) => group(name, h('div', { class: 'slist nav-list' }, rows.map(([k, label, blurb, icon]) => h('div', { class: 'srow' },
+      h('span', { class: 'ico' }, ic(icon, 17)),
+      h('button', { class: 't', onclick: () => { tab = k; sel = null; panel.scrollTop = 0; paintPanel(); } }, h('b', {}, label), h('span', {}, blurb)),
+      k === 'orders' && fresh > 0 && h('span', { class: 'badge' }, fresh), side[k] && h('span', { class: 'small muted', style: 'margin-right:6px;white-space:nowrap' }, side[k]), h('span', { class: 'chev' }, ic('chev', 15)))))));
+  }
+
   function addSection() {
     sheet((close) => [h('h2', {}, 'Add a section'),
       h('div', { class: 'slist' }, Object.entries(SECTION_TYPES).map(([type, t]) => h('div', { class: 'srow' }, h('button', { class: 't', onclick: () => {
@@ -353,15 +510,16 @@ export async function editor(id, mount, title) {
 
   /* ---------- chrome ---------- */
 
-  const tabsEl = h('div', { class: 'tabs', role: 'tablist' });
-  const panel = h('div', { class: 'panel', role: 'tabpanel' });
+  const tabsEl = h('div', { class: 'phead' });
+  const panel = h('div', { class: 'panel' });
   const top = h('header', { class: 'ed-top' });
   const body = h('div', { class: 'ed-body', 'data-view': 'edit' }, h('aside', { class: 'ed-side' }, tabsEl, panel), h('div', { class: 'ed-stage' }, stageIn));
 
   function paintPanel() {
     const y = panel.scrollTop;
-    tabsEl.replaceChildren(...TABS.map(([k, l]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; sel = null; panel.scrollTop = 0; paintPanel(); } }, l)));
-    panel.replaceChildren(...PANELS[tab]().flat(Infinity).filter(Boolean));
+    const cur = TABS.find(([k]) => k === tab);
+    tabsEl.replaceChildren(...(cur ? [h('button', { class: 'back', onclick: () => { tab = null; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); } }, ic('back', 16), 'All settings'), h('span', { class: 'grow' }), h('b', {}, cur[1]), h('span', { class: 'grow' }), h('span', { style: 'width:86px' })] : [h('b', { style: 'padding-left:6px' }, 'Your site')]));
+    panel.replaceChildren(...(cur ? PANELS[tab]() : homeList()).flat(Infinity).filter(Boolean));
     panel.scrollTop = y;
   }
   function setPage(p) { page = p; paint(true); paintTop(); if (body.dataset.view === 'edit' && matchMedia('(max-width:900px)').matches) body.dataset.view = 'preview'; }
@@ -381,7 +539,7 @@ export async function editor(id, mount, title) {
       h('span', { class: 'name' }, meta.name), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
       h('div', { class: 'mid' },
         h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
-        h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
+        h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
         h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); } }, l)))),
       h('button', { class: 'btn soft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
       pub);
@@ -439,7 +597,7 @@ export async function editor(id, mount, title) {
     if (e.source !== frame.contentWindow || !e.data?.pf) return;
     if (e.data.pf === 'section' && draft.sections.some((s) => s.id === e.data.id)) { tab = 'sections'; sel = e.data.id; openItems.clear(); body.dataset.view = 'edit'; paintPanel(); paintTop(); }
     if (e.data.pf === 'page') {
-      const target = e.data.page === 'home' || LEGAL_PAGES[e.data.page] ? e.data.page : 'home';
+      const target = e.data.page === 'home' || LEGAL_PAGES[e.data.page] || (e.data.page === 'order' && ordering.enabled) ? e.data.page : 'home';
       const jump = () => e.data.hash && frame.contentDocument?.getElementById(e.data.hash)?.scrollIntoView();
       if (target !== page) { frame.addEventListener('load', jump, { once: true }); setPage(target); } else { e.data.hash ? jump() : frame.contentWindow.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
@@ -451,5 +609,5 @@ export async function editor(id, mount, title) {
   mount(h('div', { class: 'ed' }, top, body));
   paintTop(); paintPanel(); paint(true);
 
-  return () => { window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
+  return () => { clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }
