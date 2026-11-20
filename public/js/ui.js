@@ -1,0 +1,150 @@
+import { renderPage } from '/shared/render.js';
+
+export function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'srcdoc') el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : String(kid));
+  return el;
+}
+
+const P = {
+  back: '<path d="M15 5l-7 7 7 7"/>', up: '<path d="M6 14l6-6 6 6"/>', down: '<path d="M6 10l6 6 6-6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', trash: '<path d="M5 7h14M10 7V4.500h4V7M7 7l1 12.500h8L17 7"/>', check: '<path d="M5 12.500l4.500 4.500L19 7.500"/>',
+  eye: '<path d="M2.500 12S6 5.500 12 5.500 21.500 12 21.500 12 18 18.500 12 18.500 2.500 12 2.500 12z"/><circle cx="12" cy="12" r="2.800"/>',
+  out: '<path d="M14 5h5v5M19 5l-8 8M11 6H6.500A1.500 1.500 0 005 7.500v10A1.500 1.500 0 006.500 19h10a1.500 1.500 0 001.500-1.500V13"/>',
+  image: '<rect x="3.500" y="5" width="17" height="14" rx="2.500"/><circle cx="9" cy="10" r="1.500"/><path d="M4 17l5-4.500 3.500 3 3-2.500 4.500 4"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>', search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.500-4.500"/>', dot: '<circle cx="12" cy="12" r="8.500"/>', ok: '<circle cx="12" cy="12" r="8.500"/><path d="M8.500 12.200l2.400 2.400 4.600-5"/>',
+  wand: '<path d="M5 19L16 8M14 5.500l.800 1.700 1.700.800-1.700.800L14 10.500l-.800-1.700L11.500 8l1.700-.800zM18.500 12.500l.500 1 1 .500-1 .500-.500 1-.500-1-1-.500 1-.500z"/>',
+  globe: '<circle cx="12" cy="12" r="8.500"/><path d="M3.500 12h17M12 3.500c2.500 2.500 3.500 5.500 3.500 8.500s-1 6-3.500 8.500c-2.500-2.500-3.500-5.500-3.500-8.500s1-6 3.500-8.500z"/>',
+  phone: '<rect x="7" y="3" width="10" height="18" rx="2.500"/><path d="M11 18h2"/>', lock: '<rect x="5" y="10.500" width="14" height="9.500" rx="2.500"/><path d="M8.500 10.500V8a3.500 3.500 0 017 0v2.500"/>',
+  inbox: '<path d="M4 13l2.500-7.500h11L20 13v5a1.500 1.500 0 01-1.500 1.500h-13A1.500 1.500 0 014 18z"/><path d="M4 13h4.500l1 2.500h5l1-2.500H20"/>', doc: '<path d="M7 3.500h7l4 4V20a.500.500 0 01-.500.500h-10.500A.500.500 0 016.500 20V4a.500.500 0 01.500-.500z"/><path d="M9.500 12h5M9.500 15.500h5"/>',
+};
+export const ic = (name, size = 18) => h('span', { style: 'display:inline-flex', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>` });
+export const svg = (inner, size = 22) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+
+export const LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#1d1d1f"/><path d="M23 46V18h11a9 9 0 010 18H23" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+export const state = { user: null, config: { addressPrefix: '', addressSuffix: '', cnameTarget: '' } };
+
+export async function api(method, path, body) {
+  const opts = { method, headers: {}, credentials: 'same-origin' };
+  if (body instanceof Blob) { opts.body = body; opts.headers['Content-Type'] = body.type || 'application/octet-stream'; }
+  else if (body !== undefined) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
+  let res;
+  try { res = await fetch(path, opts); } catch { throw new Error('You appear to be offline. Check your connection and try again.'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.error || 'Something went wrong. Please try again.'); e.status = res.status; throw e; }
+  return data;
+}
+
+export function go(path) { history.pushState(null, '', path); window.dispatchEvent(new Event('popstate')); }
+export const link = (href, attrs, ...kids) => h('a', { href, ...attrs, onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); go(href); } }, ...kids);
+
+let toasts;
+export function toast(text, bad = false) {
+  if (!toasts || !toasts.isConnected) document.body.append((toasts = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' })));
+  const t = h('div', { class: `toast${bad ? ' bad' : ''}` }, text);
+  toasts.append(t);
+  setTimeout(() => t.remove(), bad ? 5000 : 2800);
+}
+
+export function sheet(build, cls = '') {
+  const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => e.key === 'Escape' && close();
+  const box = h('div', { class: `sheet ${cls}`, role: 'dialog', 'aria-modal': 'true' });
+  const scrim = h('div', { class: 'scrim', onmousedown: (e) => e.target === scrim && close() }, box);
+  box.append(...[build(close)].flat());
+  document.body.append(scrim);
+  document.addEventListener('keydown', onKey);
+  (box.querySelector('[autofocus]') || box.querySelector('button, input'))?.focus();
+  return close;
+}
+
+export function confirmSheet({ title, text, action = 'Continue', danger = false }) {
+  return new Promise((done) => sheet((close) => [
+    h('h2', {}, title), h('p', { class: 'muted' }, text),
+    h('div', { class: 'acts' },
+      h('button', { class: 'btn soft', onclick: () => { close(); done(false); } }, 'Cancel'),
+      h('button', { class: 'btn', style: danger ? 'background:var(--red)' : '', autofocus: true, onclick: () => { close(); done(true); } }, action)),
+  ]));
+}
+
+/* A real page, scaled down to a thumbnail. */
+const ro = new ResizeObserver((entries) => { for (const e of entries) e.target.style.setProperty('--s', e.contentRect.width / 1280); });
+export function thumb(site, page = 'home') {
+  const frame = h('iframe', { tabindex: '-1', 'aria-hidden': 'true', scrolling: 'no', loading: 'lazy', title: '' });
+  const wrap = h('div', { class: 'thumb' }, frame);
+  wrap.paint = (s) => { frame.srcdoc = renderPage(s, page, { preview: true }).html; };
+  wrap.paint(site);
+  ro.observe(wrap);
+  return wrap;
+}
+
+/* Images are resized in the browser before upload, so phone photos stay fast. */
+export async function uploadImage(file) {
+  if (!file) return '';
+  if (!/^image\//.test(file.type)) throw new Error('Choose an image file.');
+  let blob = file;
+  if (!/svg|gif/.test(file.type)) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      if (scale < 1 || file.size > 600_000) {
+        const c = h('canvas', { width: Math.round(bmp.width * scale), height: Math.round(bmp.height * scale) });
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        const png = file.type === 'image/png';
+        blob = await new Promise((r) => c.toBlob(r, png ? 'image/png' : 'image/jpeg', 0.86)) || file;
+      }
+    } catch { /* fall back to the original file */ }
+  }
+  if (blob.size > 8 * 1024 * 1024) throw new Error('That image is too large. Try one under 8 MB.');
+  return (await api('POST', '/api/uploads', blob)).url;
+}
+
+export function pickFiles(multiple = false) {
+  return new Promise((done) => {
+    const input = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml', multiple, onchange: () => done([...input.files]) });
+    input.click();
+  });
+}
+
+export const debounce = (fn, ms) => { let t; const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; d.flush = (...a) => { clearTimeout(t); return fn(...a); }; return d; };
+export const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+export const showAddress = (slug) => `${state.config.addressPrefix}${slug}${state.config.addressSuffix}`;
+
+/* Live "is this address free" lookup shared by the landing page, the wizard and the editor. */
+export function addressChecker(onResult) {
+  let n = 0;
+  return debounce(async (params) => {
+    const mine = ++n;
+    try {
+      const r = await api('GET', `/api/address?${new URLSearchParams(params)}`);
+      if (mine === n) onResult(r);
+    } catch { /* ignore; the server re-checks on save */ }
+  }, 220);
+}
+
+let qrLoading;
+export function qrCanvas(text) {
+  qrLoading ||= new Promise((ok, fail) => {
+    const s = h('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js', onload: ok, onerror: fail });
+    document.head.append(s);
+  });
+  return qrLoading.then(() => {
+    const qr = window.qrcode(0, 'M');
+    qr.addData(text); qr.make();
+    const n = qr.getModuleCount(), cell = 12, pad = 2;
+    const c = h('canvas', { width: (n + pad * 2) * cell, height: (n + pad * 2) * cell });
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#1d1d1f';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) g.fillRect((x + pad) * cell, (y + pad) * cell, cell, cell);
+    return c;
+  });
+}

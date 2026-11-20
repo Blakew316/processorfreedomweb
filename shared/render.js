@@ -1,0 +1,430 @@
+// Turns a site definition into finished HTML. The same code draws the live preview
+// in the builder and the published site, so what people see is what goes live.
+
+import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM } from './core.js';
+
+const icon = (name, size = 24) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.star}</svg>`;
+
+const SOCIAL = {
+  instagram: ['Instagram', 'https://instagram.com/', '<rect x="4" y="4" width="16" height="16" rx="4.500"/><circle cx="12" cy="12" r="3.600"/><circle cx="16.600" cy="7.400" r=".600" fill="currentColor"/>'],
+  facebook: ['Facebook', 'https://facebook.com/', '<path d="M14 8.500h2.500V5H14a3.500 3.500 0 00-3.500 3.500V11H8v3.500h2.500V21H14v-6.500h2.500L17 11h-3V8.500z"/>'],
+  tiktok: ['TikTok', 'https://tiktok.com/@', '<path d="M14 4v10.500a3.500 3.500 0 11-3.500-3.500M14 4c.300 2.500 2 4.200 4.500 4.500"/>'],
+  x: ['X', 'https://x.com/', '<path d="M5 5l14 14M19 5L5 19"/>'],
+  youtube: ['YouTube', 'https://youtube.com/@', '<rect x="3" y="6" width="18" height="12" rx="3.500"/><path d="M10.500 9.500l4 2.500-4 2.500z"/>'],
+  linkedin: ['LinkedIn', 'https://linkedin.com/company/', '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 11v5M8 8v.100M12 16v-5m0 2a2 2 0 014 0v3"/>'],
+};
+
+export function socialUrl(key, value) {
+  const v = str(value, 300).trim();
+  if (!v || !SOCIAL[key]) return '';
+  if (/^https?:\/\//i.test(v) || /\.[a-z]{2,}\//i.test(v)) return safeUrl(v);
+  const handle = v.replace(/^@/, '').replace(/[^\w.-]/g, '');
+  return handle ? SOCIAL[key][1] + handle : '';
+}
+
+export function themeVars(site) {
+  const t = site.theme || {};
+  const dark = t.mode === 'dark';
+  const bg = dark ? '#000000' : '#ffffff';
+  const raw = isHex(t.accent) ? t.accent : '#0071e3';
+  const accent = readableAccent(raw, bg);
+  const f = FONTS[t.font] || FONTS.sans;
+  const r = RADII[t.radius] || RADII.soft;
+  return `:root{color-scheme:${dark ? 'dark' : 'light'};--bg:${bg};--bg2:${dark ? '#151516' : '#f5f5f7'};--ink:${dark ? '#f5f5f7' : '#1d1d1f'};--muted:${dark ? '#a1a1a6' : '#6e6e73'};--line:${dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.1)'};--glass:${dark ? 'rgba(0,0,0,.72)' : 'rgba(255,255,255,.78)'};--accent:${accent};--on-accent:${onColor(accent)};--font:${f.body};--font-head:${f.head};--r:${r.r}px;--r-sm:${Math.min(r.r, 14)}px;--r-btn:${r.btn}px}`;
+}
+
+export const SITE_CSS = `
+*,*::before,*::after{box-sizing:border-box}
+*{margin:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:76px}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:17px;line-height:1.5;letter-spacing:-.011em;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+h1,h2,h3{font-family:var(--font-head);font-weight:600;letter-spacing:-.022em;line-height:1.08;text-wrap:balance}
+p{text-wrap:pretty}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.narrow{max-width:720px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--bg);padding:10px 16px;border-radius:10px;z-index:50}
+.skip:focus{left:8px}
+.bar{background:var(--bg2);color:var(--ink);text-align:center;font-size:14px;padding:10px 20px}
+.bar a{margin-left:6px}
+.hdr{position:relative;z-index:20;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+.hdr.sticky{position:sticky;top:0}
+.hdr .wrap{display:flex;align-items:center;gap:24px;min-height:56px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-family:var(--font-head);font-weight:600;font-size:19px;letter-spacing:-.02em;margin-right:auto;min-width:0}
+.brand:hover{text-decoration:none}
+.brand img{height:30px;width:auto;max-width:160px;object-fit:contain}
+.brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{display:flex;align-items:center;gap:26px}
+.nav a:not(.btn){color:var(--ink);font-size:14px;opacity:.82}
+.nav a:not(.btn):hover{opacity:1;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:17px;font-weight:500;line-height:1.2;padding:13px 24px;border-radius:var(--r-btn);border:1px solid transparent;background:var(--accent);color:var(--on-accent);cursor:pointer;transition:opacity .2s,transform .2s;text-align:center}
+.btn:hover{opacity:.86;text-decoration:none}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:transparent;color:var(--accent);border-color:var(--line)}
+.btn.sm{font-size:14px;padding:8px 16px}
+.menu-btn{display:none;background:none;border:0;color:var(--ink);padding:8px;margin-right:-8px;cursor:pointer}
+section{padding:104px 0}
+section+section{border-top:1px solid var(--line)}
+.eyebrow{color:var(--accent);font-size:15px;font-weight:600;letter-spacing:0;margin-bottom:14px}
+.sec-head{max-width:720px;margin:0 auto 56px;text-align:center}
+.sec-head h2{font-size:clamp(32px,4.6vw,48px)}
+.sec-head p{color:var(--muted);font-size:19px;margin-top:14px}
+.lede{color:var(--muted);font-size:clamp(19px,2.2vw,22px);line-height:1.42;max-width:680px}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.hero{padding:112px 0 104px}
+.hero h1{font-size:clamp(42px,7.4vw,84px);letter-spacing:-.032em;line-height:1.03}
+.hero .lede{margin-top:22px}
+.hero.center{text-align:center}
+.hero.center .lede{margin-left:auto;margin-right:auto}
+.hero.center .actions{justify-content:center}
+.hero.center .shot{margin-top:72px}
+.hero.split .wrap{display:grid;grid-template-columns:1.05fr 1fr;gap:64px;align-items:center}
+.hero.split h1{font-size:clamp(40px,5.4vw,68px)}
+.shot{border-radius:var(--r);overflow:hidden;background:var(--bg2);aspect-ratio:16/10}
+.hero.split .shot{aspect-ratio:4/5}
+.shot img{width:100%;height:100%;object-fit:cover}
+.ph{display:grid;place-items:center;width:100%;height:100%;color:var(--muted);font-family:var(--font-head);font-size:clamp(56px,10vw,120px);font-weight:600;opacity:.28;letter-spacing:-.04em}
+.hero.cover{position:relative;padding:0;color:#fff;background:#111;border-top:0}
+.hero.cover .bgimg{position:absolute;inset:0}
+.hero.cover .bgimg img{width:100%;height:100%;object-fit:cover}
+.hero.cover .bgimg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.62))}
+.hero.cover .wrap{position:relative;min-height:min(86vh,760px);display:flex;flex-direction:column;justify-content:flex-end;padding-top:140px;padding-bottom:88px}
+.hero.cover .lede,.hero.cover .eyebrow{color:rgba(255,255,255,.88)}
+.hero.cover .btn{background:#fff;color:#1d1d1f}
+.hero.cover .btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+.about .wrap{display:grid;gap:64px;align-items:center}
+.about.has-img .wrap{grid-template-columns:1fr 1fr}
+.about:not(.has-img) .copy{max-width:760px;margin:0 auto;text-align:center}
+.about h2{font-size:clamp(32px,4.6vw,48px);margin-bottom:22px}
+.about p{color:var(--muted);font-size:19px;line-height:1.55}
+.about p+p{margin-top:16px}
+.about .shot{aspect-ratio:4/5}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;margin-top:72px;background:var(--line);border-block:1px solid var(--line);grid-column:1/-1}
+.stat{background:var(--bg);padding:32px 16px;text-align:center}
+.stat b{display:block;font-family:var(--font-head);font-size:clamp(34px,4.4vw,48px);font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.stat span{color:var(--muted);font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.card{background:var(--bg2);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.card .pic{aspect-ratio:3/2;background:var(--line)}
+.card .pic img{width:100%;height:100%;object-fit:cover}
+.card .body{padding:30px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h3{font-size:22px}
+.card p{color:var(--muted);font-size:16px}
+.card .price{margin-top:auto;padding-top:14px;font-weight:600;font-size:16px}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.tile{display:flex;gap:18px;justify-content:space-between;border:1px solid var(--line);border-radius:var(--r-sm);padding:20px}
+.tile>div:first-child{min-width:0;flex:1}
+.tile .tl{display:flex;justify-content:space-between;gap:16px;align-items:baseline}
+.tile h3{font-size:18px;font-family:var(--font);letter-spacing:-.015em;line-height:1.3}
+.tile .price{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tile p{color:var(--muted);font-size:15px;margin-top:6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tile .pic{flex:none;width:112px;height:88px;border-radius:calc(var(--r-sm) - 4px);overflow:hidden;background:var(--bg2)}
+.tile .pic img{width:100%;height:100%;object-fit:cover}
+.rows{max-width:780px;margin:0 auto}
+.row{display:grid;grid-template-columns:1fr auto;gap:6px 24px;padding:22px 0;border-bottom:1px solid var(--line)}
+.row:first-child{border-top:1px solid var(--line)}
+.row h3{font-size:19px;font-family:var(--font);letter-spacing:-.015em;line-height:1.3}
+.row .price{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row p{color:var(--muted);font-size:16px;grid-column:1}
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:48px 40px}
+.feat>div{text-align:center}
+.feat .ic{color:var(--accent);margin-bottom:16px;display:inline-flex}
+.feat h3{font-size:21px;margin-bottom:8px}
+.feat p{color:var(--muted);font-size:16px}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.gal figure{border-radius:var(--r-sm);overflow:hidden;background:var(--bg2);aspect-ratio:1}
+.gal figure:first-child:nth-last-child(n+5){grid-column:span 2;grid-row:span 2}
+.gal img{width:100%;height:100%;object-fit:cover}
+.quotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.quote{background:var(--bg2);border-radius:var(--r);padding:34px;display:flex;flex-direction:column;gap:22px}
+.quote blockquote{font-family:var(--font-head);font-size:21px;line-height:1.36;letter-spacing:-.015em;font-weight:500}
+.quote .stars{color:var(--accent);display:flex;gap:2px}
+.quote figcaption{margin-top:auto;font-size:15px;font-weight:600}
+.quote figcaption span{display:block;color:var(--muted);font-weight:400}
+.faq{max-width:780px;margin:0 auto}
+.faq details{border-bottom:1px solid var(--line)}
+.faq details:first-child{border-top:1px solid var(--line)}
+.faq summary{list-style:none;cursor:pointer;padding:24px 0;font-size:19px;font-weight:600;letter-spacing:-.015em;display:flex;justify-content:space-between;gap:20px;align-items:center}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";flex:none;width:10px;height:10px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg) translate(-3px,-3px);transition:transform .25s}
+.faq details[open] summary::after{transform:rotate(-135deg) translate(-3px,-3px)}
+.faq details p{color:var(--muted);padding:0 40px 26px 0}
+.cta .panel{background:var(--bg2);border-radius:calc(var(--r) + 8px);padding:80px 32px;text-align:center}
+.cta h2{font-size:clamp(32px,4.6vw,52px)}
+.cta p{color:var(--muted);font-size:20px;margin:16px auto 0;max-width:560px}
+.cta .actions{justify-content:center}
+.contact .cols{display:grid;grid-template-columns:1fr 1.1fr;gap:72px;align-items:start}
+.contact .cols.one{grid-template-columns:1fr;max-width:640px;margin:0 auto;text-align:center}
+.contact h2{font-size:clamp(32px,4.6vw,48px)}
+.contact .sub{color:var(--muted);font-size:19px;margin-top:14px}
+.info{margin-top:40px;display:grid;gap:26px}
+.cols.one .info{justify-items:center}
+.info h3{font-family:var(--font);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px}
+.info p,.info address{font-style:normal;font-size:17px}
+.hours{display:grid;grid-template-columns:auto auto;gap:4px 28px;font-size:16px;justify-content:start}
+.hours dt{color:var(--muted)}
+.hours dd{font-variant-numeric:tabular-nums}
+form.msg{background:var(--bg2);border-radius:var(--r);padding:34px;display:grid;gap:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+label.f{display:grid;gap:7px;font-size:14px;font-weight:500}
+.f input,.f textarea{font:inherit;font-size:17px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px 15px;width:100%;transition:border-color .2s,box-shadow .2s}
+.f textarea{min-height:130px;resize:vertical}
+.f input:focus,.f textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.note{font-size:13px;color:var(--muted)}
+.sent{text-align:center;padding:40px 10px}
+.sent .ic{color:var(--accent);display:inline-flex;margin-bottom:12px}
+.sent h3{font-size:24px;margin-bottom:6px}
+.sent p{color:var(--muted)}
+.ftr{border-top:1px solid var(--line);background:var(--bg2);padding:64px 0 36px;font-size:14px;color:var(--muted)}
+.ftr .top{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px}
+.ftr .brand{font-size:18px;margin-bottom:12px}
+.ftr h3{font-family:var(--font);font-size:13px;font-weight:600;color:var(--ink);letter-spacing:0;margin-bottom:12px}
+.ftr ul{list-style:none;padding:0;display:grid;gap:9px}
+.ftr a{color:var(--muted)}
+.ftr a:hover{color:var(--ink)}
+.soc{display:flex;gap:14px;margin-top:20px}
+.soc a{display:inline-flex}
+.ftr .base{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;border-top:1px solid var(--line);margin-top:48px;padding-top:22px;font-size:13px}
+.legal{padding:88px 0 104px}
+.legal h1{font-size:clamp(36px,5.4vw,56px);margin-bottom:10px}
+.legal .date{color:var(--muted);margin-bottom:44px}
+.legal h2{font-size:24px;margin:44px 0 12px}
+.legal p,.legal li{color:var(--muted);font-size:17px;line-height:1.62}
+.legal p+p{margin-top:14px}
+.legal ul{padding-left:22px;display:grid;gap:8px;margin-top:8px}
+.empty{border:1.5px dashed var(--line);border-radius:var(--r);padding:56px 20px;text-align:center;color:var(--muted)}
+[data-preview] [data-sec]{cursor:pointer;transition:box-shadow .15s}
+[data-preview] [data-sec]:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent)}
+@media (max-width:860px){
+  section{padding:72px 0}
+  .hero{padding:72px 0}
+  .hero.split .wrap,.about.has-img .wrap,.contact .cols{grid-template-columns:1fr;gap:40px}
+  .hero.split .shot,.about .shot{aspect-ratio:4/3}
+  .menu-btn{display:inline-flex}
+  .nav{display:none;position:absolute;left:0;right:0;top:100%;flex-direction:column;align-items:stretch;gap:0;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 24px 24px}
+  .nav.open{display:flex}
+  .nav a:not(.btn){font-size:19px;padding:14px 0;border-bottom:1px solid var(--line);opacity:1}
+  .nav .btn{margin-top:18px;font-size:17px;padding:13px 24px}
+  .gal{grid-template-columns:repeat(2,1fr)}
+  .tiles{grid-template-columns:1fr}
+  .ftr .top{grid-template-columns:1fr 1fr}
+  .ftr .top>:first-child{grid-column:1/-1}
+  .two{grid-template-columns:1fr}
+  .cta .panel{padding:56px 24px}
+  form.msg{padding:24px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+`;
+
+// Runs on every page. Uses event delegation so it keeps working when the builder swaps the page body.
+const SITE_JS = `(function(){var d=document,P=d.documentElement.hasAttribute('data-preview');
+d.addEventListener('click',function(e){var t=e.target;
+var m=t.closest('.menu-btn');if(m){var n=d.querySelector('.nav');var o=n.classList.toggle('open');m.setAttribute('aria-expanded',o);return}
+var a=t.closest('a');
+if(a&&a.closest('.nav')){var nv=d.querySelector('.nav');nv&&nv.classList.remove('open')}
+if(!P)return;
+if(a){var h=a.getAttribute('href')||'';var pg=a.getAttribute('data-page');e.preventDefault();
+if(pg){parent.postMessage({pf:'page',page:pg,hash:a.getAttribute('data-hash')||''},'*');return}
+if(h.charAt(0)==='#'){var el=d.getElementById(h.slice(1));el&&el.scrollIntoView({behavior:'smooth'})}return}
+if(t.closest('button,input,textarea,summary,label'))return;
+var s=t.closest('[data-sec]');if(s)parent.postMessage({pf:'section',id:s.getAttribute('data-sec')},'*')});
+d.addEventListener('submit',function(e){var f=e.target;if(!f.classList.contains('msg'))return;e.preventDefault();
+var done=function(){f.innerHTML='<div class="sent" role="status"><h3>Message sent</h3><p>Thank you. We will be in touch soon.</p></div>'};
+if(P){done();return}
+var b=f.querySelector('button');b.disabled=true;b.textContent='Sending…';
+var body={};new FormData(f).forEach(function(v,k){body[k]=v});
+fetch(f.action,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw 0;done()}).catch(function(){b.disabled=false;b.textContent='Send message';var n=f.querySelector('.note');n.textContent='Something went wrong. Please try again, or contact us directly.';n.style.color='#d1372f'})});
+})();`;
+
+const paras = (text) => str(text, 60000).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+
+/** Small text format for legal pages: "## Heading", "- list item", blank line between paragraphs. */
+export function richText(text) {
+  const out = [];
+  let list = [];
+  let para = [];
+  const flush = () => {
+    if (para.length) out.push(`<p>${para.join('<br>')}</p>`);
+    if (list.length) out.push(`<ul>${list.map((l) => `<li>${l}</li>`).join('')}</ul>`);
+    para = []; list = [];
+  };
+  for (const raw of str(text, 60000).split('\n')) {
+    const line = raw.trim();
+    if (!line) flush();
+    else if (/^#{1,3}\s+/.test(line)) { flush(); out.push(`<h2>${esc(line.replace(/^#{1,3}\s+/, ''))}</h2>`); }
+    else if (/^[-•*]\s+/.test(line)) { if (para.length) flush(); list.push(esc(line.replace(/^[-•*]\s+/, ''))); }
+    else { if (list.length) flush(); para.push(esc(line)); }
+  }
+  flush();
+  return out.join('\n');
+}
+
+const anchorFor = (s) => (s.nav ? str(s.nav, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '') || s.id;
+
+export function renderPage(site, page = 'home', opts = {}) {
+  const base = str(opts.base, 200).replace(/\/$/, '');
+  const preview = !!opts.preview;
+  const home = `${base}/`;
+  const isHome = page === 'home';
+  const brand = site.brand || {};
+  const biz = site.business || {};
+  const name = str(brand.name, 80) || 'My Business';
+  const sections = arr(site.sections).filter((s) => s && s.enabled !== false);
+  const legalOn = Object.keys(LEGAL_PAGES).filter((k) => site.legal?.[k]?.enabled !== false);
+
+  // Links: "#anchor" stays on the home page; from a legal page it points back home.
+  const href = (u) => {
+    const s = safeUrl(u);
+    if (!s) return '';
+    if (s[0] === '#') return isHome ? `href="${esc(s)}"` : `href="${esc(home + s)}" data-page="home" data-hash="${esc(s.slice(1))}"`;
+    return /^https?:/i.test(s) ? `href="${esc(s)}" target="_blank" rel="noopener"` : `href="${esc(s)}"`;
+  };
+  const pageHref = (p) => `href="${esc(p === 'home' ? home : `${base}/${p}`)}" data-page="${p}"`;
+  const btn = (l, cls = '') => (l && str(l.label).trim() && href(l.href) ? `<a class="btn ${cls}" ${href(l.href)}>${esc(l.label)}</a>` : '');
+  const img = (src, alt, eager) => `<img src="${esc(safeImg(src))}" alt="${esc(alt || '')}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async">`;
+  const head = (d) => (str(d.title).trim() || str(d.subtitle).trim() ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : '');
+  const emptyBox = (text) => (preview ? `<div class="empty">${esc(text)}</div>` : '');
+
+  const address = [biz.address1, [biz.city, [biz.state, biz.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ')].map((x) => str(x).trim()).filter(Boolean);
+  const mapUrl = address.length ? `https://maps.apple.com/?q=${encodeURIComponent(address.join(', '))}` : '';
+  const hoursRows = arr(biz.hours).filter((h) => h && (str(h.label).trim() || str(h.value).trim()));
+  const hoursHtml = hoursRows.length ? `<dl class="hours">${hoursRows.map((h) => `<dt>${esc(h.label)}</dt><dd>${esc(h.value)}</dd>`).join('')}</dl>` : '';
+
+  const R = {
+    hero(d, s, first) {
+      const src = safeImg(d.image);
+      const layout = ['center', 'split', 'cover'].includes(d.layout) ? d.layout : 'center';
+      const H = first ? 'h1' : 'h2';
+      const text = `${d.eyebrow ? `<p class="eyebrow">${esc(d.eyebrow)}</p>` : ''}<${H}${first ? '' : ' style="font-size:clamp(36px,6vw,64px)"'}>${esc(d.title)}</${H}>${d.subtitle ? `<p class="lede">${esc(d.subtitle)}</p>` : ''}<div class="actions">${btn(d.primary)}${btn(d.secondary, 'ghost')}</div>`;
+      if (layout === 'cover' && src) return `<div class="bgimg">${img(src, '', first)}</div><div class="wrap"><div>${text}</div></div>`;
+      const shot = src ? `<div class="shot">${img(src, name, first)}</div>` : layout === 'split' ? `<div class="shot"><div class="ph">${esc(name.slice(0, 1).toUpperCase())}</div></div>` : '';
+      return `<div class="wrap"><div>${text}</div>${shot}</div>`;
+    },
+    about(d) {
+      const src = safeImg(d.image);
+      const stats = arr(d.stats).filter((x) => x && str(x.value).trim());
+      return `<div class="wrap"><div class="copy">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${paras(d.body)}</div>${src ? `<div class="shot">${img(src, d.title)}</div>` : ''}${stats.length ? `<div class="stats">${stats.map((x) => `<div class="stat"><b>${esc(x.value)}</b><span>${esc(x.label)}</span></div>`).join('')}</div>` : ''}</div>`;
+    },
+    services(d) {
+      const items = arr(d.items).filter((x) => x && str(x.name).trim());
+      const body = !items.length ? emptyBox('Add your first item in the editor.')
+        : d.layout === 'tiles'
+          ? `<div class="tiles">${items.map((x) => `<article class="tile"><div><div class="tl"><h3>${esc(x.name)}</h3>${x.price ? `<span class="price">${esc(x.price)}</span>` : ''}</div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}</div>${safeImg(x.image) ? `<div class="pic">${img(x.image, x.name)}</div>` : preview ? '<div class="pic"></div>' : ''}</article>`).join('')}</div>`
+        : d.layout === 'list'
+          ? `<div class="rows">${items.map((x) => `<div class="row"><h3>${esc(x.name)}</h3>${x.price ? `<span class="price">${esc(x.price)}</span>` : '<span></span>'}${x.desc ? `<p>${esc(x.desc)}</p>` : ''}</div>`).join('')}</div>`
+          : `<div class="grid">${items.map((x) => `<article class="card">${safeImg(x.image) ? `<div class="pic">${img(x.image, x.name)}</div>` : ''}<div class="body"><h3>${esc(x.name)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${x.price ? `<div class="price">${esc(x.price)}</div>` : ''}</div></article>`).join('')}</div>`;
+      return `<div class="wrap">${head(d)}${body}</div>`;
+    },
+    features(d) {
+      const items = arr(d.items).filter((x) => x && str(x.title).trim());
+      return `<div class="wrap">${head(d)}<div class="feat">${items.map((x) => `<div><div class="ic">${icon(x.icon, 34)}</div><h3>${esc(x.title)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}</div>`).join('')}</div></div>`;
+    },
+    gallery(d) {
+      const imgs = arr(d.images).filter((x) => x && safeImg(x.src));
+      if (!imgs.length && !preview) return '';
+      return `<div class="wrap">${head(d)}${imgs.length ? `<div class="gal">${imgs.map((x) => `<figure>${img(x.src, x.alt)}</figure>`).join('')}</div>` : emptyBox('Upload photos in the editor to fill your gallery.')}</div>`;
+    },
+    testimonials(d) {
+      const items = arr(d.items).filter((x) => x && str(x.quote).trim());
+      const stars = `<div class="stars" aria-label="5 out of 5 stars">${`<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">${ICONS.star}</svg>`.repeat(5)}</div>`;
+      return `<div class="wrap">${head(d)}<div class="quotes">${items.map((x) => `<figure class="quote">${stars}<blockquote>“${esc(x.quote)}”</blockquote><figcaption>${esc(x.name)}${x.role ? `<span>${esc(x.role)}</span>` : ''}</figcaption></figure>`).join('')}</div></div>`;
+    },
+    faq(d) {
+      const items = arr(d.items).filter((x) => x && str(x.q).trim());
+      return `<div class="wrap">${head(d)}<div class="faq">${items.map((x) => `<details><summary>${esc(x.q)}</summary><p>${esc(x.a)}</p></details>`).join('')}</div></div>`;
+    },
+    cta(d) {
+      return `<div class="wrap"><div class="panel"><h2>${esc(d.title)}</h2>${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}<div class="actions">${btn(d.button)}</div></div></div>`;
+    },
+    contact(d) {
+      const info = [
+        address.length ? `<div><h3>Location</h3><address>${address.map(esc).join('<br>')}</address>${mapUrl ? `<p><a href="${esc(mapUrl)}" target="_blank" rel="noopener">Get directions</a></p>` : ''}</div>` : '',
+        biz.phone || biz.email ? `<div><h3>Contact</h3>${biz.phone ? `<p><a ${href(biz.phone)}>${esc(biz.phone)}</a></p>` : ''}${biz.email ? `<p><a ${href(biz.email)}>${esc(biz.email)}</a></p>` : ''}</div>` : '',
+        d.showHours !== false && hoursHtml ? `<div><h3>Hours</h3>${hoursHtml}</div>` : '',
+      ].join('');
+      const form = d.showForm === false ? '' : opts.sent
+        ? `<div class="msg"><div class="sent" role="status"><h3>Message sent</h3><p>Thank you. We will be in touch soon.</p></div></div>`
+        : `<form class="msg" method="post" action="${esc(base)}/_forms/contact"><div class="two"><label class="f">Name<input name="name" autocomplete="name" required maxlength="120"></label><label class="f">Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div><label class="f">Phone <input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label class="f">Message<textarea name="message" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><label>Leave this empty<input name="company_website" tabindex="-1" autocomplete="off"></label></div><button class="btn" type="submit">Send message</button><p class="note">${legalOn.includes('privacy') ? `By sending this message you agree to our <a ${pageHref('privacy')}>Privacy Policy</a>.` : 'We only use your details to reply to you.'}</p></form>`;
+      return `<div class="wrap"><div class="cols${form ? '' : ' one'}"><div><h2>${esc(d.title)}</h2>${d.subtitle ? `<p class="sub">${esc(d.subtitle)}</p>` : ''}<div class="info">${info}</div></div>${form}</div></div>`;
+    },
+  };
+
+  /* Header */
+  const logo = safeImg(brand.logo);
+  const mode = logo ? brand.logoMode || 'image' : 'text';
+  const brandHtml = `${logo && mode !== 'text' ? `<img src="${esc(logo)}" alt="${mode === 'image' ? esc(name) : ''}">` : ''}${mode !== 'image' ? `<span>${esc(name)}</span>` : ''}`;
+  const navLinks = sections.filter((s) => str(s.nav).trim()).map((s) => `<a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a>`).join('');
+  const hc = site.header || {};
+  const ann = site.announcement || {};
+  const header = `<a class="skip" href="#main">Skip to content</a>${ann.enabled && str(ann.text).trim() ? `<div class="bar">${esc(ann.text)}${href(ann.href) ? `<a ${href(ann.href)}>Learn more ›</a>` : ''}</div>` : ''}
+<header class="hdr${hc.sticky === false ? '' : ' sticky'}"><div class="wrap"><a class="brand" ${pageHref('home')}>${brandHtml}</a><nav class="nav" id="nav" aria-label="Main">${navLinks}${hc.showPhone && biz.phone ? `<a ${href(biz.phone)}>${esc(biz.phone)}</a>` : ''}${btn(hc.cta, 'sm')}</nav><button class="menu-btn" aria-label="Menu" aria-controls="nav" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button></div></header>`;
+
+  /* Body */
+  let main;
+  let pageTitle = '';
+  let status = 200;
+  if (isHome) {
+    main = sections.map((s, i) => {
+      const fn = R[s.type];
+      if (!fn) return '';
+      const d = s.data || {};
+      const inner = fn(d, s, i === 0);
+      if (!inner) return '';
+      const cls = s.type === 'hero' ? `hero ${d.layout === 'cover' && safeImg(d.image) ? 'cover' : d.layout === 'split' ? 'split' : 'center'}` : s.type === 'about' ? `about${safeImg(d.image) ? ' has-img' : ''}` : s.type;
+      return `<section class="${cls}" id="${esc(anchorFor(s))}" data-sec="${esc(s.id)}">${inner}</section>`;
+    }).join('\n');
+    if (!main && preview) main = `<section><div class="wrap">${emptyBox('Your page is empty. Add a section to get started.')}</div></section>`;
+  } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
+    pageTitle = LEGAL_PAGES[page];
+    main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">Effective ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;
+  } else {
+    status = 404;
+    pageTitle = 'Page not found';
+    main = `<section class="hero center"><div class="wrap"><p class="eyebrow">404</p><h1>Page not found.</h1><p class="lede">The page you are looking for does not exist or has moved.</p><div class="actions"><a class="btn" ${pageHref('home')}>Back to home</a></div></div></section>`;
+  }
+
+  /* Footer */
+  const socials = Object.keys(SOCIAL).map((k) => { const u = socialUrl(k, site.social?.[k]); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="${SOCIAL[k][0]}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SOCIAL[k][2]}</svg></a>` : ''; }).join('');
+  const ft = site.footer || {};
+  const payUrl = safeUrl(biz.payUrl);
+  const footer = `<footer class="ftr"><div class="wrap"><div class="top">
+<div><a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}</div>
+<div><h3>Explore</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${payUrl ? `<li><a ${href(payUrl)}>Pay online</a></li>` : ''}</ul></div>
+<div><h3>Contact</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
+<div><h3>Legal</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${LEGAL_PAGES[k]}</a></li>`).join('')}</ul></div>
+</div><div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. All rights reserved.</span><span>${ft.showPayments !== false ? 'Visa · Mastercard · American Express · Discover accepted' : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `Website by <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
+
+  /* Head */
+  const seo = site.seo || {};
+  const heroData = sections.find((s) => s.type === 'hero')?.data || {};
+  const title = pageTitle ? `${pageTitle} · ${name}` : str(seo.title).trim() || (brand.tagline ? `${name} · ${brand.tagline}` : name);
+  const desc = str(seo.description).trim() || str(heroData.subtitle).trim() || str(brand.tagline);
+  const url = str(opts.url, 500);
+  const origin = url.replace(/^(https?:\/\/[^/]+).*$/, '$1');
+  const abs = (u) => (u && u[0] === '/' ? origin + u : u);
+  const ogImg = abs(safeImg(seo.image) || safeImg(heroData.image));
+  const letter = esc(name.slice(0, 1).toUpperCase());
+  const accent = isHex(site.theme?.accent) ? site.theme.accent : '#1d1d1f';
+  const favicon = logo && !/\.svg$/i.test(logo) ? esc(logo) : `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${accent}"/><text x="32" y="44" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="36" font-weight="600" text-anchor="middle" fill="${onColor(accent)}">${letter}</text></svg>`)}`;
+  const ld = isHome && !preview ? `<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org', '@type': 'LocalBusiness', name, url: url || undefined, description: desc || undefined, image: ogImg || undefined,
+    telephone: str(biz.phone) || undefined, email: str(biz.email) || undefined,
+    address: address.length ? { '@type': 'PostalAddress', streetAddress: str(biz.address1) || undefined, addressLocality: str(biz.city) || undefined, addressRegion: str(biz.state) || undefined, postalCode: str(biz.zip) || undefined } : undefined,
+  }).replace(/</g, '\\u003c')}</script>` : '';
+
+  const vars = themeVars(site);
+  const headHtml = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title>${desc ? `<meta name="description" content="${esc(desc)}">` : ''}
+${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywords, 300))}">` : ''}${url ? `<link rel="canonical" href="${esc(url)}">` : ''}${status === 404 || preview ? '<meta name="robots" content="noindex">' : ''}
+<meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}">${desc ? `<meta property="og:description" content="${esc(desc)}">` : ''}${url ? `<meta property="og:url" content="${esc(url)}">` : ''}${ogImg ? `<meta property="og:image" content="${esc(ogImg)}"><meta name="twitter:card" content="summary_large_image">` : ''}
+<meta name="theme-color" content="${site.theme?.mode === 'dark' ? '#000000' : '#ffffff'}"><link rel="icon" href="${favicon}">
+<style id="pf-vars">${vars}</style><style>${SITE_CSS}</style>${ld}`;
+  const body = `${header}\n<main id="main">${main}</main>\n${footer}`;
+  const html = `<!doctype html><html lang="en"${preview ? ' data-preview' : ''}><head>${headHtml}</head><body>${body}<script>${SITE_JS}</script></body></html>`;
+  return { html, body, vars, title, status };
+}
