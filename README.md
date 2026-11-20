@@ -38,8 +38,9 @@ Data (a SQLite database and uploaded images) is stored in `DATA_DIR`, `./data` b
 
 ## Deploy
 
-**Render**: New → Blueprint → select this repository. `render.yaml` creates the service and a persistent disk.
-Then set `SITES_DOMAIN`, `APP_URL` and `ADMIN_EMAILS`.
+**Render**: open https://render.com/deploy?repo=https://github.com/Blakew316/processorfreedomweb and approve. `render.yaml` creates the
+service and a persistent disk with nothing to fill in. It comes up working at its `onrender.com` address, with merchant sites at
+`/s/theirname/`. Add `SITES_DOMAIN`, `APP_URL`, `ADMIN_EMAILS` and the email settings in the dashboard when you are ready.
 
 **Anywhere else**: `docker build -t pf-sites . && docker run -p 3000:3000 -v pf-data:/data pf-sites`
 

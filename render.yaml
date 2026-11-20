@@ -1,4 +1,6 @@
-# One-click deploy on Render: New > Blueprint > pick this repository.
+# One-click deploy on Render. Nothing needs to be filled in: the service comes up working at its
+# onrender.com address, with customer sites at /s/<name>/. Add the optional settings from
+# .env.example (SITES_DOMAIN, APP_URL, ADMIN_EMAILS, RESEND_API_KEY, EMAIL_FROM) in the dashboard later.
 services:
   - type: web
     name: processor-freedom-sites
@@ -10,19 +12,9 @@ services:
     disk:
       name: data
       mountPath: /var/data
-      sizeGB: 5
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: DATA_DIR
         value: /var/data
-      - key: SITES_DOMAIN   # e.g. pfsites.com. Customer sites live at name.pfsites.com
-        sync: false
-      - key: APP_URL        # e.g. https://pfsites.com. Where the builder itself lives
-        sync: false
-      - key: ADMIN_EMAILS   # comma separated staff emails
-        sync: false
-      - key: RESEND_API_KEY # optional: turns on order emails
-        sync: false
-      - key: EMAIL_FROM     # e.g. Orders <orders@pfsites.com>
-        sync: false
