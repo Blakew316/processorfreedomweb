@@ -77,7 +77,6 @@ section+section{border-top:1px solid var(--line)}
 .lede{color:var(--muted);font-size:clamp(19px,2.2vw,22px);line-height:1.42;max-width:680px}
 .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
 .hero{padding:92px 0 88px}
-.hero.center,.hero.split{background:radial-gradient(70% 90% at 50% 0%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 70%)}
 .hero h1{font-size:clamp(42px,7.4vw,84px);letter-spacing:-.032em;line-height:1.03}
 .hero .lede{margin-top:22px}
 .hero.center{text-align:center}
@@ -107,11 +106,11 @@ section+section{border-top:1px solid var(--line)}
 .about .shot{aspect-ratio:4/5}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;margin-top:52px;background:var(--line);border-block:1px solid var(--line);grid-column:1/-1}
 .stat{background:var(--bg);padding:32px 16px;text-align:center}
-.stat b{color:var(--accent);display:block;font-family:var(--font-head);font-size:clamp(34px,4.4vw,48px);font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.stat b{display:block;font-family:var(--font-head);font-size:clamp(34px,4.4vw,48px);font-weight:600;letter-spacing:-.03em;line-height:1.1}
 .stat span{color:var(--muted);font-size:15px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
 .card{background:var(--bg2);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;transition:transform .3s,box-shadow .3s}
-.card:hover,.quote:hover{transform:translateY(-3px);box-shadow:0 18px 40px -22px color-mix(in srgb,var(--accent) 55%,transparent)}
+.card:hover,.quote:hover{transform:translateY(-3px);box-shadow:0 18px 40px -24px rgba(0,0,0,.25)}
 .quote{transition:transform .3s,box-shadow .3s}
 .card .pic{aspect-ratio:3/2;background:var(--line)}
 .card .pic img{width:100%;height:100%;object-fit:cover}
@@ -136,7 +135,7 @@ section+section{border-top:1px solid var(--line)}
 .row p{color:var(--muted);font-size:16px;grid-column:1}
 .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:48px 40px}
 .feat>div{text-align:center}
-.feat .ic{color:var(--accent);margin-bottom:18px;display:inline-grid;place-items:center;width:64px;height:64px;border-radius:18px;background:color-mix(in srgb,var(--accent) 11%,transparent)}
+.feat .ic{color:var(--accent);margin-bottom:16px;display:inline-flex}
 .feat h3{font-size:21px;margin-bottom:8px}
 .feat p{color:var(--muted);font-size:16px}
 .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -157,7 +156,7 @@ section+section{border-top:1px solid var(--line)}
 .faq summary::after{content:"";flex:none;width:10px;height:10px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg) translate(-3px,-3px);transition:transform .25s}
 .faq details[open] summary::after{transform:rotate(-135deg) translate(-3px,-3px)}
 .faq details p{color:var(--muted);padding:0 40px 26px 0}
-.cta .panel{background:radial-gradient(90% 120% at 50% 0%,color-mix(in srgb,var(--accent) 12%,var(--bg2)),var(--bg2) 70%);border-radius:calc(var(--r) + 8px);padding:68px 32px;text-align:center}
+.cta .panel{background:var(--bg2);border-radius:calc(var(--r) + 8px);padding:68px 32px;text-align:center}
 .cta h2{font-size:clamp(32px,4.6vw,52px)}
 .cta p{color:var(--muted);font-size:20px;margin:16px auto 0;max-width:560px}
 .cta .actions{justify-content:center}

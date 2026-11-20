@@ -42,7 +42,7 @@ export function wizard(mount, title) {
   const views = {
     kind() {
       const card = (kind, icon, name, blurb, points) => h('button', { type: 'button', class: 'kind', 'aria-pressed': String(d.kind === kind), onclick: () => { d.kind = kind; setSteps(); show(step + 1); } },
-        h('div', { class: 'ico', style: `--c:${kind === 'ordering' ? '#30b350' : '#0a84ff'}` }, ic(icon, 24)), h('b', {}, name), h('span', {}, blurb), h('ul', {}, points.map((t) => h('li', {}, ic('check', 15), t))));
+        h('div', { class: 'ico' }, ic(icon, 24)), h('b', {}, name), h('span', {}, blurb), h('ul', {}, points.map((t) => h('li', {}, ic('check', 15), t))));
       return [h('h1', {}, 'What would you like to build?'), h('p', { class: 'sub' }, 'You can add or remove online ordering at any time.'),
         h('div', { class: 'kinds' },
           card('website', 'globe', 'A website', 'Show customers who you are, what you offer and how to reach you.', ['Your brand, pages and photos', 'Contact form and messages', 'Policies written for you']),

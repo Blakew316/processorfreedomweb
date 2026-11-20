@@ -79,7 +79,7 @@ function landing() {
     go(`${state.user ? '/app/new' : '/signup'}${q.size ? `?${q}` : ''}`);
   };
 
-  const demoSite = createSite('Harbor & Vine', 'restaurant', { kind: 'ordering', accent: '#d1372f', font: 'sans' });
+  const demoSite = createSite('Harbor & Vine', 'restaurant', { kind: 'ordering', accent: '#0a1f44', font: 'sans' });
   const desk = thumb(demoSite, 'home', { menu: DEMO_MENU, ordering: DEMO_ORDERING });
   const phone = thumb(demoSite, 'order', { menu: DEMO_MENU, ordering: DEMO_ORDERING }, { w: 390, h: 800 });
   const chip = (cls, ...kids) => h('div', { class: `float ${cls}` }, ...kids);
@@ -90,7 +90,7 @@ function landing() {
     topbar(h('a', { class: 'opt', href: '#templates' }, 'Templates'), h('a', { class: 'opt', href: '#features' }, 'Features'),
       state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
     h('main', {},
-      h('section', { class: 'l-hero' }, h('div', { class: 'aurora', 'aria-hidden': 'true' }), h('div', { class: 'page' },
+      h('section', { class: 'l-hero' }, h('div', { class: 'page' },
         h('p', { class: 'pill' }, h('i'), 'Websites and online ordering by Processor Freedom'),
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
         h('p', { class: 'lede' }, 'Type your business name. Pick a look. Upload your menu. A complete website with online ordering, live in minutes.'),
@@ -100,43 +100,43 @@ function landing() {
         h('div', { class: 'stage' },
           h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, 'harborandvine.com')), desk),
           h('div', { class: 'phone' }, phone),
-          chip('f1', tile('#30b350', I.bag, 18), h('div', {}, h('b', {}, 'New order #1042'), h('span', {}, 'Pickup · 3 items · $27.03'))),
+          chip('f1', tile('', I.bag, 18), h('div', {}, h('b', {}, 'New order #1042'), h('span', {}, 'Pickup · 3 items · $27.03'))),
           chip('f2', h('i', { class: 'live' }), h('div', {}, h('b', {}, 'You’re live'), h('span', {}, 'Published just now'))),
-          chip('f3', tile('#ff9f0a', I.list, 18), h('div', {}, h('b', {}, '48 items imported'), h('span', {}, 'menu.csv')))))),
+          chip('f3', tile('', I.list, 18), h('div', {}, h('b', {}, '48 items imported'), h('span', {}, 'menu.csv')))))),
 
       h('section', { class: 'l-sec' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'How it works'), h('h2', {}, 'Live in three steps.'),
         h('div', { class: 'steps' },
-          h('div', { class: 'step reveal' }, h('span', { class: 'num', style: '--c:#0a84ff' }, '1'), h('h3', {}, 'Name it'), h('p', {}, 'Enter your business name and your web address is ready instantly.'),
+          h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '1'), h('h3', {}, 'Name it'), h('p', {}, 'Enter your business name and your web address is ready instantly.'),
             h('div', { class: 'mini addrmini' }, h('span', {}, 'lossocios'), h('em', {}, state.config.addressSuffix || '.yoursite.com'), h('i', { html: svg(I.check, 13) }))),
-          h('div', { class: 'step reveal' }, h('span', { class: 'num', style: '--c:#bf5af2' }, '2'), h('h3', {}, 'Make it yours'), h('p', {}, 'Choose a template, add your logo and colours. Upload your item list and your menu builds itself.'),
-            h('div', { class: 'mini dots' }, ['#1d1d1f', '#0a84ff', '#5e5ce6', '#bf5af2', '#ff375f', '#ff9f0a', '#30b350'].map((c) => h('i', { style: `background:${c}` })))),
-          h('div', { class: 'step reveal' }, h('span', { class: 'num', style: '--c:#30b350' }, '3'), h('h3', {}, 'Go live'), h('p', {}, 'One click publishes your site and starts taking orders for pickup, curbside or delivery.'),
+          h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '2'), h('h3', {}, 'Make it yours'), h('p', {}, 'Choose a template, add your logo and colours. Upload your item list and your menu builds itself.'),
+            h('div', { class: 'mini dots' }, ['#0a1f44', '#1d1d1f', '#3a4a66', '#6e6e73', '#a1a1a6', '#d2d2d7'].map((c) => h('i', { style: `background:${c}` })))),
+          h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '3'), h('h3', {}, 'Go live'), h('p', {}, 'One click publishes your site and starts taking orders for pickup, curbside or delivery.'),
             h('div', { class: 'mini' }, h('span', { class: 'fakebtn' }, 'Publish'), h('span', { class: 'status ok' }, 'Live')))))),
 
       h('section', { class: 'l-sec tint', id: 'templates' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'Templates'), h('h2', {}, 'Start from something great.'),
         h('p', { class: 'sub' }, 'Written and designed for real kinds of business, and fully yours to change.'),
         h('div', { class: 'tgrid' }, TEMPLATES.map((t) => h('button', { class: 'tcard reveal', onclick: () => start(input.value.trim(), t.id) },
-          thumb(createSite(input.value.trim() || sampleName(t.id), t.id)), h('b', {}, t.name), h('span', {}, t.blurb)))))),
+          thumb(createSite(input.value.trim() || sampleName(t.id), t.id, { accent: '#0a1f44' })), h('b', {}, t.name), h('span', {}, t.blurb)))))),
 
       h('section', { class: 'l-sec', id: 'features' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'Features'), h('h2', {}, 'Everything a business needs online.'),
         h('p', { class: 'sub' }, 'No plugins to install. No code to write. Nothing to maintain.'),
         h('div', { class: 'bgrid' },
-          bento('wide', '#30b350', I.bag, 'Online ordering, built in', 'Customers order from your own menu for pickup, curbside or delivery. Orders land in your dashboard and your inbox.',
+          bento('wide', '', I.bag, 'Online ordering, built in', 'Customers order from your own menu for pickup, curbside or delivery. Orders land in your dashboard and your inbox.',
             h('div', { class: 'chips' }, ['Pickup', 'Curbside', 'Delivery'].map((m, i) => h('span', { class: i === 0 ? 'on' : '' }, m)))),
-          bento('', '#ff9f0a', I.list, 'Menu from a spreadsheet', 'Upload a CSV of names and prices. Add photos, track stock, mark items sold out.'),
-          bento('', '#bf5af2', I.brush, 'Your brand, everywhere', 'Logo, colours and typeface apply across every page the moment you choose them.'),
-          bento('', '#0a84ff', I.globe, 'Your own domain', 'Use the free address, connect a domain you own, or let us set one up.'),
-          bento('', '#ff375f', I.mail, 'Order confirmations', 'Customers are emailed when their order is received, confirmed and ready.'),
-          bento('', '#5e5ce6', ICONS.shield, 'Policies written for you', 'Privacy, terms, store policies and accessibility pages, generated from your details.'),
-          bento('wide', '#40b6c9', I.search, 'Ready for search', 'Clean pages, descriptions, a sitemap and business details search engines understand.')))),
+          bento('', '', I.list, 'Menu from a spreadsheet', 'Upload a CSV of names and prices. Add photos, track stock, mark items sold out.'),
+          bento('', '', I.brush, 'Your brand, everywhere', 'Logo, colours and typeface apply across every page the moment you choose them.'),
+          bento('', '', I.globe, 'Your own domain', 'Use the free address, connect a domain you own, or let us set one up.'),
+          bento('', '', I.mail, 'Order confirmations', 'Customers are emailed when their order is received, confirmed and ready.'),
+          bento('', '', ICONS.shield, 'Policies written for you', 'Privacy, terms, store policies and accessibility pages, generated from your details.'),
+          bento('wide', '', I.search, 'Ready for search', 'Clean pages, descriptions, a sitemap and business details search engines understand.')))),
 
       h('section', { class: 'page' }, h('div', { class: 'l-end reveal' },
-        h('img', { src: '/assets/logo.png', alt: '', width: 72, height: 72 }),
+        h('img', { src: '/assets/logo.png', alt: '', width: 52, height: 52 }),
         h('h2', {}, 'Ready when you are.'), h('p', {}, 'Build your site today. Publish when it feels right.'),
-        h('button', { class: 'btn lg light', onclick: () => start() }, 'Build your website'))),
+        h('button', { class: 'btn lg', onclick: () => start() }, 'Build your website'))),
       h('footer', { class: 'page' }, h('div', { class: 'l-foot' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.')))));
 
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
@@ -175,7 +175,7 @@ function auth(mode) {
     err, button,
     h('p', { class: 'center muted' }, signup ? 'Already have an account? ' : 'New here? ', link(`${signup ? '/login' : '/signup'}${q}`, {}, signup ? 'Sign in' : 'Create an account')));
   mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card' }, form,
-    h('aside', { class: 'auth-side' }, h('div', { class: 'aurora', 'aria-hidden': 'true' }), h('img', { src: '/assets/logo.png', alt: '', width: 64, height: 64 }),
+    h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.png', alt: '', width: 48, height: 48 }),
       h('h2', {}, 'A website and online ordering, live in minutes.'),
       h('ul', {}, ['Templates written for your kind of business', 'Menu built from your item list', 'Pickup, curbside and delivery', 'Publish with one click'].map((t) => h('li', {}, h('i', { html: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>', 14) }), t)))))));
 }
@@ -227,9 +227,9 @@ async function admin() {
   mount(topbar(link('/app', {}, 'My sites'), accountMenu()), h('main', { class: 'page dash' },
     h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard'), h('p', { class: 'muted', style: 'margin-top:6px' }, 'Everything happening across Processor Freedom Sites.')), h('button', { class: 'btn soft', onclick: admin }, 'Refresh')),
     h('div', { class: 'sgrid2' },
-      stat('#0a84ff', I.globe, 'Sites', st.sites, `${st.live} live`), stat('#5e5ce6', '<circle cx="12" cy="9" r="3.500"/><path d="M5 19.500c.800-3.500 3.500-5.500 7-5.500s6.200 2 7 5.500"/>', 'Accounts', st.users, `${st.newUsers} this week`),
-      stat('#30b350', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('#ff9f0a', '<path d="M12 4v16M16 7.500c-.700-1.200-2.200-2-4-2-2.200 0-4 1.200-4 3s1.500 2.700 4 3.200 4 1.400 4 3.300-1.800 3-4 3c-1.900 0-3.400-.800-4.100-2"/>', 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),
-      stat('#ff375f', I.inbox, 'Messages', st.leads, 'from contact forms'), stat('#40b6c9', I.list, 'Menu items', st.items, `${st.orderingSites} ordering sites`)),
+      stat('', I.globe, 'Sites', st.sites, `${st.live} live`), stat('', '<circle cx="12" cy="9" r="3.500"/><path d="M5 19.500c.800-3.500 3.500-5.500 7-5.500s6.200 2 7 5.500"/>', 'Accounts', st.users, `${st.newUsers} this week`),
+      stat('', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('', '<path d="M12 4v16M16 7.500c-.700-1.200-2.200-2-4-2-2.200 0-4 1.200-4 3s1.500 2.700 4 3.200 4 1.400 4 3.300-1.800 3-4 3c-1.900 0-3.400-.800-4.100-2"/>', 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),
+      stat('', I.inbox, 'Messages', st.leads, 'from contact forms'), stat('', I.list, 'Menu items', st.items, `${st.orderingSites} ordering sites`)),
     h('h2', { class: 'h2' }, 'Domain requests', open.length > 0 && h('span', { class: 'badge', style: 'margin-left:10px;vertical-align:middle' }, open.length)),
     h('p', { class: 'muted', style: 'margin-bottom:14px' }, `Register the domain, point it at ${state.config.cnameTarget}, then attach it here. The site goes live on it immediately.`),
     table(['Site', 'Owner', 'Wants', 'Requested', 'Attach'], open.map((r) => h('tr', {}, h('td', {}, r.siteName), h('td', {}, r.owner), h('td', {}, h('b', {}, r.desired), r.note && h('div', { class: 'small muted' }, r.note)), h('td', {}, fmtDate(r.createdAt)), h('td', {}, attach(r.siteId, /\./.test(r.desired) ? r.desired : '')))), 'No open requests.'),
