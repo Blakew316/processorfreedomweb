@@ -609,6 +609,7 @@ export function createApp(options = {}) {
 
   /* ---------- request handler ---------- */
 
+  let shell;
   async function handle(req, res) {
     const url = new URL(req.url, 'http://x');
     const path = decodeURIComponent(url.pathname);
@@ -660,7 +661,11 @@ export function createApp(options = {}) {
     if (path.startsWith('/assets/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path.startsWith('/shared/')) return (await sendFile(res, join(ROOT, 'shared'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\n', { 'Content-Type': 'text/plain' });
-    if (path === '/' || /^\/(login|signup|app(\/.*)?)$/.test(path)) return sendFile(res, join(ROOT, 'public'), 'index.html', cache);
+    if (path === '/' || /^\/(login|signup|app(\/.*)?)$/.test(path)) {
+      // Link previews need absolute image addresses, so the shell is filled in per request.
+      shell ??= await fs.readFile(join(ROOT, 'public', 'index.html'), 'utf8');
+      return html(res, 200, shell.replaceAll('__ORIGIN__', esc(appOrigin(req))), cache);
+    }
     return html(res, 404, simplePage('Page not found', `This page does not exist on ${PLATFORM} Sites.`));
   }
 
