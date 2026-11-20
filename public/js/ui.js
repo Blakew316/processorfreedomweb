@@ -150,3 +150,16 @@ export function qrCanvas(text) {
     return c;
   });
 }
+
+export const SHEET_TYPES = '.csv,.tsv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
+let sheetLib;
+/** Reads an uploaded item list as CSV text. Excel files are converted in the browser. */
+export async function readSheetFile(file) {
+  if (!/\.(xlsx|xls)$/i.test(file.name)) return file.text();
+  sheetLib ||= new Promise((ok, fail) => document.head.append(h('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', onload: ok, onerror: () => { sheetLib = null; fail(new Error('We could not open Excel files right now. Save the file as CSV and try again.')); } })));
+  await sheetLib;
+  const book = window.XLSX.read(await file.arrayBuffer(), { type: 'array' });
+  // Use the first sheet that has anything in it.
+  for (const name of book.SheetNames) { const csv = window.XLSX.utils.sheet_to_csv(book.Sheets[name], { blankrows: false }); if (csv.trim()) return csv; }
+  return '';
+}

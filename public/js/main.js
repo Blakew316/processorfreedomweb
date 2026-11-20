@@ -72,14 +72,13 @@ function landing() {
     addr.replaceChildren(h('b', {}, showAddress(slugify(name) || '…')));
     check({ name });
   } });
-  const start = (name = input.value.trim(), template = '') => {
+  const start = (name = input.value.trim()) => {
     const q = new URLSearchParams();
     if (name) q.set('name', name);
-    if (template) q.set('template', template);
     go(`${state.user ? '/app/new' : '/signup'}${q.size ? `?${q}` : ''}`);
   };
 
-  const demoSite = createSite('Harbor & Vine', 'restaurant', { kind: 'ordering', accent: '#0a1f44', font: 'sans' });
+  const demoSite = createSite('Harbor & Vine', 'order', { kind: 'ordering', accent: '#0a1f44' });
   const desk = thumb(demoSite, 'home', { menu: DEMO_MENU, ordering: DEMO_ORDERING });
   const phone = thumb(demoSite, 'order', { menu: DEMO_MENU, ordering: DEMO_ORDERING }, { w: 390, h: 800 });
   const chip = (cls, ...kids) => h('div', { class: `float ${cls}` }, ...kids);
@@ -87,13 +86,13 @@ function landing() {
   const tick = (t) => h('span', {}, h('i', { html: svg(I.check, 14) }), t);
 
   mount(
-    topbar(h('a', { class: 'opt', href: '#templates' }, 'Templates'), h('a', { class: 'opt', href: '#features' }, 'Features'),
+    topbar(h('a', { class: 'opt', href: '#how' }, 'How it works'), h('a', { class: 'opt', href: '#features' }, 'Features'),
       state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
     h('main', {},
       h('section', { class: 'l-hero' }, h('div', { class: 'page' },
         h('p', { class: 'pill' }, h('i'), 'Websites and online ordering by Processor Freedom'),
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
-        h('p', { class: 'lede' }, 'Type your business name. Pick a look. Upload your menu. A complete website with online ordering, live in minutes.'),
+        h('p', { class: 'lede' }, 'Type your business name. Upload your menu. A complete website with online ordering, live in minutes.'),
         h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(); } },
           h('div', { class: 'box' }, input, h('button', { class: 'btn', type: 'submit' }, 'Start building')), addr),
         h('div', { class: 'ticks' }, tick('No code'), tick('Live in minutes'), tick('Pickup, curbside and delivery'), tick('Your own domain')),
@@ -104,21 +103,15 @@ function landing() {
           chip('f2', h('i', { class: 'live' }), h('div', {}, h('b', {}, 'You’re live'), h('span', {}, 'Published just now'))),
           chip('f3', tile('', I.list, 18), h('div', {}, h('b', {}, '48 items imported'), h('span', {}, 'menu.csv')))))),
 
-      h('section', { class: 'l-sec' }, h('div', { class: 'page' },
+      h('section', { class: 'l-sec tint', id: 'how' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'How it works'), h('h2', {}, 'Live in three steps.'),
         h('div', { class: 'steps' },
           h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '1'), h('h3', {}, 'Name it'), h('p', {}, 'Enter your business name and your web address is ready instantly.'),
             h('div', { class: 'mini addrmini' }, h('span', {}, 'lossocios'), h('em', {}, state.config.addressSuffix || '.yoursite.com'), h('i', { html: svg(I.check, 13) }))),
-          h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '2'), h('h3', {}, 'Make it yours'), h('p', {}, 'Choose a template, add your logo and colours. Upload your item list and your menu builds itself.'),
+          h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '2'), h('h3', {}, 'Add your menu'), h('p', {}, 'Upload an Excel or CSV file of items and prices. Your menu builds itself. Add your logo and colour while you’re there.'),
             h('div', { class: 'mini dots' }, ['#0a1f44', '#1d1d1f', '#3a4a66', '#6e6e73', '#a1a1a6', '#d2d2d7'].map((c) => h('i', { style: `background:${c}` })))),
           h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '3'), h('h3', {}, 'Go live'), h('p', {}, 'One click publishes your site and starts taking orders for pickup, curbside or delivery.'),
             h('div', { class: 'mini' }, h('span', { class: 'fakebtn' }, 'Publish'), h('span', { class: 'status ok' }, 'Live')))))),
-
-      h('section', { class: 'l-sec tint', id: 'templates' }, h('div', { class: 'page' },
-        h('p', { class: 'kicker' }, 'Templates'), h('h2', {}, 'Start from something great.'),
-        h('p', { class: 'sub' }, 'Written and designed for real kinds of business, and fully yours to change.'),
-        h('div', { class: 'tgrid' }, TEMPLATES.map((t) => h('button', { class: 'tcard reveal', onclick: () => start(input.value.trim(), t.id) },
-          thumb(createSite(input.value.trim() || sampleName(t.id), t.id, { accent: '#0a1f44' })), h('b', {}, t.name), h('span', {}, t.blurb)))))),
 
       h('section', { class: 'l-sec', id: 'features' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'Features'), h('h2', {}, 'Everything a business needs online.'),
@@ -126,7 +119,7 @@ function landing() {
         h('div', { class: 'bgrid' },
           bento('wide', '', I.bag, 'Online ordering, built in', 'Customers order from your own menu for pickup, curbside or delivery. Orders land in your dashboard and your inbox.',
             h('div', { class: 'chips' }, ['Pickup', 'Curbside', 'Delivery'].map((m, i) => h('span', { class: i === 0 ? 'on' : '' }, m)))),
-          bento('', '', I.list, 'Menu from a spreadsheet', 'Upload a CSV of names and prices. Add photos, track stock, mark items sold out.'),
+          bento('', '', I.list, 'Menu from a spreadsheet', 'Upload an Excel or CSV file of names and prices. Add photos, track stock, mark items sold out.'),
           bento('', '', I.brush, 'Your brand, everywhere', 'Logo, colours and typeface apply across every page the moment you choose them.'),
           bento('', '', I.globe, 'Your own domain', 'Use the free address, connect a domain you own, or let us set one up.'),
           bento('', '', I.mail, 'Order confirmations', 'Customers are emailed when their order is received, confirmed and ready.'),
@@ -167,7 +160,7 @@ function auth(mode) {
     } catch (ex) { err.textContent = ex.message; button.disabled = false; }
   } },
     h('h1', {}, signup ? 'Create your account' : 'Welcome back'),
-    h('p', { class: 'sub' }, signup ? 'One account for all of your websites.' : 'Sign in to manage your websites.'),
+    h('p', { class: 'sub' }, signup ? 'Then name your business and start building.' : 'Sign in to manage your site and orders.'),
     signup && f('Your name', { name: 'name', autocomplete: 'name', required: true, maxlength: 80, autofocus: true }),
     f('Email', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: !signup }),
     f(signup ? 'Create a password' : 'Password', { name: 'password', type: 'password', autocomplete: signup ? 'new-password' : 'current-password', required: true, minlength: signup ? 8 : 1 }),
@@ -177,7 +170,7 @@ function auth(mode) {
   mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card' }, form,
     h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.png', alt: '', width: 48, height: 48 }),
       h('h2', {}, 'A website and online ordering, live in minutes.'),
-      h('ul', {}, ['Templates written for your kind of business', 'Menu built from your item list', 'Pickup, curbside and delivery', 'Publish with one click'].map((t) => h('li', {}, h('i', { html: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>', 14) }), t)))))));
+      h('ul', {}, ['Menu built from your Excel or CSV file', 'Pickup, curbside and delivery', 'Your logo, colours and domain', 'Publish with one click'].map((t) => h('li', {}, h('i', { html: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>', 14) }), t)))))));
 }
 
 /* ---------- Dashboard ---------- */

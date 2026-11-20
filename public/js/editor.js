@@ -1,13 +1,13 @@
 import { ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES } from './ui.js';
 
-const NAV = [
-  ['Website', [['design', 'Design', 'Logo, colours and typeface', 'brush'], ['sections', 'Sections', 'What appears on your home page', 'list'], ['business', 'Business details', 'Contact, hours and social profiles', 'store'], ['policies', 'Policies', 'Privacy, terms and store policies', 'doc'], ['seo', 'SEO', 'How you appear in search', 'search'], ['domain', 'Domain', 'Your web address', 'globe']]],
-  ['Online ordering', [['menu', 'Menu and inventory', 'Items, prices, photos and stock', 'list'], ['ordering', 'Ordering options', 'Pickup, curbside and delivery', 'sliders'], ['orders', 'Orders', 'Incoming and past orders', 'bag']]],
-  ['Customers', [['inbox', 'Inbox', 'Messages from your contact form', 'inbox']]],
+// Everything a merchant can change, always one click away.
+const TABS = [
+  ['start', 'Get started', 'wand'], ['menu', 'Menu', 'list'], ['design', 'Look and feel', 'brush'], ['sections', 'Home page', 'doc'], ['business', 'Business info', 'store'],
+  ['ordering', 'Ordering', 'sliders'], ['orders', 'Orders', 'bag'], ['inbox', 'Messages', 'inbox'], ['domain', 'Web address', 'globe'], ['policies', 'Policies', 'lock'], ['seo', 'Search', 'search'],
 ];
-const TABS = NAV.flatMap(([, rows]) => rows);
+const DIVIDE_AFTER = new Set(['start', 'business', 'inbox']);
 
 export async function editor(id, mount, title) {
   const loaded = (await api('GET', `/api/sites/${id}`)).site;
@@ -16,7 +16,7 @@ export async function editor(id, mount, title) {
   title(meta.name);
 
   const q = new URLSearchParams(location.search);
-  let tab = TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : null;   // null shows the list of everything
+  let tab = TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : 'start';
   let sel = null;            // id of the section being edited
   let page = 'home';
   let device = 'desktop';
@@ -365,7 +365,7 @@ export async function editor(id, mount, title) {
       const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : x.stock != null ? `${x.stock} left` : '');
       return [
         group('Menu and inventory', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
-          h('button', { class: 'drop', onclick: importCsv }, ic('up2', 24), h('b', {}, menu.length ? 'Upload a new item list' : 'Upload your item list'), h('span', { class: 'small' }, 'CSV file with item names and prices')),
+          h('button', { class: 'drop', onclick: importCsv }, ic('up2', 24), h('b', {}, menu.length ? 'Upload a new item list' : 'Upload your item list'), h('span', { class: 'small' }, 'Excel or CSV file with item names and prices')),
           h('div', { class: 'row', style: 'flex-wrap:wrap' },
             h('a', { class: 'btn soft sm', download: 'menu-template.csv', href: `data:text/csv;charset=utf-8,${encodeURIComponent(MENU_TEMPLATE_CSV)}` }, ic('dl', 14), 'Download template'),
             h('button', { class: 'btn soft sm', onclick: async () => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: cats.at(-1) || 'Menu' })).items; editItem = menu.find((x) => !before.has(x.id))?.id; paintPanel(); paint(true); } catch (e) { toast(e.message, true); } } }, ic('plus', 14), 'Add item'))),
@@ -456,16 +456,17 @@ export async function editor(id, mount, title) {
       const changed = !orders || JSON.stringify(fresh) !== JSON.stringify(orders);
       orders = fresh;
       if (arrived) toast(arrived === 1 ? 'New order received' : `${arrived} new orders received`);
-      if (changed && (tab === 'orders' || tab === null)) paintPanel();
+      if (changed && (tab === 'orders' || tab === 'start')) paintPanel(); else if (changed) paintPanel();
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
   const poll = setInterval(() => { if (ordering.enabled && document.visibilityState === 'visible') loadOrders(true); }, 20000);
   if (ordering.enabled) loadOrders(true);
 
   async function importCsv() {
-    const [file] = await pickFiles(false, '.csv,.tsv,.txt,text/csv');
+    const [file] = await pickFiles(false, SHEET_TYPES);
     if (!file) return;
-    const csv = await file.text();
+    let csv;
+    try { csv = await readSheetFile(file); } catch (e) { return toast(e.message, true); }
     const p = parseMenuCsv(csv);
     sheet((close) => {
       const run = async (replace, btn) => {
@@ -481,20 +482,34 @@ export async function editor(id, mount, title) {
         p.items.length > 0 && h('table', { class: 'ptable' }, h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', {}, 'Category'), h('th', {}, 'Price'))), h('tbody', {}, p.items.slice(0, 6).map((x) => h('tr', {}, h('td', {}, x.name), h('td', { class: 'muted' }, x.category), h('td', {}, money(x.price)))))),
         p.items.length > 6 && h('p', { class: 'small muted' }, `and ${p.items.length - 6} more`),
         p.items.length > 0 && p.errors.length > 0 && h('div', { class: 'note' }, h('b', {}, `${p.errors.length} row${p.errors.length === 1 ? '' : 's'} will be skipped. `), p.errors.slice(0, 3).map((e) => h('div', {}, `${e.row ? `Row ${e.row}: ` : ''}${e.reason}`))),
-        !p.items.length && h('p', { class: 'hint' }, 'Your file needs a column of item names and a column of prices. Download the template to see the layout. If you use Excel or Sheets, save the file as CSV first.'),
+        !p.items.length && h('p', { class: 'hint' }, 'Your file needs a column of item names and a column of prices. Download the template to see the layout.'),
         h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'),
           p.items.length > 0 && menu.length > 0 && h('button', { class: 'btn soft', onclick: (e) => run(false, e.currentTarget) }, 'Add to my menu'),
           p.items.length > 0 && h('button', { class: 'btn', onclick: (e) => run(menu.length > 0, e.currentTarget) }, menu.length ? 'Replace my menu' : 'Build my menu'))];
     });
   }
 
-  function homeList() {
-    const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
-    const side = { menu: menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'}` : '', ordering: ordering.enabled ? (ordering.accepting ? 'On' : 'Paused') : 'Off', domain: meta.customDomain && meta.domainVerified ? meta.customDomain : '' };
-    return NAV.map(([name, rows]) => group(name, h('div', { class: 'slist nav-list' }, rows.map(([k, label, blurb, icon]) => h('div', { class: 'srow' },
-      h('span', { class: 'ico' }, ic(icon, 17)),
-      h('button', { class: 't', onclick: () => { tab = k; sel = null; panel.scrollTop = 0; paintPanel(); } }, h('b', {}, label), h('span', {}, blurb)),
-      k === 'orders' && fresh > 0 && h('span', { class: 'badge' }, fresh), side[k] && h('span', { class: 'small muted', style: 'margin-right:6px;white-space:nowrap' }, side[k]), h('span', { class: 'chev' }, ic('chev', 15)))))));
+  const goTab = (k) => { tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
+  function startPanel() {
+    const b = draft.business;
+    const steps = [
+      [menu.length > 0, 'Add your menu', menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'} on your menu.` : 'Upload an Excel or CSV file of item names and prices and we build the menu for you.', menu.length ? ['Edit menu', () => goTab('menu')] : ['Upload item list', importCsv], !menu.length && ['Add items by hand', () => goTab('menu')]],
+      [!!draft.brand.logo, 'Add your logo and colour', 'Make the site look like your business.', ['Open look and feel', () => goTab('design')]],
+      [!!(str(b.phone).trim() && str(b.address1).trim()), 'Add your business details', 'Phone, address and opening hours, so customers can find you.', ['Open business info', () => goTab('business')]],
+      [ordering.enabled && openMethods(ordering).length > 0, 'Choose how customers order', ordering.enabled ? `${openMethods(ordering).map((m) => ORDER_METHODS[m].name).join(', ')} ${openMethods(ordering).length === 1 ? 'is' : 'are'} on. Add curbside, delivery, tax and tips here.` : 'Online ordering is off.', ['Open ordering', () => goTab('ordering')]],
+      [meta.live && !meta.dirty, meta.live ? 'Published' : 'Publish your site', meta.live ? (meta.dirty ? 'You have changes that are not live yet.' : `Live at ${meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}`) : 'Nothing is public until you publish. You can keep editing afterwards.', meta.live && !meta.dirty ? ['View live site', () => window.open(meta.url, '_blank', 'noopener')] : [meta.live ? 'Publish changes' : 'Publish', (e) => publish(e)]],
+    ];
+    const done = steps.filter(([ok]) => ok).length;
+    const next = steps.findIndex(([ok]) => !ok);
+    return [
+      h('div', {}, h('h2', {}, done === steps.length ? 'You’re all set.' : 'Let’s get you live.'), h('p', { class: 'muted', style: 'margin-top:6px' }, `${done} of ${steps.length} done. Changes save on their own as you go.`),
+        h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': steps.length, 'aria-valuenow': done }, h('i', { style: `width:${(done / steps.length) * 100}%` }))),
+      h('div', { class: 'todo' }, steps.map(([ok, name, text, main, alt], i) => h('div', { class: `todo-row ${ok ? 'done' : ''} ${i === next ? 'next' : ''}` },
+        h('span', { class: 'tick' }, ok ? ic('check', 15) : String(i + 1)),
+        h('div', { class: 'grow' }, h('b', {}, name), h('p', {}, text),
+          h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]), alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0])))))),
+      note('Tip: click anything in the preview on the right to edit it.'),
+    ];
   }
 
   function addSection() {
@@ -511,15 +526,21 @@ export async function editor(id, mount, title) {
   /* ---------- chrome ---------- */
 
   const tabsEl = h('div', { class: 'phead' });
+  const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
   const panel = h('div', { class: 'panel' });
   const top = h('header', { class: 'ed-top' });
-  const body = h('div', { class: 'ed-body', 'data-view': 'edit' }, h('aside', { class: 'ed-side' }, tabsEl, panel), h('div', { class: 'ed-stage' }, stageIn));
+  const body = h('div', { class: 'ed-body', 'data-view': 'edit' }, rail, h('aside', { class: 'ed-side' }, tabsEl, panel), h('div', { class: 'ed-stage' }, stageIn));
 
   function paintPanel() {
     const y = panel.scrollTop;
-    const cur = TABS.find(([k]) => k === tab);
-    tabsEl.replaceChildren(...(cur ? [h('button', { class: 'back', onclick: () => { tab = null; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); } }, ic('back', 16), 'All settings'), h('span', { class: 'grow' }), h('b', {}, cur[1]), h('span', { class: 'grow' }), h('span', { style: 'width:86px' })] : [h('b', { style: 'padding-left:6px' }, 'Your site')]));
-    panel.replaceChildren(...(cur ? PANELS[tab]() : homeList()).flat(Infinity).filter(Boolean));
+    const cur = TABS.find(([k]) => k === tab) || TABS[0];
+    const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
+    rail.replaceChildren(...TABS.flatMap(([k, label, icon]) => [
+      h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, ic(icon, 18), h('span', {}, label), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)),
+      DIVIDE_AFTER.has(k) && h('hr'),
+    ]).filter(Boolean));
+    tabsEl.replaceChildren(h('b', {}, cur[1]));
+    panel.replaceChildren(...(cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()).flat(Infinity).filter(Boolean));
     panel.scrollTop = y;
   }
   function setPage(p) { page = p; paint(true); paintTop(); if (body.dataset.view === 'edit' && matchMedia('(max-width:900px)').matches) body.dataset.view = 'preview'; }
@@ -551,7 +572,7 @@ export async function editor(id, mount, title) {
     btn.disabled = true; btn.textContent = 'Publishing…';
     try {
       const r = await api('POST', `/api/sites/${id}/publish`, { draft: JSON.parse(JSON.stringify(draft)) });
-      meta = { ...meta, ...r.site }; saveState = 'saved'; paintTop();
+      meta = { ...meta, ...r.site }; saveState = 'saved'; paintTop(); if (tab === 'start') paintPanel();
       return true;
     } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Publish'; return false; }
   }

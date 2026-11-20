@@ -315,6 +315,22 @@ export const TEMPLATES = [
     }),
   },
   {
+    id: 'order', name: 'Online ordering', blurb: 'A menu customers can order from', accent: '#1d1d1f', font: 'sans', radius: 'soft',
+    build: (n) => ({
+      tagline: 'Order online for pickup or delivery',
+      cta: link('Order online', '/order'),
+      hours: hours(['Monday – Friday', '11:00 AM – 9:00 PM'], ['Saturday – Sunday', '10:00 AM – 9:00 PM']),
+      sections: [
+        hero('Order online', `${n}, ready when you are.`, 'Order ahead and skip the wait. Choose pickup, curbside or delivery and we will have it ready.', link('Order online', '/order'), link('See the menu', '#menu')),
+        sec('menu', 'Menu', SECTION_DEFAULTS.menu()),
+        about('About us', `Welcome to ${n}. Tell customers who you are, what you make, and what makes it worth coming back for.`),
+        gallery(),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
+        contact('Find us', 'Questions about an order? Send us a message or give us a call.'),
+      ],
+    }),
+  },
+  {
     id: 'simple', name: 'Simple', blurb: 'A clean start for any business', accent: '#0d8389', font: 'sans', radius: 'soft',
     build: (n) => ({
       tagline: '',
@@ -345,7 +361,7 @@ export function createSite(name, templateId, o = {}) {
     b.cta = order;
     const at = b.sections.findIndex((x) => x.type === 'services');
     const menu = sec('menu', 'Menu', SECTION_DEFAULTS.menu());
-    if (at >= 0) b.sections.splice(at, 1, menu); else b.sections.splice(1, 0, menu);
+    if (b.sections.some((x) => x.type === 'menu')) { /* already has one */ } else if (at >= 0) b.sections.splice(at, 1, menu); else b.sections.splice(1, 0, menu);
     const h0 = b.sections.find((x) => x.type === 'hero');
     if (h0) { h0.data.primary = order; h0.data.secondary = link('See the menu', '#menu'); }
   }

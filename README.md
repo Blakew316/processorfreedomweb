@@ -6,7 +6,8 @@ an online ordering website, types their business name, picks a template, uploads
 ## What is in it
 
 - **Two kinds of site**: a website, or an online ordering website. Ordering can be switched on or off later.
-- **Guided setup**: business name (the web address fills in as you type), template, colour and typeface, contact details.
+- **One-step setup**: the merchant types a business name (the web address fills in as they type) and lands in the editor on a
+  Get started checklist. New sites are online ordering sites; the other templates remain in the code for later.
 - **Nine templates**: restaurant, café, retail, salon, professional services, home services, fitness, auto repair, and a simple start. Each ships with written content.
 - **Editor with live preview**: brand, logo, colour, light or dark, typeface, corners, header, announcement bar, footer. Add, reorder, hide and edit sections. Click any section in the preview to edit it. Desktop, tablet and phone views.
 - **Images**: logo, hero, item and gallery uploads, resized in the browser before upload.
@@ -15,7 +16,7 @@ an online ordering website, types their business name, picks a template, uploads
 - **Domains**: a free address, a checker with live rules, connecting a domain the merchant owns (DNS check included), or a request for Processor Freedom to set one up.
 - **Publishing**: draft and live versions are separate. Publish, republish, unpublish. QR code and share links once live.
 - **Inbox**: messages from each site's contact form.
-- **Menu and inventory**: upload a CSV of items (a template is provided) and the menu is built from it. Item names and prices are
+- **Menu and inventory**: upload an Excel (.xlsx, .xls) or CSV file of items (a template is provided) and the menu is built from it. Item names and prices are
   required; category, description, stock and photo link are optional. Column order and header names are flexible, and files without
   a header row work too. Each item can have a photo, be hidden, or have its stock counted down to sold out.
 - **Online ordering**: pickup, curbside and delivery, each with its own settings (ready time, instructions, delivery fee, minimum and
