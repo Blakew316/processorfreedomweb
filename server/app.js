@@ -255,6 +255,19 @@ export function createApp(options = {}) {
     json(res, 200, { ok: true });
   });
 
+  route('POST', '/api/auth/password', async (req, res) => {
+    const user = requireUser(req);
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    const b = await readJson(req);
+    const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
+    if (!await checkPassword(str(b.current, 200), row.pass_hash)) bad(401, 'Your current password is not right.');
+    if (str(b.next, 200).length < 8) bad(400, 'Use at least 8 characters for your new password.');
+    db.run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassword(str(b.next, 200)), user.id);
+    // Sign out every other device.
+    db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
+    json(res, 200, { ok: true });
+  });
+
   route('GET', '/api/address', (req, res, p, url) => {
     const typed = url.searchParams.get('slug');
     const name = str(url.searchParams.get('name'), 80);
@@ -469,11 +482,21 @@ export function createApp(options = {}) {
 
   route('GET', '/api/admin', (req, res) => {
     requireAdmin(req);
-    const sites = db.all('SELECT s.*, u.email AS owner, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads FROM sites s JOIN users u ON u.id = s.user_id ORDER BY s.updated_at DESC LIMIT 500');
+    const n = (sql, ...a) => db.get(sql, ...a).n || 0;
+    const day = Date.now() - DAY;
+    const sites = db.all('SELECT s.*, u.email AS owner, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads, (SELECT COUNT(*) FROM orders o WHERE o.site_id = s.id) AS orders FROM sites s JOIN users u ON u.id = s.user_id ORDER BY s.updated_at DESC LIMIT 500');
     const requests = db.all("SELECT r.id, r.desired, r.note, r.status, r.created_at AS createdAt, r.site_id AS siteId, s.name AS siteName, u.email AS owner FROM domain_requests r JOIN sites s ON s.id = r.site_id JOIN users u ON u.id = r.user_id WHERE r.status != 'replaced' ORDER BY r.status = 'open' DESC, r.created_at DESC LIMIT 200");
     json(res, 200, {
-      stats: { users: db.get('SELECT COUNT(*) AS n FROM users').n, sites: db.get('SELECT COUNT(*) AS n FROM sites').n, live: db.get('SELECT COUNT(*) AS n FROM sites WHERE published IS NOT NULL').n, leads: db.get('SELECT COUNT(*) AS n FROM leads').n },
-      sites: sites.map((s) => ({ ...present(req, s), owner: s.owner, leads: s.leads })),
+      stats: {
+        users: n('SELECT COUNT(*) AS n FROM users'), newUsers: n('SELECT COUNT(*) AS n FROM users WHERE created_at > ?', Date.now() - 7 * DAY),
+        sites: n('SELECT COUNT(*) AS n FROM sites'), live: n('SELECT COUNT(*) AS n FROM sites WHERE published IS NOT NULL'), leads: n('SELECT COUNT(*) AS n FROM leads'),
+        orders: n('SELECT COUNT(*) AS n FROM orders'), ordersToday: n('SELECT COUNT(*) AS n FROM orders WHERE created_at > ?', day),
+        sales: n("SELECT SUM(total) AS n FROM orders WHERE status != 'cancelled'"), salesToday: n("SELECT SUM(total) AS n FROM orders WHERE status != 'cancelled' AND created_at > ?", day),
+        items: n('SELECT COUNT(*) AS n FROM menu_items'), orderingSites: sites.filter((s) => orderingOf(s).enabled).length,
+      },
+      sites: sites.map((s) => ({ ...present(req, s), owner: s.owner, leads: s.leads, orders: s.orders })),
+      orders: db.all('SELECT o.number, o.name, o.method, o.status, o.total, o.created_at AS createdAt, s.name AS siteName FROM orders o JOIN sites s ON s.id = o.site_id ORDER BY o.created_at DESC LIMIT 50'),
+      users: db.all('SELECT u.name, u.email, u.created_at AS createdAt, (SELECT COUNT(*) FROM sites s WHERE s.user_id = u.id) AS sites FROM users u ORDER BY u.created_at DESC LIMIT 500'),
       requests,
     });
   });

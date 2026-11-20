@@ -78,10 +78,11 @@ export function confirmSheet({ title, text, action = 'Continue', danger = false 
 }
 
 /* A real page, scaled down to a thumbnail. */
-const ro = new ResizeObserver((entries) => { for (const e of entries) e.target.style.setProperty('--s', e.contentRect.width / 1280); });
-export function thumb(site, page = 'home', extra = {}) {
+const ro = new ResizeObserver((entries) => { for (const e of entries) e.target.style.setProperty('--s', e.contentRect.width / (e.target._w || 1280)); });
+export function thumb(site, page = 'home', extra = {}, size = null) {
   const frame = h('iframe', { tabindex: '-1', 'aria-hidden': 'true', scrolling: 'no', loading: 'lazy', title: '' });
   const wrap = h('div', { class: 'thumb' }, frame);
+  if (size) { wrap._w = size.w; wrap.style.aspectRatio = `${size.w}/${size.h}`; frame.style.width = `${size.w}px`; frame.style.height = `${size.h}px`; }
   wrap.paint = (s) => { frame.srcdoc = renderPage(s, page, { preview: true, ...extra }).html; };
   wrap.paint(site);
   ro.observe(wrap);

@@ -8,6 +8,7 @@ const NAV = [
   ['Customers', [['inbox', 'Inbox', 'Messages from your contact form', 'inbox']]],
 ];
 const TABS = NAV.flatMap(([, rows]) => rows);
+const NAV_COLORS = {"design": "#bf5af2", "sections": "#0a84ff", "business": "#ff9f0a", "policies": "#8e8e93", "seo": "#40b6c9", "domain": "#5e5ce6", "menu": "#ff375f", "ordering": "#30b350", "orders": "#ff9f0a", "inbox": "#0a84ff"};
 
 export async function editor(id, mount, title) {
   const loaded = (await api('GET', `/api/sites/${id}`)).site;
@@ -492,7 +493,7 @@ export async function editor(id, mount, title) {
     const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
     const side = { menu: menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'}` : '', ordering: ordering.enabled ? (ordering.accepting ? 'On' : 'Paused') : 'Off', domain: meta.customDomain && meta.domainVerified ? meta.customDomain : '' };
     return NAV.map(([name, rows]) => group(name, h('div', { class: 'slist nav-list' }, rows.map(([k, label, blurb, icon]) => h('div', { class: 'srow' },
-      h('span', { class: 'ico' }, ic(icon, 17)),
+      h('span', { class: 'ico', style: `--c:${NAV_COLORS[k]}` }, ic(icon, 17)),
       h('button', { class: 't', onclick: () => { tab = k; sel = null; panel.scrollTop = 0; paintPanel(); } }, h('b', {}, label), h('span', {}, blurb)),
       k === 'orders' && fresh > 0 && h('span', { class: 'badge' }, fresh), side[k] && h('span', { class: 'small muted', style: 'margin-right:6px;white-space:nowrap' }, side[k]), h('span', { class: 'chev' }, ic('chev', 15)))))));
   }

@@ -355,3 +355,19 @@ test('ordering: build from an item list, take an order, track stock, send emails
     assert.equal((await anon('GET', '/order', null, { host: 'plainshop.pfsites.test' })).status, 404);
   } finally { base = prevBase; server2.close(); app2.close(); rmSync(dir2, { recursive: true, force: true }); }
 });
+
+test('staff dashboard and password change', async () => {
+  const staff = client();
+  let r = await staff('POST', '/api/auth/login', { email: 'staff@pf.test', password: 'long-enough-pw' });
+  assert.equal(r.data.user.admin, true);
+  r = await staff('GET', '/api/admin');
+  assert.equal(r.status, 200);
+  for (const k of ['users', 'sites', 'live', 'orders', 'sales', 'leads', 'items']) assert.equal(typeof r.data.stats[k], 'number', k);
+  assert.ok(r.data.users.some((u) => u.email === 'owner@shop.test'));
+  assert.ok(Array.isArray(r.data.orders));
+  assert.equal((await staff('POST', '/api/auth/password', { current: 'wrong', next: 'another-long-pw' })).status, 401);
+  assert.equal((await staff('POST', '/api/auth/password', { current: 'long-enough-pw', next: 'short' })).status, 400);
+  assert.equal((await staff('POST', '/api/auth/password', { current: 'long-enough-pw', next: 'another-long-pw' })).status, 200);
+  assert.equal((await client()('POST', '/api/auth/login', { email: 'staff@pf.test', password: 'long-enough-pw' })).status, 401);
+  assert.equal((await client()('POST', '/api/auth/login', { email: 'staff@pf.test', password: 'another-long-pw' })).status, 200);
+});
