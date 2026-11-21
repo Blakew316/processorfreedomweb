@@ -1,5 +1,5 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
-import { siteFooter, faqList, faqPage, privacyPage, termsPage, FAQ } from './pages.js';
+import { siteFooter, faqList, faqPage, privacyPage, termsPage, FAQ, dock, testimonialsSection } from './pages.js';
 import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
 
 const root = document.getElementById('app');
@@ -7,6 +7,9 @@ let cleanup = null;
 const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0, 0); };
 // The browser tab always carries our name and nothing else.
 const title = () => { document.title = 'Processor Freedom'; };
+
+/* On the public pages the top carries only our name; the menu is at the bottom of the screen. */
+const brandBar = () => h('header', { class: 'top brand-only' }, h('div', { class: 'in' }, link('/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites')))));
 
 export function topbar(...right) {
   // Inside the app the brand sits in the middle, the same as in the back office.
@@ -157,8 +160,7 @@ function landing() {
       h('div', { class: 'bo-chip' }, tile('', I.person, 18), h('div', {}, h('b', {}, '212 customers'), h('span', {}, '38 regulars this month')))));
 
   mount(
-    topbar(h('a', { class: 'opt', href: '#examples' }, 'Examples'), h('a', { class: 'opt', href: '#features' }, 'Why PF Sites'),
-      state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
+    brandBar(),
     h('main', { class: 'film-main' },
       h('section', { class: 'l-hero has-video' }, heroVideo(), h('div', { class: 'page' },
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
@@ -183,6 +185,8 @@ function landing() {
         gain('02', 'Get paid faster.', 'Send a clean invoice in a minute and see the moment it is opened and paid.', mockInvoice, true, 'services-3'),
         gain('03', 'Customers who come back.', 'Rewards and gift cards are built in, so a first visit turns into a habit.', mockLoyalty, false, 'cafe-2'))),
 
+      testimonialsSection(),
+
       h('section', { class: 'l-sec l-faq', id: 'faq' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'Questions'), h('h2', {}, 'Good to know before you start.'),
         faqList(FAQ.slice(0, 6)), h('p', { class: 'faq-more' }, link('/faq', {}, 'See all questions and answers')))),
@@ -194,7 +198,8 @@ function landing() {
           h('p', {}, 'Name it, add your menu, publish. Nothing is public until you say so.'),
           h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(endInput.value.trim() || input.value.trim()); } }, h('div', { class: 'box' }, endInput, h('button', { class: 'btn', type: 'submit' }, 'Build my website')))),
         h('div', { class: 'l-close-art', 'aria-hidden': 'true' }))),
-      siteFooter()));
+      siteFooter()),
+    dock());
 
   // Numbers run up to their value the first time they come into view.
   const countUp = (el) => { const full = el.dataset.count, m = full.match(/^(\D*)([\d,]+)(\.\d+)?(.*)$/); if (!m || matchMedia('(prefers-reduced-motion: reduce)').matches) return; const end = Number((m[2] + (m[3] || '')).replace(/,/g, '')), dec = m[3] ? m[3].length - 1 : 0, t0 = performance.now(); const step = (t) => { const k = Math.min(1, (t - t0) / 1100), v = end * (1 - Math.pow(1 - k, 3)); el.textContent = k === 1 ? full : `${m[1]}${v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })}${m[4]}`; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); };
@@ -217,6 +222,7 @@ export const sampleName = (id) => SAMPLE[id] || 'Your Business';
 
 function auth(mode) {
   const signup = mode === 'signup';
+  if (state.user) return go('/app');   // already signed in: straight to their sites
   title(signup ? 'Create your account' : 'Sign in');
   const q = location.search;
   const next = () => go(new URLSearchParams(q).has('name') || new URLSearchParams(q).has('template') ? `/app/new${q}` : '/app');
@@ -394,6 +400,8 @@ async function render() {
   // Moving between the pages of the site already open (Back, Forward, a link) just turns the page; nothing reloads.
   const same = path.match(/^\/app\/site\/([\w-]+)(?:\/([\w-]+))?$/);
   if (same && same[2] !== 'kitchen' && cleanup?.siteId === same[1]) return cleanup.nav(same[2] || 'start');
+  // Already on the home page: a menu link only moves down the page, so the film keeps playing.
+  if (path === '/' && document.querySelector('.film-main')) { const to = location.hash.length > 1 ? document.querySelector(location.hash) : null; if (to) to.scrollIntoView({ behavior: 'smooth', block: 'start' }); else window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   cleanup?.(); cleanup = null; window.scrollTo(0, 0);
   const needsUser = path.startsWith('/app');
   if (needsUser && !state.user) return go(`/login${location.search}`);
@@ -402,7 +410,7 @@ async function render() {
     if (path === '/') landing();
     else if (path === '/login' || path === '/signup') auth(path.slice(1));
     else if (path === '/forgot') forgot();
-    else if (path === '/faq' || path === '/privacy' || path === '/terms') { title(); mount(topbar(link('/#examples', { class: 'opt' }, 'Examples'), link('/faq', { class: 'opt' }, 'Questions'), state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]), { faq: faqPage, privacy: privacyPage, terms: termsPage }[path.slice(1)](), siteFooter()); }
+    else if (path === '/faq' || path === '/privacy' || path === '/terms') { title(); mount(brandBar(), { faq: faqPage, privacy: privacyPage, terms: termsPage }[path.slice(1)](), siteFooter(), dock()); }
     else if (path === '/reset') reset();
     else if ((m = path.match(/^\/app\/site\/([\w-]+)\/kitchen$/))) cleanup = await (await import('./kitchen.js')).kitchen(m[1], mount, title);
     else if (path === '/app') await dashboard();

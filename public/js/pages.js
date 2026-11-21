@@ -1,8 +1,24 @@
 // The pages every proper site has: questions, privacy and terms. Plain words, kept honest about what the product does today.
-import { h, link } from './ui.js';
+import { h, link, themeButton } from './ui.js';
 
 export const CONTACT = 'support@processorfreedom.com';
 const UPDATED = 'November 21, 2026';
+
+// What customers have said, in their own words. Add entries as { quote, name, business } and the section and its menu links appear by themselves.
+// Left empty on purpose: nothing is shown until there are real ones.
+export const TESTIMONIALS = [];
+
+/* The menu. It lives at the bottom of the screen, so the top carries only our name. */
+const MENU = () => [['Examples', '/#examples'], ['Why us', '/#features'], ...(TESTIMONIALS.length ? [['Testimonials', '/#testimonials']] : []), ['FAQ', '/#faq'], ['Log in', '/login']];
+export function dock() {
+  const el = h('nav', { class: 'dock', 'aria-label': 'Menu' }, h('div', { class: 'dock-in' }, MENU().map(([t, to]) => link(to, {}, t)), link('/signup', { class: 'btn sm' }, 'Sign up'), themeButton()));
+  // It steps aside when the footer, which has the same menu, comes into view.
+  requestAnimationFrame(() => { const foot = document.querySelector('.site-foot'); if (foot && 'IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((e) => el.classList.toggle('away', e.isIntersecting)), { rootMargin: '0px 0px -40px 0px' }).observe(foot); });
+  return el;
+}
+export const testimonialsSection = () => TESTIMONIALS.length > 0 && h('section', { class: 'l-sec l-said', id: 'testimonials' }, h('div', { class: 'page' },
+  h('p', { class: 'kicker' }, 'Testimonials'), h('h2', {}, 'What owners say.'),
+  h('div', { class: 'said' }, TESTIMONIALS.map((t) => h('figure', { class: 'said-card reveal' }, h('blockquote', {}, `“${t.quote}”`), h('figcaption', {}, h('b', {}, t.name), h('span', {}, t.business)))))));
 
 export const FAQ = [
   ['What is PF Sites?', 'PF Sites is the website builder and back office from Processor Freedom. You get a website for your business, online ordering from your own menu, and one place to run orders, invoices, bookings, reports and your team.'],
@@ -55,10 +71,10 @@ export function siteFooter() {
   return h('footer', { class: 'site-foot' }, h('div', { class: 'page' },
     h('div', { class: 'ft-top' },
       h('div', { class: 'ft-brand' }, h('img', { src: '/assets/icon-192.png', alt: '', width: 40, height: 40 }), h('div', {}, h('b', {}, 'PF Sites'), h('span', {}, 'Websites and online ordering by Processor Freedom.'))),
-      col('Product', link('/#examples', {}, 'Examples'), link('/#features', {}, 'Why PF Sites'), link('/signup', {}, 'Get started'), link('/login', {}, 'Sign in')),
-      col('Help', link('/faq', {}, 'Questions and answers'), h('a', { href: `mailto:${CONTACT}` }, 'Contact support')),
+      col('Explore', ...MENU().filter(([t]) => t !== 'Log in').map(([t, to]) => link(to, {}, t)), link('/faq', {}, 'All questions')),
+      col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up'), h('a', { href: `mailto:${CONTACT}` }, 'Contact support')),
       col('Legal', link('/privacy', {}, 'Privacy Policy'), link('/terms', {}, 'Terms and Conditions'))),
-    h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.'))));
+    h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', { class: 'ft-theme' }, 'Appearance', themeButton()), h('span', {}, 'Their software. Your processor.'))));
 }
 
 export const faqList = (items = FAQ) => h('div', { class: 'faq' }, items.map(([q, a]) => h('details', {}, h('summary', {}, h('span', {}, q), h('i', { 'aria-hidden': 'true' })), h('p', {}, a))));
