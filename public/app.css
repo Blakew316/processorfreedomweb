@@ -2691,3 +2691,15 @@ html[data-theme=dark] header.top.brand-only .in,html[data-theme=dark] header.top
 header.top.brand-only .in::before,html[data-theme=dark] header.top.brand-only .in::before{display:none!important}
 header.top.brand-only .logo img{width:54px;height:54px;border-radius:22%;box-shadow:0 10px 26px -10px rgba(6,12,28,.55)}
 @media (max-width:900px){header.top.brand-only .logo img{width:48px;height:48px}}
+
+/* ---------- The mark is one square of liquid glass: the lettering sits directly on it ---------- */
+.glass-mark{position:relative;display:grid;place-items:center;width:58px;height:58px;border-radius:22%;overflow:hidden;color:#0a1f44;
+  background:linear-gradient(145deg,rgba(255,255,255,.84),rgba(255,255,255,.56));
+  -webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 1.5px 0 rgba(255,255,255,1),inset 0 -1.5px 1px rgba(10,31,68,.1),0 14px 32px -14px rgba(6,12,28,.6)}
+/* The light that glass catches: a bright upper edge and a soft glow from one corner. */
+.glass-mark::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,0) 42%),radial-gradient(110% 80% at 12% 0%,rgba(255,255,255,.6),rgba(255,255,255,0) 60%)}
+.glass-mark svg{position:relative;width:100%;height:100%;display:block}
+html[data-theme=dark] .glass-mark{color:#fff;background:linear-gradient(145deg,rgba(36,58,112,.5),rgba(8,16,38,.42));-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.24),inset 0 1.5px 0 rgba(255,255,255,.42),inset 0 -1.5px 1px rgba(0,0,0,.35),0 14px 32px -14px rgba(0,0,0,.8)}
+html[data-theme=dark] .glass-mark::before{background:linear-gradient(180deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,0) 42%),radial-gradient(110% 80% at 12% 0%,rgba(255,255,255,.2),rgba(255,255,255,0) 60%)}
+@media (max-width:900px){.glass-mark{width:52px;height:52px}}

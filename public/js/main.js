@@ -1,4 +1,5 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
+import { MARK } from './mark.js';
 import { siteFooter, faqList, faqPage, privacyPage, termsPage, contactPage, FAQ, dock, testimonialsSection } from './pages.js';
 import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
 
@@ -9,7 +10,7 @@ const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0,
 const title = () => { document.title = 'Processor Freedom'; };
 
 /* On the public pages the top carries only our name; the menu is at the bottom of the screen. */
-const brandBar = () => h('header', { class: 'top brand-only' }, h('div', { class: 'in' }, link('/', { class: 'logo', 'aria-label': 'Processor Freedom Sites, home' }, h('img', { src: '/assets/logo.svg', alt: 'PF Sites', width: 52, height: 52 }))));
+const brandBar = () => h('header', { class: 'top brand-only' }, h('div', { class: 'in' }, link('/', { class: 'logo', 'aria-label': 'Processor Freedom Sites, home' }, h('span', { class: 'glass-mark', role: 'img', 'aria-label': 'PF Sites', html: MARK }))));
 
 export function topbar(...right) {
   // Inside the app the brand sits in the middle, the same as in the back office.
