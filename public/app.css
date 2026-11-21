@@ -2434,3 +2434,15 @@ header.top.glass-bar .in>*{position:relative}
 @media (max-width:900px){.l-hero.has-video .ticks span{font-size:15px;padding:7px 15px 7px 7px}.l-hero.has-video .ticks span i{width:24px;height:24px}}
 @media (prefers-reduced-motion:reduce){.l-hero.has-video .ticks span,.l-hero.has-video .ticks span::after{animation:none}.l-hero.has-video .ticks span::after{display:none}}
 .l-hero.has-video .ticks{margin-bottom:22px}
+
+/* ---------- Home page: the film first, one line of words at its foot ---------- */
+.l-hero.has-video{--lift:clamp(300px,50vh,520px);padding-top:var(--lift)}
+.hero-bg{height:calc(var(--lift) + 470px)}
+.l-hero.has-video h1{font-size:clamp(34px,5.3vw,78px);line-height:1.05;margin:0}
+@media (min-width:860px){.l-hero.has-video h1{white-space:nowrap}}
+.l-hero.has-video .ticks{margin-top:26px;margin-bottom:34px}
+/* Less shade now there is less text: only the lower part, behind the line and the ticks, is darkened. */
+.hero-bg i{background:
+  linear-gradient(180deg,rgba(6,12,28,.42) 0%,rgba(6,12,28,.04) 16%,rgba(6,12,28,.04) 34%,rgba(6,12,28,.5) 62%,color-mix(in srgb,var(--bg) 60%,rgba(6,12,28,.5)) 84%,var(--bg) 98%)}
+.hero-bg::after{box-shadow:inset 0 0 160px 30px rgba(6,12,28,.3)}
+@media (max-width:900px){.l-hero.has-video{--lift:clamp(260px,46vh,420px)}.hero-bg{height:calc(var(--lift) + 430px)}.l-hero.has-video h1{font-size:clamp(38px,10.5vw,60px)}}
