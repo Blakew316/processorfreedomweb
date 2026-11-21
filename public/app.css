@@ -1463,3 +1463,66 @@ html[data-theme=dark] .rail button[aria-current] .rail-t b{color:#fff}
 }
 .more-row b small{display:block;font-size:13px;font-weight:400;color:var(--muted)}
 .rail button[aria-current]>span.rail-ic,html[data-theme=dark] .rail button[aria-current]>span.rail-ic{color:#fff}
+
+/* =====================================================================
+   A little life, in neutrals only: cool off-whites, slate greys,
+   near-black and pale blue washes. Light mode; dark keeps its own look.
+   ===================================================================== */
+html:not([data-theme=dark]){
+  --ink:#10141b;--muted:#5b6578;--faint:#8a93a4;
+  --bg2:#f2f4f8;--bg3:#e5e9f0;--line:rgba(18,38,78,.1);--line2:rgba(18,38,78,.17);
+  --tint:#e9eef8;--tint2:#dbe4f4;--slate:#33415c;--coal:#151a24;--cream:#f8f6f1;
+}
+html:not([data-theme=dark]) body{background:#f6f7fa}
+html:not([data-theme=dark]) .ed{background:linear-gradient(180deg,#e9edf5 0%,#f1f3f8 38%,#f4f3f0 100%)}
+html:not([data-theme=dark]) .ed-side,html:not([data-theme=dark]) .panel{background-color:transparent}
+html:not([data-theme=dark]) .rail{background:linear-gradient(180deg,#fbfcfe,#f1f4f9)}
+html:not([data-theme=dark]) .rail .rail-ic{background:var(--tint);color:var(--slate);box-shadow:inset 0 0 0 .5px rgba(18,38,78,.08)}
+html:not([data-theme=dark]) .rail button[aria-current]{background:#fff;box-shadow:0 0 0 .5px rgba(18,38,78,.1),0 10px 22px -14px rgba(18,38,78,.4)}
+html:not([data-theme=dark]) .rail-h{color:var(--slate)}
+html:not([data-theme=dark]) .ed-top,html:not([data-theme=dark]) .top{background:rgba(250,251,254,.86)}
+
+/* Number tiles: one near-black, one pale blue, one white, one warm off-white. */
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1){background:linear-gradient(155deg,#232b3b 0%,#141923 62%,#0c1019 100%);box-shadow:0 0 0 .5px rgba(0,0,0,.4),0 18px 34px -18px rgba(12,16,25,.7),inset 0 1px 0 rgba(255,255,255,.1)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) b{color:#fff}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) span:not(.kico):not(.delta){color:rgba(226,232,244,.72)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) .kico{color:#fff;background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1)::before,html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1)::after{opacity:.25}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+2){background:linear-gradient(160deg,#f4f7fd,#e6edf9)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+2) .kico{background:#fff;color:var(--brand)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+4){background:linear-gradient(160deg,#fdfcf9,#f5f2ea)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+4) .kico{background:#fff;color:var(--coal)}
+html:not([data-theme=dark]) .scard2:nth-child(3n+1) .itile{background:var(--coal);color:#fff}
+html:not([data-theme=dark]) .scard2:nth-child(3n+2) .itile{background:var(--tint2);color:var(--brand)}
+html:not([data-theme=dark]) .scard2:nth-child(3n+3) .itile{background:var(--cream);color:var(--coal);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.08)}
+
+/* Quiet tints where it used to be flat grey. */
+html:not([data-theme=dark]) .seg,html:not([data-theme=dark]) .subnav{background:#e4e9f2}
+html:not([data-theme=dark]) .tag{background:var(--tint);color:var(--slate)}
+html:not([data-theme=dark]) .status:not(.ok):not(.warn):not(.bad){color:var(--slate)}
+html:not([data-theme=dark]) .inv-head{background:linear-gradient(180deg,#f6f8fc,#eef2f8);color:var(--slate)}
+html:not([data-theme=dark]) .table th{color:var(--slate)}
+html:not([data-theme=dark]) .group>h3,html:not([data-theme=dark]) .bill-sec h3,html:not([data-theme=dark]) .more-group h3{color:var(--slate)}
+html:not([data-theme=dark]) .sico,html:not([data-theme=dark]) .itile{background:var(--tint);color:var(--slate)}
+html:not([data-theme=dark]) .note{background:linear-gradient(160deg,#f1f5fc,#e9eef8);color:var(--slate)}
+html:not([data-theme=dark]) .inv-empty>span:first-child{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:var(--tint);color:var(--slate)}
+html:not([data-theme=dark]) .todo-row .tick{background:var(--tint);color:var(--slate)}
+html:not([data-theme=dark]) .todo-row.done .tick{background:var(--coal);color:#fff}
+html:not([data-theme=dark]) .ocard,html:not([data-theme=dark]) .lead{background:linear-gradient(160deg,#f7f9fc,#eff2f8)}
+html:not([data-theme=dark]) .ocard.new{background:#fff}
+html:not([data-theme=dark]) .ocard header b{color:var(--coal)}
+html:not([data-theme=dark]) .deal,html:not([data-theme=dark]) .more-list,html:not([data-theme=dark]) .ins-steps,html:not([data-theme=dark]) .bill-sum,html:not([data-theme=dark]) .bill-lines.ro{background:linear-gradient(160deg,#f3f6fb,#eaeff7)}
+html:not([data-theme=dark]) .cbar i.on{background:linear-gradient(180deg,#3d63c9,#0a1f44)}
+html:not([data-theme=dark]) .track2 i,html:not([data-theme=dark]) .prog i{background:linear-gradient(90deg,#0a1f44,#3d63c9)}
+html:not([data-theme=dark]) .rline.total b,html:not([data-theme=dark]) .inv-top h2,html:not([data-theme=dark]) .dash-head h1{color:var(--coal)}
+html:not([data-theme=dark]) .scard h3{color:var(--coal)}
+html:not([data-theme=dark]) .skel{background:#e3e8f1}
+html:not([data-theme=dark]) .tabbar{background:rgba(249,250,253,.78)}
+html:not([data-theme=dark]) .tabbar button[aria-current]{background:var(--tint2)}
+html:not([data-theme=dark]) .ins-banner{background:linear-gradient(160deg,#fff,#eef3fb)}
+html:not([data-theme=dark]) .newcard{background:linear-gradient(160deg,#f6f8fc,#edf1f8);color:var(--slate)}
+html:not([data-theme=dark]) body:has(.dash){background:linear-gradient(180deg,#eaeef6 0,#f4f5f8 420px,#f6f5f2 100%)}
+/* The selected sidebar entry: solid blue tile, white icon, dark label. Always readable. */
+html:not([data-theme=dark]) .rail button[aria-current] .rail-ic,html:not([data-theme=dark]) .rail button[aria-current]>span.rail-ic{background:linear-gradient(180deg,#1b3f8f,#0a1f44);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 6px 14px -6px rgba(10,31,68,.6)}
+html:not([data-theme=dark]) .rail button[aria-current] .rail-t b{color:var(--coal)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) .delta.up{background:rgba(74,222,128,.16);color:#6ee79a}
