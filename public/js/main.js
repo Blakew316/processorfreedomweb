@@ -247,7 +247,7 @@ async function admin() {
   const table = (heads, rows, empty) => (rows.length ? h('div', { class: 'tscroll card' }, h('table', { class: 'table' }, h('thead', {}, h('tr', {}, heads.map((t) => h('th', {}, t)))), h('tbody', {}, rows))) : h('p', { class: 'note' }, empty));
   const when = (ms) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   mount(topbar(link('/app', {}, 'My sites'), accountMenu()), h('main', { class: 'page dash' },
-    h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard'), h('p', { class: 'muted', style: 'margin-top:6px' }, 'Everything happening across Processor Freedom Sites.')), h('button', { class: 'btn soft', onclick: admin }, 'Refresh')),
+    h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard'), h('p', { class: 'muted', style: 'margin-top:6px' }, 'Everything happening across Processor Freedom Sites.')), h('div', { class: 'row' }, h('input', { class: 'input', type: 'search', placeholder: 'Search sites, owners, orders…', 'aria-label': 'Search', style: 'width:260px;max-width:60vw', oninput: (e) => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('.dash .table tbody tr').forEach((tr) => { tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none'; }); } }), h('button', { class: 'btn soft', onclick: admin }, 'Refresh'))),
     h('div', { class: 'sgrid2' },
       stat('', I.globe, 'Sites', st.sites, `${st.live} live`), stat('', '<circle cx="12" cy="9" r="3.500"/><path d="M5 19.500c.800-3.500 3.500-5.500 7-5.500s6.200 2 7 5.500"/>', 'Accounts', st.users, `${st.newUsers} this week`),
       stat('', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('', '<path d="M12 4v16M16 7.500c-.700-1.200-2.200-2-4-2-2.200 0-4 1.200-4 3s1.500 2.700 4 3.200 4 1.400 4 3.300-1.800 3-4 3c-1.900 0-3.400-.800-4.100-2"/>', 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),
@@ -301,6 +301,7 @@ async function render() {
 }
 
 window.addEventListener('popstate', render);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
 Promise.all([api('GET', '/api/me'), api('GET', '/api/config')])
   .then(([me, config]) => { state.user = me.user; state.config = config; })
   .catch(() => {})

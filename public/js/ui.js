@@ -26,6 +26,7 @@ const P = {
   phone: '<rect x="7" y="3" width="10" height="18" rx="2.500"/><path d="M11 18h2"/>', lock: '<rect x="5" y="10.500" width="14" height="9.500" rx="2.500"/><path d="M8.500 10.500V8a3.500 3.500 0 017 0v2.500"/>',
   bag: '<path d="M6 8h12l1 12H5z"/><path d="M9 8V6.500a3 3 0 016 0V8"/>', list: '<path d="M8.500 7h11M8.500 12h11M8.500 17h11M4.500 7h.010M4.500 12h.010M4.500 17h.010"/>', sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>', brush: '<path d="M14 4l6 6-8.500 8.500H5.500V12.500z"/>', store: '<path d="M4 9.500l1.500-5h13l1.500 5M5 9.500V20h14V9.500M4 9.500h16M10 20v-5.500h4V20"/>', up2: '<path d="M12 16V5M7.500 9.500L12 5l4.500 4.500M5 19h14"/>', dl: '<path d="M12 5v11M7.500 11.500L12 16l4.500-4.500M5 19h14"/>',
   undo: '<path d="M8.500 8H15a4.500 4.500 0 010 9H9.500"/><path d="M11.500 5l-3 3 3 3"/>', redo: '<path d="M15.500 8H9a4.500 4.500 0 000 9h5.500"/><path d="M12.500 5l3 3-3 3"/>', print: '<path d="M7 9V4.500h10V9M7 16.500H5a1.500 1.500 0 01-1.500-1.500v-4.500A1.500 1.500 0 015 9h14a1.500 1.500 0 011.500 1.500V15a1.500 1.500 0 01-1.500 1.500h-2"/><path d="M7 13.500h10v6H7z"/>', bell: '<path d="M6.500 16.500V11a5.500 5.500 0 0111 0v5.500l1.500 1.500H5z"/><path d="M10 20.500a2.200 2.200 0 004 0"/>', chart: '<path d="M5 19V11M10 19V5M15 19v-6M20 19V9"/>', grip: '<path d="M9 7h.010M15 7h.010M9 12h.010M15 12h.010M9 17h.010M15 17h.010"/>',
+  clock: '<circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 2"/>',
   inbox: '<path d="M4 13l2.500-7.500h11L20 13v5a1.500 1.500 0 01-1.500 1.500h-13A1.500 1.500 0 014 18z"/><path d="M4 13h4.500l1 2.500h5l1-2.500H20"/>', doc: '<path d="M7 3.500h7l4 4V20a.500.500 0 01-.500.500h-10.500A.500.500 0 016.500 20V4a.500.500 0 01.500-.500z"/><path d="M9.500 12h5M9.500 15.500h5"/>',
 };
 export const ic = (name, size = 18) => h('span', { style: 'display:inline-flex', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>` });
@@ -194,4 +195,26 @@ export function printTicket(o, siteName, extra) {
   if (!w) return toast('Allow pop-ups to print tickets.', true);
   w.document.write(`<!doctype html><title>Order #${e(o.number)}</title><style>body{font:15px/1.4 -apple-system,Helvetica,Arial,sans-serif;margin:18px;color:#000}h1{font-size:30px;margin:0}h2{font-size:17px;margin:2px 0 14px;font-weight:600}.l{display:flex;gap:10px;font-size:19px;font-weight:600;padding:8px 0;border-top:1px dashed #999}.l b{min-width:34px}.o{font-size:15px;font-weight:400;display:block}p{margin:4px 0}.n{border:2px solid #000;padding:8px;margin-top:12px;font-weight:600}</style><h1>#${e(o.number)} · ${e(extra.method)}</h1><h2>${e(siteName)} · ${e(extra.when)}</h2>${o.items.map((l) => `<div class="l"><b>${l.qty}×</b><span>${e(l.name)}${l.opts?.length ? `<span class="o">${e(l.opts.join(', '))}</span>` : ''}</span></div>`).join('')}${o.notes ? `<div class="n">${e(o.notes)}</div>` : ''}<p style="margin-top:14px"><b>${e(o.name)}</b> · ${e(o.phone)}</p>${o.address ? `<p>Deliver to: ${e(o.address)}</p>` : ''}${o.vehicle ? `<p>Vehicle: ${e(o.vehicle)}</p>` : ''}<p>Total ${e(extra.total)}</p><script>onload=()=>{print()}<\/script>`);
   w.document.close();
+}
+
+/* Notifications that arrive even when the builder is closed. */
+const keyBytes = (k) => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+export async function pushOn() {
+  if (!pushSupported()) return false;
+  const reg = await navigator.serviceWorker.getRegistration('/');
+  return !!(reg && await reg.pushManager.getSubscription());
+}
+export async function enablePush() {
+  if (!pushSupported()) throw new Error('This browser cannot show these notifications. On iPhone or iPad, add this page to your Home Screen first, then open it from there and try again.');
+  if (await Notification.requestPermission() !== 'granted') throw new Error('Notifications are blocked for this site. Allow them in your browser settings and try again.');
+  const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(state.config.pushKey) });
+  await api('POST', '/api/push/subscribe', { subscription: sub.toJSON() });
+}
+export async function disablePush() {
+  const reg = await navigator.serviceWorker.getRegistration('/');
+  const sub = reg && await reg.pushManager.getSubscription();
+  if (sub) { await api('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
 }

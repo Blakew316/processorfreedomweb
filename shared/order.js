@@ -129,6 +129,9 @@ export const ORDER_CSS = `
 .track{gap:6px;margin:48px 0 14px}
 .track i{height:6px;border-radius:6px;transition:background .6s}
 .box{border-radius:calc(var(--r) + 2px);padding:30px}
+.stamps{display:flex;flex-wrap:wrap;gap:8px}
+.stamps i{width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1.500px var(--line)}
+.stamps i.on{background:var(--accent);box-shadow:none}
 .cartbar{-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);padding:16px 24px;font-size:16px}
 @media (max-width:860px){
   .osheet{place-items:end center;padding:0}
@@ -167,7 +170,8 @@ function orderClient() {
     if (!c.asap && !S.when && sl.length) S.when = sl[0][0];
     var L = lines(c), sub = L.reduce(function (s, l) { return s + l.price * l.qty; }, 0), count = L.reduce(function (s, l) { return s + l.qty; }, 0);
     var disc = !S.promo ? 0 : S.promo.type === 'amount' ? Math.min(sub, S.promo.value) : Math.round(sub * S.promo.value / 100);
-    var tax = Math.round((sub - disc) * c.tax / 100), fee = S.method === 'delivery' ? c.fee : 0, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
+    var zone = c.zones && S.method === 'delivery' ? c.zones.filter(function (z) { return z[0].indexOf(((S.f.zip || '').match(/\d{5}/) || [''])[0]) >= 0; })[0] : null;
+    var tax = Math.round((sub - disc) * c.tax / 100), fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
     var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(total) + '</span>'; }
     var out = '<h2>' + h(T.yourOrder) + '</h2>';
     if (!L.length) { el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? T.closedNow : T.paused) + '</p>'; return; }
@@ -179,14 +183,14 @@ function orderClient() {
     out += '<form id="checkout" novalidate>';
     if (sl.length) out += '<label class="f">' + h(T.when) + '<select name="when">' + (c.asap ? '<option value="">' + h(T.asap) + '</option>' : '') + sl.map(function (x) { return '<option value="' + x[0] + '"' + (S.when === x[0] ? ' selected' : '') + '>' + h(x[1]) + '</option>'; }).join('') + '</select></label>';
     out += field('name', T.name, 'text', 1, 'name') + field('phone', T.phone, 'tel', 1, 'tel') + field('email', T.emailConfirm, 'email', 1, 'email');
-    if (S.method === 'delivery') out += field('address', T.address, 'text', 1, 'street-address');
+    if (S.method === 'delivery') out += field('address', T.address, 'text', 1, 'street-address') + (c.zones ? field('zip', T.zip, 'text', 1, 'postal-code') + ((S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone ? '<p class="oerr">' + h(T.noDelivery) + '</p>' : '') : '');
     if (S.method === 'curbside') out += field('vehicle', T.vehicle, 'text', 1);
     if (c.notes) out += '<label class="f">' + h(T.notes) + '<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
     if (c.promos) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.promo) + '</div><div class="prow"><input name="promo" maxlength="24" autocomplete="off" value="' + h(S.promo ? S.promo.code : S.f.promo) + '"><button type="button" data-promo="1">' + h(T.apply) + '</button></div>' + (S.perr ? '<p class="oerr" style="margin-top:6px">' + h(S.perr) + '</p>' : '') + '</div>';
     if (c.tips) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.tip) + '</div><div class="oseg" role="group">' + [0, 10, 15, 20].map(function (t) { return '<button type="button" data-tip="' + t + '" aria-pressed="' + (S.tip === t) + '">' + (t ? t + '%' : h(T.none)) + '</button>'; }).join('') + '</div></div>';
     out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span></div>';
-    var short = S.method === 'delivery' && sub < c.min;
-    if (short) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
+    var short = S.method === 'delivery' && (sub < c.min || (c.zones && (S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone));
+    if (S.method === 'delivery' && sub < c.min) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
     if (S.err) out += '<p class="oerr" role="alert">' + h(S.err) + '</p>';
     out += '<button class="btn" type="submit"' + (short || !can || S.busy ? ' disabled' : '') + '>' + h(S.busy ? T.placing : can ? T.place + ' · ' + fmt(total) : c.open ? T.closedNow : T.pausedBtn) + '</button><p class="note">' + h(c.pay) + '</p></form>';
     var a = d.activeElement, an = a && a.form && a.form.id === 'checkout' ? a.name : '';
@@ -226,7 +230,7 @@ function orderClient() {
     S.err = ''; keep(c); draw();
     if (t.dataset.add) { var o = t.textContent; t.textContent = c.T.added; setTimeout(function () { t.textContent = o; }, 900); }
   });
-  d.addEventListener('input', function (e) { var c = conf(); if (c && e.target.form && e.target.form.id === 'checkout') { if (e.target.name === 'when') { S.when = e.target.value; return; } S.f[e.target.name] = e.target.value; keep(c); } });
+  d.addEventListener('input', function (e) { var c = conf(); if (c && e.target.form && e.target.form.id === 'checkout') { if (e.target.name === 'when') { S.when = e.target.value; return; } S.f[e.target.name] = e.target.value; keep(c); if (e.target.name === 'zip' && (e.target.value.replace(/\D/g, '').length >= 5 || e.target.value === '')) draw(); } });
   d.addEventListener('submit', function (e) {
     if (e.target.id !== 'checkout') return; e.preventDefault();
     var c = conf(), f = e.target; if (!c || S.busy) return;
@@ -235,7 +239,7 @@ function orderClient() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(S.f.email || '')) { S.err = c.T.badEmail; draw(); return; }
     if (P) { S.err = 'This is a preview. Orders can be placed once your site is published.'; draw(); return; }
     S.busy = true; S.err = ''; draw();
-    var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, vehicle: S.f.vehicle, notes: S.f.notes };
+    var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, zip: S.f.zip, vehicle: S.f.vehicle, notes: S.f.notes };
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'x'); return j; }); })
       .then(function (j) { S.lines = []; keep(c); location.href = j.url; })
@@ -289,6 +293,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, slots, items, methods, names, T,
     tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes, promos: arr(o.promos).some((x) => x.active),
+    zones: arr(o.zones).length ? o.zones.map((z) => [z.zips, z.fee]) : null,
     pickupNote: o.pickupNote, curbsideNote: o.curbsideNote, area: o.deliveryArea, pay: hasPayUrl ? T.payEither : T.payLater,
   };
   const ways = methods.map((m) => names[m].toLowerCase());
@@ -302,7 +307,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
 <script type="application/json" id="pf-order">${JSON.stringify(conf).replace(/</g, '\\u003c')}</script>`;
 }
 
-export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, orderHref, siteKey, lang }) {
+export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, orderHref, siteKey, lang, loyalty }) {
   const T = strings(lang);
   const steps = ['new', 'confirmed', 'ready', 'completed'];
   const at = steps.indexOf(order.status);
@@ -317,6 +322,7 @@ export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, 
   return `<section class="ostat"><div class="wrap"><p class="eyebrow">${esc(T.order)} #${esc(order.number)}</p><h1>${esc(headline)}</h1><p class="lede">${esc(sub)}</p>
 ${cancelled ? '' : `<div class="track" role="img" aria-label="${esc(label(order.status))}">${steps.map((s, i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div><div class="trackl">${steps.map((s, i) => (i === at ? `<b>${esc(label(s))}</b>` : `<span>${esc(label(s))}</span>`)).join('')}</div>`}
 <div class="box"><h2>${esc(methodName)} · ${esc(T.details)}</h2><dl class="kv">${row(T.scheduledFor, order.scheduled ? slotLabel(order.scheduled, ordering || {}, lang) : '')}${row(T.name, order.name)}${row(T.phone, order.phone)}${row(T.deliverTo, order.address)}${row(T.vehicleShort, order.vehicle)}${row(T.notesShort, order.notes)}</dl></div>
+${loyalty && !cancelled ? `<div class="box">${loyalty.code ? `<h2>${esc(T.rewardEarned)}</h2><p style="font-size:17px">${esc(fill(T.rewardUse, { code: loyalty.code, value: loyalty.value }))}</p>` : ''}<div class="stamps" role="img" aria-label="${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}">${Array.from({ length: loyalty.every }, (_, i) => `<i class="${i < loyalty.have ? 'on' : ''}"></i>`).join('')}</div><p class="note">${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}</p></div>` : ''}
 <div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span></div>
 ${payUrl && !cancelled ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
 <div class="actions">${phoneHtml}<a class="btn${phoneHtml ? ' ghost' : ''}" ${orderHref} data-reorder="${esc(again)}">${esc(T.orderAgain)}</a><a class="btn ghost" ${homeHref}>${esc(T.backHome)}</a></div></div></section>`;

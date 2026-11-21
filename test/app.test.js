@@ -513,3 +513,122 @@ test('item options, promo codes, opening hours, scheduling, reset links, stats, 
     assert.equal((await client()('POST', `/api/admin/users/${target.id}/reset-link`)).status, 401);
   } finally { base = prevBase; server3.close(); app3.close(); rmSync(dir3, { recursive: true, force: true }); }
 });
+
+test('push messages are encrypted so the receiving browser can read them', async () => {
+  const { createECDH, createDecipheriv, hkdfSync, verify, createPublicKey } = await import('node:crypto');
+  const { encryptPush, newVapidKeys, vapidHeader } = await import('../server/push.js');
+  // Play the browser's part: its own key pair and auth secret.
+  const browser = createECDH('prime256v1'); browser.generateKeys();
+  const auth = Buffer.from('0123456789abcdef');
+  const body = encryptPush('{"title":"New order #1001"}', browser.getPublicKey().toString('base64url'), auth.toString('base64url'));
+  const salt = body.subarray(0, 16), keyLen = body[20], serverKey = body.subarray(21, 21 + keyLen), cipherText = body.subarray(21 + keyLen);
+  assert.equal(body.readUInt32BE(16), 4096);
+  const secret = browser.computeSecret(serverKey);
+  const ikm = Buffer.from(hkdfSync('sha256', secret, auth, Buffer.concat([Buffer.from('WebPush: info\0'), browser.getPublicKey(), serverKey]), 32));
+  const key = Buffer.from(hkdfSync('sha256', ikm, salt, Buffer.from('Content-Encoding: aes128gcm\0'), 16));
+  const nonce = Buffer.from(hkdfSync('sha256', ikm, salt, Buffer.from('Content-Encoding: nonce\0'), 12));
+  const d = createDecipheriv('aes-128-gcm', key, nonce); d.setAuthTag(cipherText.subarray(-16));
+  const plain = Buffer.concat([d.update(cipherText.subarray(0, -16)), d.final()]);
+  assert.equal(plain.subarray(0, -1).toString(), '{"title":"New order #1001"}');
+  assert.equal(plain.at(-1), 2);
+  // The signed header names the push service and verifies against the public key.
+  const keys = newVapidKeys();
+  const header = vapidHeader('https://push.example.com/send/abc', keys);
+  const [, jwt, k] = header.match(/^vapid t=([\w.-]+), k=([\w-]+)$/);
+  const [h, p, sig] = jwt.split('.');
+  assert.equal(JSON.parse(Buffer.from(p, 'base64url')).aud, 'https://push.example.com');
+  assert.equal(k, keys.publicKey);
+  assert.ok(verify('sha256', Buffer.from(`${h}.${p}`), { key: createPublicKey({ key: { kty: 'EC', crv: 'P-256', x: keys.jwk.x, y: keys.jwk.y }, format: 'jwk' }), dsaEncoding: 'ieee-p1363' }, Buffer.from(sig, 'base64url')));
+});
+
+test('zones, loyalty, category hours, version history, push on new order, Spanish emails', async () => {
+  const core = await import('../shared/core.js');
+  const sent = [], pushed = [];
+  const dir4 = mkdtempSync(join(tmpdir(), 'pfsites-'));
+  const app4 = createApp({ dataDir: dir4, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, message) => { pushed.push({ sub, message }); return sub.endpoint.includes('dead') ? 'gone' : 'sent'; } });
+  const server4 = createServer(app4);
+  await new Promise((r) => server4.listen(0, r));
+  const prevBase = base; base = `http://127.0.0.1:${server4.address().port}`;
+  try {
+    const me = client(), anon = client();
+    await me('POST', '/api/auth/signup', { email: 'zone@shop.test', password: 'long-enough-pw' });
+    const site = (await me('POST', '/api/sites', { name: 'Zone Cafe', template: 'order', kind: 'ordering', methods: { pickup: true, delivery: true }, csv: 'Category,Item,Price\nBreakfast,Eggs,5.00\nLunch,Taco,4.00\nSecret,Special,9.00' })).data.site;
+    const host = { host: 'zonecafe.pfsites.test' };
+    const [eggs, taco, special] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    assert.match((await me('GET', '/api/config')).data.pushKey, /^[\w-]{80,}$/);
+
+    // Push subscriptions
+    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'http://insecure', keys: { p256dh: 'a', auth: 'b' } } })).status, 400);
+    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://push.example.com/live', keys: { p256dh: 'a', auth: 'b' } } })).status, 201);
+    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://push.example.com/dead', keys: { p256dh: 'a', auth: 'b' } } })).status, 201);
+    assert.equal((await client()('POST', '/api/push/subscribe', { subscription: {} })).status, 401);
+
+    const settings = { ...site.ordering, methods: { pickup: true, delivery: true }, deliveryFee: 999, zones: [{ zips: '75751 75752', fee: 300 }, { zips: '75758', fee: 500 }], loyalty: { enabled: true, every: 2, type: 'amount', value: 400 }, cats: [{ name: 'Secret', hidden: true }] };
+    const saved = (await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: settings })).data.ordering;
+    assert.equal(saved.zones.length, 2);
+
+    // Version history: each publish that changes something is kept
+    const draft = (await me('GET', `/api/sites/${site.id}`)).data.site.draft;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    draft.brand.tagline = 'Second version'; draft.lang = 'es';
+    await me('POST', `/api/sites/${site.id}/publish`, { draft });
+    let r = await me('GET', `/api/sites/${site.id}/versions`);
+    assert.equal(r.data.versions.length, 2);
+    const first = await me('GET', `/api/sites/${site.id}/versions/${r.data.versions[1].id}`);
+    assert.notEqual(first.data.draft.brand.tagline, 'Second version');
+    assert.equal((await client()('GET', `/api/sites/${site.id}/versions`)).status, 401);
+
+    // Hidden categories are not shown and cannot be ordered
+    r = await anon('GET', '/order', null, host);
+    assert.match(r.data, /Taco/);
+    assert.doesNotMatch(r.data, /Special/);
+    const who = { name: 'Ana Ruiz', phone: '903-555-0100', email: 'Ana@Example.com' };
+    const place = (b) => anon('POST', '/_order', { ...who, ...b }, host);
+    assert.equal((await place({ method: 'pickup', items: [{ id: special.id, qty: 1 }] })).status, 409);
+
+    // ZIP zones: unknown ZIP refused, known ZIP charged that zone's fee
+    assert.equal((await place({ method: 'delivery', address: '1 Main St', zip: '90210', items: [{ id: taco.id, qty: 1 }] })).status, 400);
+    assert.equal((await place({ method: 'delivery', address: '1 Main St', items: [{ id: taco.id, qty: 1 }] })).status, 400);
+    assert.equal((await place({ method: 'delivery', address: '1 Main St', zip: '75758', items: [{ id: taco.id, qty: 1 }] })).status, 201);
+    await new Promise((x) => setTimeout(x, 30));
+    let orders = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    assert.deepEqual([orders[0].fee, orders[0].address], [500, '1 Main St 75758']);
+
+    // Push went to both devices; the dead one is forgotten
+    assert.equal(pushed.length, 2);
+    assert.match(pushed[0].message.title, /New order #1001/);
+    await place({ method: 'pickup', items: [{ id: eggs.id, qty: 1 }] });
+    await new Promise((x) => setTimeout(x, 30));
+    assert.equal(pushed.length, 3);
+
+    // Spanish emails for the customer, English for the business
+    assert.ok(sent.some((m) => m.to === 'Ana@Example.com' && /Recibimos tu pedido/.test(m.subject)));
+    assert.ok(sent.some((m) => m.to !== 'Ana@Example.com' && /New pickup order/.test(m.subject)));
+
+    // Loyalty: the second order earned a one-time code worth $4
+    orders = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    r = await anon('GET', `/order/${orders[0].token}`, null, host);
+    const code = r.data.match(/THANKS[0-9A-F]{8}/)[0];
+    assert.match(r.data, /Ganaste una recompensa/);
+    assert.doesNotMatch((await anon('GET', `/order/${orders[1].token}`, null, host)).data, /THANKS/);
+    assert.deepEqual((await anon('GET', `/_promo?code=${code.toLowerCase()}`, null, host)).data, { code, type: 'amount', value: 400 });
+    assert.equal((await place({ method: 'pickup', promo: code, items: [{ id: taco.id, qty: 2 }] })).status, 201);
+    orders = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    assert.deepEqual([orders[0].subtotal, orders[0].discount, orders[0].promo], [800, 400, code]);
+    assert.equal((await anon('GET', `/_promo?code=${code}`, null, host)).status, 404, 'reward codes work once');
+    assert.equal((await place({ method: 'pickup', promo: code, items: [{ id: taco.id, qty: 1 }] })).status, 400);
+
+    // Renaming a category moves its items and its settings
+    r = await me('POST', `/api/sites/${site.id}/menu/category`, { from: 'Secret', to: 'Specials' });
+    assert.ok(r.data.items.some((x) => x.category === 'Specials'));
+    assert.deepEqual(r.data.ordering.cats, [{ name: 'Specials', hidden: true, from: '', to: '' }]);
+
+    // Category hours
+    assert.deepEqual(core.visibleMenu([{ category: 'Breakfast' }, { category: 'Lunch' }], core.normalizeOrdering({ cats: [{ name: 'Breakfast', from: '06:00', to: '11:00' }] }), Date.parse('2026-11-21T20:00:00Z')).map((x) => x.category), ['Lunch']);
+
+    // Installable app files
+    assert.equal((await anon('GET', '/manifest.webmanifest')).data.start_url, '/app');
+    assert.match((await anon('GET', '/sw.js')).data, /showNotification/);
+  } finally { base = prevBase; server4.close(); app4.close(); rmSync(dir4, { recursive: true, force: true }); }
+});

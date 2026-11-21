@@ -427,7 +427,7 @@ export function renderPage(site, page = 'home', opts = {}) {
     main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now });
   } else if (page === 'order-status' && opts.order) {
     pageTitle = `${T.order} #${opts.order.number}`;
-    main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang });
+    main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty });
   } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
     pageTitle = T[page] || LEGAL_PAGES[page];
     main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">${esc(T.effective)} ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;

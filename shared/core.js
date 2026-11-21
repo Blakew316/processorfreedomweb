@@ -702,7 +702,7 @@ export function defaultOrdering() {
     taxRate: 0, tips: true, allowNotes: true, notifyEmail: '',
     useHours: false, timezone: 'America/Chicago', scheduling: false,
     hours: DAYS.map(() => ({ closed: false, open: '11:00', close: '21:00' })),
-    promos: [],
+    promos: [], cats: [], zones: [], loyalty: { enabled: false, every: 10, type: 'amount', value: 500 },
   };
 }
 const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
@@ -722,6 +722,9 @@ export function normalizeOrdering(input) {
     useHours: o.useHours === true, timezone: TIMEZONES[o.timezone] ? o.timezone : d.timezone, scheduling: o.scheduling === true,
     hours: DAYS.map((_, i) => { const h = arr(o.hours)[i] || {}; return { closed: h.closed === true, open: hhmm(h.open, '11:00'), close: hhmm(h.close, '21:00') }; }),
     promos: arr(o.promos).slice(0, 30).map((x) => ({ code: str(x?.code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_00, 0) : int(x?.value, 0, 100, 10), active: x?.active !== false })).filter((x) => x.code),
+    cats: arr(o.cats).slice(0, 60).map((c) => ({ name: str(c?.name, 60).trim(), hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })).filter((c) => c.name && (c.hidden || (c.from && c.to))),
+    zones: arr(o.zones).slice(0, 30).map((z) => ({ zips: [...new Set((Array.isArray(z?.zips) ? z.zips.join(' ') : str(z?.zips, 2000)).match(/\b\d{5}\b/g) || [])].slice(0, 200), fee: int(z?.fee, 0, 1_000_00, 0) })).filter((z) => z.zips.length),
+    loyalty: { enabled: o.loyalty?.enabled === true, every: int(o.loyalty?.every, 2, 50, 10), type: o.loyalty?.type === 'percent' ? 'percent' : 'amount', value: o.loyalty?.type === 'percent' ? int(o.loyalty?.value, 1, 100, 10) : int(o.loyalty?.value, 1, 1_000_00, 500) },
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
@@ -729,11 +732,11 @@ export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.me
 export const findPromo = (o, code) => { const c = str(code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''); return (c && arr(o?.promos).find((x) => x.active && x.code === c)) || null; };
 
 /** The one place order totals are calculated. Amounts are in cents. */
-export function orderTotals(lines, method, ordering, tipPercent = 0, promo = null) {
+export function orderTotals(lines, method, ordering, tipPercent = 0, promo = null, zoneFee = null) {
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const discount = !promo ? 0 : promo.type === 'amount' ? Math.min(subtotal, promo.value) : Math.round((subtotal * promo.value) / 100);
   const tax = Math.round(((subtotal - discount) * (ordering.taxRate || 0)) / 100);
-  const fee = method === 'delivery' ? ordering.deliveryFee || 0 : 0;
+  const fee = method === 'delivery' ? (zoneFee ?? ordering.deliveryFee ?? 0) : 0;
   const tip = ordering.tips ? Math.round((subtotal * Math.min(100, Math.max(0, Number(tipPercent) || 0))) / 100) : 0;
   return { subtotal, discount, tax, fee, tip, total: subtotal - discount + tax + fee + tip };
 }
@@ -773,6 +776,20 @@ export function orderSlots(ordering, method = 'pickup', nowMs = Date.now()) {
   const out = [];
   for (let w = first; w < end && out.length < 200; w += 900000) if (openAtWall(ordering, w)) out.push(slotValue(w));
   return out;
+}
+
+/** The delivery zone for a ZIP code, or null when delivery is limited to zones and this one is not covered. */
+export const zoneFor = (o, zip) => arr(o?.zones).find((z) => z.zips.includes((String(zip ?? '').match(/\d{5}/) || [''])[0])) || null;
+export const rewardText = (l) => (l.type === 'percent' ? `${l.value}%` : money(l.value));
+
+/** Items customers can see right now: hidden categories and categories outside their hours are left out. */
+export function visibleMenu(menu, ordering, nowMs = Date.now()) {
+  const metas = arr(ordering?.cats);
+  if (!metas.length) return arr(menu);
+  const d = new Date(wallNow(ordering, nowMs));
+  const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const off = new Set(metas.filter((c) => c.hidden || (c.from && c.to && (mins(c.from) <= mins(c.to) ? m < mins(c.from) || m >= mins(c.to) : m < mins(c.from) && m >= mins(c.to)))).map((c) => c.name));
+  return arr(menu).filter((x) => !off.has(x.category));
 }
 
 /* Item options: sizes, add-ons and choices. */
@@ -818,6 +835,7 @@ export const STRINGS = {
     details: 'details', yourItems: 'Your items', deliverTo: 'Deliver to', vehicleShort: 'Vehicle', notesShort: 'Notes', scheduledFor: 'Scheduled for', call: 'Call', backHome: 'Back to home', orderAgain: 'Order again',
     explore: 'Explore', contact: 'Contact', legal: 'Legal', location: 'Location', hours: 'Hours', directions: 'Get directions', rights: 'All rights reserved.', cards: 'Visa · Mastercard · American Express · Discover accepted', websiteBy: 'Website by',
     email: 'Email', message: 'Message', send: 'Send message', sent: 'Message sent', sentSub: 'Thank you. We will be in touch soon.', agree: 'By sending this message you agree to our', onlyReply: 'We only use your details to reply to you.',
+    zip: 'ZIP code', noDelivery: 'Sorry, we do not deliver to that ZIP code.', stamps: '{n} of {m} orders toward your next reward.', rewardEarned: 'You earned a reward', rewardUse: 'Use code {code} on your next order for {value} off.',
     privacy: 'Privacy Policy', terms: 'Terms of Service', policies: 'Store Policies', accessibility: 'Accessibility', effective: 'Effective', skip: 'Skip to content', menu: 'Menu', notFound: 'Page not found.', notFoundSub: 'The page you are looking for does not exist or has moved.', learnMore: 'Learn more',
   },
   es: {
@@ -836,6 +854,7 @@ export const STRINGS = {
     details: 'detalles', yourItems: 'Tus artículos', deliverTo: 'Entregar en', vehicleShort: 'Vehículo', notesShort: 'Notas', scheduledFor: 'Programado para', call: 'Llamar', backHome: 'Volver al inicio', orderAgain: 'Pedir de nuevo',
     explore: 'Explorar', contact: 'Contacto', legal: 'Legal', location: 'Ubicación', hours: 'Horario', directions: 'Cómo llegar', rights: 'Todos los derechos reservados.', cards: 'Aceptamos Visa · Mastercard · American Express · Discover', websiteBy: 'Sitio web por',
     email: 'Correo', message: 'Mensaje', send: 'Enviar mensaje', sent: 'Mensaje enviado', sentSub: 'Gracias. Nos pondremos en contacto pronto.', agree: 'Al enviar este mensaje aceptas nuestra', onlyReply: 'Solo usamos tus datos para responderte.',
+    zip: 'Código postal', noDelivery: 'Lo sentimos, no entregamos en ese código postal.', stamps: '{n} de {m} pedidos para tu próxima recompensa.', rewardEarned: 'Ganaste una recompensa', rewardUse: 'Usa el código {code} en tu próximo pedido para obtener {value} de descuento.',
     privacy: 'Política de privacidad', terms: 'Términos del servicio', policies: 'Políticas de la tienda', accessibility: 'Accesibilidad', effective: 'Vigente desde', skip: 'Ir al contenido', menu: 'Menú', notFound: 'Página no encontrada.', notFoundSub: 'La página que buscas no existe o fue movida.', learnMore: 'Más información',
   },
 };

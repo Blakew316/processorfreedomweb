@@ -5,8 +5,9 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText } from '../shared/core.js';
 import { createMailer, orderEmail, resetEmail } from './mail.js';
+import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
@@ -53,6 +54,20 @@ export function createApp(options = {}) {
   if (uploadDir) mkdirSync(uploadDir, { recursive: true });
   const dns = options.dns || dnsp;
   const mailer = options.mailer || createMailer(env);
+  const pusher = options.pusher || sendPush;
+  // Notification keys are made once and kept with the data, so there is nothing to configure.
+  const vapid = (() => {
+    const saved = db.get("SELECT value FROM settings WHERE key = 'vapid'");
+    if (saved) return JSON.parse(saved.value);
+    const made = newVapidKeys();
+    db.run("INSERT INTO settings (key, value) VALUES ('vapid', ?)", JSON.stringify(made));
+    return made;
+  })();
+  function notifyOwner(userId, message) {
+    for (const sub of db.all('SELECT * FROM push_subs WHERE user_id = ?', userId)) {
+      Promise.resolve().then(() => pusher(sub, message, vapid)).then((r) => { if (r === 'gone') db.run('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint); }).catch((e) => console.error('Push failed:', e.message));
+    }
+  }
 
   const SITES_DOMAIN = cleanDomain(env.SITES_DOMAIN || '');
   const APP_URL = String(env.APP_URL || '').replace(/\/$/, '');
@@ -166,6 +181,14 @@ export function createApp(options = {}) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
     for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, stock, options, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.stock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++);
   }
+  // A promo code is either one the merchant created or an unused loyalty reward.
+  function promoFor(site, ordering, code) {
+    const mine = findPromo(ordering, code);
+    if (mine) return mine;
+    const c = str(code, 24).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const r = c && db.get('SELECT code, type, value FROM rewards WHERE site_id = ? AND code = ? AND used_order IS NULL', site.id, c);
+    return r ? { ...r, reward: true } : null;
+  }
   function businessOf(site) {
     const c = JSON.parse(site.published || site.draft);
     const b = c.business || {};
@@ -174,7 +197,8 @@ export function createApp(options = {}) {
   function mail(kind, req, site, order, to) {
     const business = businessOf(site);
     const when = order.scheduled ? slotLabel(order.scheduled, orderingOf(site)) : '';
-    const msg = orderEmail(kind, { business, order, when, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
+    const lang = kind === 'merchant' ? 'en' : JSON.parse(site.published || site.draft).lang === 'es' ? 'es' : 'en';
+    const msg = orderEmail(kind, { business, order, when, lang, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
     Promise.resolve().then(() => mailer.send({ to, ...msg, fromName: business.name, replyTo: kind === 'merchant' ? order.email : business.email })).catch((e) => console.error('Order email failed:', e.message));
   }
 
@@ -218,7 +242,7 @@ export function createApp(options = {}) {
   const route = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
 
   route('GET', '/api/config', (req, res) => json(res, 200, {
-    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled,
+    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey,
   }));
 
   route('GET', '/api/me', (req, res) => json(res, 200, { user: currentUser(req) }));
@@ -354,6 +378,10 @@ export function createApp(options = {}) {
     const draft = b.draft ? packDraft(b.draft) : site.draft;
     const now = Date.now();
     db.run('UPDATE sites SET draft = ?, name = ?, published = ?, published_at = ?, updated_at = ? WHERE id = ?', draft, JSON.parse(draft).brand.name, draft, now, now, site.id);
+    if (draft !== site.published) {
+      db.run('INSERT INTO versions (id, site_id, draft, created_at) VALUES (?, ?, ?, ?)', newId(), site.id, draft, now);
+      db.run('DELETE FROM versions WHERE site_id = ? AND id NOT IN (SELECT id FROM versions WHERE site_id = ? ORDER BY created_at DESC LIMIT 20)', site.id, site.id);
+    }
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
   });
 
@@ -465,6 +493,43 @@ export function createApp(options = {}) {
     if (p.item === 'all') db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
     else db.run('DELETE FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id);
     json(res, 200, { items: menuOf(site.id) });
+  });
+
+  route('GET', '/api/sites/:id/versions', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    json(res, 200, { versions: db.all('SELECT id, created_at AS createdAt FROM versions WHERE site_id = ? ORDER BY created_at DESC', site.id) });
+  });
+  route('GET', '/api/sites/:id/versions/:version', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const v = db.get('SELECT draft, created_at AS createdAt FROM versions WHERE id = ? AND site_id = ?', p.version, site.id) || bad(404, 'That version is no longer kept.');
+    json(res, 200, { draft: JSON.parse(v.draft), createdAt: v.createdAt });
+  });
+
+  // Renames a category everywhere it is used, including its hours and visibility.
+  route('POST', '/api/sites/:id/menu/category', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const from = str(b.from, 60).trim(), to = str(b.to, 60).trim();
+    if (!from || !to) bad(400, 'Give the category a name.');
+    db.run('UPDATE menu_items SET category = ? WHERE site_id = ? AND category = ?', to, site.id, from);
+    const o = orderingOf(site);
+    o.cats = o.cats.filter((c) => c.name !== to).map((c) => (c.name === from ? { ...c, name: to } : c));
+    db.run('UPDATE sites SET ordering = ? WHERE id = ?', JSON.stringify(normalizeOrdering(o)), site.id);
+    json(res, 200, { items: menuOf(site.id), ordering: orderingOf(db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
+  });
+
+  route('POST', '/api/push/subscribe', async (req, res) => {
+    const user = requireUser(req);
+    const sub = (await readJson(req)).subscription || {};
+    const endpoint = str(sub.endpoint, 1000), p256dh = str(sub.keys?.p256dh, 200), auth = str(sub.keys?.auth, 100);
+    if (!/^https:\/\//.test(endpoint) || !p256dh || !auth) bad(400, 'This device could not be set up for notifications.');
+    db.run('INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth', endpoint, user.id, p256dh, auth, Date.now());
+    json(res, 201, { ok: true });
+  });
+  route('POST', '/api/push/unsubscribe', async (req, res) => {
+    const user = requireUser(req);
+    db.run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', str((await readJson(req)).endpoint, 1000), user.id);
+    json(res, 200, { ok: true });
   });
 
   route('PUT', '/api/sites/:id/menu-order', async (req, res, p) => {
@@ -620,7 +685,7 @@ export function createApp(options = {}) {
     const ordering = orderingOf(site);
     if (path === '/_promo' && req.method === 'GET' && !draft) {
       limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000);
-      const promo = ordering.enabled && findPromo(ordering, new URL(req.url, 'http://x').searchParams.get('code'));
+      const promo = ordering.enabled && promoFor(site, ordering, new URL(req.url, 'http://x').searchParams.get('code'));
       return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
     }
     if (path === '/_order' && req.method === 'POST' && !draft) {
@@ -638,14 +703,16 @@ export function createApp(options = {}) {
       if (method === 'curbside' && !who.vehicle) bad(400, 'Please describe your vehicle so we can find you.');
       const wanted = (Array.isArray(b.items) ? b.items.slice(0, 100) : []).map((l) => ({ id: str(l?.id, 40), qty: Math.round(Number(l?.qty)), picks: Array.isArray(l?.opts) ? l.opts.slice(0, 12).map((g) => (Array.isArray(g) ? g.slice(0, 30).map(Number) : [])) : [] })).filter((l) => l.qty > 0 && l.qty <= 50);
       if (!wanted.length) bad(400, 'Your order is empty.');
-      const promo = str(b.promo).trim() ? findPromo(ordering, b.promo) || bad(400, 'That promo code is not valid.') : null;
+      const promo = str(b.promo).trim() ? promoFor(site, ordering, b.promo) || bad(400, 'That promo code is not valid.') : null;
+      const zone = method === 'delivery' && ordering.zones.length ? zoneFor(ordering, b.zip) || bad(400, 'Sorry, we do not deliver to that ZIP code.') : null;
+      if (zone) who.address = `${who.address} ${(String(b.zip).match(/\d{5}/) || [''])[0]}`.trim();
       let order;
       db.raw.exec('BEGIN IMMEDIATE');
       try {
         const lines = []; const need = new Map();
         for (const w of wanted) {
           const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', w.id, site.id);
-          if (!row || !row.available || row.stock === 0) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
+          if (!row || !row.available || row.stock === 0 || !visibleMenu([toItem(row)], ordering).length) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
           const it = toItem(row);
           const picked = resolveOptions(it, w.picks);
           if (picked.error) bad(400, picked.error);
@@ -653,28 +720,42 @@ export function createApp(options = {}) {
           if (it.stock != null && it.stock < need.get(it.id)) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
           lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks });
         }
-        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo);
+        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo, zone ? zone.fee : null);
         if (method === 'delivery' && t.subtotal < ordering.deliveryMin) bad(400, 'Your order is below the delivery minimum.');
         for (const [itemId, qty] of need) db.run('UPDATE menu_items SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL', qty, itemId);
         const number = (db.get('SELECT MAX(number) AS n FROM orders WHERE site_id = ?', site.id).n || 1000) + 1;
         const oid = newId(); const now = Date.now();
         db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, now, now);
+        if (promo?.reward) db.run('UPDATE rewards SET used_order = ? WHERE site_id = ? AND code = ? AND used_order IS NULL', oid, site.id, promo.code);
+        // Every Nth order earns a one-time reward code for next time.
+        const L = ordering.loyalty;
+        if (L.enabled) {
+          const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status != 'cancelled'", site.id, who.email).n;
+          if (count > 0 && count % L.every === 0) db.run('INSERT INTO rewards (code, site_id, email, type, value, earned_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', `THANKS${randomBytes(4).toString('hex').toUpperCase()}`, site.id, who.email.toLowerCase(), L.type, L.value, oid, now);
+        }
         db.raw.exec('COMMIT');
         order = toOrder(db.get('SELECT * FROM orders WHERE id = ?', oid));
       } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
       mail('placed', req, site, order, order.email);
       const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
       mail('merchant', req, site, order, ordering.notifyEmail || businessOf(site).email || owner?.email);
+      notifyOwner(site.user_id, { title: `New order #${order.number} · ${money(order.total)}`, body: `${site.name} · ${ORDER_METHODS[method].name} · ${order.name}`, url: `/app/site/${site.id}?tab=orders`, tag: `order-${order.id}` });
       return json(res, 201, { number: order.number, url: `${base}/order/${order.token}` });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
 
-    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? menuOf(site.id) : [], siteKey: site.id };
+    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? visibleMenu(menuOf(site.id), ordering) : [], siteKey: site.id };
     const tracked = path.match(/^\/order\/([\w-]{10,40})$/);
     if (tracked) {
       const row = db.get('SELECT * FROM orders WHERE token = ? AND site_id = ?', tracked[1], site.id);
-      const out = renderPage(config, row ? 'order-status' : 'missing', { ...shared, order: row && toOrder(row) });
+      let loyalty;
+      if (row && ordering.loyalty.enabled) {
+        const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status != 'cancelled' AND created_at <= ?", site.id, row.email, row.created_at).n;
+        const earned = db.get('SELECT code, type, value FROM rewards WHERE site_id = ? AND earned_order = ? AND used_order IS NULL', site.id, row.id);
+        loyalty = { every: ordering.loyalty.every, have: earned ? ordering.loyalty.every : count % ordering.loyalty.every, code: earned?.code, value: earned ? rewardText(earned) : '' };
+      }
+      const out = renderPage(config, row ? 'order-status' : 'missing', { ...shared, order: row && toOrder(row), loyalty });
       return html(res, out.status, out.html, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
     }
 
@@ -763,6 +844,8 @@ export function createApp(options = {}) {
 
     if (method !== 'GET' && method !== 'HEAD') return send(res, 405, 'Method not allowed');
     if (path === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
+    if (path === '/sw.js') return (await sendFile(res, join(ROOT, 'public'), 'sw.js', { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' })) || send(res, 404, 'Not found');
+    if (path === '/manifest.webmanifest') return (await sendFile(res, join(ROOT, 'public'), 'manifest.webmanifest', { 'Cache-Control': 'no-cache', 'Content-Type': 'application/manifest+json' })) || send(res, 404, 'Not found');
     const cache = { 'Cache-Control': 'no-cache' };
     if (path.startsWith('/assets/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path.startsWith('/shared/')) return (await sendFile(res, join(ROOT, 'shared'), path.slice(8), cache)) || send(res, 404, 'Not found');

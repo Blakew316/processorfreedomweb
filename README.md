@@ -30,6 +30,14 @@ an online ordering website, types their business name, picks a template, uploads
 - **Sales**: 30-day sales, order count, average order, best sellers and pickup/curbside/delivery split.
 - **Spanish**: a site language switch that translates the built-in words on merchant sites.
 - **Editor extras**: undo and redo, drag to reorder menu items.
+- **Menu categories**: rename, reorder, hide, or limit a category to certain hours (breakfast until 11).
+- **Delivery zones**: optional ZIP-code zones, each with its own fee; other ZIP codes are refused.
+- **Loyalty**: every Nth order by the same email earns a one-time reward code for the next order.
+- **Notifications on the device**: the builder installs as an app and can send new-order notifications when it is closed.
+  Keys are generated on first start and stored with the data; nothing to configure.
+- **Version history**: the last 20 published versions can be restored.
+- **Bulk photos**: upload many photos at once; they are matched to items by file name.
+- **Dark appearance**: the builder follows the device's light or dark setting.
 - **Password reset**: by email when email is configured, or by a one-time link staff create from the staff dashboard.
 - **Order emails**: the customer is emailed when the order is received, confirmed, ready or cancelled; the business is emailed for
   every new order. Requires `RESEND_API_KEY` and `EMAIL_FROM`.
