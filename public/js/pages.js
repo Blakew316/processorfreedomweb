@@ -12,6 +12,9 @@ export const TESTIMONIALS = [];
 const MENU = () => [['Examples', '/#examples'], ['Why us', '/#features'], ...(TESTIMONIALS.length ? [['Testimonials', '/#testimonials']] : []), ['FAQ', '/#faq'], ['Log in', '/login']];
 export function dock() {
   const el = h('nav', { class: 'dock', 'aria-label': 'Menu' }, h('div', { class: 'dock-in' }, MENU().map(([t, to]) => link(to, {}, t)), link('/signup', { class: 'btn sm' }, 'Sign up'), themeButton()));
+  // On the home page it waits out of sight while the film has the screen, and comes in once you start down the page.
+  const rest = () => el.classList.toggle('rest', !!document.querySelector('.film-main') && window.scrollY < Math.min(520, window.innerHeight * 0.55));
+  el.classList.add('rest'); requestAnimationFrame(rest); window.addEventListener('scroll', () => { if (el.isConnected) rest(); }, { passive: true });
   // It steps aside when the footer, which has the same menu, comes into view.
   requestAnimationFrame(() => { const foot = document.querySelector('.site-foot'); if (foot && 'IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((e) => el.classList.toggle('away', e.isIntersecting)), { rootMargin: '0px 0px -40px 0px' }).observe(foot); });
   return el;
