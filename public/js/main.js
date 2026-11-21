@@ -160,7 +160,6 @@ function landing() {
       state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
     h('main', { class: 'film-main' },
       h('section', { class: 'l-hero has-video' }, heroVideo(), h('div', { class: 'page' },
-        h('p', { class: 'pill' }, h('i'), 'Websites and online ordering by Processor Freedom'),
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
         h('p', { class: 'lede' }, 'Type your business name. Upload your menu. A complete website with online ordering, live in minutes.'),
         h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(); } },
@@ -200,7 +199,7 @@ function landing() {
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); e.target.querySelectorAll('[data-count]').forEach(countUp); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   // Over the film the top bar is clear glass; once the page scrolls past it, it turns solid.
-  const bar = document.querySelector('header.top'); const onScroll = () => bar?.classList.toggle('over-film', window.scrollY < 420 && location.pathname === '/');
+  const bar = document.querySelector('header.top'); bar?.classList.add('glass-bar'); const onScroll = () => bar?.classList.toggle('over-film', window.scrollY < 520 && location.pathname === '/');
   onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
   // The example rows only drift while they are on screen.
   const show = document.querySelector('.show');
