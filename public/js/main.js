@@ -198,19 +198,21 @@ function reset() {
 
 async function dashboard() {
   title('My sites');
-  mount(topbar(accountMenu()), h('div', { class: 'loading' }, h('div', { class: 'spinner' })));
+  mount(topbar(accountMenu()), h('main', { class: 'page dash' }, h('div', { class: 'dash-head' }, h('h1', {}, 'My sites')), h('div', { class: 'sgrid', 'aria-busy': 'true' }, Array.from({ length: 3 }, () => h('div', { class: 'skel sk-site' })))));
   const { sites } = await api('GET', '/api/sites');
+  const ROLE = { manager: 'Manager', kitchen: 'Kitchen' };
   const card = (s) => h('article', { class: 'scard' },
-    Object.assign(thumb(s.draft, 'home', { menu: s.menu, ordering: s.ordering }), { onclick: () => go(`/app/site/${s.id}`) }),
+    Object.assign(thumb(s.draft, 'home', { menu: s.menu, ordering: s.ordering }), { onclick: () => go(s.role === 'kitchen' ? `/app/site/${s.id}/kitchen` : `/app/site/${s.id}`) }),
     h('div', { class: 'meta' },
       h('div', { class: 'grow' }, h('h3', {}, s.name), s.live ? h('a', { class: 'url', href: s.url, target: '_blank', rel: 'noopener' }, s.url.replace(/^https?:\/\//, '').replace(/\/$/, '')) : h('span', { class: 'url' }, `Edited ${fmtDate(s.updatedAt)}`)),
-      h('span', { class: `status ${s.live ? (s.dirty ? 'warn' : 'ok') : ''}` }, s.live ? (s.dirty ? 'Unpublished changes' : 'Live') : 'Draft')),
-    h('div', { class: 'row' },
+      ROLE[s.role] ? h('span', { class: 'status' }, `${ROLE[s.role]} login`) : h('span', { class: `status ${s.live ? (s.dirty ? 'warn' : 'ok') : ''}` }, s.live ? (s.dirty ? 'Unpublished changes' : 'Live') : 'Draft')),
+    s.role === 'kitchen' ? h('div', { class: 'row' }, link(`/app/site/${s.id}/kitchen`, { class: 'btn sm' }, 'Open kitchen screen'), s.newOrders > 0 && h('span', { class: 'status warn' }, `${s.newOrders} new order${s.newOrders === 1 ? '' : 's'}`))
+    : h('div', { class: 'row' },
       link(`/app/site/${s.id}`, { class: 'btn sm' }, 'Edit site'),
       s.leads > 0 && link(`/app/site/${s.id}?tab=inbox`, { class: 'btn soft sm' }, `${s.leads} message${s.leads === 1 ? '' : 's'}`),
       s.newOrders > 0 && link(`/app/site/${s.id}?tab=orders`, { class: 'btn soft sm' }, `${s.newOrders} new order${s.newOrders === 1 ? '' : 's'}`),
       h('span', { class: 'grow' }),
-      h('button', { class: 'icon-btn', 'aria-label': `Delete ${s.name}`, title: 'Delete site', onclick: async () => {
+      s.role === 'owner' && h('button', { class: 'icon-btn', 'aria-label': `Delete ${s.name}`, title: 'Delete site', onclick: async () => {
         if (!await confirmSheet({ title: `Delete ${s.name}?`, text: 'The site, its messages and its web address will be removed. This cannot be undone.', action: 'Delete site', danger: true })) return;
         await api('DELETE', `/api/sites/${s.id}`); toast('Site deleted'); dashboard();
       } }, ic('trash'))));
@@ -238,11 +240,31 @@ async function admin() {
   const stat = (color, icon, label, value, sub) => h('div', { class: 'scard2' }, h('span', { class: 'itile', style: `--c:${color}`, html: svg(icon, 20) }), h('span', { class: 'muted small' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub || ' '));
   const table = (heads, rows, empty) => (rows.length ? h('div', { class: 'tscroll card' }, h('table', { class: 'table' }, h('thead', {}, h('tr', {}, heads.map((t) => h('th', {}, t)))), h('tbody', {}, rows))) : h('p', { class: 'note' }, empty));
   const when = (ms) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // Which merchants need a nudge: signed up but never published, or live with no orders yet.
+  const DAY = 86400000;
+  const health = (s2) => (!s2.live ? (Date.now() - s2.createdAt > 2 * DAY ? 'stalled' : 'new') : !s2.orders ? 'quiet' : 'selling');
+  const HEALTH = { stalled: ['Never published', 'warn'], new: ['Just started', ''], quiet: ['Live, no orders yet', ''], selling: ['Taking orders', 'ok'] };
+  const counts = { all: data.sites.length }; for (const s2 of data.sites) counts[health(s2)] = (counts[health(s2)] || 0) + 1;
+  const noSite = data.users.filter((u) => !u.sites).length;
+  let siteFilter = 'all';
+  const sitesBody = h('tbody', {});
+  const chips = h('div', { class: 'inv-chips', style: 'margin-bottom:14px' });
+  const drawSites = () => {
+    chips.replaceChildren(...[['all', 'All'], ['stalled', 'Never published'], ['quiet', 'Live, no orders yet'], ['selling', 'Taking orders'], ['new', 'Just started']].filter(([k]) => k === 'all' || counts[k]).map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(siteFilter === k), onclick: () => { siteFilter = k; drawSites(); } }, `${l} · ${counts[k] || 0}`)));
+    const rows = data.sites.filter((s2) => siteFilter === 'all' || health(s2) === siteFilter);
+    sitesBody.replaceChildren(...rows.map((s2) => h('tr', {}, h('td', {}, h('b', {}, s2.name), h('div', { class: 'small muted' }, `Created ${fmtDate(s2.createdAt)}`)), h('td', {}, s2.owner), h('td', {}, h('a', { href: s2.url, target: '_blank', rel: 'noopener' }, s2.customDomain && s2.domainVerified ? s2.customDomain : s2.address)),
+      h('td', {}, h('span', { class: `status ${HEALTH[health(s2)][1]}` }, HEALTH[health(s2)][0])), h('td', {}, s2.ordering.enabled ? (s2.ordering.accepting ? 'On' : 'Paused') : 'Off'), h('td', {}, s2.items), h('td', {}, s2.orders), h('td', {}, h('b', {}, money(s2.sales30))), h('td', { class: 'muted' }, s2.lastOrderAt ? when(s2.lastOrderAt) : '—'),
+      h('td', {}, link(`/app/site/${s2.id}`, { class: 'btn soft sm', title: 'Open this site exactly as the merchant sees it' }, 'View as merchant')))));
+    if (!rows.length) sitesBody.replaceChildren(h('tr', {}, h('td', { colspan: 10, class: 'muted', style: 'text-align:center;padding:24px' }, 'No sites in this group.')));
+  };
+  drawSites();
   mount(topbar(link('/app', {}, 'My sites'), accountMenu()), h('main', { class: 'page dash' },
     h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard'), h('p', { class: 'muted', style: 'margin-top:6px' }, 'Everything happening across Processor Freedom Sites.')), h('div', { class: 'row' }, h('input', { class: 'input', type: 'search', placeholder: 'Search sites, owners, orders…', 'aria-label': 'Search', style: 'width:260px;max-width:60vw', oninput: (e) => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('.dash .table tbody tr').forEach((tr) => { tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none'; }); } }), h('button', { class: 'btn soft', onclick: admin }, 'Refresh'))),
     h('div', { class: 'sgrid2' },
       stat('', I.globe, 'Sites', st.sites, `${st.live} live`), stat('', I.person, 'Accounts', st.users, `${st.newUsers} this week`),
       stat('', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('', I.cash, 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),
+      stat('', I.cash, 'Last 7 days', money(st.sales7), 'in orders'), stat('', I.cash, 'Last 30 days', money(st.sales30), 'in orders'),
+      stat('', I.person, 'Need a nudge', (counts.stalled || 0) + noSite, `${counts.stalled || 0} never published · ${noSite} with no site`),
       stat('', I.inbox, 'Messages', st.leads, 'from contact forms'), stat('', I.items, 'Menu items', st.items, `${st.orderingSites} ordering sites`)),
     h('h2', { class: 'h2' }, 'Domain requests', open.length > 0 && h('span', { class: 'badge', style: 'margin-left:10px;vertical-align:middle' }, open.length)),
     h('p', { class: 'muted', style: 'margin-bottom:14px' }, `Register the domain, point it at ${state.config.cnameTarget}, then attach it here. The site goes live on it immediately.`),
@@ -251,10 +273,10 @@ async function admin() {
     table(['Order', 'Site', 'Customer', 'Type', 'Status', 'Total', 'Placed'], data.orders.map((o) => h('tr', {}, h('td', {}, h('b', {}, `#${o.number}`)), h('td', {}, o.siteName), h('td', {}, o.name), h('td', {}, ORDER_METHODS[o.method]?.name || o.method),
       h('td', {}, h('span', { class: `status ${o.status === 'cancelled' ? 'bad' : o.status === 'new' ? 'warn' : 'ok'}` }, ORDER_STATUSES[o.status] || o.status)), h('td', {}, money(o.total)), h('td', {}, when(o.createdAt)))), 'No orders yet.'),
     h('h2', { class: 'h2' }, 'All sites'),
-    table(['Site', 'Owner', 'Address', 'Status', 'Ordering', 'Orders', 'Messages', ''], data.sites.map((s) => h('tr', {}, h('td', {}, h('b', {}, s.name)), h('td', {}, s.owner), h('td', {}, h('a', { href: s.url, target: '_blank', rel: 'noopener' }, s.customDomain && s.domainVerified ? s.customDomain : s.address)),
-      h('td', {}, h('span', { class: `status ${s.live ? 'ok' : ''}` }, s.live ? 'Live' : 'Draft')), h('td', {}, s.ordering.enabled ? (s.ordering.accepting ? 'On' : 'Paused') : 'Off'), h('td', {}, s.orders), h('td', {}, s.leads), h('td', {}, link(`/app/site/${s.id}`, { class: 'btn soft sm' }, 'Open')))), 'No sites yet.'),
+    chips,
+    h('div', { class: 'tscroll card' }, h('table', { class: 'table' }, h('thead', {}, h('tr', {}, ['Site', 'Owner', 'Address', 'Health', 'Ordering', 'Items', 'Orders', 'Sales, 30 days', 'Last order', ''].map((t) => h('th', {}, t)))), sitesBody)),
     h('h2', { class: 'h2' }, 'Accounts'),
-    table(['Name', 'Email', 'Sites', 'Joined', ''], data.users.map((u) => h('tr', {}, h('td', {}, u.name || '—'), h('td', {}, u.email), h('td', {}, u.sites), h('td', {}, fmtDate(u.createdAt)),
+    table(['Name', 'Email', 'Sites', 'Joined', ''], data.users.map((u) => h('tr', {}, h('td', {}, u.name || '—'), h('td', {}, u.email), h('td', {}, u.sites || h('span', { class: 'status warn' }, 'No site yet')), h('td', {}, fmtDate(u.createdAt)),
       h('td', { style: 'text-align:right;white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: async () => {
         try {
           const { link: url } = await api('POST', `/api/admin/users/${u.id}/reset-link`);

@@ -142,6 +142,20 @@ export const ORDER_CSS = `
   .cart{padding:22px}
 }
 @keyframes osheet{from{transform:translateY(100%)}}
+.msearch{position:relative;margin-bottom:6px}
+.msearch input{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg2);border:1px solid transparent;border-radius:14px;padding:13px 16px 13px 44px;transition:background .2s,box-shadow .2s,border-color .2s;-webkit-appearance:none;appearance:none}
+.msearch input:focus{outline:0;background:var(--bg);border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
+.msearch svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+[hidden].tile,[hidden].cat,[hidden].cats,.nomatch[hidden]{display:none!important}
+.nomatch{color:var(--muted);padding:32px 0;font-size:17px}
+.dealtag{font-size:13px;font-weight:600;color:var(--accent)}
+.add.ok{background:var(--accent);color:var(--on-accent);box-shadow:none}
+.pf-fly{position:fixed;z-index:80;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--accent);pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.bump{animation:obump .45s cubic-bezier(.34,1.56,.64,1)}
+@keyframes obump{40%{transform:scale(1.045)}}
+.line{animation:oline .3s ease}
+@keyframes oline{from{opacity:0;transform:translateY(6px)}}
+@media (prefers-reduced-motion:reduce){.bump,.line{animation:none}}
 @media (prefers-reduced-motion:reduce){.osheet,.osheet>div{animation:none}}
 `;
 
@@ -176,7 +190,7 @@ function orderClient() {
     var tax = sub ? Math.round((txs - disc * txs / sub) * c.tax / 100) : 0, fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
     var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(total) + '</span>'; }
     var out = '<h2>' + h(T.yourOrder) + '</h2>';
-    if (!L.length) { el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? T.closedNow : T.paused) + '</p>'; return; }
+    if (!L.length) { el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.paused) + '</p>'; return; }
     out += L.map(function (l) { return '<div class="line"><b>' + h(l.name) + '</b><span>' + fmt(l.price * l.qty) + '</span>' + (l.opt ? '<span class="lopt">' + h(l.opt) + '</span>' : '') + '<div class="step"><button type="button" data-qty="-1" data-i="' + l.i + '" aria-label="−">−</button><span>' + l.qty + '</span><button type="button" data-qty="1" data-i="' + l.i + '" aria-label="+">+</button></div></div>'; }).join('');
     if (c.methods.length > 1) out += '<div class="oseg" role="group">' + c.methods.map(function (m) { return '<button type="button" data-method="' + m + '" aria-pressed="' + (S.method === m) + '">' + h(c.names[m]) + '</button>'; }).join('') + '</div>';
     var about = function (n) { return n ? ' ' + T.inAbout.replace('{n}', n) : ''; };
@@ -194,7 +208,7 @@ function orderClient() {
     var short = S.method === 'delivery' && (sub < c.min || (c.zones && (S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone));
     if (S.method === 'delivery' && sub < c.min) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
     if (S.err) out += '<p class="oerr" role="alert">' + h(S.err) + '</p>';
-    out += '<button class="btn" type="submit"' + (short || !can || S.busy ? ' disabled' : '') + '>' + h(S.busy ? T.placing : can ? T.place + ' · ' + fmt(total) : c.open ? T.closedNow : T.pausedBtn) + '</button><p class="note">' + h(c.pay) + '</p></form>';
+    out += '<button class="btn" type="submit"' + (short || !can || S.busy ? ' disabled' : '') + '>' + h(S.busy ? T.placing : can ? T.place + ' · ' + fmt(total) : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.pausedBtn) + '</button><p class="note">' + h(c.pay) + '</p></form>';
     var a = d.activeElement, an = a && a.form && a.form.id === 'checkout' ? a.name : '';
     el.innerHTML = out;
     if (an) { var n = el.querySelector('[name="' + an + '"]'); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (e) {} } }
@@ -230,7 +244,28 @@ function orderClient() {
       return;
     }
     S.err = ''; keep(c); draw();
-    if (t.dataset.add) { var o = t.textContent; t.textContent = c.T.added; setTimeout(function () { t.textContent = o; }, 900); }
+    if (t.dataset.add) { var o = t.textContent; t.textContent = c.T.added; t.classList.add('ok'); setTimeout(function () { t.textContent = o; t.classList.remove('ok'); }, 900); fly(t); }
+  });
+  // A small dot travels from the button to the cart, then the cart gives a soft bounce.
+  function fly(from) {
+    var bar = d.getElementById('cartbar'), to = bar && !bar.hidden && bar.offsetParent ? bar : d.querySelector('#cart h2') || d.getElementById('cart');
+    var bump = function () { [bar, d.querySelector('#cart h2')].forEach(function (el) { if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); } }); };
+    if (!to || !from.animate || (window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches)) { bump(); return; }
+    var a = from.getBoundingClientRect(), b = to.getBoundingClientRect(), dot = d.createElement('i'); dot.className = 'pf-fly';
+    var x0 = a.left + a.width / 2, y0 = a.top + a.height / 2, x1 = Math.max(12, Math.min(innerWidth - 12, b.left + Math.min(b.width / 2, 60))), y1 = Math.max(12, Math.min(innerHeight - 12, b.top + b.height / 2));
+    dot.style.left = x0 + 'px'; dot.style.top = y0 + 'px'; d.body.appendChild(dot);
+    dot.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: 'translate(' + (x1 - x0) * 0.5 + 'px,' + ((y1 - y0) * 0.5 - 60) + 'px) scale(1.15)', opacity: 1, offset: 0.5 }, { transform: 'translate(' + (x1 - x0) + 'px,' + (y1 - y0) + 'px) scale(.4)', opacity: 0.3 }], { duration: 520, easing: 'cubic-bezier(.3,.1,.3,1)' }).onfinish = function () { dot.remove(); bump(); };
+  }
+  d.addEventListener('input', function (e) {
+    if (e.target.id !== 'pf-q') return;
+    var q = e.target.value.trim().toLowerCase(), any = false;
+    [].forEach.call(d.querySelectorAll('.ord-menu .cat'), function (cat) {
+      var shown = 0;
+      [].forEach.call(cat.querySelectorAll('.tile'), function (t) { var hit = !q || t.textContent.toLowerCase().indexOf(q) >= 0; t.hidden = !hit; if (hit) shown++; });
+      cat.hidden = !shown; if (shown) any = true;
+    });
+    var nav = d.querySelector('.cats'); if (nav) nav.hidden = !!q;
+    var nm = d.getElementById('pf-nomatch'); if (nm) nm.hidden = any;
   });
   d.addEventListener('input', function (e) { var c = conf(); if (c && e.target.form && e.target.form.id === 'checkout') { if (e.target.name === 'when') { S.when = e.target.value; return; } S.f[e.target.name] = e.target.value; keep(c); if (e.target.name === 'zip' && (e.target.value.replace(/\D/g, '').length >= 5 || e.target.value === '')) draw(); } });
   d.addEventListener('submit', function (e) {
@@ -256,7 +291,7 @@ const tile = (x, { ordering, button, T }) => {
   const out = x.available === false || x.stock === 0;
   const src = safeImg(x.image);
   const from = arr(x.options).some((g) => g.required && g.choices.every((c) => c.price > 0));
-  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? '+' : ''}${money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
+  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? '+' : ''}${money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
 export function groupMenu(menu) {
@@ -279,13 +314,14 @@ export function menuSection(d, { menu, ordering, preview, orderHref, lang }) {
   return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.name)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { T })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>${esc(T.orderOnline)}</a></div>` : ''}</div>`;
 }
 
-export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now }) {
+export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy }) {
   const o = ordering;
   const T = strings(lang);
   const methods = openMethods(o);
   const open = o.accepting && methods.length > 0;
-  const asap = isOpenNow(o, now);
-  const slot = (m) => orderSlots(o, m, now).map((v) => [v, slotLabel(v, o, lang, now)]);
+  const openNow = isOpenNow(o, now);
+  const asap = openNow && !busy;
+  const slot = (m) => orderSlots(o, m, now, taken).map((v) => [v, slotLabel(v, o, lang, now)]);
   const slots = { pickup: slot('pickup'), delivery: methods.includes('delivery') ? slot('delivery') : [] };
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
@@ -293,16 +329,17 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
-    key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, slots, items, methods, names, T,
+    key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,
     tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes, promos: arr(o.promos).some((x) => x.active),
     zones: arr(o.zones).length ? o.zones.map((z) => [z.zips, z.fee]) : null,
     pickupNote: o.pickupNote, curbsideNote: o.curbsideNote, area: o.deliveryArea, pay: hasPayUrl ? T.payEither : T.payLater,
   };
   const ways = methods.map((m) => names[m].toLowerCase());
   const lede = ways.length ? `${fill(T.orderAhead, { ways: ways.length > 1 ? `${ways.slice(0, -1).join(', ')} ${T.or} ${ways.at(-1)}` : ways[0] })}${o.prepMinutes ? ` ${fill(T.readyIn, { n: o.prepMinutes })}` : ''}` : '';
-  const notice = !open ? T.notTaking : !asap ? (can ? T.closedSchedule : T.closedNow) : '';
+  const notice = !open ? T.notTaking : !asap ? (openNow ? (can ? T.busySchedule : T.busyNow) : can ? T.closedSchedule : T.closedNow) : '';
+  const search = arr(menu).length > 5 ? `<div class="msearch"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.500-4.500"/></svg><input type="search" id="pf-q" placeholder="${esc(T.search)}" aria-label="${esc(T.search)}" autocomplete="off"></div><p class="nomatch" id="pf-nomatch" hidden>${esc(T.noMatch)}</p>` : '';
   const body = cats.length
-    ? `${cats.length > 1 ? `<nav class="cats" aria-label="${esc(T.menu)}">${cats.map((c) => `<a href="#${c.id}">${esc(c.name)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.name)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: can, button: true, T })).join('')}</div></div>`).join('')}`
+    ? `${search}${cats.length > 1 ? `<nav class="cats" aria-label="${esc(T.menu)}">${cats.map((c) => `<a href="#${c.id}">${esc(c.name)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.name)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: can, button: true, T })).join('')}</div></div>`).join('')}`
     : `<div class="empty">${preview ? 'Your menu is empty. Upload your item list in the Menu tab.' : esc(T.menuSoon)}</div>`;
   return `<section class="order"><div class="wrap"><header class="ord-head"><h1>${esc(T.orderOnline)}</h1>${lede ? `<p>${esc(lede)}</p>` : ''}${notice ? `<p class="closed">${esc(notice)}</p>` : ''}</header>
 <div class="ord-grid"><div class="ord-menu">${body}</div><aside class="cart" id="cart" aria-live="polite"></aside></div></div><a class="cartbar" id="cartbar" href="#cart" hidden></a></section>

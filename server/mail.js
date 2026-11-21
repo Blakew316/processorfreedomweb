@@ -82,3 +82,32 @@ export function resetEmail({ name, link }) {
     html: `<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1d1d1f"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" style="max-width:480px;background:#fff;border-radius:18px"><tr><td style="padding:36px 32px"><h1 style="margin:0 0 10px;font-size:26px;letter-spacing:-.02em;font-weight:600">Reset your password</h1><p style="margin:0 0 22px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(hello)} use the button below to choose a new password. The link works once and expires in 2 hours.</p><p style="margin:0 0 22px"><a href="${esc(link)}" style="display:inline-block;background:#0a1f44;color:#fff;text-decoration:none;border-radius:980px;padding:12px 24px;font-size:15px;font-weight:500">Choose a new password</a></p><p style="margin:0;font-size:13px;color:#86868b">If you did not ask for this, you can ignore this email.</p></td></tr></table></td></tr></table></body></html>`,
   };
 }
+
+const shell = (inner) => `<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1d1d1f;-webkit-font-smoothing:antialiased"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:18px"><tr><td style="padding:36px 32px">${inner}</td></tr></table></td></tr></table></body></html>`;
+const button = (url, label) => (url ? `<p style="margin:24px 0 0"><a href="${esc(url)}" style="display:inline-block;background:#1d1d1f;color:#fff;text-decoration:none;border-radius:980px;padding:12px 24px;font-size:15px;font-weight:500">${esc(label)}</a></p>` : '');
+const rowsHtml = (rows) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([k, v]) => `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e8ed;font-size:15px">${esc(k)}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #e8e8ed;font-size:15px;font-weight:600">${esc(v)}</td></tr>`).join('')}</table>`;
+
+/** The end-of-day report for the owner: sales, best sellers and what is running low. */
+export function summaryEmail({ business, dayLabel, totals, top, low, restocked, manageUrl }) {
+  const head = totals.orders ? `${money(totals.net)} from ${totals.orders} order${totals.orders === 1 ? '' : 's'}` : 'No orders';
+  const sums = [['Orders', String(totals.orders)], ['Net sales', money(totals.net)], ['Sales tax', money(totals.tax)], ['Tips', money(totals.tips)], ['Total collected', money(totals.total)]];
+  const h3 = (t) => `<h2 style="margin:26px 0 6px;font-size:17px;font-weight:600">${esc(t)}</h2>`;
+  const html = shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)} · ${esc(dayLabel)}</p><h1 style="margin:0 0 20px;font-size:28px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(head)}</h1>${rowsHtml(sums)}${top.length ? h3('Best sellers') + rowsHtml(top.map((i) => [`${i.qty} × ${i.name}`, money(i.sales)])) : ''}${low.length ? h3('Running low') + rowsHtml(low.map((i) => [i.name, i.stock === 0 ? 'Sold out' : `${i.stock} left`])) : ''}${restocked ? `<p style="margin:18px 0 0;font-size:14px;color:#6e6e73">${restocked} item${restocked === 1 ? ' was' : 's were'} refilled to ${restocked === 1 ? 'its' : 'their'} daily quantity this morning.</p>` : ''}${button(manageUrl, 'Open sales')}`);
+  const text = [`${business.name} · ${dayLabel}`, '', head, '', ...sums.map(([k, v]) => `${k}: ${v}`), ...(top.length ? ['', 'Best sellers', ...top.map((i) => `${i.qty} x ${i.name}  ${money(i.sales)}`)] : []), ...(low.length ? ['', 'Running low', ...low.map((i) => `${i.name}: ${i.stock === 0 ? 'sold out' : `${i.stock} left`}`)] : []), '', manageUrl || ''].join('\n');
+  return { subject: `${dayLabel}: ${head} · ${business.name}`, html, text };
+}
+
+export function lowStockEmail({ business, items, manageUrl }) {
+  const title = items.length === 1 ? `${items[0].name} is ${items[0].stock === 0 ? 'sold out' : 'running low'}` : `${items.length} items are running low`;
+  const html = shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)}</p><h1 style="margin:0 0 10px;font-size:26px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">Sold-out items come off your order page on their own. Update the quantity when you have more.</p>${rowsHtml(items.map((i) => [i.name, i.stock === 0 ? 'Sold out' : `${i.stock} left`]))}${button(manageUrl, 'Open items')}`);
+  return { subject: `${title} · ${business.name}`, html, text: [business.name, '', title, '', ...items.map((i) => `${i.name}: ${i.stock === 0 ? 'sold out' : `${i.stock} left`}`), '', manageUrl || ''].join('\n') };
+}
+
+export function inviteEmail({ business, role, link, inviter, fresh = true }) {
+  const what = role === 'kitchen' ? 'see and update orders' : 'help manage the site, menu and orders';
+  return {
+    subject: `You have been added to ${business} on Processor Freedom Sites`,
+    text: `${inviter || 'The owner'} added you to ${business} so you can ${what}.\n\n${fresh ? 'Choose your password and sign in here. The link works once and expires in 3 days.' : 'Sign in with your existing account to get started.'}\n\n${link}`,
+    html: shell(`<h1 style="margin:0 0 10px;font-size:26px;letter-spacing:-.02em;font-weight:600">You have been added to ${esc(business)}</h1><p style="margin:0;font-size:16px;line-height:1.5;color:#6e6e73">${esc(inviter || 'The owner')} added you so you can ${what}. ${fresh ? 'Choose your password to sign in. The link works once and expires in 3 days.' : 'Sign in with your existing account to get started.'}</p>${button(link, fresh ? 'Choose my password' : 'Sign in')}`),
+  };
+}

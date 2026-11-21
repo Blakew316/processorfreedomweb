@@ -749,3 +749,123 @@ test('sales report: periods, tax, order types, items, cancelled orders', async (
   r = await me('GET', `/api/sites/${site.id}/stats?range=today`);
   assert.equal(r.data.items.find((i) => i.name === 'Gift card').category, 'No longer on the menu');
 });
+
+test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, customers, team, menu scan', async () => {
+  const core = await import('../shared/core.js');
+  // Timed prices: Monday 16:00 Central is inside a 15:00-18:00 weekday window, 19:00 is not.
+  const o0 = core.normalizeOrdering({ deals: [{ name: 'Happy hour', percent: 25, from: '15:00', to: '18:00', days: [false, true, true, true, true, true, false], category: 'Drinks' }] });
+  const mon4pm = Date.parse('2026-11-16T22:00:00Z'), mon7pm = Date.parse('2026-11-17T01:00:00Z'), sun4pm = Date.parse('2026-11-15T22:00:00Z');
+  const soda = { id: 'a', name: 'Soda', category: 'Drinks', price: 400, sale: 0 }, taco = { id: 'b', name: 'Taco', category: 'Tacos', price: 400, sale: 0 };
+  assert.deepEqual(core.pricedMenu([soda, taco], o0, mon4pm).map((x) => core.itemPrice(x)), [300, 400]);
+  assert.equal(core.itemPrice(core.pricedMenu([soda], o0, mon7pm)[0]), 400);
+  assert.equal(core.itemPrice(core.pricedMenu([soda], o0, sun4pm)[0]), 400, 'not on a day that is switched off');
+  assert.equal(core.itemPrice(core.pricedMenu([{ ...soda, sale: 50 }], o0, mon4pm)[0]), 200, 'a bigger sale on the item wins');
+  // Full time slots drop out of the list.
+  const sched = core.normalizeOrdering({ scheduling: true, slotLimit: 2 });
+  const all = core.orderSlots(sched, 'pickup', mon4pm);
+  assert.ok(!core.orderSlots(sched, 'pickup', mon4pm, { [all[0]]: 2 }).includes(all[0]));
+  assert.ok(core.orderSlots(sched, 'pickup', mon4pm, { [all[0]]: 1 }).includes(all[0]));
+
+  const d2 = mkdtempSync(join(tmpdir(), 'pfsites2-'));
+  const sent = [], pushed = [];
+  const app2 = createApp({ dataDir: d2, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, msg) => { pushed.push(msg); },
+    scanner: async (buf, type) => ({ items: [{ category: 'Tacos', name: `Scanned ${type}`, price: 425, desc: 'From the photo' }, { category: 'Tacos', name: '', price: 100, desc: '' }] }) });
+  const srv = createServer(app2);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'refillcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'owner@refill.test', password: 'long-enough-pw', name: 'Olga' });
+    const site = (await me('POST', '/api/sites', { name: 'Refill Cafe', template: 'order', kind: 'ordering', csv: 'Category,Item,Price\nTacos,Taco,4.00\nDrinks,Soda,2.00' })).data.site;
+    let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const [tacoId, sodaId] = items.map((x) => x.id);
+    assert.equal(items[0].restock, null);
+    items = (await me('PUT', `/api/sites/${site.id}/menu/${tacoId}`, { stock: 7, restock: 40 })).data.items;
+    assert.deepEqual([items[0].stock, items[0].restock], [7, 40]);
+    await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [sodaId], set: { restock: 12, stock: 9 } });
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, slotLimit: 2, lowStockAt: 5, notifyEmail: 'boss@refill.test' } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://push.example/x', keys: { p256dh: 'k', auth: 'a' } } });
+
+    const who = { method: 'pickup', name: 'Ana Diaz', phone: '903-555-0100', email: 'Ana@Example.com' };
+    const place = (b) => anon('POST', '/_order', { ...who, ...b }, host);
+    // 7 tacos, alert at 5: the order that takes it from 7 to 4 raises the alert, the next one does not.
+    assert.equal((await place({ items: [{ id: tacoId, qty: 3 }] })).status, 201);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(sent.some((m) => m.to === 'boss@refill.test' && /running low/i.test(m.subject)), 'low stock email');
+    assert.ok(pushed.some((m) => /Running low/.test(m.title) && /Taco: 4 left/.test(m.body)), 'low stock push');
+    const lowMails = sent.filter((m) => /running low|sold out/i.test(m.subject)).length;
+    assert.equal((await place({ items: [{ id: tacoId, qty: 1 }], email: 'ben@example.com', name: 'Ben' })).status, 201);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(sent.filter((m) => /running low|sold out/i.test(m.subject)).length, lowMails, 'no repeat alert while already low');
+    // The kitchen limit: two orders in fifteen minutes is the cap.
+    const full = await place({ items: [{ id: sodaId, qty: 1 }] });
+    assert.equal(full.status, 409);
+    assert.match(full.data.error, /as many orders as we can make/);
+    assert.match((await anon('GET', '/order', null, host)).data, /as many orders as we can make/);
+
+    // Customers: one row per email, whatever the capitals.
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, slotLimit: 0, lowStockAt: 5, notifyEmail: 'boss@refill.test' } });
+    assert.equal((await place({ items: [{ id: sodaId, qty: 2 }], email: 'ana@example.com' })).status, 201);
+    const people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
+    assert.equal(people.length, 2);
+    const ana = people.find((c) => c.email === 'ana@example.com');
+    assert.deepEqual([ana.orders, ana.spent, ana.favourite], [2, 1600, 'Taco']);
+
+    // The day ends: the summary goes out and quantities refill.
+    assert.deepEqual((await me('GET', `/api/sites/${site.id}/menu`)).data.items.map((x) => x.stock), [3, 7]);
+    app2.tick(Date.now());
+    sent.length = 0;
+    app2.tick(Date.now() + 26 * 3600000);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual((await me('GET', `/api/sites/${site.id}/menu`)).data.items.map((x) => x.stock), [40, 12]);
+    const summary = sent.find((m) => /3 orders/.test(m.subject));
+    assert.ok(summary, 'summary email');
+    assert.equal(summary.to, 'boss@refill.test');
+    assert.match(summary.html, /Best sellers/);
+    assert.match(summary.html, /refilled/);
+    sent.length = 0;
+    app2.tick(Date.now() + 27 * 3600000);
+    assert.equal(sent.length, 0, 'only once a day');
+
+    // Team: a kitchen login sees orders and nothing else; a manager cannot touch the team or delete the site.
+    const invite = (await me('POST', `/api/sites/${site.id}/team`, { email: 'cook@refill.test', name: 'Cook', role: 'kitchen' })).data;
+    assert.match(invite.link, /\/reset\?token=/);
+    assert.ok(sent.some((m) => m.to === 'cook@refill.test'));
+    const cook = client();
+    assert.equal((await cook('POST', '/api/auth/reset', { token: invite.link.split('token=')[1], password: 'cooks-password' })).status, 200);
+    const mine = (await cook('GET', '/api/sites')).data.sites;
+    assert.deepEqual(mine.map((s) => [s.name, s.role]), [['Refill Cafe', 'kitchen']]);
+    const orders = (await cook('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    assert.equal(orders.length, 3);
+    assert.equal((await cook('POST', `/api/sites/${site.id}/orders/${orders[0].id}`, { status: 'confirmed' })).status, 200);
+    for (const [m, path, body] of [['GET', `/api/sites/${site.id}/stats`], ['GET', `/api/sites/${site.id}/customers`], ['PUT', `/api/sites/${site.id}/menu/${tacoId}`, { price: 1 }], ['PUT', `/api/sites/${site.id}/ordering`, { ordering: {} }], ['DELETE', `/api/sites/${site.id}`], ['GET', `/api/sites/${site.id}/team`]]) {
+      assert.equal((await cook(m, path, body)).status, 403, `${m} ${path}`);
+    }
+    assert.equal((await cook('GET', `/preview/${site.id}/`)).status, 302);
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'cook@refill.test', role: 'manager' });
+    assert.equal((await cook('GET', `/api/sites/${site.id}/stats`)).status, 200);
+    assert.equal((await cook('DELETE', `/api/sites/${site.id}`)).status, 403);
+    assert.equal((await cook('POST', `/api/sites/${site.id}/team`, { email: 'x@refill.test' })).status, 403);
+    const stranger = client();
+    await stranger('POST', '/api/auth/signup', { email: 'else@refill.test', password: 'long-enough-pw' });
+    assert.equal((await stranger('GET', `/api/sites/${site.id}/orders`)).status, 404);
+    const team = (await me('GET', `/api/sites/${site.id}/team`)).data.members;
+    assert.deepEqual(team.map((t) => [t.email, t.role]), [['cook@refill.test', 'manager']]);
+    await me('DELETE', `/api/sites/${site.id}/team/${team[0].id}`);
+    assert.equal((await cook('GET', `/api/sites/${site.id}/orders`)).status, 404);
+
+    // Menu scan: the file is read, the merchant confirms, then items are added.
+    assert.equal((await me('GET', '/api/config')).data.scanEnabled, true);
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/scan`, Buffer.from('not a menu'), { raw: true })).status, 415);
+    const scan = await me('POST', `/api/sites/${site.id}/menu/scan`, Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(40)]), { raw: true });
+    assert.equal(scan.status, 200);
+    assert.equal(scan.data.items[0].name, 'Scanned application/pdf');
+    const imp = (await me('POST', `/api/sites/${site.id}/menu/import`, { items: scan.data.items, startStock: 30 })).data;
+    assert.equal(imp.imported, 1, 'the nameless row is dropped');
+    const added = imp.items.at(-1);
+    assert.deepEqual([added.name, added.price, added.stock, added.desc], ['Scanned application/pdf', 425, 30, 'From the photo']);
+  } finally {
+    base = saved; srv.close(); app2.close(); rmSync(d2, { recursive: true, force: true });
+  }
+});

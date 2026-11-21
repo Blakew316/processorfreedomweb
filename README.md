@@ -109,3 +109,14 @@ Icons are from [Ionicons](https://ionic.io/ionicons) (MIT licence), stored in `s
 - Text-message alerts for new orders, and a built-in stock photo library.
 - Contact-form notifications by email. Order emails are English only.
 - Billing for the builder itself.
+
+## Back office and website
+
+The editor has two separate sides, switched at the top:
+
+- **Back office** — orders, sales, customers, messages, menu, items, order settings and team. No site preview; this is for running the business.
+- **Website** — look and feel, home page, business info, web address, policies, search and history, beside a live preview.
+
+Also in the back office: daily refill per item, happy-hour prices, a cap on orders per 15 minutes, a customer list with export,
+team logins (kitchen or manager), low-stock alerts and a morning summary email. Menu scanning from a photo or PDF appears when
+`ANTHROPIC_API_KEY` is set.

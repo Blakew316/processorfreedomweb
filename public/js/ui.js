@@ -77,12 +77,13 @@ export function toast(text, bad = false) {
   if (!toasts || !toasts.isConnected) document.body.append((toasts = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' })));
   const t = h('div', { class: `toast${bad ? ' bad' : ''}` }, text);
   toasts.append(t);
-  setTimeout(() => t.remove(), bad ? 5000 : 2800);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 220); }, bad ? 5000 : 2800);
 }
 
 export function sheet(build, cls = '', onClose) {
   let open = true;
-  const close = () => { if (!open) return; open = false; scrim.remove(); document.removeEventListener('keydown', onKey); onClose?.(); };
+  // The window eases away rather than vanishing; everything else carries on straight away.
+  const close = () => { if (!open) return; open = false; scrim.classList.add('out'); setTimeout(() => scrim.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); };
   const onKey = (e) => e.key === 'Escape' && close();
   const box = h('div', { class: `sheet ${cls}`, role: 'dialog', 'aria-modal': 'true' });
   const scrim = h('div', { class: 'scrim', onmousedown: (e) => e.target === scrim && close() }, box);
@@ -114,18 +115,27 @@ export function thumb(site, page = 'home', extra = {}, size = null) {
   return wrap;
 }
 
-/* Images are resized in the browser before upload, so phone photos stay fast. */
-export async function uploadImage(file) {
+/* Soft placeholder shapes shown while something loads, in the shape of what is coming. */
+export const skel = (n = 3, kind = 'row') => (kind === 'kpi' ? Array.from({ length: n }, () => h('div', { class: 'skel sk-kpi', 'aria-hidden': 'true' })) : h('div', { class: `skels sk-${kind}s`, 'aria-busy': 'true', 'aria-label': 'Loading' }, Array.from({ length: n }, () => h('div', { class: `skel sk-${kind}` }))));
+/* A friendly "nothing here yet", with the next step when there is one. */
+export const emptyState = (icon, title, text, action) => h('div', { class: 'inv-empty' }, ic(icon, 30), h('b', {}, title), h('p', {}, text), action && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: action[1] }, action[0]));
+
+/* Images are resized in the browser before upload, so phone photos stay fast.
+   `crop` trims to one shape from the centre: { ratio: width / height, max: longest side }. */
+export async function uploadImage(file, crop) {
   if (!file) return '';
   if (!/^image\//.test(file.type)) throw new Error('Choose an image file.');
   let blob = file;
   if (!/svg|gif/.test(file.type)) {
     try {
       const bmp = await createImageBitmap(file);
-      const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
-      if (scale < 1 || file.size > 600_000) {
-        const c = h('canvas', { width: Math.round(bmp.width * scale), height: Math.round(bmp.height * scale) });
-        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      let sw = bmp.width, sh = bmp.height;
+      if (crop?.ratio) { if (sw / sh > crop.ratio) sw = Math.round(sh * crop.ratio); else sh = Math.round(sw / crop.ratio); }
+      const cropped = sw !== bmp.width || sh !== bmp.height;
+      const scale = Math.min(1, (crop?.max || 2000) / Math.max(sw, sh));
+      if (scale < 1 || cropped || file.size > 600_000) {
+        const c = h('canvas', { width: Math.round(sw * scale), height: Math.round(sh * scale) });
+        c.getContext('2d').drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, 0, 0, c.width, c.height);
         const png = file.type === 'image/png';
         blob = await new Promise((r) => c.toBlob(r, png ? 'image/png' : 'image/jpeg', 0.86)) || file;
       }

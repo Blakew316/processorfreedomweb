@@ -5,8 +5,9 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail } from './mail.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu } from '../shared/core.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail } from './mail.js';
+import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
 
@@ -55,6 +56,7 @@ export function createApp(options = {}) {
   const dns = options.dns || dnsp;
   const mailer = options.mailer || createMailer(env);
   const pusher = options.pusher || sendPush;
+  const scanner = options.scanner || (scanEnabled(env) ? (buf, type) => scanMenu(env, buf, type) : null);
   // Notification keys are made once and kept with the data, so there is nothing to configure.
   const vapid = (() => {
     const saved = db.get("SELECT value FROM settings WHERE key = 'vapid'");
@@ -63,8 +65,9 @@ export function createApp(options = {}) {
     db.run("INSERT INTO settings (key, value) VALUES ('vapid', ?)", JSON.stringify(made));
     return made;
   })();
-  function notifyOwner(userId, message) {
-    for (const sub of db.all('SELECT * FROM push_subs WHERE user_id = ?', userId)) {
+  // The owner and everyone on the site's team hear about it.
+  function notifySite(site, message) {
+    for (const sub of db.all('SELECT * FROM push_subs WHERE user_id = ? OR user_id IN (SELECT user_id FROM members WHERE site_id = ?)', site.user_id, site.id)) {
       Promise.resolve().then(() => pusher(sub, message, vapid)).then((r) => { if (r === 'gone') db.run('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint); }).catch((e) => console.error('Push failed:', e.message));
     }
   }
@@ -166,7 +169,7 @@ export function createApp(options = {}) {
     return out;
   }
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
-  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
   const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
   function cleanItem(b, prev = {}) {
@@ -175,12 +178,13 @@ export function createApp(options = {}) {
     if (!name) bad(400, 'Give the item a name.');
     if (price == null || !(price >= 0) || price > 100_000_00) bad(400, 'Enter a price like 9.99.');
     const stock = b.stock === undefined || b.stock === null || b.stock === '' ? prev.stock ?? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
+    const restock = b.restock === undefined ? prev.restock ?? null : b.restock === null || b.restock === '' ? null : Math.max(0, Math.min(999999, Math.round(Number(b.restock)) || 0));
     const sale = b.sale === undefined ? prev.sale || 0 : Math.max(0, Math.min(90, Math.round(Number(b.sale)) || 0));
-    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, sale, options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
+    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, restock, sale, options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
   }
   function insertItems(siteId, items, startStock = DEFAULT_STOCK) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
-    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, options, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++);
+    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, restock, options, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, it.restock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++);
   }
   // A promo code is either one the merchant created or an unused loyalty reward.
   function promoFor(site, ordering, code) {
@@ -203,12 +207,54 @@ export function createApp(options = {}) {
     Promise.resolve().then(() => mailer.send({ to, ...msg, fromName: business.name, replyTo: kind === 'merchant' ? order.email : business.email })).catch((e) => console.error('Order email failed:', e.message));
   }
 
-  function ownSite(req, id) {
+  // Who may do what: the owner everything, a manager everything except the team and deleting the site, kitchen staff only orders.
+  const LEVEL = { kitchen: 1, manager: 2, owner: 3 };
+  const roleOn = (site, user) => (site.user_id === user.id || user.admin ? 'owner' : db.get('SELECT role FROM members WHERE site_id = ? AND user_id = ?', site.id, user.id)?.role || '');
+  function ownSite(req, id, need = 'manager') {
     const user = requireUser(req);
     const site = db.get('SELECT * FROM sites WHERE id = ?', id);
-    if (!site || (site.user_id !== user.id && !user.admin)) bad(404, 'We could not find that site.');
-    return { user, site };
+    const role = site ? roleOn(site, user) : '';
+    if (!role) bad(404, 'We could not find that site.');
+    if (LEVEL[role] < LEVEL[need]) bad(403, 'Your login does not allow that. Ask the owner of this site.');
+    return { user, site, role };
   }
+  const teamOf = (site) => db.all('SELECT u.id, u.name, u.email, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id);
+
+  /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
+  const takenSlots = (siteId) => Object.fromEntries(db.all("SELECT scheduled, COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled != '' AND status != 'cancelled' AND created_at > ? GROUP BY scheduled", siteId, Date.now() - 3 * DAY).map((r) => [r.scheduled, r.n]));
+  const busyNow = (siteId, ordering) => ordering.slotLimit > 0 && db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled = '' AND status != 'cancelled' AND created_at > ?", siteId, Date.now() - 15 * 60000).n >= ordering.slotLimit;
+
+  /* Once a day, a little after closing time, each site's day is wrapped up: the summary goes out and quantities refill. */
+  const bizDay = (ordering, ms = Date.now()) => new Date(wallNow(ordering, ms) - 4 * 3600000).toISOString().slice(0, 10);
+  function closeDay(site, nowMs) {
+    const ordering = orderingOf(site);
+    const today = bizDay(ordering, nowMs);
+    if (site.day === today) return;
+    if (site.day) {
+      const rows = db.all("SELECT * FROM orders WHERE site_id = ? AND status != 'cancelled' AND created_at > ?", site.id, nowMs - 4 * DAY).map(toOrder).filter((o) => bizDay(ordering, o.createdAt) === site.day);
+      const totals = { orders: rows.length, net: 0, tax: 0, tips: 0, total: 0 };
+      const sold = new Map();
+      for (const o of rows) {
+        totals.net += o.subtotal - o.discount; totals.tax += o.tax; totals.tips += o.tip; totals.total += o.total;
+        for (const l of o.items) { const it = sold.get(l.name) || sold.set(l.name, { name: l.name, qty: 0, sales: 0 }).get(l.name); it.qty += l.qty; it.sales += l.price * l.qty; }
+      }
+      const restocked = Number(db.run('UPDATE menu_items SET stock = restock WHERE site_id = ? AND restock IS NOT NULL AND stock != restock', site.id).changes) || 0;
+      const low = db.all('SELECT name, stock FROM menu_items WHERE site_id = ? AND available = 1 AND stock <= ? ORDER BY stock, name LIMIT 30', site.id, ordering.lowStockAt);
+      if (ordering.enabled && ordering.dailySummary && (totals.orders || low.length)) {
+        const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
+        const business = businessOf(site);
+        const msg = summaryEmail({ business, totals, low, restocked, top: [...sold.values()].sort((a, b) => b.qty - a.qty).slice(0, 5), dayLabel: new Date(`${site.day}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }), manageUrl: APP_URL ? `${APP_URL}/app/site/${site.id}?tab=sales` : '' });
+        Promise.resolve().then(() => mailer.send({ to: ordering.notifyEmail || business.email || owner?.email, ...msg })).catch((e) => console.error('Summary email failed:', e.message));
+      }
+    }
+    db.run('UPDATE sites SET day = ? WHERE id = ?', today, site.id);
+  }
+  function tick(nowMs = Date.now()) {
+    for (const site of db.all('SELECT * FROM sites')) { try { closeDay(site, nowMs); } catch (e) { console.error('Daily wrap-up failed for', site.id, e.message); } }
+  }
+  const daily = setInterval(tick, 5 * 60000);
+  daily.unref();
+  setTimeout(tick, 4000).unref();
   function packDraft(input) {
     const draft = JSON.stringify(normalizeSite(input));
     if (draft.length > 400_000) bad(413, 'This site has more content than we can save. Try shortening some text.');
@@ -243,7 +289,7 @@ export function createApp(options = {}) {
   const route = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
 
   route('GET', '/api/config', (req, res) => json(res, 200, {
-    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey,
+    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey, scanEnabled: !!scanner,
   }));
 
   route('GET', '/api/me', (req, res) => json(res, 200, { user: currentUser(req) }));
@@ -294,10 +340,10 @@ export function createApp(options = {}) {
     json(res, 200, { ok: true });
   });
 
-  function resetLinkFor(req, userId) {
+  function resetLinkFor(req, userId, hours = 2) {
     const token = randomBytes(32).toString('base64url');
     db.run('DELETE FROM resets WHERE user_id = ?', userId);
-    db.run('INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + 2 * 3600000);
+    db.run('INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + hours * 3600000);
     return `${appOrigin(req)}/reset?token=${token}`;
   }
   route('POST', '/api/auth/forgot', async (req, res) => {
@@ -335,8 +381,8 @@ export function createApp(options = {}) {
 
   route('GET', '/api/sites', (req, res) => {
     const user = requireUser(req);
-    const rows = db.all('SELECT s.*, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads FROM sites s WHERE user_id = ? ORDER BY updated_at DESC', user.id);
-    json(res, 200, { sites: rows.map((s) => ({ ...present(req, s, true), leads: s.leads, menu: menuOf(s.id).slice(0, 12), newOrders: db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND status = 'new'", s.id).n })) });
+    const rows = db.all('SELECT s.*, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads FROM sites s WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?) ORDER BY updated_at DESC', user.id, user.id);
+    json(res, 200, { sites: rows.map((s) => ({ ...present(req, s, true), role: s.user_id === user.id ? 'owner' : roleOn(s, { id: user.id }), leads: s.leads, menu: menuOf(s.id).slice(0, 12), newOrders: db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND status = 'new'", s.id).n })) });
   });
 
   route('POST', '/api/sites', async (req, res) => {
@@ -357,7 +403,7 @@ export function createApp(options = {}) {
     json(res, 201, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', id), true) });
   });
 
-  route('GET', '/api/sites/:id', (req, res, p) => json(res, 200, { site: present(req, ownSite(req, p.id).site, true) }));
+  route('GET', '/api/sites/:id', (req, res, p) => { const { site, role } = ownSite(req, p.id, 'kitchen'); json(res, 200, { site: { ...present(req, site, true), role } }); });
 
   route('PUT', '/api/sites/:id', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -368,7 +414,7 @@ export function createApp(options = {}) {
   });
 
   route('DELETE', '/api/sites/:id', (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site } = ownSite(req, p.id, 'owner');
     db.run('DELETE FROM sites WHERE id = ?', site.id);
     json(res, 200, { ok: true });
   });
@@ -456,7 +502,68 @@ export function createApp(options = {}) {
   });
 
   /* Menu and inventory. Changes here apply to the live site straight away. */
-  route('GET', '/api/sites/:id/menu', (req, res, p) => json(res, 200, { items: menuOf(ownSite(req, p.id).site.id) }));
+  route('GET', '/api/sites/:id/menu', (req, res, p) => json(res, 200, { items: menuOf(ownSite(req, p.id, 'kitchen').site.id) }));
+
+  /* The team: extra logins for a site. */
+  route('GET', '/api/sites/:id/team', (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'owner');
+    json(res, 200, { members: teamOf(site), owner: db.get('SELECT name, email FROM users WHERE id = ?', site.user_id) });
+  });
+  route('POST', '/api/sites/:id/team', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id, 'owner');
+    const b = await readJson(req);
+    const email = str(b.email, 200).trim().toLowerCase();
+    const role = b.role === 'manager' ? 'manager' : 'kitchen';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'Enter a valid email address.');
+    const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
+    if (email === owner.email) bad(400, 'That is the owner of this site, who already has full access.');
+    let person = db.get('SELECT id FROM users WHERE email = ?', email);
+    let link = '';
+    if (!person) {
+      if (teamOf(site).length >= 25) bad(400, 'A site can have up to 25 team logins.');
+      person = { id: newId() };
+      // A password nobody knows; the person chooses their own from the link.
+      db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', person.id, email, str(b.name, 80).trim(), await hashPassword(randomBytes(24).toString('hex')), Date.now());
+      link = resetLinkFor(req, person.id, 72);
+    }
+    db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
+    const msg = inviteEmail({ business: site.name, role, link: link || `${appOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
+    Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
+    json(res, 201, { members: teamOf(site), link, emailed: !!mailer.enabled });
+  });
+  route('DELETE', '/api/sites/:id/team/:user', (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'owner');
+    db.run('DELETE FROM members WHERE site_id = ? AND user_id = ?', site.id, p.user);
+    json(res, 200, { members: teamOf(site) });
+  });
+
+  /* Everyone who has ordered, newest first. */
+  route('GET', '/api/sites/:id/customers', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const people = new Map();
+    for (const o of db.all('SELECT name, email, phone, total, status, items, created_at FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 20000', site.id)) {
+      const key = o.email.toLowerCase();
+      const c = people.get(key) || people.set(key, { name: o.name, email: key, phone: o.phone, orders: 0, spent: 0, last: o.created_at, first: o.created_at, items: new Map() }).get(key);
+      c.first = o.created_at;
+      if (o.status === 'cancelled') continue;
+      c.orders++; c.spent += o.total;
+      for (const l of JSON.parse(o.items)) c.items.set(l.name, (c.items.get(l.name) || 0) + l.qty);
+    }
+    json(res, 200, { customers: [...people.values()].map((c) => ({ ...c, items: undefined, favourite: [...c.items].sort((a, b) => b[1] - a[1])[0]?.[0] || '' })) });
+  });
+
+  /* Reads a photo or PDF of a paper menu. Nothing is saved until the merchant confirms the list. */
+  route('POST', '/api/sites/:id/menu/scan', async (req, res, p) => {
+    const { user } = ownSite(req, p.id);
+    if (!scanner) bad(503, 'Menu scanning is not switched on yet.');
+    limit(`scan:${user.id}`, 20, 3600000);
+    const buf = await readBody(req, 12 * 1024 * 1024);
+    const type = buf.toString('latin1', 0, 5) === '%PDF-' ? 'application/pdf' : { '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' }[sniffImage(buf)];
+    if (!type) bad(415, 'Upload a photo (JPG or PNG) or a PDF of your menu.');
+    let out;
+    try { out = await scanner(buf, type); } catch (e) { console.error('Menu scan failed:', e.message); bad(502, 'We could not read that menu just now. Please try again.'); }
+    json(res, 200, { items: (out.items || []).slice(0, 1000), reason: out.reason || '' });
+  });
 
   route('POST', '/api/sites/:id/menu', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -468,7 +575,10 @@ export function createApp(options = {}) {
   route('POST', '/api/sites/:id/menu/import', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const b = await readJson(req, 1_500_000);
-    const parsed = parseMenuCsv(str(b.csv, 1_000_000));
+    // Either a spreadsheet, or a list the merchant has already checked (from a scanned menu).
+    const parsed = Array.isArray(b.items)
+      ? { errors: [], items: b.items.slice(0, 1000).map((x) => { try { const it = cleanItem({ category: x?.category, name: x?.name, price: typeof x?.price === 'number' ? x.price : 0, desc: x?.desc }); return { ...it, stock: undefined }; } catch { return null; } }).filter(Boolean) }
+      : parseMenuCsv(str(b.csv, 1_000_000));
     if (!parsed.items.length) bad(400, parsed.errors[0]?.reason || 'No items were found in the file.');
     const existing = b.replace ? 0 : db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n;
     const room = Math.max(0, 1000 - existing);
@@ -485,7 +595,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const prev = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id) || bad(404, 'That item no longer exists.');
     const it = cleanItem(await readJson(req), prev);
-    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, options = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.options, prev.id);
+    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
 
@@ -551,6 +661,7 @@ export function createApp(options = {}) {
         if (typeof set.available === 'boolean') db.run('UPDATE menu_items SET available = ? WHERE id = ?', set.available ? 1 : 0, row.id);
         if (set.stock !== undefined) db.run('UPDATE menu_items SET stock = ? WHERE id = ?', num(set.stock, 0, 999999), row.id);
         if (set.addStock !== undefined) db.run('UPDATE menu_items SET stock = MAX(0, MIN(999999, stock + ?)) WHERE id = ?', num(set.addStock, -999999, 999999), row.id);
+        if (set.restock !== undefined) db.run('UPDATE menu_items SET restock = ? WHERE id = ?', set.restock === null || set.restock === '' ? null : num(set.restock, 0, 999999), row.id);
         if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
         if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', str(set.category, 60).trim(), row.id);
         if (set.pricePercent !== undefined) db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + num(set.pricePercent, -90, 500))) / 100))), row.id);
@@ -649,12 +760,12 @@ export function createApp(options = {}) {
   });
 
   route('GET', '/api/sites/:id/orders', (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site } = ownSite(req, p.id, 'kitchen');
     json(res, 200, { orders: db.all('SELECT * FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 300', site.id).map(toOrder) });
   });
 
   route('POST', '/api/sites/:id/orders/:order', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site } = ownSite(req, p.id, 'kitchen');
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     const status = str((await readJson(req)).status, 20);
     if (!ORDER_STATUSES[status]) bad(400, 'Unknown status.');
@@ -693,10 +804,12 @@ export function createApp(options = {}) {
         users: n('SELECT COUNT(*) AS n FROM users'), newUsers: n('SELECT COUNT(*) AS n FROM users WHERE created_at > ?', Date.now() - 7 * DAY),
         sites: n('SELECT COUNT(*) AS n FROM sites'), live: n('SELECT COUNT(*) AS n FROM sites WHERE published IS NOT NULL'), leads: n('SELECT COUNT(*) AS n FROM leads'),
         orders: n('SELECT COUNT(*) AS n FROM orders'), ordersToday: n('SELECT COUNT(*) AS n FROM orders WHERE created_at > ?', day),
+        sales7: n("SELECT SUM(total) AS n FROM orders WHERE status != 'cancelled' AND created_at > ?", Date.now() - 7 * DAY), sales30: n("SELECT SUM(total) AS n FROM orders WHERE status != 'cancelled' AND created_at > ?", Date.now() - 30 * DAY),
         sales: n("SELECT SUM(total) AS n FROM orders WHERE status != 'cancelled'"), salesToday: n("SELECT SUM(total) AS n FROM orders WHERE status != 'cancelled' AND created_at > ?", day),
         items: n('SELECT COUNT(*) AS n FROM menu_items'), orderingSites: sites.filter((s) => orderingOf(s).enabled).length,
       },
-      sites: sites.map((s) => ({ ...present(req, s), owner: s.owner, leads: s.leads, orders: s.orders })),
+      sites: sites.map((s) => ({ ...present(req, s), owner: s.owner, leads: s.leads, orders: s.orders, items: n('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', s.id),
+        sales30: n("SELECT SUM(total) AS n FROM orders WHERE site_id = ? AND status != 'cancelled' AND created_at > ?", s.id, Date.now() - 30 * DAY), lastOrderAt: n('SELECT MAX(created_at) AS n FROM orders WHERE site_id = ?', s.id) })),
       orders: db.all('SELECT o.number, o.name, o.method, o.status, o.total, o.created_at AS createdAt, s.name AS siteName FROM orders o JOIN sites s ON s.id = o.site_id ORDER BY o.created_at DESC LIMIT 50'),
       users: db.all('SELECT u.id, u.name, u.email, u.created_at AS createdAt, (SELECT COUNT(*) FROM sites s WHERE s.user_id = u.id) AS sites FROM users u ORDER BY u.created_at DESC LIMIT 500'),
       requests,
@@ -778,7 +891,7 @@ export function createApp(options = {}) {
       const method = str(b.method, 20);
       if (!ordering.methods[method]) bad(400, 'Choose how you would like to receive your order.');
       const scheduled = str(b.when, 20);
-      if (scheduled) { if (!orderSlots(ordering, method).includes(scheduled)) bad(409, 'That time is no longer available. Please choose another.'); }
+      if (scheduled) { if (!orderSlots(ordering, method, undefined, takenSlots(site.id)).includes(scheduled)) bad(409, 'That time is no longer available. Please choose another.'); }
       else if (!isOpenNow(ordering)) bad(409, ordering.scheduling ? 'We are closed right now. Please choose a time for your order.' : 'We are closed right now. Please order during our opening hours.');
       const who = { name: str(b.name, 120).trim(), phone: str(b.phone, 40).trim(), email: str(b.email, 200).trim(), address: method === 'delivery' ? str(b.address, 300).trim() : '', vehicle: method === 'curbside' ? str(b.vehicle, 120).trim() : '', notes: ordering.allowNotes ? str(b.notes, 500).trim() : '' };
       if (!who.name || who.phone.replace(/\D/g, '').length < 7 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(who.email)) bad(400, 'Please add your name, phone number and a valid email address.');
@@ -792,11 +905,15 @@ export function createApp(options = {}) {
       let order;
       db.raw.exec('BEGIN IMMEDIATE');
       try {
-        const lines = []; const need = new Map();
+        // Checked again here, inside the transaction, so two orders cannot take the last place.
+        if (!scheduled && busyNow(site.id, ordering)) bad(409, ordering.scheduling ? 'We have as many orders as we can make right now. Please choose a later time.' : 'We have as many orders as we can make right now. Please try again in a few minutes.');
+        if (scheduled && ordering.slotLimit > 0 && (takenSlots(site.id)[scheduled] || 0) >= ordering.slotLimit) bad(409, 'That time just filled up. Please choose another.');
+        const lines = []; const need = new Map(); const before = new Map();
         for (const w of wanted) {
           const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', w.id, site.id);
           if (!row || !row.available || row.stock === 0 || !visibleMenu([toItem(row)], ordering).length) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
-          const it = toItem(row);
+          const it = pricedMenu([toItem(row)], ordering)[0];
+          before.set(it.id, { name: it.name, stock: it.stock });
           const picked = resolveOptions(it, w.picks);
           if (picked.error) bad(400, picked.error);
           need.set(it.id, (need.get(it.id) || 0) + w.qty);
@@ -819,16 +936,23 @@ export function createApp(options = {}) {
         }
         db.raw.exec('COMMIT');
         order = toOrder(db.get('SELECT * FROM orders WHERE id = ?', oid));
+        order.low = [...need].map(([itemId, qty]) => ({ name: before.get(itemId).name, was: before.get(itemId).stock, stock: Math.max(0, before.get(itemId).stock - qty) })).filter((x) => x.was > ordering.lowStockAt && x.stock <= ordering.lowStockAt);
       } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
       mail('placed', req, site, order, order.email);
       const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
       mail('merchant', req, site, order, ordering.notifyEmail || businessOf(site).email || owner?.email);
-      notifyOwner(site.user_id, { title: `New order #${order.number} · ${money(order.total)}`, body: `${site.name} · ${ORDER_METHODS[method].name} · ${order.name}`, url: `/app/site/${site.id}?tab=orders`, tag: `order-${order.id}` });
+      notifySite(site, { title: `New order #${order.number} · ${money(order.total)}`, body: `${site.name} · ${ORDER_METHODS[method].name} · ${order.name}`, url: `/app/site/${site.id}?tab=orders`, tag: `order-${order.id}` });
+      if (order.low.length) {
+        const text = order.low.map((x) => (x.stock === 0 ? `${x.name} is sold out` : `${x.name}: ${x.stock} left`)).join(' · ');
+        notifySite(site, { title: order.low.some((x) => x.stock === 0) ? 'Sold out' : 'Running low', body: `${site.name} · ${text}`, url: `/app/site/${site.id}?tab=items`, tag: `stock-${site.id}` });
+        const msg = lowStockEmail({ business: businessOf(site), items: order.low, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=items` });
+        Promise.resolve().then(() => mailer.send({ to: ordering.notifyEmail || businessOf(site).email || owner?.email, ...msg })).catch((e) => console.error('Low stock email failed:', e.message));
+      }
       return json(res, 201, { number: order.number, url: `${base}/order/${order.token}` });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
 
-    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? visibleMenu(menuOf(site.id), ordering) : [], siteKey: site.id };
+    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering) };
     const tracked = path.match(/^\/order\/([\w-]{10,40})$/);
     if (tracked) {
       const row = db.get('SELECT * FROM orders WHERE token = ? AND site_id = ?', tracked[1], site.id);
@@ -908,7 +1032,7 @@ export function createApp(options = {}) {
       if (!m[2]) return redirect(res, `/preview/${m[1]}/`, 302);
       const user = currentUser(req);
       const site = user && db.get('SELECT * FROM sites WHERE id = ?', m[1]);
-      if (!site || (site.user_id !== user.id && !user.admin)) return redirect(res, '/login');
+      if (!site || !(LEVEL[roleOn(site, user)] >= LEVEL.manager)) return redirect(res, '/login');
       return serveSite(req, res, site, `/preview/${m[1]}`, m[2], appOrigin(req), true);
     }
 
@@ -953,6 +1077,7 @@ export function createApp(options = {}) {
     });
   };
   handler.db = db;
-  handler.close = () => { clearInterval(sweep); db.close(); };
+  handler.tick = tick;
+  handler.close = () => { clearInterval(sweep); clearInterval(daily); db.close(); };
   return handler;
 }

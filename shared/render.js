@@ -436,7 +436,7 @@ export function renderPage(site, page = 'home', opts = {}) {
     if (!main && preview) main = `<section><div class="wrap">${emptyBox('Your page is empty. Add a section to get started.')}</div></section>`;
   } else if (page === 'order' && ordering?.enabled) {
     pageTitle = T.orderOnline;
-    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now });
+    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now, taken: opts.taken, busy: opts.busy });
   } else if (page === 'order-status' && opts.order) {
     pageTitle = `${T.order} #${opts.order.number}`;
     main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty });

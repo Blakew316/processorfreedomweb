@@ -1,22 +1,33 @@
-import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState } from './ui.js';
 
-// Everything a merchant can change, always one click away.
+// Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['start', 'Get started', 'rocket'], ['menu', 'Menu', 'menu'], ['items', 'Items', 'tag'], ['design', 'Look and feel', 'brush'], ['sections', 'Home page', 'home'], ['business', 'Business info', 'store'],
-  ['ordering', 'Ordering', 'sliders'], ['orders', 'Orders', 'bag'], ['sales', 'Sales', 'chart'], ['inbox', 'Messages', 'inbox'], ['domain', 'Web address', 'globe'], ['policies', 'Policies', 'lock'], ['seo', 'Search', 'search'], ['history', 'History', 'clock'],
+  ['start', 'Get started', 'rocket', 'office'], ['orders', 'Orders', 'bag', 'office'], ['sales', 'Sales', 'chart', 'office'], ['customers', 'Customers', 'person', 'office'], ['inbox', 'Messages', 'inbox', 'office'],
+  ['menu', 'Menu', 'menu', 'office'], ['items', 'Items', 'tag', 'office'], ['ordering', 'Order settings', 'sliders', 'office'], ['team', 'Team', 'f_users', 'office'],
+  ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'home', 'site'], ['business', 'Business info', 'store', 'site'],
+  ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const DIVIDE_AFTER = new Set(['start', 'business', 'inbox']);
+const DIVIDE_AFTER = new Set(['start', 'inbox', 'items', 'business', 'seo']);
+const WIDE = new Set(['items', 'sales', 'customers']);
+const MODES = { office: 'Back office', site: 'Website' };
+
+// Item photos are trimmed to one shape so every tile on the menu lines up.
+const ITEM_PHOTO = { ratio: 4 / 3, max: 1400 };
 
 export async function editor(id, mount, title) {
   const loaded = (await api('GET', `/api/sites/${id}`)).site;
+  // Kitchen logins only work with orders, so they go straight to the kitchen screen.
+  if (loaded.role === 'kitchen') { setTimeout(() => go(`/app/site/${id}/kitchen`)); return () => {}; }
+  const isOwner = loaded.role === 'owner';
+  const tabs = TABS.filter(([k]) => k !== 'team' || isOwner);
   const draft = loaded.draft;
   let meta = { ...loaded, draft: undefined };
   title(meta.name);
 
   const q = new URLSearchParams(location.search);
-  let tab = TABS.some(([k]) => k === q.get('tab')) ? q.get('tab') : 'start';
+  let tab = tabs.some(([k]) => k === q.get('tab')) ? q.get('tab') : 'start';
   let sel = null;            // id of the section being edited
   let page = 'home';
   let device = 'desktop';
@@ -35,6 +46,10 @@ export async function editor(id, mount, title) {
   const invSel = new Set();
   const itemSavers = new Map();
   let versions = null;
+  let customers = null, custQ = '';
+  const lastTab = { office: 'start', site: 'design' };
+  const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
+  let team = null;
   let pushIsOn = null;
   pushOn().then((v) => { pushIsOn = v; }).catch(() => { pushIsOn = false; });
   let notify = null;         // set while building a form whose changes are not part of the site draft
@@ -47,7 +62,7 @@ export async function editor(id, mount, title) {
   const stage = h('div', { class: 'ed-stage' }, holder);
   let painted = '';
   function paint(force) {
-    const out = renderPage(draft, page, { preview: true, base: '', menu, ordering, siteKey: id });
+    const out = renderPage(draft, page, { preview: true, base: '', menu: pricedMenu(menu, ordering), ordering, siteKey: id });
     const doc = frame.contentDocument;
     const vars = doc?.getElementById('pf-vars');
     if (!force && vars && painted === page && doc.body) {
@@ -109,7 +124,7 @@ export async function editor(id, mount, title) {
     const take = async (file, zone) => {
       if (!file) return;
       zone.classList.add('busy');
-      try { o[k] = await uploadImage(file); a.after?.(); changed(); } catch (ex) { toast(ex.message, true); }
+      try { o[k] = await uploadImage(file, a.crop); a.after?.(); changed(); } catch (ex) { toast(ex.message, true); }
       draw();
     };
     const draw = () => {
@@ -429,6 +444,7 @@ export async function editor(id, mount, title) {
       return [
         group('Menu and inventory', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
           h('button', { class: 'drop', onclick: importCsv }, ic('up2', 24), h('b', {}, menu.length ? 'Upload a new item list' : 'Upload your item list'), h('span', { class: 'small' }, 'Excel or CSV file with item names and prices')),
+          state.config.scanEnabled && h('button', { class: 'drop', onclick: scanMenu }, ic('camera', 24), h('b', {}, 'Scan a paper menu'), h('span', { class: 'small' }, 'Take a photo or upload a PDF and we read the items and prices')),
           h('div', { class: 'row', style: 'flex-wrap:wrap' },
             h('a', { class: 'btn soft sm', download: 'menu-template.csv', href: `data:text/csv;charset=utf-8,${encodeURIComponent(MENU_TEMPLATE_CSV)}` }, ic('dl', 14), 'Download template'),
             menu.length > 0 && h('button', { class: 'btn soft sm', onclick: bulkPhotos }, ic('image', 14), 'Add photos in bulk'),
@@ -476,6 +492,7 @@ export async function editor(id, mount, title) {
           pair('Sales tax', 'On', () => bulk({ set: { taxable: true } }, `Sales tax on for ${items}`), 'Off', () => bulk({ set: { taxable: false } }, `Sales tax off for ${items}`)),
           pair('On the menu', 'Show', () => bulk({ set: { available: true } }, `${items} shown`), 'Hide', () => bulk({ set: { available: false } }, `${items} hidden`)),
           b('Quantity', async () => { const v = await ask({ title: `Set quantity for ${items}`, label: 'In stock', type: 'number', value: '', hint: 'Every selected item is set to this number.' }); if (v !== null && v !== '') bulk({ set: { stock: v } }, `Quantity set for ${items}`); }),
+          b('Daily refill', async () => { const v = await ask({ title: `Refill ${items} every morning`, label: 'Refill to', type: 'number', value: '', hint: 'Each morning the quantity goes back to this number. Leave it empty to switch daily refill off.' }); if (v !== null) bulk({ set: { restock: v === '' ? null : v } }, v === '' ? `Daily refill off for ${items}` : `${items} will refill to ${Number(v)} each morning`); }),
           b('Sale', async () => { const v = await ask({ title: `Put ${items} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale. Customers see the old price crossed out.' }); if (v !== null && v !== '') bulk({ set: { sale: v } }, Number(v) > 0 ? `${items} now ${Number(v)}% off` : `Sale ended for ${items}`); }),
           b('Price', async () => { const v = await ask({ title: `Change the price of ${items}`, label: 'Percent change', type: 'number', value: '5', hint: 'Use a minus sign to lower prices, for example -10.' }); if (v !== null && v !== '' && Number(v)) bulk({ set: { pricePercent: v } }, `Prices updated for ${items}`); }),
           b('Category', async () => { const v = await ask({ title: `Move ${items}`, label: 'Category', value: cats[0] || '', hint: 'Type an existing category or a new one.' }); if (v) bulk({ set: { category: v } }, `${items} moved to ${v}`); }),
@@ -487,7 +504,7 @@ export async function editor(id, mount, title) {
         const el = h('div', { class: `inv-row ${invSel.has(it.id) ? 'sel' : ''}` });
         const tag = h('span', { class: 'tag' });
         const refresh = () => { const st = stateOf(it); el.dataset.state = st; tag.textContent = LABEL[st] || ''; tag.hidden = !LABEL[st]; drawTop(); };
-        const setPhoto = async (f) => { if (!f) return; photo.classList.add('busy'); try { it.image = await uploadImage(f); photo.style.backgroundImage = `url("${it.image}")`; photo.replaceChildren(); save(); } catch (e) { toast(e.message, true); } photo.classList.remove('busy'); };
+        const setPhoto = async (f) => { if (!f) return; photo.classList.add('busy'); try { it.image = await uploadImage(f, ITEM_PHOTO); photo.style.backgroundImage = `url("${it.image}")`; photo.replaceChildren(); save(); } catch (e) { toast(e.message, true); } photo.classList.remove('busy'); };
         const photo = h('button', { class: 'inv-photo', type: 'button', title: it.image ? 'Replace photo' : 'Add a photo', 'aria-label': `${it.image ? 'Replace' : 'Add'} photo for ${it.name}`, style: it.image ? `background-image:url("${it.image}")` : '',
           onclick: async () => setPhoto((await pickFiles())[0]), ondragover: (e) => { e.preventDefault(); photo.classList.add('over'); }, ondragleave: () => photo.classList.remove('over'), ondrop: (e) => { e.preventDefault(); photo.classList.remove('over'); setPhoto(e.dataTransfer.files[0]); } }, !it.image && ic('camera', 18));
         const price = h('input', { class: 'inv-in num', value: (it.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': `Price of ${it.name}`, oninput: () => { const c = parsePrice(price.value); price.classList.toggle('bad', c === null); if (c !== null) { it.price = c; save(); } }, onblur: () => { price.value = (it.price / 100).toFixed(2); price.classList.remove('bad'); } });
@@ -498,7 +515,7 @@ export async function editor(id, mount, title) {
         el.append(
           h('input', { type: 'checkbox', class: 'cb', 'aria-label': `Select ${it.name}`, checked: invSel.has(it.id), onchange: (e) => { e.target.checked ? invSel.add(it.id) : invSel.delete(it.id); el.classList.toggle('sel', e.target.checked); drawBar(); syncAll(); } }),
           photo,
-          h('button', { class: 'inv-name', type: 'button', title: 'Edit item', onclick: open }, h('span', {}, h('b', {}, it.name), it.sale > 0 && h('span', { class: 'tag sale' }, `${it.sale}% off`), tag), h('small', {}, it.category)),
+          h('button', { class: 'inv-name', type: 'button', title: 'Edit item', onclick: open }, h('span', {}, h('b', {}, it.name), it.sale > 0 && h('span', { class: 'tag sale' }, `${it.sale}% off`), tag), h('small', {}, it.restock != null ? `${it.category} · refills to ${it.restock} daily` : it.category)),
           h('div', { class: 'inv-price', 'data-l': 'Price' }, price),
           h('div', { 'data-l': 'In stock', class: 'inv-cell' }, h('div', { class: 'inv-qty' }, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), num, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)))),
           h('div', { 'data-l': 'Tax', class: 'inv-cell' }, sw('Charge sales tax', 'taxable')), h('div', { 'data-l': 'Available', class: 'inv-cell' }, sw('Available to order', 'available')),
@@ -526,7 +543,7 @@ export async function editor(id, mount, title) {
       };
       return [h('div', { class: 'inv' },
         h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Items'), h('p', { class: 'muted' }, 'Click an item to edit it, or tick several to change them together. Quantities go down on their own as orders come in.')),
-          h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCsv }, ic('up2', 16), 'Upload list'), menu.length > 0 && h('button', { class: 'btn soft', onclick: bulkPhotos }, ic('images', 16), 'Add photos'), h('button', { class: 'btn', onclick: addItem }, ic('plus', 16), 'Add item'))),
+          h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCsv }, ic('up2', 16), 'Upload list'), state.config.scanEnabled && h('button', { class: 'btn soft', onclick: scanMenu }, ic('camera', 16), 'Scan menu'), menu.length > 0 && h('button', { class: 'btn soft', onclick: bulkPhotos }, ic('images', 16), 'Add photos'), h('button', { class: 'btn', onclick: addItem }, ic('plus', 16), 'Add item'))),
         kpis,
         h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search items', value: invQ, 'aria-label': 'Search items', oninput: (e) => { invQ = e.target.value.trim().toLowerCase(); drawList(); } })), chips),
         list, bar,
@@ -552,7 +569,7 @@ export async function editor(id, mount, title) {
           o.enabled && toggle('Accepting orders right now', o, 'accepting', undefined, redraw),
           o.enabled && !o.accepting && note('Ordering is paused. Customers can see your menu but cannot place orders.'),
           o.enabled && !menu.length && note(h('b', {}, 'Your menu is empty. '), 'Add items in Menu and inventory so customers have something to order.'),
-          o.enabled && h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft sm', onclick: () => setPage('order') }, 'Preview order page'), meta.live && h('a', { class: 'btn soft sm', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open as a customer', ic('out', 14)))),
+          o.enabled && h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft sm', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/order`; } }, 'Preview order page', ic('out', 14)), meta.live && h('a', { class: 'btn soft sm', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open as a customer', ic('out', 14)))),
         ...(o.enabled ? [
           method('pickup', num('Ready in (minutes)', 'prepMinutes'), text('Pickup instructions', o, 'pickupNote', { placeholder: 'Collect at the front counter', maxlength: 300 })),
           method('curbside', text('Curbside instructions', o, 'curbsideNote', { maxlength: 300, hint: 'Customers are asked for their vehicle make, model and colour.' })),
@@ -574,6 +591,20 @@ export async function editor(id, mount, title) {
                 h('label', { class: 'switch', title: 'Open this day' }, h('input', { type: 'checkbox', 'aria-label': `${day} open`, checked: !hr.closed, onchange: (e) => { hr.closed = !e.target.checked; saveOrdering(); redraw(); } }), h('i'))); })),
               h('small', { class: 'hint' }, 'A closing time earlier than the opening time means you close after midnight.')],
             toggle('Let customers order ahead for a later time', o, 'scheduling', (v) => v === true), h('small', { class: 'hint' }, 'Offers pickup and delivery times every 15 minutes, today and tomorrow.')),
+          group('Kitchen capacity', wrap('Most orders in any 15 minutes', h('input', { type: 'number', min: 0, max: 500, value: o.slotLimit || '', placeholder: 'No limit', style: 'max-width:160px', oninput: (e) => { o.slotLimit = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'Stops the kitchen being overbooked. Once a time is full, customers are offered the next one. Leave empty for no limit.')),
+          group('Happy hour and timed prices', h('p', { class: 'hint' }, 'Lower prices automatically at set times. Customers see the old price crossed out while it is on.'),
+            h('div', { class: 'stack' }, o.deals.map((dl, i) => h('div', { class: 'deal' },
+              h('div', { class: 'row' }, h('input', { class: 'grow', value: dl.name, maxlength: 40, placeholder: 'Happy hour', 'aria-label': 'Name', oninput: (e) => { dl.name = e.target.value; saveOrdering(); } }),
+                h('label', { class: 'switch', title: 'Active' }, h('input', { type: 'checkbox', 'aria-label': 'Active', checked: dl.active !== false, onchange: (e) => { dl.active = e.target.checked; saveOrdering(); } }), h('i')),
+                h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove', onclick: () => { o.deals.splice(i, 1); saveOrdering(); redraw(); } }, ic('trash', 16))),
+              h('div', { class: 'deal-grid' },
+                h('label', { class: 'field' }, h('span', {}, 'Percent off'), h('input', { type: 'number', min: 1, max: 90, value: dl.percent, oninput: (e) => { dl.percent = Math.max(1, Math.min(90, Math.round(Number(e.target.value)) || 10)); saveOrdering(); } })),
+                h('label', { class: 'field' }, h('span', {}, 'From'), h('input', { type: 'time', value: dl.from, onchange: (e) => { dl.from = e.target.value || dl.from; saveOrdering(); } })),
+                h('label', { class: 'field' }, h('span', {}, 'Until'), h('input', { type: 'time', value: dl.to, onchange: (e) => { dl.to = e.target.value || dl.to; saveOrdering(); } }))),
+              h('label', { class: 'field' }, h('span', {}, 'Applies to'), h('select', { onchange: (e) => { dl.category = e.target.value; saveOrdering(); } }, h('option', { value: '' }, 'Everything on the menu'), [...new Set(menu.map((x) => x.category))].map((c) => h('option', { value: c, selected: dl.category === c }, c)))),
+              h('div', { class: 'daypick', role: 'group', 'aria-label': 'Days' }, DAYS.map((day, di) => h('button', { type: 'button', title: day, 'aria-label': day, 'aria-pressed': String(dl.days[di] !== false), onclick: (e) => { dl.days[di] = dl.days[di] === false; e.currentTarget.setAttribute('aria-pressed', String(dl.days[di])); saveOrdering(); } }, day.slice(0, 2))))))),
+            h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { o.deals.push({ name: 'Happy hour', percent: 20, from: '15:00', to: '18:00', days: DAYS.map(() => true), category: '', active: true }); saveOrdering(); redraw(); } }, ic('plus', 14), 'Add a timed price'),
+            h('small', { class: 'hint' }, 'To show a whole category only at certain times, such as breakfast until 11, open Menu and press Edit beside the category.')),
           group('Promo codes', h('div', { class: 'stack' }, o.promos.map((pr, i) => h('div', { class: 'prow2' },
             h('input', { value: pr.code, placeholder: 'CODE', 'aria-label': 'Promo code', maxlength: 24, style: 'text-transform:uppercase', oninput: (e) => { pr.code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); saveOrdering(); } }),
             h('input', { value: pr.type === 'amount' ? (pr.value / 100).toFixed(2) : pr.value, inputmode: 'decimal', 'aria-label': 'Amount off', oninput: (e) => { const n = pr.type === 'amount' ? parsePrice(e.target.value || '0') : Math.round(Number(e.target.value)); if (n !== null && Number.isFinite(n)) { pr.value = n; saveOrdering(); } } }),
@@ -586,6 +617,8 @@ export async function editor(id, mount, title) {
               wrap(o.loyalty.type === 'percent' ? 'Percent off' : 'Dollars off', h('div', { class: 'row' }, h('input', { style: 'flex:1;min-width:0', value: o.loyalty.type === 'percent' ? o.loyalty.value : (o.loyalty.value / 100).toFixed(2), inputmode: 'decimal', oninput: (e) => { const n = o.loyalty.type === 'percent' ? Math.round(Number(e.target.value)) : parsePrice(e.target.value || '0'); if (n) { o.loyalty.value = n; saveOrdering(); } } }),
                 h('button', { type: 'button', class: 'btn soft sm', title: 'Switch between percent and dollars', onclick: () => { o.loyalty.type = o.loyalty.type === 'percent' ? 'amount' : 'percent'; o.loyalty.value = o.loyalty.type === 'percent' ? 10 : 500; saveOrdering(); redraw(); } }, o.loyalty.type === 'percent' ? '%' : '$')))),
               h('small', { class: 'hint' }, 'Orders are counted by the customer’s email. After the qualifying order they see a one-time code on their order page, good for their next order.')]),
+          group('Alerts and reports', toggle('Email me a summary each morning', o, 'dailySummary'), h('small', { class: 'hint' }, 'Yesterday’s sales, best sellers and anything running low.'),
+            wrap('Warn me when an item drops to', h('input', { type: 'number', min: 0, max: 9999, value: o.lowStockAt, style: 'max-width:160px', oninput: (e) => { o.lowStockAt = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'You get a notification on your devices, and an email, the moment an order takes an item to this number or below. Use 0 to hear only when something sells out.')),
           group('Order emails', text('Send new orders to', o, 'notifyEmail', { type: 'email', placeholder: draft.business.email || state.user.email }),
             note(state.config.emailEnabled ? 'Customers get an email when their order is received, confirmed, ready and if it is cancelled. You get an email for every new order.' : h('span', {}, h('b', {}, 'Email is not switched on yet. '), 'Orders still arrive in your Orders list. Processor Freedom needs to connect an email service before confirmations are sent.'))),
         ] : [note('Turn this on to add an order page to your site. Customers choose items from your menu, pick how they want to receive them, and you get the order here and by email.')]),
@@ -595,7 +628,7 @@ export async function editor(id, mount, title) {
     },
 
     orders() {
-      if (!orders) { loadOrders(); return [h('div', { class: 'loading', style: 'min-height:200px' }, h('div', { class: 'spinner' }))]; }
+      if (!orders) { loadOrders(); return [group('Orders', skel(3, 'card'))]; }
       const active = orders.filter((x) => !['completed', 'cancelled'].includes(x.status));
       const shown = orderFilter === 'active' ? active : orders;
       const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); Object.assign(x, r.order); paintPanel(); } catch (e) { toast(e.message, true); } };
@@ -608,7 +641,9 @@ export async function editor(id, mount, title) {
           try { if (want) { await enablePush(); toast('This device will be notified of new orders'); } else { await disablePush(); } pushIsOn = want; } catch (ex) { e.target.checked = !want; toast(ex.message, true); }
         } }), h('i'));
       return [group('Orders', alertBox, pushBox, h('a', { class: 'btn soft sm', style: 'justify-self:start', href: `/app/site/${id}/kitchen`, target: '_blank' }, 'Open kitchen screen', ic('out', 14)), seg,
-        !shown.length && note(orders.length ? 'No active orders right now.' : h('span', {}, h('b', {}, 'No orders yet. '), ordering.enabled ? 'New orders appear here as they come in. This list refreshes on its own.' : 'Turn on online ordering in Ordering options to start taking orders.')),
+        !shown.length && (orders.length ? emptyState('check', 'All caught up', 'No active orders right now. New ones appear here on their own.')
+          : !ordering.enabled ? emptyState('bag', 'No orders yet', 'Turn on online ordering to start taking orders.', ['Open ordering', () => goTab('ordering')])
+            : emptyState('bag', 'No orders yet', meta.live ? 'Place a test order from your own site to see exactly what customers see. It arrives here within seconds.' : 'Publish your site, then place a test order to see the whole flow.', meta.live ? ['Open my order page', () => window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener')] : null)),
         shown.map((x) => h('article', { class: `ocard ${x.status === 'new' ? 'new' : ''}` },
           h('header', {}, h('b', {}, `#${x.number} · ${x.name}`), h('span', { class: `status ${x.status === 'cancelled' ? 'bad' : x.status === 'completed' ? '' : x.status === 'new' ? 'warn' : 'ok'}` }, x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status])),
           h('div', { class: 'small muted' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`),
@@ -644,7 +679,7 @@ export async function editor(id, mount, title) {
       const filter = h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, RANGES.map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(salesRange === k), onclick: () => { if (k === 'custom') { salesRange = 'custom'; paintPanel(); } else pick(k); } }, l))),
         salesRange === 'custom' && h('form', { class: 'dates', onsubmit: (e) => { e.preventDefault(); if (!salesFrom || !salesTo) return toast('Choose a start and end date.', true); stats = null; paintPanel(); } }, fromIn, h('span', { class: 'muted' }, 'to'), toIn, h('button', { class: 'btn sm' }, 'Show')));
       if (salesRange === 'custom' && (!salesFrom || !salesTo) && !stats) return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, 'Choose your dates'), h('p', {}, 'Pick a start and end date above, then press Show.'))))];
-      if (!stats) { load(); return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'loading', style: 'min-height:260px' }, h('div', { class: 'spinner' })))]; }
+      if (!stats) { load(); return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(1, 'chart'), skel(5, 'row'))]; }
       if (stats.failed) return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('alert', 30), h('b', {}, 'We could not load your sales'), h('p', {}, 'Nothing is lost. Press Refresh to try again.'))))];
 
       const st = stats, t = st.totals;
@@ -693,15 +728,96 @@ export async function editor(id, mount, title) {
     inbox() {
       if (!leads) {
         api('GET', `/api/sites/${id}/leads`).then((r) => { leads = r.leads; if (tab === 'inbox') paintPanel(); });
-        return [h('div', { class: 'loading', style: 'min-height:200px' }, h('div', { class: 'spinner' }))];
+        return [group('Inbox', skel(3, 'card'))];
       }
-      if (!leads.length) return [group('Inbox', note(h('b', {}, 'No messages yet. '), 'When someone uses the contact form on your published site, their message appears here.'))];
+      if (!leads.length) return [group('Inbox', emptyState('inbox', 'No messages yet', 'When someone uses the contact form on your site, their message appears here.'))];
       return [group(`Inbox · ${leads.length}`, leads.map((l) => h('article', { class: 'lead' },
         h('header', {}, h('b', {}, l.name), h('span', { class: 'small muted' }, fmtDate(l.createdAt))),
         h('div', { class: 'small' }, h('a', { href: `mailto:${l.email}` }, l.email), l.phone && [' · ', h('a', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}` }, l.phone)]),
         h('p', {}, l.message),
         h('div', { class: 'row' }, h('a', { class: 'btn soft sm', href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply'),
           h('button', { class: 'btn danger sm', onclick: async () => { await api('DELETE', `/api/sites/${id}/leads/${l.id}`); leads = leads.filter((x) => x.id !== l.id); paintPanel(); } }, 'Delete')))))];
+    },
+
+    customers() {
+      const head = (extra) => h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Customers'), h('p', { class: 'muted' }, 'Everyone who has ordered from you, with what they spend and when they last came back.')), extra);
+      if (!customers) {
+        api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'customers') paintPanel(); }).catch((e) => { toast(e.message, true); customers = []; if (tab === 'customers') paintPanel(); });
+        return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(6, 'row'))];
+      }
+      if (!customers.length) return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-list' }, emptyState('person', 'No customers yet', 'People appear here after their first order, with their contact details and order history.')))];
+      const repeat = customers.filter((c) => c.orders > 1).length;
+      const spent = customers.reduce((a, c) => a + c.spent, 0), count = customers.reduce((a, c) => a + c.orders, 0);
+      const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      const when = (ms) => { const days = Math.floor((Date.now() - ms) / 86400000); return days < 1 ? 'Today' : days === 1 ? 'Yesterday' : days < 30 ? `${days} days ago` : fmtDate(ms); };
+      const tbody = h('tbody', {});
+      const draw = () => {
+        const rows = customers.filter((c) => !custQ || `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(custQ));
+        tbody.replaceChildren(...(rows.length ? rows.slice(0, 500).map((c) => h('tr', {}, h('td', {}, h('b', {}, c.name), c.orders > 1 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Regular')), h('td', {}, h('a', { href: `mailto:${c.email}` }, c.email)), h('td', {}, h('a', { href: `tel:${c.phone.replace(/[^\d+]/g, '')}` }, c.phone)), h('td', {}, c.orders), h('td', {}, h('b', {}, money(c.spent))), h('td', { class: 'muted' }, when(c.last)), h('td', { class: 'muted' }, c.favourite || '—')))
+          : [h('tr', {}, h('td', { colspan: 7, class: 'muted', style: 'text-align:center;padding:28px' }, 'Nobody matches that search.'))]));
+      };
+      draw();
+      const exportList = () => {
+        const q2 = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const rows = [['Name', 'Email', 'Phone', 'Orders', 'Total spent', 'First order', 'Last order', 'Favourite item'], ...customers.map((c) => [c.name, c.email, c.phone, c.orders, (c.spent / 100).toFixed(2), new Date(c.first).toISOString().slice(0, 10), new Date(c.last).toISOString().slice(0, 10), c.favourite])];
+        const url = URL.createObjectURL(new Blob([`\ufeff${rows.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
+        h('a', { href: url, download: `${meta.slug}-customers.csv` }).click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
+      return [h('div', { class: 'inv' },
+        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: exportList }, ic('dl', 16), 'Export'), h('button', { class: 'btn soft', onclick: () => { customers = null; paintPanel(); } }, 'Refresh'))),
+        h('div', { class: 'inv-kpis' }, kpi('Customers', customers.length, 'have ordered at least once', 'person'), kpi('Regulars', repeat, `${customers.length ? Math.round((repeat / customers.length) * 100) : 0}% came back`, 'f_users'), kpi('Average per customer', money(customers.length ? spent / customers.length : 0), 'across all their orders', 'cash'), kpi('Orders', count, 'not counting cancelled', 'bag')),
+        h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search by name, email or phone', value: custQ, 'aria-label': 'Search customers', oninput: (e) => { custQ = e.target.value.trim().toLowerCase(); draw(); } }))),
+        h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Customer', 'Email', 'Phone', 'Orders', 'Spent', 'Last order', 'Favourite'].map((x) => h('th', {}, x)))), tbody)),
+          customers.length > 500 && h('p', { class: 'hint' }, `Showing the latest 500. Export to see all ${customers.length}.`)))];
+    },
+
+    history() {
+      if (!versions) {
+        api('GET', `/api/sites/${id}/versions`).then((r) => { versions = r.versions; if (tab === 'history') paintPanel(); }).catch((e) => { toast(e.message, true); versions = []; if (tab === 'history') paintPanel(); });
+        return [group('History', skel(4, 'row'))];
+      }
+      if (!versions.length) return [group('History', emptyState('clock', 'No versions yet', 'Each time you publish, a copy of your site is kept here so you can go back to it.'))];
+      const stamp = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return [group('History', h('p', { class: 'hint' }, 'Every published version of your site, newest first. Restoring one puts it back in the editor; nothing changes for visitors until you publish.'),
+        h('div', { class: 'slist' }, versions.map((v, i) => h('div', { class: 'srow', style: 'padding:12px 12px 12px 16px;gap:10px' }, h('div', { class: 'grow' }, h('b', { style: 'font-weight:500;font-size:15px;display:block' }, stamp(v.createdAt)), h('span', { class: 'small muted' }, i === 0 && meta.live ? 'Live now' : 'Earlier version')),
+          h('button', { class: 'btn soft sm', onclick: async () => {
+            if (!await confirmSheet({ title: 'Restore this version?', text: `Your editor goes back to how the site looked on ${stamp(v.createdAt)}. You can undo this, and nothing is public until you publish.`, action: 'Restore' })) return;
+            try { const r = await api('GET', `/api/sites/${id}/versions/${v.id}`); for (const k of Object.keys(draft)) delete draft[k]; Object.assign(draft, r.draft); sel = null; changed(); paintPanel(); toast('Version restored. Publish to make it live.'); } catch (e) { toast(e.message, true); }
+          } }, 'Restore')))))];
+    },
+
+    team() {
+      if (!team) {
+        api('GET', `/api/sites/${id}/team`).then((r) => { team = r; if (tab === 'team') paintPanel(); }).catch((e) => { toast(e.message, true); team = { members: [], owner: { email: state.user.email, name: state.user.name } }; if (tab === 'team') paintPanel(); });
+        return [group('Team', skel(3, 'row'))];
+      }
+      const ROLES = { kitchen: ['Kitchen', 'Sees and updates orders on the kitchen screen. Nothing else.'], manager: ['Manager', 'Everything except the team and deleting the site.'] };
+      const nameIn = h('input', { placeholder: 'Name', 'aria-label': 'Name', maxlength: 80 });
+      const emailIn = h('input', { type: 'email', placeholder: 'Email address', 'aria-label': 'Email address', required: true });
+      const roleIn = h('select', { 'aria-label': 'Role' }, Object.entries(ROLES).map(([k, [l]]) => h('option', { value: k }, l)));
+      const add = async (e) => {
+        e.preventDefault();
+        try {
+          const r = await api('POST', `/api/sites/${id}/team`, { name: nameIn.value, email: emailIn.value, role: roleIn.value });
+          team.members = r.members; paintPanel();
+          if (!r.link) return toast('They can now sign in with their existing account');
+          sheet((close) => [h('h2', {}, 'Login created'), h('p', { class: 'muted' }, r.emailed ? `We emailed ${emailIn.value} a link to choose a password. You can also pass this link on yourself. It works once and lasts 3 days.` : `Send this link to ${emailIn.value} so they can choose a password. It works once and lasts 3 days.`),
+            h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, r.link),
+            h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
+        } catch (ex) { toast(ex.message, true); }
+      };
+      const person = (name, email, right) => h('div', { class: 'srow', style: 'padding:12px 12px 12px 16px;gap:10px' }, h('span', { class: 'sico' }, ic('person', 16)), h('div', { class: 'grow', style: 'min-width:0' }, h('b', { style: 'font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis' }, name || email), name && h('span', { class: 'small muted', style: 'display:block;overflow:hidden;text-overflow:ellipsis' }, email)), right);
+      return [
+        group('Team', h('p', { class: 'hint' }, 'Give staff their own login instead of sharing yours. Each person only sees what their role allows.'),
+          h('div', { class: 'slist' }, person(team.owner.name, team.owner.email, h('span', { class: 'tag' }, 'Owner')),
+            team.members.map((m) => person(m.name, m.email, [
+              h('select', { 'aria-label': `Role for ${m.email}`, class: 'mini', onchange: async (e) => { try { team.members = (await api('POST', `/api/sites/${id}/team`, { email: m.email, role: e.target.value })).members; toast('Role updated'); } catch (ex) { toast(ex.message, true); } paintPanel(); } }, Object.entries(ROLES).map(([k, [l]]) => h('option', { value: k, selected: m.role === k }, l))),
+              h('button', { class: 'icon-btn', 'aria-label': `Remove ${m.email}`, title: 'Remove', onclick: async () => { if (!await confirmSheet({ title: `Remove ${m.name || m.email}?`, text: 'They lose access to this site straight away.', action: 'Remove', danger: true })) return; try { team.members = (await api('DELETE', `/api/sites/${id}/team/${m.id}`)).members; } catch (ex) { toast(ex.message, true); } paintPanel(); } }, ic('trash', 16))])))),
+        group('Add someone', h('form', { class: 'stack', onsubmit: add }, h('label', { class: 'field' }, nameIn), h('label', { class: 'field' }, emailIn), h('label', { class: 'field' }, h('span', {}, 'Role'), roleIn),
+          h('div', { class: 'note stack', style: 'gap:6px' }, Object.values(ROLES).map(([l, d]) => h('div', {}, h('b', {}, `${l}. `), d))),
+          h('button', { class: 'btn', style: 'justify-self:start' }, ic('plus', 16), 'Add to team'))),
+      ];
     },
   };
 
@@ -764,7 +880,7 @@ export async function editor(id, mount, title) {
       const key = norm(f.name);
       const hit = menu.find((x) => left.has(x.id) && norm(x.name) === key) || menu.find((x) => left.has(x.id) && key.length > 3 && (norm(x.name).includes(key) || key.includes(norm(x.name))));
       if (!hit) { missed.push(f.name); continue; }
-      try { hit.image = await uploadImage(f); await api('PUT', `/api/sites/${id}/menu/${hit.id}`, hit); left.delete(hit.id); done.push(hit.name); } catch { missed.push(f.name); }
+      try { hit.image = await uploadImage(f, ITEM_PHOTO); await api('PUT', `/api/sites/${id}/menu/${hit.id}`, hit); left.delete(hit.id); done.push(hit.name); } catch { missed.push(f.name); }
     }
     paintPanel(); paint(true);
     sheet((close) => [h('h2', {}, `${done.length} photo${done.length === 1 ? '' : 's'} added`), h('p', { class: 'muted' }, done.length ? 'Photos were matched to items by file name.' : 'None of the file names matched an item name.'),
@@ -806,7 +922,7 @@ export async function editor(id, mount, title) {
       const out = [
         h('div', { class: 'row' }, h('h2', { class: 'grow' }, 'Edit item'), status, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         h('div', { class: 'isheet-top' },
-          image('Photo', it, 'image'),
+          image('Photo', it, 'image', { crop: ITEM_PHOTO }),
           h('div', { class: 'stack' }, text('Name', it, 'name', { maxlength: 120, autofocus: true }),
             h('div', { class: 'pair' }, wrap('Price', priceIn), wrap('Sale, percent off', saleIn)), now,
             text('Category', it, 'category', { list: listId, maxlength: 60 }), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))))),
@@ -814,6 +930,7 @@ export async function editor(id, mount, title) {
         h('div', { class: 'isheet-row' },
           h('div', { class: 'field' }, h('span', {}, 'In stock'), h('div', { class: 'inv-qty' }, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), qtyIn, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)))),
           toggle('Charge sales tax', it, 'taxable', (v) => v !== false), toggle('Available to order', it, 'available', (v) => v !== false)),
+        wrap('Refill every morning to', h('input', { type: 'number', min: 0, max: 999999, value: it.restock ?? '', placeholder: 'Off', style: 'max-width:160px', oninput: (e) => { it.restock = e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value)) || 0); save(); } }), 'For things you make fresh each day. The quantity goes back to this number every morning. Leave empty to keep counting down.'),
         h('div', { class: 'field' }, h('span', {}, 'Options'), optBox),
         h('div', { class: 'acts', style: 'justify-content:space-between' },
           h('button', { class: 'btn danger', onclick: async () => {
@@ -876,11 +993,128 @@ export async function editor(id, mount, title) {
     });
   }
 
+  /* Reads a photo or PDF of a paper menu, then lets the merchant check the list before anything is saved. */
+  async function scanMenu() {
+    const [file] = await pickFiles(false, 'image/jpeg,image/png,image/webp,application/pdf');
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) return toast('That file is too large. Try one under 12 MB.', true);
+    let found = null, failed = '';
+    const closeBusy = sheet(() => [h('div', { class: 'scanning' }, h('i', { class: 'spinner' })), h('h2', {}, 'Reading your menu…'), h('p', { class: 'muted' }, 'This usually takes under a minute. Keep this page open.')], 'live');
+    try { const r = await api('POST', `/api/sites/${id}/menu/scan`, file); found = r.items; failed = r.reason; } catch (e) { failed = e.message; }
+    closeBusy();
+    if (!found || !found.length) return sheet((close) => [h('h2', {}, 'We could not read that menu'), h('p', { class: 'muted' }, failed || 'No items were found. Try a sharper, well-lit photo taken straight on, or upload one page at a time.'), h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Close'), h('button', { class: 'btn', onclick: () => { close(); scanMenu(); } }, 'Try another file'))]);
+    const rows = found.map((x) => ({ ...x }));
+    sheet((close) => {
+      const qtyIn = h('input', { type: 'number', min: 0, max: 999999, value: DEFAULT_STOCK, style: 'max-width:120px' });
+      const list = h('div', { class: 'scanlist' });
+      const title = h('h2', {});
+      const draw = () => {
+        title.textContent = `${rows.length} item${rows.length === 1 ? '' : 's'} found`;
+        list.replaceChildren(...rows.map((x, i) => h('div', { class: 'scanrow' },
+          h('input', { value: x.name, 'aria-label': 'Item name', maxlength: 120, oninput: (e) => { x.name = e.target.value; } }),
+          h('input', { value: x.category, 'aria-label': 'Category', maxlength: 60, oninput: (e) => { x.category = e.target.value; } }),
+          h('input', { value: (x.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Price', oninput: (e) => { const c = parsePrice(e.target.value || '0'); e.target.classList.toggle('bad', c === null); if (c !== null) x.price = c; } }),
+          h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Remove ${x.name}`, onclick: () => { rows.splice(i, 1); draw(); } }, ic('x', 16)))));
+      };
+      draw();
+      const run = async (replace, btn) => {
+        const good = rows.filter((x) => x.name.trim());
+        if (!good.length) return toast('There is nothing to add.', true);
+        btn.disabled = true; btn.textContent = 'Building your menu…';
+        try {
+          const r = await api('POST', `/api/sites/${id}/menu/import`, { items: good, replace, startStock: Math.max(0, Math.round(Number(qtyIn.value)) || 0) });
+          menu = r.items; close(); toast(`${r.imported} item${r.imported === 1 ? '' : 's'} added to your menu`); paintPanel(); paint(true);
+        } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Try again'; }
+      };
+      return [title, h('p', { class: 'muted' }, `Read from ${file.name}. Check the names and prices, fix anything that looks off, and remove what you do not sell.`),
+        h('div', { class: 'scanhead' }, h('span', {}, 'Item'), h('span', {}, 'Category'), h('span', {}, 'Price'), h('span', {})), list,
+        h('label', { class: 'field' }, h('span', {}, 'How many of each item do you have?'), qtyIn, h('small', {}, 'Every item needs a quantity. You can change any of them afterwards.')),
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'),
+          menu.length > 0 && h('button', { class: 'btn soft', onclick: (e) => run(false, e.currentTarget) }, 'Add to my menu'),
+          h('button', { class: 'btn', onclick: (e) => run(menu.length > 0, e.currentTarget) }, menu.length ? 'Replace my menu' : 'Build my menu'))];
+    }, 'wide');
+  }
+
+  /* Quick find: one box that jumps to any screen, setting, item or order. */
+  const SETTINGS = [['Logo', 'design'], ['Brand colour', 'design'], ['Page background', 'design'], ['Typeface and corners', 'design'], ['Header', 'design'], ['Footer', 'design'], ['Announcement bar', 'design'], ['Site language', 'design'], ['Quick style', 'design'],
+    ['Phone, address and email', 'business'], ['Social profiles', 'business'], ['Online payment link', 'business'],
+    ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'ordering'], ['Order ahead and scheduling', 'ordering'], ['Kitchen capacity', 'ordering'], ['Happy hour and timed prices', 'ordering'], ['Promo codes', 'ordering'], ['Loyalty rewards', 'ordering'], ['Low stock alerts', 'ordering'], ['Daily summary email', 'ordering'], ['Order emails', 'ordering'], ['Pause ordering', 'ordering'],
+    ['Notifications on this device', 'orders'], ['Kitchen screen', 'orders'], ['Sales tax collected', 'sales'], ['Best sellers', 'sales'], ['Export sales', 'sales'], ['Export customers', 'customers'],
+    ['Free web address', 'domain'], ['Connect my own domain', 'domain'], ['Privacy policy and terms', 'policies'], ['Google search description', 'seo'], ['Sharing image', 'seo'], ['Earlier versions', 'history'], ['Staff logins', 'team'], ['Daily refill', 'items'], ['Upload item list', 'menu'], ['Categories', 'menu']];
+  let finding = false;
+  function quickFind() {
+    if (finding) return;
+    finding = true;
+    sheet((close) => {
+      const input = h('input', { type: 'search', placeholder: 'Find a screen, setting, item or order', 'aria-label': 'Quick find', autofocus: true, autocomplete: 'off', spellcheck: 'false' });
+      const list = h('div', { class: 'qf-list', role: 'listbox' });
+      let hits = [], at = 0;
+      const run = (fn) => { close(); fn(); };
+      const search = () => {
+        const q2 = input.value.trim().toLowerCase();
+        const has = (t) => !q2 || String(t).toLowerCase().includes(q2);
+        const out = [];
+        for (const [k, label, icon] of tabs) if (has(label)) out.push({ icon, label, kind: 'Screen', go: () => goTab(k) });
+        if (q2) {
+          for (const [label, k] of SETTINGS) if (has(label) && tabs.some(([t]) => t === k)) out.push({ icon: tabs.find(([t]) => t === k)[2], label, kind: tabs.find(([t]) => t === k)[1], go: () => goTab(k) });
+          for (const it of menu) if (has(`${it.name} ${it.category}`)) out.push({ icon: 'tag', label: it.name, kind: `Item · ${money(itemPrice(it))}`, go: () => { goTab('items'); openItem(it.id); } });
+          for (const o of orders || []) if (has(`#${o.number} ${o.name} ${o.email} ${o.phone}`)) out.push({ icon: 'bag', label: `Order #${o.number} · ${o.name}`, kind: `${ORDER_STATUSES[o.status] || o.status} · ${money(o.total)}`, go: () => { orderFilter = 'all'; goTab('orders'); } });
+        }
+        hits = out.slice(0, 40); at = 0; draw();
+      };
+      const draw = () => {
+        list.replaceChildren(...(hits.length ? hits.map((x, i) => h('button', { type: 'button', role: 'option', class: 'qf-row', 'aria-selected': String(i === at), onclick: () => run(x.go), onmousemove: () => { if (at !== i) { at = i; mark(); } } }, h('span', { class: 'sico' }, ic(x.icon, 16)), h('b', {}, x.label), h('span', { class: 'small muted' }, x.kind)))
+          : [h('p', { class: 'muted', style: 'padding:22px;text-align:center' }, 'Nothing matches. Try a different word.')]));
+      };
+      const mark = () => [...list.children].forEach((el, i) => { el.setAttribute?.('aria-selected', String(i === at)); if (i === at) el.scrollIntoView?.({ block: 'nearest' }); });
+      input.addEventListener('input', search);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (hits.length) { at = (at + (e.key === 'ArrowDown' ? 1 : hits.length - 1)) % hits.length; mark(); } }
+        if (e.key === 'Enter' && hits[at]) { e.preventDefault(); run(hits[at].go); }
+      });
+      search();
+      return [h('label', { class: 'qf-in' }, ic('search', 18), input, h('kbd', {}, 'esc')), list];
+    }, 'qf', () => { finding = false; });
+  }
+
+  /* A short tour the first time someone opens the editor. */
+  function tour() {
+    const steps = [
+      [() => top.querySelector('.mode-seg'), 'Two sides, kept apart', 'Back office is where you run the business: orders, menu, sales and settings. Website is where you change how your site looks.', 'below'],
+      [() => rail, 'Each side has its own list', 'Start with Get started and work down. The list changes when you switch sides.', 'right'],
+      [() => top.querySelector('.qf-btn'), 'Find anything fast', 'Search for any setting, item or order. On a keyboard, press Ctrl or ⌘ and K.', 'below'],
+      [() => top.lastElementChild, 'Publish when you are ready', 'Nothing is public until you publish. After that, menu and stock changes go live on their own.', 'below'],
+    ];
+    let i = 0;
+    const ring = h('div', { class: 'coach-ring' });
+    const card = h('div', { class: 'coach', role: 'dialog', 'aria-live': 'polite' });
+    const layer = h('div', { class: 'coach-layer' }, ring, card);
+    const end = () => { layer.remove(); window.removeEventListener('resize', place); try { localStorage.setItem('pf-tour', '1'); } catch { /* fine */ } };
+    function place() {
+      const [get, title2, text2, side] = steps[i];
+      const el = get();
+      if (!el || !el.offsetParent) { if (++i >= steps.length) return end(); return place(); }
+      const r = el.getBoundingClientRect(), pad = 6;
+      Object.assign(ring.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
+      card.replaceChildren(h('span', { class: 'small muted' }, `${i + 1} of ${steps.length}`), h('b', {}, title2), h('p', {}, text2),
+        h('div', { class: 'row', style: 'justify-content:space-between;margin-top:6px' }, h('button', { class: 'btn text sm', onclick: end }, 'Skip'), h('button', { class: 'btn sm', onclick: () => { if (++i >= steps.length) end(); else place(); } }, i === steps.length - 1 ? 'Done' : 'Next')));
+      const w = 300, gap = 16;
+      let x = side === 'right' ? r.right + gap : side === 'left' ? r.left + 28 : r.left + r.width / 2 - w / 2;
+      let y = side === 'below' ? r.bottom + gap : r.top + 28;
+      x = Math.max(12, Math.min(innerWidth - w - 12, x)); y = Math.max(12, Math.min(innerHeight - 200, y));
+      Object.assign(card.style, { left: `${x}px`, top: `${y}px`, width: `${w}px` });
+      card.querySelector('.btn:not(.text)').focus();
+    }
+    document.body.append(layer);
+    window.addEventListener('resize', place);
+    place();
+  }
+
   const goTab = (k) => { if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
   function startPanel() {
     const b = draft.business;
     const steps = [
-      [menu.length > 0, 'Add your menu', menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'} on your menu.` : 'Upload an Excel or CSV file of item names and prices and we build the menu for you.', menu.length ? ['Edit menu', () => goTab('menu')] : ['Upload item list', importCsv], !menu.length && ['Add items by hand', () => goTab('menu')]],
+      [menu.length > 0, 'Add your menu', menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'} on your menu.` : 'Upload an Excel or CSV file of item names and prices and we build the menu for you.', menu.length ? ['Edit menu', () => goTab('menu')] : ['Upload item list', importCsv], !menu.length && (state.config.scanEnabled ? ['Scan a paper menu', scanMenu] : ['Add items by hand', () => goTab('menu')])],
       [!!draft.brand.logo, 'Add your logo and colour', 'Make the site look like your business.', ['Open look and feel', () => goTab('design')]],
       [!!(str(b.phone).trim() && str(b.address1).trim()), 'Add your business details', 'Phone, address and opening hours, so customers can find you.', ['Open business info', () => goTab('business')]],
       [ordering.enabled && openMethods(ordering).length > 0, 'Choose how customers order', ordering.enabled ? `${openMethods(ordering).map((m) => ORDER_METHODS[m].name).join(', ')} ${openMethods(ordering).length === 1 ? 'is' : 'are'} on. Add curbside, delivery, tax and tips here.` : 'Online ordering is off.', ['Open ordering', () => goTab('ordering')]],
@@ -896,7 +1130,7 @@ export async function editor(id, mount, title) {
         h('span', { class: 'tick' }, ok ? ic('check', 15) : String(i + 1)),
         h('div', { class: 'grow' }, h('b', {}, name), h('p', {}, text),
           h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]), alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0])))))),
-      note('Tip: click anything in the preview on the right to edit it.'),
+      note('Tip: to change how your site looks, switch to ', h('b', {}, 'Website'), ' at the top.'),
     ];
   }
 
@@ -917,18 +1151,22 @@ export async function editor(id, mount, title) {
   const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
   const panel = h('div', { class: 'panel' });
   const top = h('header', { class: 'ed-top' });
-  const body = h('div', { class: 'ed-body', 'data-view': 'edit' }, rail, h('aside', { class: 'ed-side' }, tabsEl, panel), stage);
+  const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '' }, rail, h('aside', { class: 'ed-side' }, tabsEl, panel), stage);
 
   function paintPanel() {
     const y = panel.scrollTop;
-    const cur = TABS.find(([k]) => k === tab) || TABS[0];
+    const cur = tabs.find(([k]) => k === tab) || tabs[0];
     const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
-    rail.replaceChildren(...TABS.flatMap(([k, label, icon]) => [
+    const mode = cur[3];
+    lastTab[mode] = cur[0];
+    if (body.dataset.mode !== mode) { body.dataset.mode = mode; if (mode === 'office') body.dataset.view = 'edit'; paintTop(); requestAnimationFrame(fit); }
+    panel.classList.toggle('narrow', mode === 'office' && !WIDE.has(cur[0]));
+    rail.replaceChildren(h('span', { class: 'rail-h' }, MODES[mode]), ...tabs.filter((t) => t[3] === mode).flatMap(([k, label, icon]) => [
       h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, ic(icon, 18), h('span', {}, label), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)),
       DIVIDE_AFTER.has(k) && h('hr'),
     ]).filter(Boolean));
     tabsEl.replaceChildren(h('b', {}, cur[1]));
-    body.dataset.wide = String(cur[0] === 'items' || cur[0] === 'sales');
+    body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...(cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()).flat(Infinity).filter(Boolean));
     panel.scrollTop = y;
   }
@@ -966,17 +1204,22 @@ export async function editor(id, mount, title) {
     const pub = !meta.live ? h('button', { class: 'btn', onclick: publish }, 'Publish')
       : meta.dirty ? h('button', { class: 'btn', onclick: publish }, 'Publish changes')
         : h('button', { class: 'btn soft', onclick: () => liveSheet(false) }, ic('check', 15), 'Published');
-    top.replaceChildren(
+    top.dataset.mode = modeOf(tab);
+    top.replaceChildren(...[
       h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
       h('span', { class: 'name' }, meta.name),
-      h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
+      h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
+      modeOf(tab) === 'office' && h('span', { class: 'grow' }),
+      modeOf(tab) === 'office' && meta.live && h('a', { class: 'btn soft view-site', href: meta.url, target: '_blank', rel: 'noopener' }, h('span', {}, 'View site'), ic('out', 15)),
+      modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
       h('div', { class: 'mid' },
         h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
         h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
-        h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l)))),
+        h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l))))],
+      h('button', { class: 'icon-btn qf-btn', title: 'Find anything (Ctrl or ⌘ K)', 'aria-label': 'Find anything', onclick: quickFind }, ic('search', 18)),
       themeButton(),
-      h('button', { class: 'btn soft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
-      pub);
+      modeOf(tab) === 'site' && h('button', { class: 'btn soft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
+      pub].flat(Infinity).filter(Boolean));
   }
 
   /* ---------- publishing ---------- */
@@ -1037,7 +1280,7 @@ export async function editor(id, mount, title) {
       if (target !== page) { frame.addEventListener('load', jump, { once: true }); setPage(target); } else { e.data.hash ? jump() : frame.contentWindow.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
   };
-  const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
+  const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); return quickFind(); } if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
   window.addEventListener('keydown', onKey);
   const onLeave = (e) => { if (saveState !== 'saved') { save.flush(); e.preventDefault(); e.returnValue = ''; } };
   window.addEventListener('message', onMessage);
@@ -1045,6 +1288,9 @@ export async function editor(id, mount, title) {
 
   mount(h('div', { class: 'ed' }, top, body));
   paintTop(); paintPanel(); paint(true);
+  let toured = true;
+  try { toured = !!localStorage.getItem('pf-tour'); } catch { /* private mode */ }
+  if (!toured && !meta.live && !matchMedia('(max-width:900px)').matches) setTimeout(() => { if (top.isConnected && !document.querySelector('.scrim')) tour(); }, 900);
 
   return () => { clearInterval(salesTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }

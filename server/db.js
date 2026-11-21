@@ -68,6 +68,12 @@ export function openDb(dataDir) {
     CREATE INDEX IF NOT EXISTS versions_site ON versions(site_id, created_at);
     CREATE TABLE IF NOT EXISTS rewards (code TEXT NOT NULL, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, email TEXT NOT NULL, type TEXT NOT NULL, value INTEGER NOT NULL, earned_order TEXT NOT NULL, used_order TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (site_id, code));
   `);
+  addColumn('menu_items', 'restock', 'INTEGER');
+  addColumn('sites', 'day', 'TEXT');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS members (site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, role TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (site_id, user_id));
+    CREATE INDEX IF NOT EXISTS members_user ON members(user_id);
+  `);
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
   return {

@@ -688,6 +688,7 @@ export function defaultOrdering() {
     useHours: false, timezone: 'America/Chicago', scheduling: false,
     hours: DAYS.map(() => ({ closed: false, open: '11:00', close: '21:00' })),
     promos: [], cats: [], zones: [], loyalty: { enabled: false, every: 10, type: 'amount', value: 500 },
+    slotLimit: 0, deals: [], dailySummary: true, lowStockAt: 5,
   };
 }
 const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
@@ -710,6 +711,9 @@ export function normalizeOrdering(input) {
     cats: arr(o.cats).slice(0, 60).map((c) => ({ name: str(c?.name, 60).trim(), hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })).filter((c) => c.name && (c.hidden || (c.from && c.to))),
     zones: arr(o.zones).slice(0, 30).map((z) => ({ zips: [...new Set((Array.isArray(z?.zips) ? z.zips.join(' ') : str(z?.zips, 2000)).match(/\b\d{5}\b/g) || [])].slice(0, 200), fee: int(z?.fee, 0, 1_000_00, 0) })).filter((z) => z.zips.length),
     loyalty: { enabled: o.loyalty?.enabled === true, every: int(o.loyalty?.every, 2, 50, 10), type: o.loyalty?.type === 'percent' ? 'percent' : 'amount', value: o.loyalty?.type === 'percent' ? int(o.loyalty?.value, 1, 100, 10) : int(o.loyalty?.value, 1, 1_000_00, 500) },
+    slotLimit: int(o.slotLimit, 0, 500, 0),
+    deals: arr(o.deals).slice(0, 20).map((x) => ({ name: str(x?.name, 40).trim() || 'Happy hour', percent: int(x?.percent, 1, 90, 10), from: hhmm(x?.from, '15:00'), to: hhmm(x?.to, '18:00'), days: DAYS.map((_, i) => arr(x?.days)[i] !== false), category: str(x?.category, 60).trim(), active: x?.active !== false })),
+    dailySummary: o.dailySummary !== false, lowStockAt: int(o.lowStockAt, 0, 9999, 5),
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
@@ -754,14 +758,37 @@ export function slotLabel(value, ordering, lang = 'en', nowMs = Date.now()) {
   return `${day === 0 ? T.today : day === 1 ? T.tomorrow : new Date(wall).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })} ${clock(wall)}`;
 }
 /** Times a customer may schedule an order for: every 15 minutes, today and tomorrow, while open. */
-export function orderSlots(ordering, method = 'pickup', nowMs = Date.now()) {
+/** The timed price (happy hour) that applies to an item right now, if any. The biggest saving wins. */
+export function dealFor(item, ordering, nowMs = Date.now()) {
+  const deals = arr(ordering?.deals).filter((x) => x.active !== false);
+  if (!deals.length) return null;
+  const d = new Date(wallNow(ordering, nowMs));
+  const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+  let best = null;
+  for (const x of deals) {
+    if (x.category && x.category !== item.category) continue;
+    const a = mins(x.from), b = mins(x.to);
+    // A window that runs past midnight belongs to the day it started on.
+    const on = a <= b ? m >= a && m < b && x.days[d.getUTCDay()] !== false : (m >= a && x.days[d.getUTCDay()] !== false) || (m < b && x.days[(d.getUTCDay() + 6) % 7] !== false);
+    if (on && (!best || x.percent > best.percent)) best = x;
+  }
+  return best;
+}
+/** The menu with timed prices applied, so every page and every total uses the same price. */
+export function pricedMenu(menu, ordering, nowMs = Date.now()) {
+  if (!arr(ordering?.deals).length) return arr(menu);
+  return arr(menu).map((it) => { const deal = dealFor(it, ordering, nowMs); return deal && deal.percent > (it.sale || 0) ? { ...it, sale: deal.percent, deal: deal.name } : it; });
+}
+/** Counts toward the kitchen limit: `taken` maps a time slot to the orders already booked for it. */
+export function orderSlots(ordering, method = 'pickup', nowMs = Date.now(), taken = null) {
   if (!ordering.scheduling) return [];
   const now = wallNow(ordering, nowMs);
   const lead = (method === 'delivery' ? ordering.deliveryMinutes : ordering.prepMinutes) || 0;
   const first = Math.ceil((now + lead * 60000) / 900000) * 900000;
   const end = (Math.floor(now / 86400000) + 2) * 86400000;
   const out = [];
-  for (let w = first; w < end && out.length < 200; w += 900000) if (openAtWall(ordering, w)) out.push(slotValue(w));
+  const cap = ordering.slotLimit || 0;
+  for (let w = first; w < end && out.length < 200; w += 900000) if (openAtWall(ordering, w) && !(cap && taken && (taken[slotValue(w)] || 0) >= cap)) out.push(slotValue(w));
   return out;
 }
 
@@ -812,7 +839,7 @@ export const LANGS = { en: 'English', es: 'Español' };
 export const STRINGS = {
   en: {
     orderOnline: 'Order online', add: 'Add', added: 'Added', soldOut: 'Sold out', onlyLeft: 'Only {n} left', yourOrder: 'Your order', emptyCart: 'Add items from the menu to get started.', paused: 'Online ordering is paused right now.',
-    closedNow: 'We are closed right now.', closedSchedule: 'We are closed right now. You can schedule an order for later.', notTaking: 'We are not taking online orders right now. Please check back soon or give us a call.',
+    closedNow: 'We are closed right now.', busyNow: 'We have as many orders as we can make right now. Please try again in a few minutes.', busySchedule: 'We have as many orders as we can make right now. You can choose a later time.', search: 'Search the menu', noMatch: 'Nothing on the menu matches that.', closedSchedule: 'We are closed right now. You can schedule an order for later.', notTaking: 'We are not taking online orders right now. Please check back soon or give us a call.',
     name: 'Name', phone: 'Phone', emailConfirm: 'Email for your confirmation', address: 'Delivery address', vehicle: 'Vehicle make, model and colour', notes: 'Notes for us', tip: 'Add a tip', none: 'None',
     subtotal: 'Subtotal', discount: 'Discount', tax: 'Tax', delivery: 'Delivery', tipLine: 'Tip', total: 'Total', place: 'Place order', placing: 'Placing order…', pausedBtn: 'Ordering is paused',
     pickup: 'Pickup', curbside: 'Curbside', when: 'When', asap: 'As soon as possible', today: 'Today', tomorrow: 'Tomorrow', inAbout: 'in about {n} minutes',
@@ -831,7 +858,7 @@ export const STRINGS = {
   },
   es: {
     orderOnline: 'Ordenar en línea', add: 'Agregar', added: 'Agregado', soldOut: 'Agotado', onlyLeft: 'Solo quedan {n}', yourOrder: 'Tu pedido', emptyCart: 'Agrega artículos del menú para comenzar.', paused: 'Los pedidos en línea están en pausa.',
-    closedNow: 'Estamos cerrados en este momento.', closedSchedule: 'Estamos cerrados en este momento. Puedes programar un pedido para más tarde.', notTaking: 'No estamos tomando pedidos en línea en este momento. Vuelve pronto o llámanos.',
+    closedNow: 'Estamos cerrados en este momento.', busyNow: 'Tenemos todos los pedidos que podemos preparar ahora. Inténtalo de nuevo en unos minutos.', busySchedule: 'Tenemos todos los pedidos que podemos preparar ahora. Puedes elegir una hora más tarde.', search: 'Buscar en el menú', noMatch: 'Nada en el menú coincide.', closedSchedule: 'Estamos cerrados en este momento. Puedes programar un pedido para más tarde.', notTaking: 'No estamos tomando pedidos en línea en este momento. Vuelve pronto o llámanos.',
     name: 'Nombre', phone: 'Teléfono', emailConfirm: 'Correo para tu confirmación', address: 'Dirección de entrega', vehicle: 'Marca, modelo y color del vehículo', notes: 'Notas para nosotros', tip: 'Agregar propina', none: 'Ninguna',
     subtotal: 'Subtotal', discount: 'Descuento', tax: 'Impuesto', delivery: 'Entrega', tipLine: 'Propina', total: 'Total', place: 'Hacer pedido', placing: 'Enviando pedido…', pausedBtn: 'Pedidos en pausa',
     pickup: 'Para recoger', curbside: 'En la acera', when: 'Cuándo', asap: 'Lo antes posible', today: 'Hoy', tomorrow: 'Mañana', inAbout: 'en unos {n} minutos',
