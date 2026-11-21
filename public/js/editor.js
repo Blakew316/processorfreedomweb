@@ -1,6 +1,6 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, getTheme } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
@@ -983,7 +983,8 @@ export async function editor(id, mount, title, startTab = '') {
     },
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
-      const card = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, title), ...kids);
+      const ICON = { Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
+      const card = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, navTile(ICON[title] || 'page', 32), title), ...kids);
       const u = state.user;
       return [h('div', { class: 'set-grid' },
         card('Profile', h('p', {}, h('b', {}, u.name || 'No name yet'), `, ${roleName}`), h('p', { class: 'muted' }, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-step sign-in is ', h('b', {}, u.twoFactor ? 'on' : 'off')), ...links(['Edit your profile', 'profile'])),
@@ -1862,18 +1863,18 @@ export async function editor(id, mount, title, startTab = '') {
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
     // A section with several pages only opens or closes when pressed; choosing a page underneath is what takes you there.
     if (navFor !== cur[0]) { navFor = cur[0]; openNav.add(group.label); }
-    rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navIcon('back', 23), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
+    rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navTile('back', 30), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const many = g.tabs.length > 1, open = many ? openNav.has(g.label) : g === group;
       const kids = many && h('div', { class: 'nav-kids', 'data-shut': open ? null : '1' }, h('div', { class: 'nav-kids-in' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))));
       const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; };
       return [
-        h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, 'data-here': many && g === group ? '1' : null, onclick: (e) => (many ? toggle(e.currentTarget) : pick(g)) }, navIcon(g.icon, 23), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
+        h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, 'data-here': many && g === group ? '1' : null, onclick: (e) => (many ? toggle(e.currentTarget) : pick(g)) }, navTile(g.icon, 30), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         kids,
       ];
     }).filter(Boolean),
       mode === 'office' && h('hr'),
-      mode === 'office' && h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab.site) }, navIcon('address', 23), h('b', {}, 'Website')),
-      mode === 'office' && h('button', { class: 'nav-row', onclick: () => go(`/app/site/${id}/kitchen`) }, navIcon('orders', 23), h('b', {}, 'Kitchen screen')),
+      mode === 'office' && h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab.site) }, navTile('address', 30), h('b', {}, 'Website')),
+      mode === 'office' && h('button', { class: 'nav-row', onclick: () => go(`/app/site/${id}/kitchen`) }, navTile('preview', 30), h('b', {}, 'Kitchen screen')),
       h('span', { class: 'grow' }),
       mode === 'site' && railPub,
       h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].filter(Boolean));
@@ -1915,9 +1916,9 @@ export async function editor(id, mount, title, startTab = '') {
       const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
       const has = (k) => tabs.some(([t]) => t === k);
       const open = (k) => () => { body.dataset.view = 'edit'; goTab(k); paintTop(); };
-      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, icon && (NAV_NAMES.has(icon) ? navIcon(icon, 21) : h('span', { class: 'nav-ic' }, ic(icon, 20))), h('b', {}, label), extra, navIcon('chev', 14));
+      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, icon && navTile(NAV_NAMES.has(icon) ? icon : { out: 'address', phone: 'page' }[icon] || 'page', 29), h('b', {}, label), extra, navIcon('chev', 14));
       // One card per section, its pages listed underneath: the same shape as the Settings app on an iPhone.
-      const section = (g) => { const ks = g.tabs.filter(has); return h('div', { class: 'more-group' }, h('h3', {}, g.label), h('div', { class: 'more-list' }, ks.map((k) => row(ks.length > 1 ? '' : g.icon, ks.length > 1 ? g.subs[g.tabs.indexOf(k)] : g.label, open(k), [k === tab && h('span', { class: 'tag' }, 'Here'), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)])))); };
+      const section = (g) => { const ks = g.tabs.filter(has); return h('div', { class: 'more-group' }, h('h3', {}, g.label), h('div', { class: 'more-list' }, ks.map((k) => row(g.icon, ks.length > 1 ? g.subs[g.tabs.indexOf(k)] : g.label, open(k), [k === tab && h('span', { class: 'tag' }, 'Here'), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)])))); };
       const mode = modeOf(tab), other = mode === 'office' ? 'site' : 'office';
       const singles = NAV[mode].filter((g) => g.tabs.filter(has).length === 1), multi = NAV[mode].filter((g) => g.tabs.filter(has).length > 1);
       return [h('div', { class: 'more-grab', 'aria-hidden': 'true' }), h('div', { class: 'row more-head' }, h('div', { class: 'grow' }, h('small', {}, mode === 'office' ? 'Back office' : 'Website'), h('h2', {}, meta.name)), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
@@ -1993,7 +1994,7 @@ export async function editor(id, mount, title, startTab = '') {
   function openNotes(btn) {
     popover(btn, (close) => {
       const list = h('div', { class: 'tb-notes' }, skel(3));
-      const draw = () => list.replaceChildren(...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, h('span', { class: `tb-kind ${x.kind}` }), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new. Orders, messages and booking requests show up here.')]));
+      const draw = () => list.replaceChildren(...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, navTile({ order: 'orders', message: 'feedback', booking: 'calendar', stock: 'menu' }[x.kind] || 'page', 32), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new. Orders, messages and booking requests show up here.')]));
       const seenAt = lastSeen();
       loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = true; });
       return [h('div', { class: 'tb-pop-h' }, h('b', {}, 'Notifications'), h('button', { class: 'btn text sm', type: 'button', onclick: () => { close(); goTab('alerts'); } }, 'Alert settings')), list];
@@ -2011,15 +2012,15 @@ export async function editor(id, mount, title, startTab = '') {
   // The settings drawer: the handful of settings people open most, and a way to all of them.
   function openSettings() {
     sheet((close) => {
-      const row = (t, d, k) => h('button', { class: 'set-row', type: 'button', onclick: () => { close(); goTab(k); } }, h('b', {}, t), h('small', {}, d));
+      const row = (t, d, k, icon) => h('button', { class: 'set-row', type: 'button', onclick: () => { close(); goTab(k); } }, navTile(icon, 32), h('span', {}, h('b', {}, t), h('small', {}, d)), navIcon('chev', 14));
       return [h('div', { class: 'drawer-h' }, h('h2', {}, tIcon('gear', 22), 'Settings'), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: close }, tIcon('x', 18))),
         h('p', { class: 'drawer-k' }, 'Frequently used'),
-        row('Business information', 'Your business name, address, phone number and logo.', 'bizinfo'),
-        row('Business hours', 'When you are open, and when online orders are taken.', 'hours'),
-        row('Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', 'ordering'),
-        row('Online booking', 'What customers can book, how long it takes and how many at once.', 'booking'),
-        row('Alerts and emails', 'How you hear about new orders and what customers are sent.', 'alerts'),
-        row('Profile and sign-in', 'Your name, email, password and two-step sign-in.', 'profile'),
+        row('Business information', 'Your business name, address, phone number and logo.', 'bizinfo', 'business'),
+        row('Business hours', 'When you are open, and when online orders are taken.', 'hours', 'calendar'),
+        row('Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', 'ordering', 'orders'),
+        row('Online booking', 'What customers can book, how long it takes and how many at once.', 'booking', 'calendar'),
+        row('Alerts and emails', 'How you hear about new orders and what customers are sent.', 'alerts', 'feedback'),
+        row('Profile and sign-in', 'Your name, email, password and two-step sign-in.', 'profile', 'customers'),
         h('div', { class: 'drawer-f' }, h('button', { class: 'btn', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'View all settings'))];
     }, 'drawer');
   }

@@ -311,4 +311,8 @@ const NAV_ICONS = {
   chev: '<path d="M9 6l6 6-6 6"/>',
   back: '<path d="M15 6l-6 6 6 6"/>',
 };
+/* The same icons the way an iPhone shows them in Settings: a white glyph on a small rounded tile.
+   The tiles stay within one family of navy, blue and slate, so a list reads as calm rather than as a rainbow. */
+const TILE = { home: 'navy', insights: 'navy', design: 'navy', orders: 'blue', calendar: 'blue', promo: 'blue', business: 'blue', menu: 'steel', invoice: 'steel', page: 'steel', sales: 'ink', team: 'ink', preview: 'ink', customers: 'slate', feedback: 'slate', address: 'slate', settings: 'grey', swap: 'grey', more: 'grey', back: 'grey' };
+export const navTile = (name, size = 30) => h('span', { class: `tile-ic t-${TILE[name] || 'steel'}`, style: `width:${size}px;height:${size}px`, 'aria-hidden': 'true', html: `<svg viewBox="0 0 24 24" width="${Math.round(size * 0.62)}" height="${Math.round(size * 0.62)}" fill="none" stroke="currentColor" stroke-width="2.050" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || NAV_ICONS.page}</svg>` });
 export const navIcon = (name, size = 20) => h('span', { class: 'nav-ic', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.650" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICONS[name] || ''}</svg>` });

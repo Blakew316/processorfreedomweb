@@ -2907,3 +2907,55 @@ html[data-theme=dark] .glass-mark::before{background:linear-gradient(180deg,rgba
   .ed-top[data-mode=site] .pub-top .btn{padding:6px 12px!important;font-size:14px!important;min-height:0;height:34px;gap:5px}
   .tabbar{-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);background:color-mix(in srgb,var(--card) 94%,transparent)!important}
 }
+
+/* ---------- iPhone-style icon tiles ---------- */
+.tile-ic{flex:none;display:grid;place-items:center;border-radius:27%;color:#fff;background:linear-gradient(180deg,var(--t1),var(--t2));box-shadow:inset 0 .5px 0 rgba(255,255,255,.4),inset 0 -.5px 0 rgba(0,0,0,.12),0 1px 2px rgba(10,20,45,.22)}
+.tile-ic svg{display:block}
+.t-navy{--t1:#27488f;--t2:#0a1f44}
+.t-blue{--t1:#4f8ae6;--t2:#1d4f9e}
+.t-steel{--t1:#7d9cc6;--t2:#46658f}
+.t-ink{--t1:#565c69;--t2:#262a33}
+.t-slate{--t1:#98a2b3;--t2:#667085}
+.t-grey{--t1:#b3b9c4;--t2:#858c99}
+html[data-theme=dark] .tile-ic{box-shadow:inset 0 .5px 0 rgba(255,255,255,.3),0 1px 2px rgba(0,0,0,.5)}
+
+/* ---------- Back office polish ---------- */
+/* Sidebar: tiles in a tidy column, rows a touch taller, the current place in a soft pill. */
+.rail .nav-row{gap:12px;min-height:44px;padding:6px 10px;border-radius:12px}
+.rail .nav-row b{font-size:15.5px;letter-spacing:-.01em}
+.rail .nav-row[aria-current=page]{background:color-mix(in srgb,var(--blue) 10%,transparent)}
+.rail .nav-row:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.rail .nav-row .nav-chev{color:var(--faint);margin-left:auto}
+.nav-kids{margin-left:25px;padding-left:16px}
+.rail .nav-kids button{min-height:36px;border-radius:10px;font-size:15px}
+.rail .rail-new{border-radius:14px;height:44px;font-weight:600}
+.rail hr{margin:10px 12px;border:0;border-top:1px solid var(--line)}
+/* Cards share one shape: white, softly rounded, a hairline and a faint lift. */
+.ed-body[data-mode=office] .panel .group>.box,.ed-body[data-mode=office] .panel .scard,.ed-body[data-mode=office] .panel .card,.set-card,.prof-card{border-radius:18px;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(10,20,45,.04),0 10px 24px -18px rgba(10,20,45,.22)}
+.ed-body[data-mode=office] .panel{background:linear-gradient(180deg,color-mix(in srgb,var(--bg2) 88%,#dfe6f3) 0,var(--bg2) 260px)}
+html[data-theme=dark] .ed-body[data-mode=office] .panel{background:var(--bg)}
+.ed-body[data-mode=office] .page-head h2,.ed-body[data-mode=office] .inv-top h2{font-weight:700;letter-spacing:-.03em}
+.ed-body[data-mode=office] .panel table th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ed-body[data-mode=office] .panel table td{font-variant-numeric:tabular-nums}
+/* Settings drawer, settings cards and notifications carry the tiles. */
+.set-row{display:flex;align-items:center;gap:14px}
+.set-row>span:not(.tile-ic):not(.nav-ic){display:grid;gap:2px;flex:1;min-width:0}
+.set-row .nav-ic{color:var(--faint)}
+.set-card h3{display:flex;align-items:center;gap:12px}
+.tb-note{grid-template-columns:auto minmax(0,1fr) auto}
+.tb-note:not(.new) .tile-ic{filter:saturate(.5);opacity:.75}
+.more-row .tile-ic{margin:0 2px 0 0}
+@media (max-width:900px){
+  .more-row{min-height:52px}
+  /* Tab bar: the current place is drawn heavier and in blue, as on an iPhone. */
+  .tabbar button[aria-current=page] svg{stroke-width:2.300}
+  .tabbar button svg{stroke-width:1.700}
+}
+.tile-ic,.rail .tile-ic,.rail .nav-row .tile-ic,.rail .nav-row[aria-current] .tile-ic,.rail .nav-row[data-open] .tile-ic,.rail .nav-row[data-here] .tile-ic{color:#fff!important}
+.tile-ic svg{stroke:#fff}
+.nav-kids{margin-right:10px}
+.rail .nav-kids button{width:100%;box-sizing:border-box}
+.nav-kids{margin-left:22px;padding-left:12px;margin-right:0}
+.nav-kids-in{padding-right:10px}
+.rail .nav-kids button{font-size:14.5px;padding-left:12px;padding-right:8px;border-radius:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail .nav-row.nav-swap,.rail .nav-row{padding-left:10px}
