@@ -4,7 +4,7 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['sale', 'New sale', 'cash', 'office'], ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
+  ['sale', 'New sale', 'cash', 'office'], ['start', 'Home', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
   ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'], ['settings', 'Settings', 'settings', 'office'], ['profile', 'Profile', 'person', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
@@ -26,7 +26,7 @@ const SETUP = { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'or
 // The sidebar: a short list of sections. A section with more than one screen opens to show them underneath it.
 const NAV = {
   office: [
-    { label: 'Dashboard', icon: 'home', tabs: ['start'] },
+    { label: 'Home', icon: 'home', tabs: ['start'] },
     { label: 'Insights', icon: 'insights', tabs: ['insights'] },
     { label: 'Appointments', icon: 'calendar', tabs: ['appts', 'calendar'], subs: ['Overview', 'Calendar'] },
     { label: 'Sales activity', short: 'Sales', icon: 'orders', tabs: ['orders', 'tx', 'cash', 'close', 'invoices', 'est', 'projects', 'plans', 'tips'], subs: ['Orders', 'Transactions', 'Cash log', 'Closeout', 'Invoices', 'Estimates', 'Projects', 'Recurring payments', 'Tips'] },
@@ -1402,7 +1402,7 @@ export async function editor(id, mount, title, startTab = '') {
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
   const poll = setInterval(() => { if (document.visibilityState !== 'visible') return; if (ordering.enabled) loadOrders(true); loadNotes(); }, 20000);
-  const salesTick = setInterval(() => { if (SALES_TABS[tab] && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if (SALES_TABS[tab] && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
+  const salesTick = setInterval(() => { if ((SALES_TABS[tab] || tab === 'start') && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if ((SALES_TABS[tab] || tab === 'start') && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
   if (ordering.enabled) loadOrders(true);
 
   async function putOrdering() { await sendOrdering(ordering); }
@@ -1575,7 +1575,7 @@ export async function editor(id, mount, title, startTab = '') {
   const monthName = (ym) => new Date(`${ym}-01T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'long', year: 'numeric' });
   const chev = (d) => h('span', { class: `chv ${d}`, 'aria-hidden': 'true' });
   const RANGE_NAMES = { today: 'Today', yesterday: 'Yesterday', week: 'This week', month: 'This month', last30: 'Last 30 days' };
-  const rangeData = () => (SALES_TABS[tab] ? stats : tab === 'tx' ? txData : tab === 'cash' ? cashData : null);
+  const rangeData = () => (SALES_TABS[tab] || tab === 'start' ? stats : tab === 'tx' ? txData : tab === 'cash' ? cashData : null);
   function setRange(k, from = '', to = '') { salesRange = k; salesFrom = from; salesTo = to; stats = null; txData = null; cashData = null; paintPanel(); }
   // A real month to click through: press a day, or a start day then an end day.
   function monthGrid(ym, pick, sel, max) {
@@ -1983,7 +1983,7 @@ export async function editor(id, mount, title, startTab = '') {
   const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if ((tab === 'invoices' || tab === 'est') && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
   // What each screen loads, so a visit can refresh it quietly instead of clearing the page and drawing it again.
   const FEEDS = {
-    start: [() => 'stats?range=today', (v) => { dash = v; }, () => (dash && dash.totals ? dash : null)],
+    start: [() => `stats?${rq()}`, (v) => { stats = v; }, () => (stats && stats.totals ? stats : null)],
     tx: [() => `transactions?${rq()}`, (v) => { txData = v; }, () => txData], cash: [() => `cash?${rq()}`, (v) => { cashData = v; }, () => cashData],
     close: [() => 'closeouts', (v) => { closeData = v; }, () => closeData], insights: [() => 'stats?range=last7', (v) => { insightData = v; }, () => insightData],
     appts: [() => 'appointments', (v) => { apptData = v; }, () => apptData], calendar: [() => 'appointments', (v) => { apptData = v; }, () => apptData],
@@ -1997,51 +1997,94 @@ export async function editor(id, mount, title, startTab = '') {
     catch (e) { if (!quiet) toast(e.message, true); }
   }
   const goTab = (k, fromHistory = false) => { if (!known(k)) k = 'start'; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history.pushState(null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
-  function startPanel() {
+  // What the merchant still has to do. Shown in Notifications, not on the dashboard.
+  function setupTodos() {
     const b = draft.business;
     const steps = [
       [menu.length > 0, 'Add your menu', menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'} on your menu.` : 'Upload an Excel or CSV file of item names and prices and we build the menu for you.', menu.length ? ['Edit menu', () => goTab('menu')] : ['Upload item list', importCsv], !menu.length && (state.config.scanEnabled ? ['Scan a paper menu', scanMenu] : ['Add items by hand', () => goTab('menu')])],
       [!!draft.brand.logo, 'Add your logo and colour', 'Make the site look like your business.', ['Open look and feel', () => goTab('design')]],
       [!!(str(b.phone).trim() && str(b.address1).trim()), 'Add your business details', 'Phone, address and opening hours, so customers can find you.', ['Open business info', () => goTab('business')]],
       [ordering.enabled && openMethods(ordering).length > 0, 'Choose how customers order', ordering.enabled ? `${openMethods(ordering).map((m) => ORDER_METHODS[m].name).join(', ')} ${openMethods(ordering).length === 1 ? 'is' : 'are'} on. Add curbside, delivery, tax and tips here.` : 'Online ordering is off.', ['Open ordering', () => goTab('ordering')]],
-      [meta.live && !meta.dirty, meta.live ? 'Published' : 'Publish your site', meta.live ? (meta.dirty ? 'You have changes that are not live yet.' : `Live at ${meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}`) : 'Nothing is public until you publish. You can keep editing afterwards.', meta.live && !meta.dirty ? ['View live site', () => window.open(meta.url, '_blank', 'noopener')] : [meta.live ? 'Publish changes' : 'Publish', (e) => publish(e)]],
+      [meta.live && !meta.dirty, meta.live ? 'Publish your changes' : 'Publish your site', meta.live ? (meta.dirty ? 'You have changes that are not live yet.' : `Live at ${meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}`) : 'Nothing is public until you publish. You can keep editing afterwards.', meta.live && !meta.dirty ? ['View live site', () => window.open(meta.url, '_blank', 'noopener')] : [meta.live ? 'Publish changes' : 'Publish', (e) => publish(e)]],
     ];
     steps.push([!!(orders && orders.length), 'Place a test order', meta.live ? 'Order from your own site to see exactly what customers see, then watch it arrive under Orders.' : 'Once you publish, order from your own site to see the whole flow.', ['Open my order page', () => (meta.live ? window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener') : toast('Publish your site first.', true))]]);
-    const done = steps.filter(([ok]) => ok).length;
-    const next = steps.findIndex(([ok]) => !ok);
-    // Today's numbers, fetched each time the dashboard is opened.
-    if (!dash) { dash = { loading: true }; api('GET', `/api/sites/${id}/stats?range=today`).then((r) => { dash = r; if (tab === 'start') paintPanel(); }).catch(() => { dash = { failed: true }; }); }
-    const t = dash.totals;
-    const kpi = (label, value, sub, icon) => h('div', { class: 'dk' }, navTile({ cash: 'sales', bag: 'orders', chart: 'insights', cube: 'menu' }[icon] || 'page', 34), h('span', { class: 'dk-l' }, label), h('b', {}, value), h('span', { class: 'dk-s' }, sub));
+    return steps.filter(([ok]) => !ok).map(([, name, text, main]) => ({ name, text, act: main }));
+  }
+  let prevStats = null;
+  function startPanel() {
+    // The same numbers as Reports, for the period picked at the top.
+    if (!stats && !salesBusy) { salesBusy = true; api('GET', `/api/sites/${id}/stats?${rq()}`).then((r) => { stats = r; }).catch(() => { stats = { failed: true }; }).finally(() => { salesBusy = false; if (tab === 'start') paintPanel(); }); }
+    const st = stats && !stats.failed ? stats : null;
+    if (st && (!prevStats || prevStats.key !== `${st.previous.from}|${st.previous.to}`)) {
+      const key = `${st.previous.from}|${st.previous.to}`; prevStats = { key, loading: true };
+      api('GET', `/api/sites/${id}/stats?range=custom&from=${st.previous.from}&to=${st.previous.to}`).then((r) => { prevStats = { key, ...r }; if (tab === 'start') paintPanel(); }).catch(() => { prevStats = { key, failed: true }; });
+    }
+    const t = st ? st.totals : null, pv = st ? st.previous : null;
+    const prevName = pv ? (pv.from === pv.to ? (st.from === st.today ? `last ${longDay(pv.from, { weekday: 'long' })}` : longDay(pv.from, { weekday: 'short', month: 'short', day: 'numeric' })) : `${longDay(pv.from, { month: 'short', day: 'numeric' })} – ${longDay(pv.to, { month: 'short', day: 'numeric' })}`) : '';
+    const nowName = st ? (st.range === 'today' ? 'Today' : RANGE_NAMES[st.range] || 'This period') : 'Today';
+    const pct = (now, was) => (was ? Math.round(((now - was) / was) * 100) : 0);
+    const go2 = (k) => () => goTab(k);
+    const metric = (label, k, value, sub, big) => h('div', { class: `hm ${big ? 'big' : ''}` }, h('button', { type: 'button', class: 'hm-l', onclick: go2(k) }, label, h('span', { class: 'chv r', 'aria-hidden': 'true' })), h('b', {}, value), sub);
     const waiting = (orders || []).filter((x) => !['completed', 'cancelled'].includes(x.status));
-    const low = menu.filter((x) => x.available !== false && x.stock <= (ordering.lowStockAt ?? 5));
-    const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    const pct = Math.round((done / steps.length) * 100);
-    const setup = done < steps.length && h('div', { class: 'scard setup2' },
-      h('div', { class: 'su-head' }, h('div', { class: 'su-ring', style: `--p:${pct}`, 'aria-hidden': 'true' }, h('b', {}, `${done}/${steps.length}`)), h('div', {}, h('h3', {}, 'Finish setting up'), h('p', {}, done === steps.length - 1 ? 'One step left.' : `${steps.length - done} steps left. Each takes a minute or two.`))),
-      h('div', { class: 'su-list' }, steps.map(([ok, name, text, main, alt], i) => !ok && h('div', { class: `su-row ${i === next ? 'next' : ''}` },
-        h('span', { class: 'su-n' }, String(i + 1)),
-        h('div', { class: 'su-t' }, h('b', {}, name), h('small', {}, text)),
-        h('div', { class: 'su-a' }, alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0]), h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]))))));
-    const hour = new Date().getHours(), hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-    const first = (state.user.name || '').trim().split(/\s+/)[0];
-    return [h('div', { class: 'inv dashb' },
-      h('div', { class: 'inv-top dash-hello' }, h('div', {}, h('p', { class: 'dh-date' }, today), h('h2', {}, first ? `${hello}, ${first}` : hello), h('p', { class: 'muted dh-biz' }, meta.name)),
-        h('div', { class: 'row', style: 'flex-wrap:wrap' }, meta.live && h('a', { class: 'btn soft', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open my order page', ic('out', 15)), h('button', { class: 'btn soft', onclick: async () => { loadOrders(true); await reload('start'); paintPanel(); toast('Up to date'); } }, 'Refresh'))),
-      h('div', { class: 'dks' }, ...(t ? [kpi('Net sales today', money(t.net), `${t.orders} order${t.orders === 1 ? '' : 's'}`, 'cash'), kpi('Orders waiting', waiting.length, waiting.length ? 'need your attention' : 'all caught up', 'bag'), kpi('Average order', money(t.average), 'including tax and tips', 'chart'), kpi('Running low', low.length, low.length ? 'items to restock' : 'stock looks good', 'cube')] : dash.failed ? [kpi('Net sales today', '—', 'could not load', 'cash')] : skel(4, 'kpi'))),
-      setup,
-      h('div', { class: 'sgrid2x' },
-        h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders waiting'), h('button', { class: 'btn text sm', onclick: () => goTab('orders') }, 'View all orders')),
-          waiting.length ? waiting.slice(0, 5).map((x) => h('div', { class: 'rline click', onclick: () => goTab('orders') }, h('span', {}, h('b', { style: 'color:var(--ink)' }, `#${x.number} · ${x.name}`), h('div', { class: 'small' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status]}`)), h('b', {}, money(x.total))))
-            : h('p', { class: 'muted', style: 'padding:14px 0' }, ordering.enabled ? 'No orders waiting. New ones appear here on their own.' : 'Online ordering is off. Turn it on under Setup.')),
-        h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Top sellers today'), h('button', { class: 'btn text sm', onclick: () => goTab('r-items') }, 'Item sales')),
-          t && dash.items.length ? dash.items.slice(0, 5).map((it) => h('div', { class: 'rline' }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, `${it.qty} sold · ${money(it.sales)}`)))
-            : h('p', { class: 'muted', style: 'padding:14px 0' }, 'Nothing sold yet today.')),
-        h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Running low'), h('button', { class: 'btn text sm', onclick: () => goTab('items') }, 'Manage items')),
-          low.length ? low.slice(0, 5).map((it) => h('div', { class: 'rline click', onclick: () => openItem(it.id) }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, it.stock === 0 ? 'Sold out' : `${it.stock} left`)))
-            : h('p', { class: 'muted', style: 'padding:14px 0' }, menu.length ? 'Nothing is running low.' : 'Add your menu to start tracking stock.')),
-        h('div', { class: 'scard' }, h('h3', {}, 'Shortcuts'),
-          h('div', { class: 'shortcuts' }, [['Add an item', 'menu', () => goTab('items')], ['Send an invoice', 'invoice', () => openInvoice()], ['Edit my website', 'design', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'qa', onclick: fn }, navTile(icon, 34), h('b', {}, l), navIcon('chev', 14)))))))];
+    const short = (c) => { const d = c / 100; return d >= 1000 ? `$${(d / 1000).toFixed(2)}K` : `$${d.toFixed(d % 1 ? 2 : 0)}`; };
+    const nice = (v) => { if (v <= 1) return 400000; const u = 10 ** Math.floor(Math.log10(v)); return [1, 2, 2.5, 4, 5, 10].map((m) => m * u).find((x) => x >= v * 1.08) || 10 * u; };
+    // Sales line: a running total for the period, against the period before.
+    const lineChart = () => {
+      const ser = st ? st.series : Array.from({ length: 24 }, (_, i) => ({ key: String(i).padStart(2, '0'), net: 0 }));
+      const hourly = !st || st.unit === 'hour';
+      const run = (list) => { let a = 0; return list.map((x) => (a += x.net)); };
+      const cur = run(ser), prev = prevStats && prevStats.series && prevStats.series.length === ser.length ? run(prevStats.series) : null;
+      const n = ser.length, nowH = new Date().getHours() + new Date().getMinutes() / 60;
+      const live = st && st.to === st.today && hourly ? Math.min(n - 1, Math.floor(nowH)) : n - 1;
+      const top = nice(Math.max(1, ...cur, ...(prev || [0])));
+      const X = (i) => (n === 1 ? 50 : (i / (n - 1)) * 100), Y = (v) => 100 - (v / top) * 100;
+      const pts = (arr, upto = arr.length - 1) => arr.slice(0, upto + 1).map((v, i) => `${X(i).toFixed(2)},${Y(v).toFixed(2)}`).join(' ');
+      const every = hourly ? 2 : Math.ceil(n / 8);
+      const lab = (x) => (hourly ? `${Number(x.key) % 12 || 12} ${Number(x.key) < 12 ? 'AM' : 'PM'}` : longDay(x.key, { month: 'short', day: 'numeric' }));
+      const nowAt = st && st.to === st.today && hourly ? (nowH / 23) * 100 : null;
+      return h('div', { class: 'hl' },
+        h('div', { class: 'hl-key' }, h('span', {}, h('i', { class: 'k-now' }), nowName), prevName && h('span', {}, h('i', { class: 'k-was' }), prevName.replace(/^last /, 'Last '))),
+        h('div', { class: 'chart g2 hl-chart' },
+          h('div', { class: 'chart-y', 'aria-hidden': 'true' }, [4, 3, 2, 1, 0].map((i) => h('span', { style: `bottom:${i * 25}%` }, short((top * i) / 4)))),
+          h('div', { class: 'chart-plot', role: 'img', 'aria-label': `Sales ${nowName.toLowerCase()}: ${money(cur[cur.length - 1] || 0)}` }, [1, 2, 3, 4].map((i) => h('i', { class: 'gl', style: `bottom:${i * 25}%` })),
+            nowAt != null && h('div', { class: 'now', style: `left:${Math.min(100, nowAt)}%` }, h('span', {}, 'Now')),
+            h('div', { class: 'hl-svg', html: `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${prev ? `<polyline class="was" points="${pts(prev)}"/>` : ''}<polyline class="cur" points="${pts(cur, live)}"/></svg>` })),
+          h('span'), h('div', { class: 'chart-x' }, ser.map((x, i) => h('span', {}, i % every === 0 ? lab(x) : '')))));
+    };
+    const pAvg = pv && pv.orders ? Math.round(pv.total / pv.orders) : 0;
+    const delta = (now, was, text) => h('small', { class: 'hm-d' }, h('b', {}, `${pct(now, was) > 0 ? '+' : ''}${pct(now, was)}%`), text ? ` ${text}` : '');
+    const salesCard = h('div', { class: 'scard hcard' }, h('h3', { class: 'hc-h' }, 'Sales'),
+      h('div', { class: 'hs' },
+        h('div', { class: 'hs-l' },
+          metric('Net sales', 'sales', t ? money(t.net) : '—', t && delta(t.net, pv.net, `compared to ${prevName}`), true),
+          metric('Paid orders', 'orders', t ? String(t.orders) : '—', t && delta(t.orders, pv.orders)),
+          metric('Average order', 'r-full', t ? money(t.average) : '—', t && delta(t.average, pAvg))),
+        lineChart()));
+    const openTotal = waiting.reduce((a, x) => a + x.total, 0);
+    const summary = h('div', { class: 'scard hcard hsum' },
+      metric('Open orders', 'orders', money(openTotal), h('small', { class: 'hm-s' }, `from ${waiting.length} order${waiting.length === 1 ? '' : 's'}`), true),
+      metric('Discounts', 'r-disc', t ? money(t.discounts) : '—', null, true),
+      metric('Refunds', 'tx', t ? money(t.refunds || 0) : '—', null, true));
+    const units = t ? t.units : 0;
+    const itemsCard = h('div', { class: 'scard hcard' }, h('button', { type: 'button', class: 'hc-h link', onclick: go2('r-items') }, 'Item sales', h('span', { class: 'chv r', 'aria-hidden': 'true' })),
+      h('p', { class: 'hc-sub' }, `${units} item${units === 1 ? '' : 's'} sold ${nowName === 'Today' ? 'today' : nowName.toLowerCase()}`),
+      st && st.items.length ? h('div', { class: 'hi-list' }, st.items.slice(0, 6).map((it) => h('div', { class: 'hi' }, h('span', {}, it.name), h('small', {}, `${it.qty} sold`), h('b', {}, money(it.sales))))) : h('p', { class: 'hc-empty' }, menu.length ? 'No items sold yet' : 'No items added'));
+    const buckets = { Card: 0, Cash: 0, Other: 0 };
+    for (const x of st ? st.tenders : []) { if (x.name === 'Not paid yet') continue; const k = /card/i.test(x.name) ? 'Card' : /cash/i.test(x.name) ? 'Cash' : 'Other'; buckets[k] += x.total; }
+    const collected = Object.values(buckets).reduce((a, b) => a + b, 0), bTop = nice(Math.max(1, ...Object.values(buckets)));
+    const finCard = h('div', { class: 'scard hcard' }, h('button', { type: 'button', class: 'hc-h link', onclick: go2('tx') }, 'Finances', h('span', { class: 'chv r', 'aria-hidden': 'true' })),
+      h('p', { class: 'hc-sub' }, `${money(collected)} collected ${nowName === 'Today' ? 'today' : nowName.toLowerCase()}`),
+      h('h4', { class: 'hc-k' }, 'Amount collected'),
+      h('div', { class: 'chart g2 hb-chart' },
+        h('div', { class: 'chart-y', 'aria-hidden': 'true' }, [2, 1, 0].map((i) => h('span', { style: `bottom:${i * 50}%` }, i ? short((bTop * i) / 2) : '0'))),
+        h('div', { class: 'chart-plot' }, [1, 2].map((i) => h('i', { class: 'gl', style: `bottom:${i * 50}%` })), h('div', { class: 'hb-bars' }, Object.entries(buckets).map(([k, v]) => h('div', { class: 'hb', title: `${k}: ${money(v)}` }, v > 0 && h('em', {}, money(v)), h('i', { style: `height:${v ? Math.max(2, (v / bTop) * 100) : 0}%` }))))),
+        h('span'), h('div', { class: 'chart-x' }, Object.keys(buckets).map((k) => h('span', {}, k)))));
+    return [h('div', { class: 'inv home2' },
+      h('div', { class: 'home-top' }, h('h2', {}, 'Home'), dateFilter()),
+      salesCard,
+      h('h2', { class: 'home-h' }, 'Activity summary'),
+      summary,
+      h('div', { class: 'home-2' }, itemsCard, finCard))];
   }
 
   function addSection() {
@@ -2293,7 +2336,7 @@ export async function editor(id, mount, title, startTab = '') {
   let notes = null, popEl = null;
   const lastSeen = () => { try { return Number(localStorage.getItem(seenKey)) || 0; } catch { return 0; } };
   const unread = () => !!notes && notes.some((x) => x.at > lastSeen());
-  async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !unread(); } catch { /* shown as empty */ } }
+  async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !(unread() || setupTodos().length); } catch { /* shown as empty */ } }
   // A small panel that hangs from one of the top-right buttons and closes when you click away.
   function popover(anchor, build, side = 'right') {
     if (popEl) { const same = popEl._for === anchor; popEl._close(); if (same) return; }
@@ -2310,9 +2353,11 @@ export async function editor(id, mount, title, startTab = '') {
   function openNotes(btn) {
     popover(btn, (close) => {
       const list = h('div', { class: 'tb-notes' }, skel(3));
-      const draw = () => list.replaceChildren(...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, navTile({ order: 'orders', message: 'feedback', booking: 'calendar', stock: 'menu' }[x.kind] || 'page', 32), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new. Orders, messages and booking requests show up here.')]));
+      const todos = setupTodos();
+      const todoBox = todos.length ? h('div', { class: 'tb-todo' }, h('small', { class: 'tb-sec' }, `To do · ${todos.length}`), todos.map((x) => h('button', { class: 'tb-note new', type: 'button', onclick: () => { close(); x.act[1](); } }, h('span', { class: 'todo-dot', 'aria-hidden': 'true' }), h('span', {}, h('b', {}, x.name), h('small', {}, x.text)), h('em', {}, x.act[0])))) : null;
+      const draw = () => list.replaceChildren(...(todoBox ? [todoBox, h('small', { class: 'tb-sec' }, 'Recent')] : []), ...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, navTile({ order: 'orders', message: 'feedback', booking: 'calendar', stock: 'menu' }[x.kind] || 'page', 32), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new. Orders, messages and booking requests show up here.')]));
       const seenAt = lastSeen();
-      loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = true; });
+      loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !setupTodos().length; });
       return [h('div', { class: 'tb-pop-h' }, h('b', {}, 'Notifications'), h('button', { class: 'btn text sm', type: 'button', onclick: () => { close(); goTab('alerts'); } }, 'Alert settings')), list];
     });
   }
@@ -2349,7 +2394,7 @@ export async function editor(id, mount, title, startTab = '') {
     }, 'drawer');
   }
   const topRight = () => {
-    const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !unread() }));
+    const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !(unread() || setupTodos().length) }));
     const gear = h('button', { class: 'icon-btn tb-btn tb-gear', type: 'button', title: 'Settings', 'aria-label': 'Settings', onclick: openSettings }, tIcon('gear'));
     const me = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Profile', 'aria-label': 'Profile', 'aria-haspopup': 'dialog', onclick: () => openProfileMenu(me) }, tIcon('user'));
     return h('div', { class: 'tb-right' }, bell, gear, me);
@@ -2367,7 +2412,7 @@ export async function editor(id, mount, title, startTab = '') {
     if (tab === 'start' || modeOf(tab) === 'site') return null;
     const g = [...NAV.office, SETUP].find((x) => x.tabs.includes(tab));
     const inSettings = g === SETUP || tab === 'profile';
-    const home = h('a', { class: 'crumb', href: pathFor('start'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, 'Dashboard');
+    const home = h('a', { class: 'crumb', href: pathFor('start'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, 'Home');
     const jump = (anchor, section) => popover(anchor, (close) => {
       const item = (k) => h('button', { class: `tb-item${k === tab ? ' here' : ''}`, type: 'button', onclick: () => { close(); goTab(k); } }, nameOf(k), k === tab && h('small', {}, 'You are here'));
       const lately = recent().filter((k) => k !== tab && !(section && section.tabs.includes(k))).slice(0, 4);
@@ -2392,7 +2437,7 @@ export async function editor(id, mount, title, startTab = '') {
     paintTabbar();
     top.replaceChildren(...[
       modeOf(tab) === 'site' ? h('button', { class: 'icon-btn', title: 'Back to back office', 'aria-label': 'Back to back office', onclick: () => goTab(lastTab.office) }, ic('back')) : h('button', { class: 'icon-btn rail-tog', title: body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-label': body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-expanded': String(body.dataset.rail !== 'shut'), onclick: () => { if (body.dataset.rail === 'shut') delete body.dataset.rail; else body.dataset.rail = 'shut'; try { localStorage.setItem('pf-rail', body.dataset.rail || ''); } catch { /* private mode */ } paintTop(); requestAnimationFrame(fit); } }, h('span', { class: 'tog-ic', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
-      h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 })),
+      h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Home', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 })),
       modeOf(tab) === 'office' && h('button', { class: 'tb-biz', type: 'button', title: 'Switch business', onclick: async () => { await flush(); go('/app'); } }, h('b', {}, meta.name), h('span', { class: 'swap', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>' })),
       h('span', { class: 'm-title' }, h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || [])[1] || ''), modeOf(tab) === 'office' && h('small', { class: 'm-biz' }, meta.name)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),

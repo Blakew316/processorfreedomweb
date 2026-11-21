@@ -1252,12 +1252,12 @@ export function createApp(options = {}) {
     // Fetch a little wider than needed, then keep exactly the days asked for.
     const rows = db.all('SELECT * FROM orders WHERE site_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at', site.id, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY).map(toOrder);
     const catOf = Object.fromEntries(db.all('SELECT id, category FROM menu_items WHERE site_id = ?', site.id).map((r) => [r.id, r.category]));
-    const blank = () => ({ orders: 0, gross: 0, discounts: 0, net: 0, tax: 0, fees: 0, tips: 0, total: 0, taxable: 0, nontaxable: 0, units: 0 });
+    const blank = () => ({ orders: 0, gross: 0, discounts: 0, net: 0, tax: 0, fees: 0, tips: 0, total: 0, taxable: 0, nontaxable: 0, units: 0, refunds: 0, collected: 0 });
     const add = (t, o) => {
       const taxableLines = o.items.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0);
       const taxable = o.subtotal ? Math.round(taxableLines - (o.discount * taxableLines) / o.subtotal) : 0;
       t.orders++; t.gross += o.subtotal; t.discounts += o.discount; t.net += o.subtotal - o.discount; t.tax += o.tax; t.fees += o.fee; t.tips += o.tip; t.total += o.total;
-      t.taxable += taxable; t.nontaxable += o.subtotal - o.discount - taxable; t.units += o.items.reduce((a, l) => a + l.qty, 0);
+      t.taxable += taxable; t.nontaxable += o.subtotal - o.discount - taxable; t.units += o.items.reduce((a, l) => a + l.qty, 0); t.refunds += o.refunded || 0; if (o.paidAt) t.collected += o.total;
     };
     const totals = blank(), prev = blank();
     const byHour = days === 1;
@@ -1294,7 +1294,7 @@ export function createApp(options = {}) {
     json(res, 200, {
       range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
       totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
-      previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax },
+      previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax, discounts: prev.discounts, refunds: prev.refunds },
       methods: Object.values(methods), series: [...series.values()],
       items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales), revenue: [...revs.values()].sort((a, b) => b.sales - a.sales), employees: [...staff.values()].sort((a, b) => b.net - a.net), tenders: [...tenders.values()].sort((a, b) => b.total - a.total), promos: [...promos.values()].sort((a, b) => b.amount - a.amount), removed: [...removed.values()].sort((a, b) => b.value - a.value),
       orders: list.reverse().slice(0, 2000),
