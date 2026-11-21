@@ -4,7 +4,8 @@ import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressC
 const root = document.getElementById('app');
 let cleanup = null;
 const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0, 0); };
-const title = (t) => { document.title = t ? `${t} · Processor Freedom Sites` : 'Processor Freedom Sites'; };
+// The browser tab always carries our name and nothing else.
+const title = () => { document.title = 'Processor Freedom'; };
 
 export function topbar(...right) {
   return h('header', { class: 'top' }, h('div', { class: 'in' },
@@ -308,8 +309,11 @@ async function admin() {
 /* ---------- Router ---------- */
 
 async function render() {
-  cleanup?.(); cleanup = null;
   const path = location.pathname.replace(/\/+$/, '') || '/';
+  // Moving between the pages of the site already open (Back, Forward, a link) just turns the page; nothing reloads.
+  const same = path.match(/^\/app\/site\/([\w-]+)(?:\/([\w-]+))?$/);
+  if (same && same[2] !== 'kitchen' && cleanup?.siteId === same[1]) return cleanup.nav(same[2] || 'start');
+  cleanup?.(); cleanup = null; window.scrollTo(0, 0);
   const needsUser = path.startsWith('/app');
   if (needsUser && !state.user) return go(`/login${location.search}`);
   try {
@@ -322,7 +326,7 @@ async function render() {
     else if (path === '/app') await dashboard();
     else if (path === '/app/admin') await admin();
     else if (path === '/app/new') cleanup = (await import('./wizard.js')).wizard(mount, title);
-    else if ((m = path.match(/^\/app\/site\/([\w-]+)$/))) cleanup = await (await import('./editor.js')).editor(m[1], mount, title);
+    else if ((m = path.match(/^\/app\/site\/([\w-]+)(?:\/([\w-]+))?$/))) cleanup = await (await import('./editor.js')).editor(m[1], mount, title, m[2] || '');
     else go(state.user ? '/app' : '/');
   } catch (e) {
     if (e.status === 401) { state.user = null; return go('/login'); }
