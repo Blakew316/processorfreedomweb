@@ -1,11 +1,11 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, getTheme } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
   ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
-  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'],
+  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
@@ -34,7 +34,7 @@ const NAV = {
     { label: 'Customers', icon: 'customers', tabs: ['customers'] },
     { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards', 'gift'], subs: ['Promo codes', 'Happy hour', 'Rewards', 'Gift cards'] },
     { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
-    { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'booking', 'alerts', 'devices'], subs: ['Business information', 'Business hours', 'Online ordering', 'Online booking', 'Alerts and emails', 'Devices'] },
+    { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'booking', 'alerts', 'devices', 'appearance'], subs: ['Business information', 'Business hours', 'Online ordering', 'Online booking', 'Alerts and emails', 'Devices', 'Appearance'] },
   ],
   site: [
     { label: 'Design', icon: 'design', tabs: ['design', 'history'], subs: ['Look and feel', 'Earlier versions'] },
@@ -57,6 +57,7 @@ const HEAD = {
   bizinfo: ['Business information', 'Your phone, address and hours as customers see them on your website and receipts. Publish your site after changing these.'],
   booking: ['Online booking', 'Let customers ask for a table, a class or any other booking from your website. You confirm each request.'],
   devices: ['Devices', 'Phones, tablets and computers that get a notification for every new order.'],
+  appearance: ['Appearance', 'Light or dark. This is remembered on this device only.'],
   team: ['Employees', 'Give each person their own login, with only what they need.'],
 };
 // On a phone the first four sections of each side sit in the tab bar; the rest is under More.
@@ -978,6 +979,11 @@ export async function editor(id, mount, title, startTab = '') {
             h('td', { style: 'white-space:nowrap' }, c.balance > 0 && h('button', { class: 'btn soft sm', onclick: () => change(c, -1) }, 'Redeem'), ' ', h('button', { class: 'btn text sm', onclick: () => change(c, 1) }, 'Top up'))))))))
           : h('div', { class: 'inv-list' }, emptyState('tag', 'Grow your business with gift cards', 'Issue a card for any amount. The balance goes down each time it is used.', ['Issue gift card', issue])))];
     },
+    appearance() {
+      const now = getTheme();
+      const choice = (k, label, note) => h('button', { class: 'look-opt', type: 'button', 'aria-pressed': String(now === k), onclick: () => { setTheme(k); paintPanel(); } }, h('span', { class: `look-prev ${k}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), h('b', {}, label), h('small', {}, note));
+      return [group('Light or dark', h('div', { class: 'look-opts' }, choice('light', 'Light', 'Bright background, dark text.'), choice('dark', 'Dark', 'Dark background, easier at night.'), choice('auto', 'Match this device', 'Follows the setting on your phone or computer.')))];
+    },
     devices() {
       if (!deviceData) { api('GET', `/api/sites/${id}/devices`).then((r) => { deviceData = r; if (tab === 'devices') paintPanel(); }).catch((e) => { toast(e.message, true); deviceData = { devices: [] }; if (tab === 'devices') paintPanel(); }); return [group('', skel(3, 'row'))]; }
       const here = h('button', { class: 'btn', style: 'justify-self:start', onclick: async () => { try { await enablePush(); pushIsOn = true; await reload('devices'); toast('This device will be notified of new orders'); paintPanel(); } catch (e) { toast(e.message, true); } } }, ic('bell', 16), 'Notify this device');
@@ -1813,8 +1819,8 @@ export async function editor(id, mount, title, startTab = '') {
     if (navFor !== cur[0]) { navFor = cur[0]; openNav.add(group.label); }
     rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navIcon('back', 23), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const many = g.tabs.length > 1, open = many ? openNav.has(g.label) : g === group;
-      const kids = many && h('div', { class: 'nav-kids', hidden: !open }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i])));
-      const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; kids.hidden = !now; };
+      const kids = many && h('div', { class: 'nav-kids', 'data-shut': open ? null : '1' }, h('div', { class: 'nav-kids-in' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))));
+      const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; };
       return [
         h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, 'data-here': many && g === group ? '1' : null, onclick: (e) => (many ? toggle(e.currentTarget) : pick(g)) }, navIcon(g.icon, 23), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         kids,
@@ -1866,8 +1872,6 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'more-group' }, h('h3', {}, 'More'), h('div', { class: 'more-list' },
           meta.live && row('out', 'View my live site', () => window.open(meta.url, '_blank', 'noopener')),
           row('bell', 'Kitchen screen', () => go(`/app/site/${id}/kitchen`)),
-          row('search', 'Find a setting, item or order', quickFind),
-          row(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', document.documentElement.dataset.theme === 'dark' ? 'Switch to light' : 'Switch to dark', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')),
           canOfferInstall() && row('phone', 'Install the app on this device', installApp),
           row('back', 'All my sites', async () => { await flush(); go('/app'); })))];
     }, 'more');
@@ -1925,7 +1929,7 @@ export async function editor(id, mount, title, startTab = '') {
     paintTabbar();
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', title: modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', 'aria-label': modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', onclick: async () => { if (modeOf(tab) === 'site') return goTab(lastTab.office); await flush(); go('/app'); } }, ic('back')),
-      h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo.svg', alt: '', width: 30, height: 30 }), h('span', { class: 'name brand' }, 'PF Sites')),
+      h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo.svg', alt: 'PF Sites', width: 42, height: 42 })),
       h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
@@ -1935,8 +1939,6 @@ export async function editor(id, mount, title, startTab = '') {
       h('div', { class: 'mid' },
         h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
         h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l))))],
-      h('button', { class: 'icon-btn qf-btn', title: 'Find anything (Ctrl or ⌘ K)', 'aria-label': 'Find anything', onclick: quickFind }, ic('search', 18)),
-      themeButton(),
       modeOf(tab) === 'site' && h('button', { class: 'btn soft open-draft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
       pub].flat(Infinity).filter(Boolean));
   }
@@ -1999,7 +2001,7 @@ export async function editor(id, mount, title, startTab = '') {
       if (target !== page) { frame.addEventListener('load', jump, { once: true }); setPage(target); } else { e.data.hash ? jump() : frame.contentWindow.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
   };
-  const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); return quickFind(); } if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
+  const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
   window.addEventListener('keydown', onKey);
   const onLeave = (e) => { if (saveState !== 'saved' && !staleSeen) { save.flush(); e.preventDefault(); e.returnValue = ''; } };
   window.addEventListener('message', onMessage);
