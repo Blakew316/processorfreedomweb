@@ -2026,7 +2026,7 @@ export async function editor(id, mount, title, startTab = '') {
     const hour = new Date().getHours(), hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
     const first = (state.user.name || '').trim().split(/\s+/)[0];
     return [h('div', { class: 'inv dashb' },
-      h('div', { class: 'inv-top dash-hello' }, h('div', {}, h('p', { class: 'dh-date' }, today), h('h2', {}, first ? `${hello}, ${first}` : hello), h('p', { class: 'muted dh-biz' }, meta.name, h('span', { class: `dh-live ${meta.live ? 'on' : ''}` }, meta.live ? (meta.dirty ? 'Live · changes not published' : 'Live') : 'Not published yet'))),
+      h('div', { class: 'inv-top dash-hello' }, h('div', {}, h('p', { class: 'dh-date' }, today), h('h2', {}, first ? `${hello}, ${first}` : hello), h('p', { class: 'muted dh-biz' }, meta.name)),
         h('div', { class: 'row', style: 'flex-wrap:wrap' }, meta.live && h('a', { class: 'btn soft', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open my order page', ic('out', 15)), h('button', { class: 'btn soft', onclick: async () => { loadOrders(true); await reload('start'); paintPanel(); toast('Up to date'); } }, 'Refresh'))),
       h('div', { class: 'dks' }, ...(t ? [kpi('Net sales today', money(t.net), `${t.orders} order${t.orders === 1 ? '' : 's'}`, 'cash'), kpi('Orders waiting', waiting.length, waiting.length ? 'need your attention' : 'all caught up', 'bag'), kpi('Average order', money(t.average), 'including tax and tips', 'chart'), kpi('Running low', low.length, low.length ? 'items to restock' : 'stock looks good', 'cube')] : dash.failed ? [kpi('Net sales today', '—', 'could not load', 'cash')] : skel(4, 'kpi'))),
       setup,
