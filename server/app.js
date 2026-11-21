@@ -5,7 +5,7 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK } from '../shared/core.js';
 import { createMailer, orderEmail, resetEmail } from './mail.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -166,7 +166,7 @@ export function createApp(options = {}) {
     return out;
   }
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
-  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock, taxable: r.taxable !== 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
   const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
   function cleanItem(b, prev = {}) {
@@ -174,12 +174,13 @@ export function createApp(options = {}) {
     const name = str(b.name ?? prev.name, 120).trim();
     if (!name) bad(400, 'Give the item a name.');
     if (price == null || !(price >= 0) || price > 100_000_00) bad(400, 'Enter a price like 9.99.');
-    const stock = b.stock === undefined ? prev.stock ?? null : b.stock === null || b.stock === '' ? null : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
-    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
+    const stock = b.stock === undefined || b.stock === null || b.stock === '' ? prev.stock ?? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
+    const sale = b.sale === undefined ? prev.sale || 0 : Math.max(0, Math.min(90, Math.round(Number(b.sale)) || 0));
+    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, sale, options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
   }
-  function insertItems(siteId, items) {
+  function insertItems(siteId, items, startStock = DEFAULT_STOCK) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
-    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, stock, options, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.stock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++);
+    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, options, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++);
   }
   // A promo code is either one the merchant created or an unused loyalty reward.
   function promoFor(site, ordering, code) {
@@ -474,7 +475,7 @@ export function createApp(options = {}) {
     db.raw.exec('BEGIN');
     try {
       if (b.replace) db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
-      insertItems(site.id, parsed.items.slice(0, room));
+      insertItems(site.id, parsed.items.slice(0, room), b.startStock === undefined ? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.startStock)) || 0)));
       db.raw.exec('COMMIT');
     } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
     json(res, 200, { imported: Math.min(room, parsed.items.length), skipped: parsed.errors, items: menuOf(site.id) });
@@ -484,7 +485,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const prev = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id) || bad(404, 'That item no longer exists.');
     const it = cleanItem(await readJson(req), prev);
-    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, stock = ?, options = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.stock, it.options, prev.id);
+    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, options = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.options, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
 
@@ -530,6 +531,33 @@ export function createApp(options = {}) {
     const user = requireUser(req);
     db.run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', str((await readJson(req)).endpoint, 1000), user.id);
     json(res, 200, { ok: true });
+  });
+
+  // Change or delete many items at once.
+  route('POST', '/api/sites/:id/menu/bulk', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const ids = (Array.isArray(b.ids) ? b.ids : []).slice(0, 1000).map((x) => str(x, 40));
+    if (!ids.length) bad(400, 'Select at least one item.');
+    const set = b.set && typeof b.set === 'object' ? b.set : {};
+    const num = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v)) || 0));
+    db.raw.exec('BEGIN');
+    try {
+      for (const itemId of ids) {
+        const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', itemId, site.id);
+        if (!row) continue;
+        if (b.delete === true) { db.run('DELETE FROM menu_items WHERE id = ?', row.id); continue; }
+        if (typeof set.taxable === 'boolean') db.run('UPDATE menu_items SET taxable = ? WHERE id = ?', set.taxable ? 1 : 0, row.id);
+        if (typeof set.available === 'boolean') db.run('UPDATE menu_items SET available = ? WHERE id = ?', set.available ? 1 : 0, row.id);
+        if (set.stock !== undefined) db.run('UPDATE menu_items SET stock = ? WHERE id = ?', num(set.stock, 0, 999999), row.id);
+        if (set.addStock !== undefined) db.run('UPDATE menu_items SET stock = MAX(0, MIN(999999, stock + ?)) WHERE id = ?', num(set.addStock, -999999, 999999), row.id);
+        if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
+        if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', str(set.category, 60).trim(), row.id);
+        if (set.pricePercent !== undefined) db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + num(set.pricePercent, -90, 500))) / 100))), row.id);
+      }
+      db.raw.exec('COMMIT');
+    } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
+    json(res, 200, { items: menuOf(site.id) });
   });
 
   route('PUT', '/api/sites/:id/menu-order', async (req, res, p) => {

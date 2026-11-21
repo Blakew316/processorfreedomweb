@@ -22,8 +22,10 @@ an online ordering website, types their business name, picks a template, uploads
   a header row work too. Each item can have a photo, be hidden, or have its stock counted down to sold out.
 - **Online ordering**: pickup, curbside and delivery, each with its own settings (ready time, instructions, delivery fee, minimum and
   area), sales tax, tips and order notes. Customers get an order page with a cart and a status page that updates as the order moves.
-- **Items (inventory)**: a full-width list where photo, name, category, price, quantity, sales tax and availability are edited in
-  place, with search, low-stock and sold-out filters, and totals. Sales tax can be switched off per item.
+- **Items (inventory)**: a full-width list with search, filters and totals. Clicking an item opens a pop-up editor for its photo,
+  name, price, sale, category, description, quantity, tax, availability and options. Tick several items to change tax, visibility,
+  quantity, sale, price or category together, or delete them. Every item has a numeric quantity; items imported without one get
+  a starting quantity the merchant chooses (100 by default).
 - **Item options**: sizes, add-ons and choices per item, required or optional, single or multiple, each with its own extra charge.
 - **Opening hours and ordering ahead**: per-day ordering hours in the business's time zone, and optional scheduled pickup or delivery times.
 - **Promo codes**: percent or dollar-off codes applied at checkout.

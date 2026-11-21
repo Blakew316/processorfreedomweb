@@ -779,6 +779,10 @@ export function visibleMenu(menu, ordering, nowMs = Date.now()) {
   return arr(menu).filter((x) => !off.has(x.category));
 }
 
+/** What an item costs right now, after any sale discount. */
+export const itemPrice = (it) => (it.sale > 0 ? Math.round((it.price * (100 - Math.min(90, it.sale))) / 100) : it.price);
+export const DEFAULT_STOCK = 100;
+
 /* Item options: sizes, add-ons and choices. */
 export function cleanOptions(input) {
   return arr(input).slice(0, 12).map((g) => ({
@@ -800,7 +804,7 @@ export function resolveOptions(item, picks) {
     if (!grp.multi && chosen.length > 1) return { error: `Choose only one ${grp.name.toLowerCase()} for ${item.name}.` };
     for (const i of chosen) { extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
   }
-  return { price: item.price + extra, labels };
+  return { price: itemPrice(item) + extra, labels };
 }
 
 /* Words that appear on merchant sites, in English and Spanish. */

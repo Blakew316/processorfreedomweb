@@ -1,6 +1,6 @@
 // The order page and order status page of a published site, plus the small script that runs the cart.
 
-import { esc, str, arr, safeImg, money, ORDER_METHODS, readyLabel, openMethods, strings, fill, isOpenNow, orderSlots, slotLabel } from './core.js';
+import { esc, str, arr, safeImg, money, ORDER_METHODS, readyLabel, openMethods, strings, fill, isOpenNow, orderSlots, slotLabel, itemPrice } from './core.js';
 
 export const ORDER_CSS = `
 .order,.ostat{padding:72px 0 104px}
@@ -45,6 +45,7 @@ export const ORDER_CSS = `
 .cart .btn{width:100%}
 .cart .btn[disabled]{opacity:.45;pointer-events:none}
 .cartbar{display:none}
+.tile .price s{color:var(--muted);font-weight:400;margin-right:4px}
 .lopt{grid-column:1/-1;color:var(--muted);font-size:13px;margin-top:-2px}
 .cart select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;width:100%}
 .prow{display:flex;gap:8px}
@@ -255,7 +256,7 @@ const tile = (x, { ordering, button, T }) => {
   const out = x.available === false || x.stock === 0;
   const src = safeImg(x.image);
   const from = arr(x.options).some((g) => g.required && g.choices.every((c) => c.price > 0));
-  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${from ? '+' : ''}${money(x.price)}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
+  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? '+' : ''}${money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
 export function groupMenu(menu) {
@@ -289,7 +290,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
   const items = {};
-  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: it.price, max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
+  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, slots, items, methods, names, T,

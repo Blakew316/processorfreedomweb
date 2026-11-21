@@ -72,8 +72,9 @@ export function toast(text, bad = false) {
   setTimeout(() => t.remove(), bad ? 5000 : 2800);
 }
 
-export function sheet(build, cls = '') {
-  const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
+export function sheet(build, cls = '', onClose) {
+  let open = true;
+  const close = () => { if (!open) return; open = false; scrim.remove(); document.removeEventListener('keydown', onKey); onClose?.(); };
   const onKey = (e) => e.key === 'Escape' && close();
   const box = h('div', { class: `sheet ${cls}`, role: 'dialog', 'aria-modal': 'true' });
   const scrim = h('div', { class: 'scrim', onmousedown: (e) => e.target === scrim && close() }, box);

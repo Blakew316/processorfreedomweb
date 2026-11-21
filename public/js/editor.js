@@ -1,4 +1,4 @@
-import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
 import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton } from './ui.js';
 
@@ -30,7 +30,8 @@ export async function editor(id, mount, title) {
   let editItem = null;       // menu item being edited
   let orderFilter = 'active';
   let stats = null;
-  let invQ = '', invFilter = 'all', itemFrom = null;
+  let invQ = '', invFilter = 'all';
+  const invSel = new Set();
   const itemSavers = new Map();
   let versions = null;
   let pushIsOn = null;
@@ -120,7 +121,7 @@ export async function editor(id, mount, title) {
         !has && h('span', { class: 'ph' }, ic('image', 22), h('b', {}, 'Add a photo'), h('small', {}, 'Click or drop an image here')),
         has && h('span', { class: 'bar' }, h('em', {}, 'Replace'), h('button', { type: 'button', onclick: (e) => { e.stopPropagation(); o[k] = ''; a.after?.(); changed(); draw(); } }, 'Remove')),
         h('span', { class: 'spin' }, h('i', { class: 'spinner' })));
-      box.replaceChildren(h('span', {}, label), zone, a.hint && h('small', {}, a.hint));
+      box.replaceChildren(...[h('span', {}, label), zone, a.hint && h('small', {}, a.hint)].filter(Boolean));
     };
     draw();
     return box;
@@ -409,43 +410,6 @@ export async function editor(id, mount, title) {
 
     menu() {
       const cats = [...new Set(menu.map((x) => x.category))];
-      const it = editItem && menu.find((x) => x.id === editItem);
-      if (it) {
-        const saveItem = debounce(async () => { try { await api('PUT', `/api/sites/${id}/menu/${it.id}`, it); paint(true); } catch (e) { toast(e.message, true); } }, 500);
-        notify = saveItem;
-        const priceIn = h('input', { value: (it.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Price', oninput: () => { const c = parsePrice(priceIn.value); if (c !== null) { it.price = c; saveItem(); } priceIn.style.borderColor = c === null ? 'var(--red)' : ''; } });
-        const stockBox = h('div', { class: 'stack' });
-        const drawStock = () => stockBox.replaceChildren(
-          h('label', { class: 'switch' }, h('span', {}, 'Track how many are left'), h('input', { type: 'checkbox', checked: it.stock != null, onchange: (e) => { it.stock = e.target.checked ? 10 : null; saveItem(); drawStock(); } }), h('i')),
-          it.stock != null && wrap('In stock', h('input', { type: 'number', min: 0, max: 999999, value: it.stock, oninput: (e) => { it.stock = Math.max(0, Math.round(Number(e.target.value)) || 0); saveItem(); } }), 'Goes down with every order. The item shows as sold out at zero.'));
-        drawStock();
-        it.options = Array.isArray(it.options) ? it.options : [];
-        const optBox = h('div', { class: 'stack' });
-        const drawOpts = () => optBox.replaceChildren(...it.options.map((g, gi) => h('div', { class: 'item' }, h('div', { class: 'in', style: 'padding-top:12px' },
-          h('div', { class: 'row' }, h('label', { class: 'field grow' }, h('input', { value: g.name, placeholder: 'e.g. Size', 'aria-label': 'Option name', oninput: (e) => { g.name = e.target.value; saveItem(); } })), h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove option', onclick: () => { it.options.splice(gi, 1); saveItem(); drawOpts(); } }, ic('trash', 16))),
-          wrap('Choices', h('textarea', { rows: 4, value: choicesText(g.choices), placeholder: 'Small\nLarge +1.50', oninput: (e) => { g.choices = parseChoices(e.target.value); saveItem(); } })),
-          h('label', { class: 'switch' }, h('span', {}, 'Customer must choose'), h('input', { type: 'checkbox', checked: g.required, onchange: (e) => { g.required = e.target.checked; saveItem(); } }), h('i')),
-          h('label', { class: 'switch' }, h('span', {}, 'Can pick more than one'), h('input', { type: 'checkbox', checked: g.multi, onchange: (e) => { g.multi = e.target.checked; saveItem(); } }), h('i'))))),
-          h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { it.options.push({ name: it.options.length ? 'Add-ons' : 'Size', required: !it.options.length, multi: !!it.options.length, choices: [] }); drawOpts(); } }, ic('plus', 14), 'Add option'));
-        drawOpts();
-        const listId = uid('dl');
-        const out = [h('button', { class: 'back', onclick: () => { saveItem.flush(); editItem = null; if (itemFrom === 'items') { itemFrom = null; goTab('items'); } else paintPanel(); } }, ic('back', 16), itemFrom === 'items' ? 'Back to items' : 'All items'), h('h2', {}, it.name || 'Item'),
-          group('', text('Item name', it, 'name', { maxlength: 120 }), h('div', { class: 'pair' }, wrap('Price', priceIn), text('Category', it, 'category', { list: listId, maxlength: 60 })), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))),
-            area('Description', it, 'desc', { rows: 3, maxlength: 500 }), image('Photo', it, 'image', { hint: 'Shown beside the item on your menu and order page.' })),
-          group('Options', h('p', { class: 'hint' }, 'Sizes, add-ons and choices. Put one choice per line, with an extra charge if there is one, like “Large +1.50”.'), optBox),
-          group('Availability', toggle('Available to order', it, 'available', (v) => v !== false), stockBox),
-          group('Sales tax', toggle('Charge sales tax on this item', it, 'taxable', (v) => v !== false), h('small', { class: 'hint' }, ordering.taxRate ? `Your sales tax is ${ordering.taxRate}%. Switch this off for items that are not taxed.` : 'Your sales tax rate is 0% right now. Set it under Ordering.')),
-          group('Position', h('div', { class: 'row' }, ...[[-1, 'up', 'Move up'], [1, 'down', 'Move down']].map(([by, icon, label]) => h('button', { class: 'btn soft sm', disabled: !menu[menu.indexOf(it) + by], onclick: async () => {
-            const i = menu.indexOf(it), j = i + by; saveItem.flush();
-            [menu[i], menu[j]] = [menu[j], menu[i]];
-            if (menu[i].category !== it.category) { it.category = menu[i].category; await api('PUT', `/api/sites/${id}/menu/${it.id}`, it).catch(() => {}); }
-            try { menu = (await api('PUT', `/api/sites/${id}/menu-order`, { ids: menu.map((x) => x.id) })).items; } catch (e) { toast(e.message, true); }
-            paintPanel(); paint(true);
-          } }, ic(icon, 14), label)))),
-          group('', h('button', { class: 'btn danger', style: 'justify-self:start', onclick: async () => { menu = (await api('DELETE', `/api/sites/${id}/menu/${it.id}`)).items; editItem = null; paintPanel(); paint(true); } }, 'Delete item'))];
-        notify = null;
-        return out;
-      }
       const metaOf = (c) => ordering.cats.find((x) => x.name === c);
       const catHead = (c) => { const m = metaOf(c); return h('div', { class: 'cathead' }, h('b', {}, c), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
       let dragId = null;
@@ -460,18 +424,18 @@ export async function editor(id, mount, title) {
         } catch (e) { toast(e.message, true); }
         paintPanel(); paint(true);
       };
-      const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : x.stock != null ? `${x.stock} left` : '');
+      const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : `${x.stock} in stock`);
       return [
         group('Menu and inventory', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
           h('button', { class: 'drop', onclick: importCsv }, ic('up2', 24), h('b', {}, menu.length ? 'Upload a new item list' : 'Upload your item list'), h('span', { class: 'small' }, 'Excel or CSV file with item names and prices')),
           h('div', { class: 'row', style: 'flex-wrap:wrap' },
             h('a', { class: 'btn soft sm', download: 'menu-template.csv', href: `data:text/csv;charset=utf-8,${encodeURIComponent(MENU_TEMPLATE_CSV)}` }, ic('dl', 14), 'Download template'),
             menu.length > 0 && h('button', { class: 'btn soft sm', onclick: bulkPhotos }, ic('image', 14), 'Add photos in bulk'),
-            h('button', { class: 'btn soft sm', onclick: async () => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: cats.at(-1) || 'Menu' })).items; editItem = menu.find((x) => !before.has(x.id))?.id; paintPanel(); paint(true); } catch (e) { toast(e.message, true); } } }, ic('plus', 14), 'Add item'))),
+            h('button', { class: 'btn soft sm', onclick: async () => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: cats.at(-1) || 'Menu' })).items; paintPanel(); paint(true); openItem(menu.find((x) => !before.has(x.id))?.id); } catch (e) { toast(e.message, true); } } }, ic('plus', 14), 'Add item'))),
         ...cats.map((c) => group('', catHead(c), h('div', { class: 'slist' }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
           h('span', { class: 'grip', title: 'Drag to reorder' }, ic('grip', 16)),
           h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
-          h('button', { class: 't', onclick: () => { editItem = x.id; paintPanel(); } }, h('b', {}, x.name), h('span', {}, [money(x.price), stockText(x)].filter(Boolean).join(' · '))),
+          h('button', { class: 't', onclick: () => openItem(x.id) }, h('b', {}, x.name), h('span', {}, [money(itemPrice(x)), stockText(x)].filter(Boolean).join(' · '))),
           h('label', { class: 'switch', title: 'Available to order' }, h('input', { type: 'checkbox', 'aria-label': `${x.name} available`, checked: x.available !== false, onchange: async (e) => { x.available = e.target.checked; await api('PUT', `/api/sites/${id}/menu/${x.id}`, x); paintPanel(); paint(true); } }), h('i'))))))),
         menu.length > 0 && group('', h('p', { class: 'hint' }, `${menu.length} item${menu.length === 1 ? '' : 's'} in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}. Drag an item to move it.`),
           !ordering.enabled && note('Online ordering is off, so customers can browse this menu but not order. Turn it on in ', h('b', {}, 'Ordering options'), '.'),
@@ -481,57 +445,74 @@ export async function editor(id, mount, title) {
 
     items() {
       const cats = [...new Set(menu.map((x) => x.category))];
+      for (const sid of [...invSel]) if (!menu.some((x) => x.id === sid)) invSel.delete(sid);
       const saveOf = (it) => { if (!itemSavers.has(it.id)) itemSavers.set(it.id, debounce(async () => { try { await api('PUT', `/api/sites/${id}/menu/${it.id}`, it); } catch (e) { toast(e.message, true); } }, 450)); return itemSavers.get(it.id); };
-      const stateOf = (it) => (it.available === false ? 'hidden' : it.stock === 0 ? 'out' : it.stock != null && it.stock <= 5 ? 'low' : 'ok');
+      const stateOf = (it) => (it.available === false ? 'hidden' : it.stock === 0 ? 'out' : it.stock <= 5 ? 'low' : 'ok');
       const LABEL = { hidden: 'Hidden', out: 'Sold out', low: 'Low stock' };
-      const shown = () => menu.filter((it) => (!invQ || `${it.name} ${it.category}`.toLowerCase().includes(invQ)) && (invFilter === 'all' || stateOf(it) === invFilter));
-      const listId = uid('dl');
+      const shown = () => menu.filter((it) => (!invQ || `${it.name} ${it.category}`.toLowerCase().includes(invQ)) && (invFilter === 'all' || (invFilter === 'sale' ? it.sale > 0 : stateOf(it) === invFilter)));
       const list = h('div', { class: 'inv-list' });
       const chips = h('div', { class: 'inv-chips' });
       const kpis = h('div', { class: 'inv-kpis' });
+      const bar = h('div', { class: 'bulk', role: 'region', 'aria-label': 'Bulk actions' });
       const drawTop = () => {
         const n = (k) => menu.filter((it) => stateOf(it) === k).length;
-        const units = menu.reduce((a, it) => a + (it.stock || 0), 0);
-        kpis.replaceChildren(...[['Items', menu.length], ['Units in stock', menu.some((it) => it.stock != null) ? units : '—'], ['Low stock', n('low')], ['Sold out', n('out')]].map(([l, v]) => h('div', { class: 'kpi' }, h('span', { class: 'small muted' }, l), h('b', {}, v))));
-        chips.replaceChildren(...[['all', `All · ${menu.length}`], ['low', `Low stock · ${n('low')}`], ['out', `Sold out · ${n('out')}`], ['hidden', `Hidden · ${n('hidden')}`]].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(invFilter === k), onclick: () => { invFilter = k; drawTop(); drawList(); } }, l)));
+        const onSale = menu.filter((it) => it.sale > 0).length;
+        kpis.replaceChildren(...[['Items', menu.length], ['Units in stock', menu.reduce((a, it) => a + (it.stock || 0), 0)], ['Low stock', n('low')], ['Sold out', n('out')]].map(([l, v]) => h('div', { class: 'kpi' }, h('span', { class: 'small muted' }, l), h('b', {}, v))));
+        chips.replaceChildren(...[['all', `All · ${menu.length}`], ['low', `Low stock · ${n('low')}`], ['out', `Sold out · ${n('out')}`], ['hidden', `Hidden · ${n('hidden')}`], ...(onSale ? [['sale', `On sale · ${onSale}`]] : [])].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(invFilter === k), onclick: () => { invFilter = k; drawTop(); drawList(); } }, l)));
+      };
+      const bulk = async (body, note) => {
+        try { menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: [...invSel], ...body })).items; if (body.delete) invSel.clear(); toast(note); drawTop(); drawList(); }
+        catch (e) { toast(e.message, true); }
+      };
+      const drawBar = () => {
+        const n = invSel.size;
+        bar.hidden = !n;
+        if (!n) return;
+        const b = (label, fn, cls = 'soft') => h('button', { class: `btn ${cls} sm`, type: 'button', onclick: fn }, label);
+        const pair = (label, onL, onFn, offL, offFn) => h('div', { class: 'bgroup' }, h('span', {}, label), h('div', { class: 'seg' }, h('button', { type: 'button', onclick: onFn }, onL), h('button', { type: 'button', onclick: offFn }, offL)));
+        const items = n === 1 ? '1 item' : `${n} items`;
+        bar.replaceChildren(h('b', {}, `${n} selected`),
+          pair('Sales tax', 'On', () => bulk({ set: { taxable: true } }, `Sales tax on for ${items}`), 'Off', () => bulk({ set: { taxable: false } }, `Sales tax off for ${items}`)),
+          pair('On the menu', 'Show', () => bulk({ set: { available: true } }, `${items} shown`), 'Hide', () => bulk({ set: { available: false } }, `${items} hidden`)),
+          b('Quantity', async () => { const v = await ask({ title: `Set quantity for ${items}`, label: 'In stock', type: 'number', value: '', hint: 'Every selected item is set to this number.' }); if (v !== null && v !== '') bulk({ set: { stock: v } }, `Quantity set for ${items}`); }),
+          b('Sale', async () => { const v = await ask({ title: `Put ${items} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale. Customers see the old price crossed out.' }); if (v !== null && v !== '') bulk({ set: { sale: v } }, Number(v) > 0 ? `${items} now ${Number(v)}% off` : `Sale ended for ${items}`); }),
+          b('Price', async () => { const v = await ask({ title: `Change the price of ${items}`, label: 'Percent change', type: 'number', value: '5', hint: 'Use a minus sign to lower prices, for example -10.' }); if (v !== null && v !== '' && Number(v)) bulk({ set: { pricePercent: v } }, `Prices updated for ${items}`); }),
+          b('Category', async () => { const v = await ask({ title: `Move ${items}`, label: 'Category', value: cats[0] || '', hint: 'Type an existing category or a new one.' }); if (v) bulk({ set: { category: v } }, `${items} moved to ${v}`); }),
+          b('Delete', async () => { if (await confirmSheet({ title: `Delete ${items}?`, text: 'They are removed from your menu straight away. Past orders are kept.', action: 'Delete', danger: true })) bulk({ delete: true }, `${items} deleted`); }, 'danger'),
+          h('span', { class: 'grow' }), h('button', { class: 'btn text sm', type: 'button', onclick: () => { invSel.clear(); drawList(); } }, 'Clear'));
       };
       const row = (it) => {
         const save = saveOf(it);
-        const el = h('div', { class: 'inv-row' });
+        const el = h('div', { class: `inv-row ${invSel.has(it.id) ? 'sel' : ''}` });
         const tag = h('span', { class: 'tag' });
         const refresh = () => { const st = stateOf(it); el.dataset.state = st; tag.textContent = LABEL[st] || ''; tag.hidden = !LABEL[st]; drawTop(); };
+        const setPhoto = async (f) => { if (!f) return; photo.classList.add('busy'); try { it.image = await uploadImage(f); photo.style.backgroundImage = `url("${it.image}")`; photo.replaceChildren(); save(); } catch (e) { toast(e.message, true); } photo.classList.remove('busy'); };
         const photo = h('button', { class: 'inv-photo', type: 'button', title: it.image ? 'Replace photo' : 'Add a photo', 'aria-label': `${it.image ? 'Replace' : 'Add'} photo for ${it.name}`, style: it.image ? `background-image:url("${it.image}")` : '',
-          onclick: async () => { const [f] = await pickFiles(); if (!f) return; photo.classList.add('busy'); try { it.image = await uploadImage(f); photo.style.backgroundImage = `url("${it.image}")`; photo.replaceChildren(); save(); } catch (e) { toast(e.message, true); } photo.classList.remove('busy'); },
-          ondragover: (e) => { e.preventDefault(); photo.classList.add('over'); }, ondragleave: () => photo.classList.remove('over'),
-          ondrop: async (e) => { e.preventDefault(); photo.classList.remove('over'); const f = e.dataTransfer.files[0]; if (!f) return; try { it.image = await uploadImage(f); photo.style.backgroundImage = `url("${it.image}")`; photo.replaceChildren(); save(); } catch (x) { toast(x.message, true); } } }, !it.image && ic('camera', 18));
+          onclick: async () => setPhoto((await pickFiles())[0]), ondragover: (e) => { e.preventDefault(); photo.classList.add('over'); }, ondragleave: () => photo.classList.remove('over'), ondrop: (e) => { e.preventDefault(); photo.classList.remove('over'); setPhoto(e.dataTransfer.files[0]); } }, !it.image && ic('camera', 18));
         const price = h('input', { class: 'inv-in num', value: (it.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': `Price of ${it.name}`, oninput: () => { const c = parsePrice(price.value); price.classList.toggle('bad', c === null); if (c !== null) { it.price = c; save(); } }, onblur: () => { price.value = (it.price / 100).toFixed(2); price.classList.remove('bad'); } });
-        const qty = h('div', { class: 'inv-qty' });
-        const drawQty = () => {
-          if (it.stock == null) return qty.replaceChildren(h('button', { class: 'btn soft sm', type: 'button', title: 'Start counting how many you have', onclick: () => { it.stock = 10; save(); drawQty(); refresh(); } }, 'Unlimited'));
-          const num = h('input', { class: 'inv-in num', type: 'number', min: 0, max: 999999, value: it.stock, 'aria-label': `Quantity of ${it.name}`, oninput: () => { it.stock = Math.max(0, Math.round(Number(num.value)) || 0); save(); refresh(); } });
-          const bump = (by) => () => { it.stock = Math.max(0, (it.stock || 0) + by); num.value = it.stock; save(); refresh(); };
-          qty.replaceChildren(h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), num, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)),
-            h('button', { class: 'btn text sm', type: 'button', title: 'Stop counting this item', onclick: () => { it.stock = null; save(); drawQty(); refresh(); } }, 'Stop'));
-        };
-        drawQty();
+        const num = h('input', { class: 'inv-in num', type: 'number', min: 0, max: 999999, value: it.stock, 'aria-label': `Quantity of ${it.name}`, oninput: () => { it.stock = Math.max(0, Math.round(Number(num.value)) || 0); save(); refresh(); } });
+        const bump = (by) => () => { it.stock = Math.max(0, (it.stock || 0) + by); num.value = it.stock; save(); refresh(); };
         const sw = (label, key) => h('label', { class: 'switch', title: label }, h('input', { type: 'checkbox', 'aria-label': `${label}: ${it.name}`, checked: it[key] !== false, onchange: (e) => { it[key] = e.target.checked; save(); refresh(); } }), h('i'));
-        el.append(photo,
-          h('div', { class: 'inv-name' }, h('input', { class: 'inv-in', value: it.name, maxlength: 120, 'aria-label': 'Item name', oninput: (e) => { it.name = e.target.value; save(); } }), tag),
-          h('input', { class: 'inv-in', value: it.category, list: listId, maxlength: 60, 'aria-label': `Category of ${it.name}`, oninput: (e) => { it.category = e.target.value; save(); } }),
-          h('div', { class: 'inv-price', 'data-l': 'Price' }, price), h('div', { 'data-l': 'In stock', class: 'inv-cell' }, qty), h('div', { 'data-l': 'Tax', class: 'inv-cell' }, sw('Charge sales tax', 'taxable')), h('div', { 'data-l': 'Available', class: 'inv-cell' }, sw('Available to order', 'available')),
-          h('div', { class: 'inv-acts' },
-            h('button', { class: 'icon-btn', type: 'button', title: 'Description, options and more', 'aria-label': `Edit ${it.name}`, onclick: async () => { await save.flush(); itemFrom = 'items'; tab = 'menu'; editItem = it.id; panel.scrollTop = 0; paintPanel(); paint(true); } }, ic('create', 18)),
-            h('button', { class: 'icon-btn', type: 'button', title: 'Delete item', 'aria-label': `Delete ${it.name}`, onclick: async () => {
-              if (!await confirmSheet({ title: `Delete ${it.name}?`, text: 'It is removed from your menu straight away. Past orders are kept.', action: 'Delete', danger: true })) return;
-              try { menu = (await api('DELETE', `/api/sites/${id}/menu/${it.id}`)).items; drawTop(); drawList(); } catch (e) { toast(e.message, true); }
-            } }, ic('trash', 18))));
+        const open = async () => { await save.flush(); openItem(it.id); };
+        el.append(
+          h('input', { type: 'checkbox', class: 'cb', 'aria-label': `Select ${it.name}`, checked: invSel.has(it.id), onchange: (e) => { e.target.checked ? invSel.add(it.id) : invSel.delete(it.id); el.classList.toggle('sel', e.target.checked); drawBar(); syncAll(); } }),
+          photo,
+          h('button', { class: 'inv-name', type: 'button', title: 'Edit item', onclick: open }, h('span', {}, h('b', {}, it.name), it.sale > 0 && h('span', { class: 'tag sale' }, `${it.sale}% off`), tag), h('small', {}, it.category)),
+          h('div', { class: 'inv-price', 'data-l': 'Price' }, price),
+          h('div', { 'data-l': 'In stock', class: 'inv-cell' }, h('div', { class: 'inv-qty' }, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), num, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)))),
+          h('div', { 'data-l': 'Tax', class: 'inv-cell' }, sw('Charge sales tax', 'taxable')), h('div', { 'data-l': 'Available', class: 'inv-cell' }, sw('Available to order', 'available')),
+          h('div', { class: 'inv-acts' }, h('button', { class: 'icon-btn', type: 'button', title: 'Edit item', 'aria-label': `Edit ${it.name}`, onclick: open }, ic('create', 18))));
         const st = stateOf(it); el.dataset.state = st; tag.textContent = LABEL[st] || ''; tag.hidden = !LABEL[st];
         return el;
       };
+      let allBox = null;
+      const syncAll = () => { if (!allBox) return; const rows = shown(); const on = rows.filter((it) => invSel.has(it.id)).length; allBox.checked = rows.length > 0 && on === rows.length; allBox.indeterminate = on > 0 && on < rows.length; };
       const drawList = () => {
         const rows = shown();
-        list.replaceChildren(...(rows.length ? [h('div', { class: 'inv-head' }, ...['', 'Item', 'Category', 'Price', 'In stock', 'Tax', 'Available', ''].map((t) => h('span', {}, t))), ...rows.map(row)]
+        allBox = h('input', { type: 'checkbox', class: 'cb', 'aria-label': 'Select all', title: 'Select all', onchange: (e) => { rows.forEach((it) => (e.target.checked ? invSel.add(it.id) : invSel.delete(it.id))); drawList(); } });
+        list.replaceChildren(...(rows.length ? [h('div', { class: 'inv-head' }, allBox, ...['', 'Item', 'Price', 'In stock', 'Tax', 'Available', ''].map((t) => h('span', {}, t))), ...rows.map(row)]
           : [h('div', { class: 'inv-empty' }, ic('cube', 30), h('b', {}, menu.length ? 'Nothing matches' : 'No items yet'), h('p', {}, menu.length ? 'Try a different search or filter.' : 'Upload your item list or add your first item to start managing your inventory.'))]));
+        syncAll(); drawBar();
       };
       drawTop(); drawList();
       const addItem = async () => {
@@ -539,19 +520,16 @@ export async function editor(id, mount, title) {
           const before = new Set(menu.map((x) => x.id));
           menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: cats.at(-1) || 'Menu' })).items;
           invQ = ''; invFilter = 'all'; drawTop(); drawList();
-          const fresh = menu.findIndex((x) => !before.has(x.id));
-          const input = list.querySelectorAll('.inv-row')[fresh]?.querySelector('.inv-name input');
-          input?.scrollIntoView({ block: 'center' }); input?.focus(); input?.select();
+          openItem(menu.find((x) => !before.has(x.id))?.id);
         } catch (e) { toast(e.message, true); }
       };
       return [h('div', { class: 'inv' },
-        h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Inventory'), h('p', { class: 'muted' }, 'Edit anything right here. Changes save on their own and reach your live site straight away. Quantities go down by themselves as orders come in.')),
+        h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Items'), h('p', { class: 'muted' }, 'Click an item to edit it, or tick several to change them together. Quantities go down on their own as orders come in.')),
           h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCsv }, ic('up2', 16), 'Upload list'), menu.length > 0 && h('button', { class: 'btn soft', onclick: bulkPhotos }, ic('images', 16), 'Add photos'), h('button', { class: 'btn', onclick: addItem }, ic('plus', 16), 'Add item'))),
         kpis,
         h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search items', value: invQ, 'aria-label': 'Search items', oninput: (e) => { invQ = e.target.value.trim().toLowerCase(); drawList(); } })), chips),
-        h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))),
-        list,
-        !ordering.taxRate && menu.length > 0 && h('p', { class: 'hint', style: 'margin-top:14px' }, 'The Tax switch only has an effect once you set a sales tax rate under Ordering.'))];
+        list, bar,
+        !ordering.taxRate && menu.length > 0 && h('p', { class: 'hint', style: 'margin-top:4px' }, 'The Tax switch only has an effect once you set a sales tax rate under Ordering.'))];
     },
 
     ordering() {
@@ -748,6 +726,68 @@ export async function editor(id, mount, title) {
       h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: close }, 'Done'))]);
   }
 
+  /* Everything about one item, in a window over the page. */
+  function openItem(itemId) {
+    const it = menu.find((x) => x.id === itemId);
+    if (!it) return;
+    const cats = [...new Set(menu.map((x) => x.category))];
+    it.options = Array.isArray(it.options) ? it.options : [];
+    const status = h('span', { class: 'status ok', 'aria-live': 'polite' }, 'Saved');
+    const save = debounce(async () => {
+      status.className = 'status'; status.textContent = 'Saving…';
+      try { await api('PUT', `/api/sites/${id}/menu/${it.id}`, it); status.className = 'status ok'; status.textContent = 'Saved'; }
+      catch (e) { status.className = 'status bad'; status.textContent = 'Not saved'; toast(e.message, true); }
+    }, 400);
+    let gone = false;
+    sheet((close) => {
+      notify = save;
+      const priceIn = h('input', { value: (it.price / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const c = parsePrice(priceIn.value); priceIn.style.borderColor = c === null ? 'var(--red)' : ''; if (c !== null) { it.price = c; save(); drawNow(); } } });
+      const saleIn = h('input', { type: 'number', min: 0, max: 90, value: it.sale || '', placeholder: '0', oninput: () => { it.sale = Math.max(0, Math.min(90, Math.round(Number(saleIn.value)) || 0)); save(); drawNow(); } });
+      const now = h('small', {});
+      const drawNow = () => { now.textContent = it.sale > 0 ? `Customers pay ${money(itemPrice(it))} while the sale is on.` : 'Leave empty for no sale.'; };
+      drawNow();
+      const qtyIn = h('input', { type: 'number', min: 0, max: 999999, value: it.stock, 'aria-label': 'Quantity in stock', oninput: () => { it.stock = Math.max(0, Math.round(Number(qtyIn.value)) || 0); save(); } });
+      const bump = (by) => () => { it.stock = Math.max(0, (it.stock || 0) + by); qtyIn.value = it.stock; save(); };
+      const optBox = h('div', { class: 'stack' });
+      const drawOpts = () => optBox.replaceChildren(...it.options.map((g, gi) => h('div', { class: 'item' }, h('div', { class: 'in', style: 'padding-top:12px' },
+        h('div', { class: 'row' }, h('label', { class: 'field grow' }, h('input', { value: g.name, placeholder: 'e.g. Size', 'aria-label': 'Option name', oninput: (e) => { g.name = e.target.value; save(); } })), h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove option', onclick: () => { it.options.splice(gi, 1); save(); drawOpts(); } }, ic('trash', 16))),
+        wrap('Choices, one per line', h('textarea', { rows: 3, value: choicesText(g.choices), placeholder: 'Small\nLarge +1.50', oninput: (e) => { g.choices = parseChoices(e.target.value); save(); } })),
+        h('div', { class: 'pair' }, h('label', { class: 'switch' }, h('span', {}, 'Must choose'), h('input', { type: 'checkbox', checked: g.required, onchange: (e) => { g.required = e.target.checked; save(); } }), h('i')),
+          h('label', { class: 'switch' }, h('span', {}, 'Pick several'), h('input', { type: 'checkbox', checked: g.multi, onchange: (e) => { g.multi = e.target.checked; save(); } }), h('i')))))),
+        h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { it.options.push({ name: it.options.length ? 'Add-ons' : 'Size', required: !it.options.length, multi: !!it.options.length, choices: [] }); drawOpts(); } }, ic('plus', 14), it.options.length ? 'Add another option' : 'Add sizes or add-ons'));
+      drawOpts();
+      const listId = uid('dl');
+      const out = [
+        h('div', { class: 'row' }, h('h2', { class: 'grow' }, 'Edit item'), status, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        h('div', { class: 'isheet-top' },
+          image('Photo', it, 'image'),
+          h('div', { class: 'stack' }, text('Name', it, 'name', { maxlength: 120, autofocus: true }),
+            h('div', { class: 'pair' }, wrap('Price', priceIn), wrap('Sale, percent off', saleIn)), now,
+            text('Category', it, 'category', { list: listId, maxlength: 60 }), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))))),
+        area('Description', it, 'desc', { rows: 2, maxlength: 500 }),
+        h('div', { class: 'isheet-row' },
+          h('div', { class: 'field' }, h('span', {}, 'In stock'), h('div', { class: 'inv-qty' }, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), qtyIn, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)))),
+          toggle('Charge sales tax', it, 'taxable', (v) => v !== false), toggle('Available to order', it, 'available', (v) => v !== false)),
+        h('div', { class: 'field' }, h('span', {}, 'Options'), optBox),
+        h('div', { class: 'acts', style: 'justify-content:space-between' },
+          h('button', { class: 'btn danger', onclick: async () => {
+            if (!await confirmSheet({ title: `Delete ${it.name}?`, text: 'It is removed from your menu straight away. Past orders are kept.', action: 'Delete', danger: true })) return;
+            try { menu = (await api('DELETE', `/api/sites/${id}/menu/${it.id}`)).items; gone = true; invSel.delete(it.id); close(); } catch (e) { toast(e.message, true); }
+          } }, 'Delete item'),
+          h('button', { class: 'btn', onclick: close }, 'Done'))];
+      notify = null;
+      return out;
+    }, 'wide isheet', async () => { if (!gone) await save.flush(); paintPanel(); paint(true); });
+  }
+  const ask = ({ title, label, value = '', hint, action = 'Apply', type = 'text' }) => new Promise((done) => {
+    let answered = false;
+    sheet((close) => {
+      const input = h('input', { value, type, autofocus: true });
+      return [h('h2', {}, title), h('form', { class: 'stack', onsubmit: (e) => { e.preventDefault(); answered = true; close(); done(input.value.trim()); } }, h('label', { class: 'field' }, h('span', {}, label), input, hint && h('small', {}, hint)),
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, action)))];
+    }, '', () => { if (!answered) done(null); });
+  });
+
   async function importCsv() {
     const [file] = await pickFiles(false, SHEET_TYPES);
     if (!file) return;
@@ -758,16 +798,19 @@ export async function editor(id, mount, title) {
       const run = async (replace, btn) => {
         btn.disabled = true; btn.textContent = 'Building your menu…';
         try {
-          const r = await api('POST', `/api/sites/${id}/menu/import`, { csv, replace });
+          const r = await api('POST', `/api/sites/${id}/menu/import`, { csv, replace, startStock: Math.max(0, Math.round(Number(qtyIn.value)) || 0) });
           menu = r.items; close(); toast(`${r.imported} item${r.imported === 1 ? '' : 's'} added to your menu`); editItem = null; paintPanel(); paint(true);
         } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Try again'; }
       };
       const cats = new Set(p.items.map((x) => x.category)).size;
+      const missing = p.items.filter((x) => x.stock == null).length;
+      const qtyIn = h('input', { type: 'number', min: 0, max: 999999, value: DEFAULT_STOCK, style: 'max-width:120px' });
       return [h('h2', {}, p.items.length ? `${p.items.length} item${p.items.length === 1 ? '' : 's'} found` : 'We could not read that file'),
         h('p', { class: 'muted' }, p.items.length ? `From ${file.name}, in ${cats} categor${cats === 1 ? 'y' : 'ies'}. Check a few before we build your menu.` : p.errors[0]?.reason || 'No items were found.'),
         p.items.length > 0 && h('table', { class: 'ptable' }, h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', {}, 'Category'), h('th', {}, 'Price'))), h('tbody', {}, p.items.slice(0, 6).map((x) => h('tr', {}, h('td', {}, x.name), h('td', { class: 'muted' }, x.category), h('td', {}, money(x.price)))))),
         p.items.length > 6 && h('p', { class: 'small muted' }, `and ${p.items.length - 6} more`),
         p.items.length > 0 && p.errors.length > 0 && h('div', { class: 'note' }, h('b', {}, `${p.errors.length} row${p.errors.length === 1 ? '' : 's'} will be skipped. `), p.errors.slice(0, 3).map((e) => h('div', {}, `${e.row ? `Row ${e.row}: ` : ''}${e.reason}`))),
+        missing > 0 && h('label', { class: 'field' }, h('span', {}, missing === p.items.length ? 'How many of each item do you have?' : `Starting quantity for the ${missing} item${missing === 1 ? '' : 's'} without one`), qtyIn, h('small', {}, 'Every item needs a quantity. You can change any of them afterwards, one at a time or all together.')),
         !p.items.length && h('p', { class: 'hint' }, 'Your file needs a column of item names and a column of prices. Download the template to see the layout.'),
         h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'),
           p.items.length > 0 && menu.length > 0 && h('button', { class: 'btn soft', onclick: (e) => run(false, e.currentTarget) }, 'Add to my menu'),

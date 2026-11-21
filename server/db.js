@@ -55,6 +55,9 @@ export function openDb(dataDir) {
   addColumn('sites', 'ordering', 'TEXT');
   addColumn('menu_items', 'options', 'TEXT');
   addColumn('menu_items', 'taxable', 'INTEGER NOT NULL DEFAULT 1');
+  addColumn('menu_items', 'sale', 'INTEGER NOT NULL DEFAULT 0');
+  // Every item carries a real quantity. Items saved before that rule get a starting count.
+  db.exec('UPDATE menu_items SET stock = 100 WHERE stock IS NULL');
   addColumn('orders', 'discount', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('orders', 'promo', "TEXT NOT NULL DEFAULT ''");
   addColumn('orders', 'scheduled', "TEXT NOT NULL DEFAULT ''");

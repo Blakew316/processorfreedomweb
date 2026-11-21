@@ -658,3 +658,40 @@ test('sales tax can be switched off per item', async () => {
   await me('PUT', `/api/sites/${site.id}/menu/${items[1].id}`, { taxable: true });
   assert.match((await anon('GET', '/order', null, { host: 'taxcafe.pfsites.test' })).data, /"t":1/);
 });
+
+test('every item has a quantity; sale prices and bulk edits', async () => {
+  const core = await import('../shared/core.js');
+  assert.equal(core.itemPrice({ price: 1000, sale: 20 }), 800);
+  assert.equal(core.itemPrice({ price: 1000 }), 1000);
+  const me = client(), anon = client();
+  await me('POST', '/api/auth/signup', { email: 'bulk@shop.test', password: 'long-enough-pw' });
+  const site = (await me('POST', '/api/sites', { name: 'Bulk Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price,Stock\nTaco,10.00,\nBurrito,12.00,7\nSoda,2.00,' })).data.site;
+  let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+  assert.deepEqual(items.map((x) => x.stock), [100, 7, 100], 'items without a quantity get a starting count, never "unlimited"');
+  items = (await me('POST', `/api/sites/${site.id}/menu/import`, { csv: 'Flan,4.50', startStock: 25 })).data.items;
+  assert.equal(items.at(-1).stock, 25);
+  items = (await me('POST', `/api/sites/${site.id}/menu`, { name: 'New', price: 100 })).data.items;
+  assert.equal(items.at(-1).stock, 100);
+  items = (await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: '' })).data.items;
+  assert.equal(items[0].stock, 100, 'a blank quantity does not become unlimited');
+  const [taco, burrito, soda] = items;
+
+  assert.equal((await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [] })).status, 400);
+  assert.equal((await client()('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [taco.id], delete: true })).status, 401);
+  items = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [taco.id, burrito.id, 'not-mine'], set: { taxable: false, sale: 25, category: 'Specials', addStock: 5 } })).data.items;
+  assert.deepEqual(items.slice(0, 3).map((x) => [x.taxable, x.sale, x.category, x.stock]), [[false, 25, 'Specials', 105], [false, 25, 'Specials', 12], [true, 0, 'Menu', 100]]);
+  items = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [soda.id], set: { pricePercent: 10, stock: 3, available: false } })).data.items;
+  assert.deepEqual([items[2].price, items[2].stock, items[2].available], [220, 3, false]);
+
+  await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 10 } });
+  await me('POST', `/api/sites/${site.id}/publish`, {});
+  const host = { host: 'bulkcafe.pfsites.test' };
+  const page = (await anon('GET', '/order', null, host)).data;
+  assert.match(page, /<s>\$10\.00<\/s> \$7\.50/);
+  const r = await anon('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: taco.id, qty: 2 }] }, host);
+  assert.equal(r.status, 201);
+  const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+  assert.deepEqual([order.subtotal, order.tax, order.total], [1500, 0, 1500], 'sale price charged, no tax on a non-taxable item');
+  items = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [taco.id, burrito.id], delete: true })).data.items;
+  assert.ok(!items.some((x) => x.id === taco.id || x.id === burrito.id));
+});
