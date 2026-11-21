@@ -9,7 +9,7 @@ const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0,
 const title = () => { document.title = 'Processor Freedom'; };
 
 /* On the public pages the top carries only our name; the menu is at the bottom of the screen. */
-const brandBar = () => h('header', { class: 'top brand-only' }, h('div', { class: 'in' }, link('/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites')))));
+const brandBar = () => h('header', { class: 'top brand-only' }, h('div', { class: 'in' }, link('/', { class: 'logo', 'aria-label': 'Processor Freedom Sites, home' }, h('img', { src: '/assets/logo.svg', alt: '', width: 36, height: 36 }), h('span', {}, 'Processor Freedom'))));
 
 export function topbar(...right) {
   // Inside the app the brand sits in the middle, the same as in the back office.
