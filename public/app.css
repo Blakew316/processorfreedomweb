@@ -2263,3 +2263,71 @@ html[data-theme=dark] .gain-art .mock,html[data-theme=dark] .gain-art .bo-main{b
 .gain-art{min-width:0;grid-template-columns:minmax(0,1fr)}
 .gain-art>*{min-width:0;max-width:100%;box-sizing:border-box}
 .stamps-mock,.stamps-mock .dots{min-width:0}
+
+/* ---------- Home page: alignment and rhythm ---------- */
+/* One spacing scale, so sections follow each other without dead air. */
+.l-hero{padding-bottom:0}
+.l-sec{padding:88px 0}
+.l-show{padding:88px 0 56px}
+.show{margin-top:44px}
+.l-gains{padding:72px 0 0}
+.l-gains .page>h2{margin-bottom:0}
+.gain{margin-top:88px;gap:72px;min-height:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.gain:first-of-type{margin-top:64px}
+.l-close{margin:104px 0 64px}
+
+/* The three photo panels are the same size, and each card sits dead centre in its panel. */
+.gain-art{height:580px;min-height:0;padding:0 40px;display:grid;place-items:center;align-content:center}
+.gain-art>*{width:min(430px,100%);max-width:430px;margin:0}
+.gain-art .bo{display:block}
+.gain-art .bo-main{width:100%}
+/* Figures, bars and rows share the same left and right edges. */
+.bo-chart{padding:0;gap:10px;height:118px;margin-bottom:26px}
+.bo-list{margin-top:0}
+.bo-kpis{gap:10px}
+.bo-kpi{min-width:0}
+.bo-kpi b{white-space:nowrap}
+.bo-row{padding:11px 0}
+.bo-main,.mock{gap:16px}
+.mk-line{padding:9px 0}
+
+/* Large ghost numerals give each headliner weight on the text side. */
+.gain-copy{position:relative}
+.gain-num{font-size:clamp(110px,13vw,190px);line-height:.8;letter-spacing:-.06em;font-weight:700;color:transparent;-webkit-text-stroke:1.5px color-mix(in srgb,var(--ink) 16%,transparent);margin:0 0 6px -6px;text-transform:none}
+.gain-num::after{display:none}
+.gain-copy h3{font-size:clamp(40px,5vw,68px)}
+
+/* A band of moving words between the examples and the headliners. */
+.ticker{overflow:hidden;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.ticker-in{display:flex;width:max-content;animation:tick 46s linear infinite}
+.ticker span{display:inline-flex;align-items:center;gap:36px;padding-right:36px;font-size:clamp(34px,5vw,64px);font-weight:600;letter-spacing:-.04em;white-space:nowrap;color:var(--ink)}
+.ticker span i{font-style:normal;font-size:.36em;opacity:.35}
+@keyframes tick{to{transform:translate3d(-50%,0,0)}}
+
+/* The top of the page arrives rather than appears. */
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes land{from{opacity:0;transform:perspective(1400px) rotateX(14deg) translateY(60px) scale(.96)}to{opacity:1;transform:none}}
+.l-hero .pill{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.l-hero h1{animation:rise .8s .08s cubic-bezier(.2,.8,.2,1) both}
+.l-hero p.lede{animation:rise .8s .16s cubic-bezier(.2,.8,.2,1) both}
+.l-hero .namer{animation:rise .8s .24s cubic-bezier(.2,.8,.2,1) both}
+.l-hero .ticks{animation:rise .8s .32s cubic-bezier(.2,.8,.2,1) both}
+.l-hero .stage{animation:land 1.2s .3s cubic-bezier(.2,.8,.2,1) both;transform-origin:50% 0}
+.l-hero h1 .grad{background:linear-gradient(100deg,#0a1f44 0%,#27488f 45%,#0a1f44 90%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:sheen 7s ease-in-out infinite}
+html[data-theme=dark] .l-hero h1 .grad{background-image:linear-gradient(100deg,#f5f5f7 0%,#9db6e8 45%,#f5f5f7 90%)}
+@keyframes sheen{0%,100%{background-position:0 0}50%{background-position:100% 0}}
+.l-hero .namer .box{transition:box-shadow .3s,transform .3s}
+.l-hero .namer .box:focus-within{transform:scale(1.015)}
+
+@media (max-width:900px){
+  .l-sec{padding:64px 0}.l-show{padding:64px 0 40px}.l-gains{padding:56px 0 0}
+  .gain{grid-template-columns:minmax(0,1fr);margin-top:64px;gap:22px}.gain:first-of-type{margin-top:44px}
+  .gain-art{height:auto;padding:22px 16px}.gain-art>*{width:100%;max-width:none}
+  .gain-num{font-size:96px}.l-close{margin:72px 0 44px}.ticker{padding:18px 0}
+}
+@media (prefers-reduced-motion:reduce){.ticker-in,.l-hero .pill,.l-hero h1,.l-hero p.lede,.l-hero .namer,.l-hero .ticks,.l-hero .stage,.l-hero h1 .grad{animation:none}}
+.l-show{padding-bottom:36px}
+.l-gains{padding-top:64px}
+.gain-art .bo-kpi b{font-size:clamp(16px,1.45vw,20px);letter-spacing:-.02em}
+.gain-art .bo-kpi{padding:12px 11px}
+@media (max-width:900px){.gain-art .bo-kpi b{font-size:17px}.gain-art .bo-kpi{padding:10px 9px}.gain-art .bo-kpi span{font-size:11px}}

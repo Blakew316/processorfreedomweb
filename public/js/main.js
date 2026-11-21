@@ -137,7 +137,7 @@ function landing() {
   const office = h('div', { class: 'bo reveal' },
     h('div', { class: 'bo-main' },
       h('div', { class: 'bo-head' }, h('b', {}, 'Today'), h('span', {}, 'Harbor & Vine')),
-      h('div', { class: 'bo-kpis' }, stat('Sales', '$1,284.50', '+12% on last week'), stat('Orders', '37', '5 waiting'), stat('Average order', '$34.72', 'pickup and delivery')),
+      h('div', { class: 'bo-kpis' }, stat('Sales', '$1,284.50', '+12% on last week'), stat('Orders', '37', '5 waiting'), stat('Average order', '$34.72', 'per ticket')),
       h('div', { class: 'bo-chart', 'aria-hidden': 'true' }, [34, 52, 41, 68, 59, 86, 74].map((v, i) => h('i', { style: `--h:${v}%;--d:${i * 70}ms` }, h('u', {}, 'SMTWTFS'[i])))),
       h('div', { class: 'bo-list' }, orderRow(1042, 'Ana Ruiz', 'Pickup · 3 items', ['New', 'new']), orderRow(1041, 'James T.', 'Delivery · 5 items', ['Confirmed', 'ok']), orderRow(1040, 'Maria S.', 'Curbside · 2 items', ['Ready', 'ready']))),
     h('div', { class: 'bo-side' },
@@ -168,6 +168,8 @@ function landing() {
         h('div', { class: 'page' }, h('p', { class: 'kicker' }, 'Examples'), h('h2', {}, 'One builder. Any kind of business.'),
           h('p', { class: 'sub' }, 'Restaurants, salons, shops, gyms, garages. Tap any site to start from it.')),
         h('div', { class: 'show', 'aria-label': 'Example websites' }, h('div', { class: 'show-row a' }, rowA.map(card)), h('div', { class: 'show-row b' }, rowB.map(card)))),
+
+      h('div', { class: 'ticker', 'aria-hidden': 'true' }, h('div', { class: 'ticker-in' }, [0, 1].map(() => h('span', {}, ['Restaurants', 'Cafés', 'Salons', 'Boutiques', 'Gyms', 'Garages', 'Studios', 'Food trucks', 'Bakeries', 'Contractors'].flatMap((w) => [w, h('i', {}, '✦')]))))),
 
       h('section', { class: 'l-sec l-gains', id: 'features' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'Why it pays for itself'), h('h2', {}, 'Three things it does for your business.'),
