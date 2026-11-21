@@ -979,3 +979,61 @@ test('inventory: modifier groups, menus, printer labels, revenue classes', async
   assert.deepEqual([menu[0].mods, menu[0].label], [[], '']);
   } finally { base = saved; srv.close(); app4.close(); rmSync(d4, { recursive: true, force: true }); }
 });
+
+test('sales activity: payments, refunds, transactions, cash log, closeout, estimates', async () => {
+  const d5 = mkdtempSync(join(tmpdir(), 'pfsites5-'));
+  const app5 = createApp({ dataDir: d5, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async () => {} } });
+  const srv = createServer(app5);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'tillcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'till@shop.test', password: 'long-enough-pw', name: 'Tia' });
+    const site = (await me('POST', '/api/sites', { name: 'Till Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
+    const [taco] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const who = { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
+    for (const qty of [1, 2]) assert.equal((await anon('POST', '/_order', { ...who, items: [{ id: taco.id, qty }] }, host)).status, 201);
+    const [o2, o1] = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    const pay = (o, body) => me('POST', `/api/sites/${site.id}/orders/${o.id}/payment`, body);
+    assert.equal((await pay(o1, { method: 'Bitcoin' })).status, 400);
+    assert.equal((await pay(o1, { refund: 100 })).status, 400, 'nothing to refund before payment');
+    assert.deepEqual([(await pay(o1, { method: 'Cash' })).data.order.paidMethod, (await pay(o2, { method: 'Card' })).data.order.handledBy], ['Cash', 'Tia']);
+    assert.equal((await pay(o2, { refund: 5000 })).status, 400, 'cannot refund more than was paid');
+    const back = (await pay(o2, { refund: 500, note: 'Wrong item' })).data.order;
+    assert.deepEqual([back.refunded, back.refundNote], [500, 'Wrong item']);
+    assert.equal((await pay(o2, { clear: true })).status, 400, 'a refunded payment stays on the books');
+
+    const tx = (await me('GET', `/api/sites/${site.id}/transactions?range=today`)).data;
+    assert.deepEqual([tx.totals.payments, tx.totals.count, tx.totals.refunds, tx.totals.net], [3000, 2, 500, 2500]);
+    assert.deepEqual(tx.tenders.map((t) => [t.method, t.amount, t.refunds]), [['Card', 2000, 500], ['Cash', 1000, 0]]);
+    const st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.deepEqual(st.tenders.map((t) => [t.name, t.orders]).sort(), [['Card', 1], ['Cash', 1]]);
+    assert.equal(st.employees[0].name, 'Tia');
+
+    assert.equal((await me('POST', `/api/sites/${site.id}/cash`, { kind: 'in', amount: 0 })).status, 400);
+    await me('POST', `/api/sites/${site.id}/cash`, { kind: 'in', amount: 10000, note: 'Float' });
+    await me('POST', `/api/sites/${site.id}/cash`, { kind: 'out', amount: 2500, note: 'Bank' });
+    const cash = (await me('GET', `/api/sites/${site.id}/cash?range=today`)).data;
+    assert.deepEqual(cash.totals, { cashSales: 1000, cashRefunds: 0, paidIn: 10000, paidOut: 2500, expected: 8500 });
+
+    let batches = (await me('GET', `/api/sites/${site.id}/closeouts`)).data;
+    assert.deepEqual([batches.open.number, batches.open.totals.net, batches.history.length], [1, 2500, 0]);
+    assert.equal((await me('POST', `/api/sites/${site.id}/closeouts`)).status, 201);
+    batches = (await me('GET', `/api/sites/${site.id}/closeouts`)).data;
+    assert.deepEqual([batches.open.number, batches.open.totals.net, batches.history[0].totals.net], [2, 0, 2500]);
+    assert.equal((await me('POST', `/api/sites/${site.id}/closeouts`)).status, 400, 'an empty batch cannot be closed');
+
+    // Estimates: no payment until converted.
+    const est = (await me('POST', `/api/sites/${site.id}/invoices`, { kind: 'estimate', customer: { name: 'Dana', email: 'dana@acme.test' }, items: [{ name: 'Catering', qty: 1, price: 50000 }] })).data.invoice;
+    assert.deepEqual([est.kind, est.label], ['estimate', 'EST-1001']);
+    await me('POST', `/api/sites/${site.id}/invoices/${est.id}/send`);
+    const page = (await anon('GET', new URL(est.url).pathname, null, host)).data;
+    assert.match(page, /Estimate EST-1001/);
+    assert.ok(!page.includes('Pay $'));
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices/${est.id}/status`, { status: 'paid' })).status, 400);
+    const inv = (await me('POST', `/api/sites/${site.id}/invoices/${est.id}/convert`)).data.invoice;
+    assert.deepEqual([inv.kind, inv.label, inv.status], ['invoice', 'INV-1001', 'draft']);
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices/${est.id}/convert`)).status, 400);
+  } finally { base = saved; srv.close(); app5.close(); rmSync(d5, { recursive: true, force: true }); }
+});

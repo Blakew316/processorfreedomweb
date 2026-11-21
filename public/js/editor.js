@@ -4,7 +4,8 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'],
+  ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
+  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
@@ -14,8 +15,8 @@ const TABS = [
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
-const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes' };
+const WIDE = new Set(['tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
+const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
 const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Alerts and reports', 'Order emails'] };
 const MODES = { office: 'Back office', site: 'Website' };
@@ -24,14 +25,13 @@ const NAV_NAMES = new Set(['home', 'orders', 'menu', 'sales', 'customers', 'sett
 const NAV = {
   office: [
     { label: 'Dashboard', icon: 'home', tabs: ['start'] },
-    { label: 'Orders', icon: 'orders', tabs: ['orders'] },
-    { label: 'Inventory', icon: 'menu', tabs: ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs'], subs: ['Items', 'Categories', 'Modifier groups', 'Menus', 'Printer labels', 'Revenue classes', 'Discounts'] },
-    { label: 'Reporting', icon: 'sales', tabs: ['sales', 'r-items', 'r-types', 'r-taxes'], subs: ['Sales overview', 'Item sales', 'Order types', 'Taxes'] },
+    { label: 'Sales activity', short: 'Sales', icon: 'orders', tabs: ['orders', 'tx', 'cash', 'close', 'invoices', 'est', 'tips'], subs: ['Orders', 'Transactions', 'Cash log', 'Closeout', 'Invoices', 'Estimates', 'Tips'] },
+    { label: 'Reports', icon: 'sales', tabs: ['sales', 'r-full', 'r-items', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-types', 'r-taxes', 'r-exports'], subs: ['Sales overview', 'Sales report', 'Item sales', 'Employee sales', 'Tender types', 'Discounts', 'Removed items', 'Order types', 'Taxes', 'Exports'] },
+    { label: 'Inventory', short: 'Items', icon: 'menu', tabs: ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs'], subs: ['Items', 'Categories', 'Modifier groups', 'Menus', 'Printer labels', 'Revenue classes', 'Discounts'] },
+    { label: 'Employees', icon: 'team', tabs: ['team'] },
     { label: 'Customers', icon: 'customers', tabs: ['customers'] },
-    { label: 'Invoices', icon: 'invoice', tabs: ['invoices'] },
     { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards'], subs: ['Promo codes', 'Happy hour', 'Rewards'] },
     { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
-    { label: 'Employees', icon: 'team', tabs: ['team'] },
     { label: 'Setup', icon: 'settings', tabs: ['ordering', 'hours', 'alerts'], subs: ['Online ordering', 'Business hours', 'Alerts and emails'] },
   ],
   site: [
@@ -92,6 +92,7 @@ export async function editor(id, mount, title) {
   let versions = null;
   let customers = null, custQ = '';
   let dash = null;
+  let txData = null, txFilter = 'all', cashData = null, closeData = null;
   let bills = null, billFilter = 'all', billQ = '';
   const lastTab = { office: 'start', site: 'design' };
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
@@ -679,7 +680,7 @@ export async function editor(id, mount, title) {
       if (!orders) { loadOrders(); return [group('', skel(3, 'card'))]; }
       const active = orders.filter((x) => !['completed', 'cancelled'].includes(x.status));
       const shown = orderFilter === 'active' ? active : orders;
-      const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); Object.assign(x, r.order); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); putOrder(x, r.order); paintPanel(); } catch (e) { toast(e.message, true); } };
       const next = { new: ['confirmed', 'Confirm order'], confirmed: ['ready', 'Mark ready'], ready: ['completed', 'Complete'] };
       const seg = h('div', { class: 'seg' }, [['active', `Active · ${active.length}`], ['all', 'All orders']].map(([k, l]) => h('button', { 'aria-pressed': String(orderFilter === k), onclick: () => { orderFilter = k; paintPanel(); } }, l)));
       const alertBox = h('label', { class: 'switch' }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Sound and pop-up alerts'), h('div', { class: 'small muted' }, 'Chime on every new order while this page is open.')), h('input', { type: 'checkbox', checked: alertsOn(), onchange: (e) => setAlerts(e.target.checked) }), h('i'));
@@ -699,13 +700,16 @@ export async function editor(id, mount, title) {
           h('div', { class: 'small' }, h('a', { href: `tel:${x.phone.replace(/[^\d+]/g, '')}` }, x.phone), ' · ', h('a', { href: `mailto:${x.email}` }, x.email)),
           x.scheduled && h('div', { class: 'small' }, h('b', {}, 'Scheduled for '), slotLabel(x.scheduled, ordering)),
           x.address && h('div', { class: 'small' }, h('b', {}, 'Deliver to '), x.address), x.vehicle && h('div', { class: 'small' }, h('b', {}, 'Vehicle '), x.vehicle), x.notes && h('div', { class: 'small' }, h('b', {}, 'Notes '), x.notes),
+          x.status !== 'cancelled' && h('div', { class: 'row payline', style: 'flex-wrap:wrap' }, x.paidAt ? h('span', { class: 'status ok' }, `Paid · ${x.paidMethod}`) : h('span', { class: 'status' }, 'Not paid yet'), x.refunded > 0 && h('span', { class: 'status bad' }, `Refunded ${money(x.refunded)}`), h('span', { class: 'grow' }),
+            !x.paidAt && h('button', { class: 'btn soft sm', onclick: () => takePayment(x) }, 'Record payment'), x.paidAt && x.refunded < x.total && h('button', { class: 'btn text sm', onclick: () => refundOrder(x) }, 'Refund')),
           next[x.status] && h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => setStatus(x, next[x.status][0]) }, next[x.status][0] === 'ready' ? `Mark ${readyLabel(x.method).toLowerCase()}` : next[x.status][1]),
             h('button', { class: 'btn soft sm', onclick: () => printTicket(x, meta.name, { method: ORDER_METHODS[x.method]?.name || x.method, when: x.scheduled ? slotLabel(x.scheduled, ordering) : 'As soon as possible', total: money(x.total) }) }, ic('print', 14), 'Print'),
             h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Cancel order #${x.number}?`, text: 'The customer is told by email and any stock is returned.', action: 'Cancel order', danger: true })) setStatus(x, 'cancelled'); } }, 'Cancel')))))];
     },
 
     sales(V = 'overview') {
-      const TITLES = { overview: 'Sales overview', items: 'Item sales', types: 'Order types', taxes: 'Taxes' };
+      const TITLES = { overview: 'Sales overview', items: 'Item sales', types: 'Order types', taxes: 'Taxes', full: 'Sales report', emp: 'Employee sales', tender: 'Tender types', disc: 'Discounts', removed: 'Removed items', tips: 'Tips' };
+      const tableCard = (title, heads, rows, emptyText) => h('div', { class: 'scard' }, h('h3', {}, title), rows.length ? h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, heads.map((x) => h('th', {}, x)))), h('tbody', {}, rows.map((r) => h('tr', {}, r.map((c, i) => h('td', {}, i === 0 ? h('b', {}, c) : c))))))) : h('p', { class: 'muted', style: 'padding:0 22px 20px' }, emptyText));
       const load = async () => {
         if (salesBusy) return;
         salesBusy = true;
@@ -714,7 +718,7 @@ export async function editor(id, mount, title) {
         salesBusy = false;
         if (SALES_TABS[tab]) paintPanel();
       };
-      const pick = (r) => { salesRange = r; stats = null; paintPanel(); };
+      const pick = (r) => { salesRange = r; stats = null; txData = null; cashData = null; paintPanel(); };
       const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days'], ['custom', 'Custom']];
       const day = (d, o = { month: 'short', day: 'numeric' }) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
       const head = (st) => h('div', { class: 'inv-top' },
@@ -751,10 +755,10 @@ export async function editor(id, mount, title) {
           kpi('Orders', t.orders, change(t.orders, st.previous.orders), t.cancelled ? `${t.cancelled} cancelled, not counted` : `${t.units} item${t.units === 1 ? '' : 's'} sold`, 'bag'),
           kpi('Average order', money(t.average), null, 'Including tax, fees and tips', 'chart'),
           kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set', 'doc')),
-        none && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
+        none && !['removed', 'disc', 'emp', 'tender', 'tips'].includes(V) && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
         !none && V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
         !none && V !== 'items' && h('div', { class: 'sgrid3 solo' },
-          V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
+          (V === 'overview' || V === 'full') && h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
             line('Item sales', money(t.gross)), t.discounts > 0 && line('Discounts and promo codes', `−${money(t.discounts)}`), line('Net sales', money(t.net), 'strong'),
             line('Sales tax', money(t.tax)), line('Delivery fees', money(t.fees)), line('Tips', money(t.tips)), line('Total collected', money(t.total), 'total')),
           V === 'taxes' && h('div', { class: 'scard' }, h('h3', {}, 'Sales tax'),
@@ -768,7 +772,12 @@ export async function editor(id, mount, title) {
               h('td', {}, h('div', { class: 'share' }, h('div', { class: 'track2' }, h('i', { style: `width:${(it.sales / topSales) * 100}%` })), h('span', { class: 'small muted' }, `${t.gross ? Math.round((it.sales / t.gross) * 100) : 0}%`))))))))),
         !none && V === 'items' && (st.revenue || []).some((r) => r.name !== 'No revenue class') && h('div', { class: 'scard' }, h('h3', {}, 'Sales by revenue class'), st.revenue.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
         !none && V === 'items' && st.categories.length > 1 && h('div', { class: 'scard' }, h('h3', {}, 'Sales by category'), st.categories.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
-        V === 'overview' && st.orders.length > 0 && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders in this period'), h('span', { class: 'small muted' }, `${st.orders.length} order${st.orders.length === 1 ? '' : 's'}`)),
+        V === 'emp' && tableCard('Sales by employee', ['Employee', 'Orders', 'Net sales', 'Tips', 'Total collected'], (st.employees || []).map((e) => [e.name, e.orders, money(e.net), money(e.tips), money(e.total)]), 'No orders in this period. An order is credited to whoever confirms it or takes its payment.'),
+        V === 'tender' && tableCard('Sales by tender type', ['Tender', 'Orders', 'Tips', 'Total'], (st.tenders || []).map((e) => [e.name, e.orders, money(e.tips), money(e.total)]), 'No orders in this period. Record how each order was paid from the Orders screen.'),
+        V === 'disc' && tableCard('Discounts given', ['Discount or promo code', 'Times used', 'Amount'], (st.promos || []).map((e) => [e.name, e.uses, money(e.amount)]), 'No discounts were used in this period.'),
+        V === 'removed' && tableCard('Items on cancelled orders', ['Item', 'Quantity', 'Value'], (st.removed || []).map((e) => [e.name, e.qty, money(e.value)]), 'No orders were cancelled in this period.'),
+        V === 'tips' && tableCard(`Tips · ${money(t.tips)} in this period`, ['Order', 'When', 'Customer', 'Handled by', 'Tip'], st.orders.filter((o) => o.tip > 0 && o.status !== 'cancelled').map((o) => [`#${o.number}`, `${st.from === st.to ? '' : `${day(o.date)} `}${o.time}`, o.name, o.by || '—', money(o.tip)]), 'No tips in this period. Customers can add a tip at checkout when tips are switched on under Setup.'),
+        (V === 'overview' || V === 'full') && st.orders.length > 0 && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders in this period'), h('span', { class: 'small muted' }, `${st.orders.length} order${st.orders.length === 1 ? '' : 's'}`)),
           h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Order', 'When', 'Type', 'Customer', 'Items', 'Tax', 'Total', 'Status'].map((x) => h('th', {}, x)))),
             h('tbody', {}, st.orders.slice(0, 200).map((o) => h('tr', { class: o.status === 'cancelled' ? 'void' : '' }, h('td', {}, h('b', {}, `#${o.number}`)), h('td', { class: 'muted' }, `${st.from === st.to ? '' : `${day(o.date)} `}${o.time}`), h('td', {}, ORDER_METHODS[o.method]?.name || o.method), h('td', {}, o.name), h('td', {}, money(o.subtotal - o.discount)), h('td', {}, money(o.tax)), h('td', {}, h('b', {}, money(o.total))),
               h('td', {}, h('span', { class: `status ${o.status === 'cancelled' ? 'bad' : o.status === 'new' ? 'warn' : 'ok'}` }, ORDER_STATUSES[o.status] || o.status))))))),
@@ -822,17 +831,18 @@ export async function editor(id, mount, title) {
           customers.length > 500 && h('p', { class: 'hint' }, `Showing the latest 500. Export to see all ${customers.length}.`)))];
     },
 
-    invoices() {
-      const head = (extra) => h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Invoices'), h('p', { class: 'muted' }, 'Bill catering, wholesale and other large orders. Customers get an email with a link to view and pay.')), extra);
-      const newBtn = h('button', { class: 'btn', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice');
+    invoices(kind = 'invoice') {
+      const est = kind === 'estimate';
+      const head = (extra) => h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, est ? 'Estimates' : 'Invoices'), h('p', { class: 'muted' }, est ? 'Send professional estimates to your customers, track their status and convert them into invoices.' : 'Bill catering, wholesale and other large orders. Customers get an email with a link to view and pay.')), extra);
+      const newBtn = h('button', { class: 'btn', onclick: () => openInvoice(null, null, kind) }, ic('plus', 16), est ? 'New estimate' : 'New invoice');
       if (!bills) {
-        api('GET', `/api/sites/${id}/invoices`).then((r) => { bills = r; if (tab === 'invoices') paintPanel(); }).catch((e) => { toast(e.message, true); bills = { invoices: [], contacts: [], payUrl: '' }; if (tab === 'invoices') paintPanel(); });
+        api('GET', `/api/sites/${id}/invoices`).then((r) => { bills = r; if (tab === 'invoices' || tab === 'est') paintPanel(); }).catch((e) => { toast(e.message, true); bills = { invoices: [], contacts: [], payUrl: '' }; if (tab === 'invoices' || tab === 'est') paintPanel(); });
         return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(5, 'row'))];
       }
-      const all = bills.invoices;
-      if (!all.length) return [h('div', { class: 'inv' }, head(newBtn), h('div', { class: 'inv-list' }, emptyState('doc', 'No invoices yet', 'Create one for a catering order or a business customer. Add what they ordered, press send, and track when it is opened and paid.', ['Create an invoice', () => openInvoice()])))];
+      const all = bills.invoices.filter((v) => (v.kind || 'invoice') === kind);
+      if (!all.length) return [h('div', { class: 'inv' }, head(newBtn), h('div', { class: 'inv-list' }, est ? emptyState('doc', 'Your first estimate', 'Build a professional estimate to send to your customers. When they say yes, convert it to an invoice in one tap.', ['Get started', () => openInvoice(null, null, 'estimate')]) : emptyState('doc', 'No invoices yet', 'Create one for a catering order or a business customer. Add what they ordered, press send, and track when it is opened and paid.', ['Create an invoice', () => openInvoice()])))];
       const stateOf = (v) => (invoiceLate(v) ? 'late' : v.status);
-      const LABEL = { draft: ['Draft', ''], sent: ['Awaiting payment', 'warn'], late: ['Past due', 'bad'], paid: ['Paid', 'ok'], void: ['Cancelled', ''] };
+      const LABEL = est ? { draft: ['Draft', ''], sent: ['Sent', 'warn'], late: ['Expired', 'bad'], paid: ['Paid', 'ok'], void: ['Cancelled', ''] } : { draft: ['Draft', ''], sent: ['Awaiting payment', 'warn'], late: ['Past due', 'bad'], paid: ['Paid', 'ok'], void: ['Cancelled', ''] };
       const sum = (list) => list.reduce((a, v) => a + v.total, 0);
       const open = all.filter((v) => v.status === 'sent'), late = all.filter((v) => stateOf(v) === 'late');
       const month = new Date().toISOString().slice(0, 7);
@@ -857,9 +867,65 @@ export async function editor(id, mount, title) {
           h('tbody', {}, rows.length ? rows.map((v) => h('tr', { class: v.status === 'void' ? 'void' : '', onclick: (e) => { if (!e.target.closest('button,a')) openInvoice(v); } }, h('td', {}, h('b', {}, v.label)), h('td', {}, h('b', { style: 'font-weight:500' }, v.customer.company || v.customer.name), v.customer.company && v.customer.name !== v.customer.company && h('div', { class: 'small muted' }, v.customer.name)),
             h('td', { class: 'muted' }, v.sentAt ? fmtDate(v.sentAt) : '—'), h('td', { class: 'muted' }, day(v.due)), h('td', {}, h('b', {}, money(v.total))),
             h('td', {}, h('span', { class: `status ${LABEL[stateOf(v)][1]}` }, LABEL[stateOf(v)][0]), v.status === 'sent' && h('div', { class: 'small muted' }, v.viewedAt ? 'Opened by customer' : 'Not opened yet')),
-            h('td', { style: 'text-align:right;white-space:nowrap' }, v.status === 'sent' && h('button', { class: 'btn soft sm', onclick: () => markPaid(v) }, 'Mark paid'), ' ', h('button', { class: 'btn soft sm', onclick: () => openInvoice(v) }, v.status === 'draft' ? 'Edit' : 'Open'))))
+            h('td', { style: 'text-align:right;white-space:nowrap' }, v.status === 'sent' && !est && h('button', { class: 'btn soft sm', onclick: () => markPaid(v) }, 'Mark paid'), est && v.status !== 'void' && h('button', { class: 'btn soft sm', onclick: () => convertEstimate(v) }, 'Convert to invoice'), ' ', h('button', { class: 'btn soft sm', onclick: () => openInvoice(v) }, v.status === 'draft' ? 'Edit' : 'Open'))))
             : [h('tr', {}, h('td', { colspan: 7, class: 'muted', style: 'text-align:center;padding:28px' }, 'No invoices match.'))])))),
         h('p', { class: 'hint' }, 'Invoices are tracked here on their own and are not added to the Sales screen, which covers orders placed on your site.'))];
+    },
+
+    tx() {
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Transactions'), h('p', { class: 'muted' }, 'Every payment and refund you have recorded, from orders and invoices.')), h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'), h('button', { class: 'btn soft', onclick: () => { txData = null; paintPanel(); } }, 'Refresh')));
+      if (!txData) { api('GET', `/api/sites/${id}/transactions?${rq()}`).then((r) => { txData = r; if (tab === 'tx') paintPanel(); }).catch((e) => { toast(e.message, true); txData = { payments: [], refunds: [], tenders: [], totals: { payments: 0, count: 0, refunds: 0, refundCount: 0, net: 0 } }; if (tab === 'tx') paintPanel(); }); return [h('div', { class: 'inv' }, head, rangeBar(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(5, 'row'))]; }
+      const d = txData, t = d.totals;
+      const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      const rows = [...(txFilter !== 'refunds' ? d.payments.map((x) => ({ ...x, type: 'Payment' })) : []), ...(txFilter !== 'payments' ? d.refunds.map((x) => ({ ...x, type: 'Refund' })) : [])].sort((a, b) => b.at - a.at);
+      return [h('div', { class: 'inv' }, head, rangeBar(),
+        h('div', { class: 'inv-kpis' }, kpi('Payments', money(t.payments), `${t.count} recorded`), kpi('Refunds', money(t.refunds), `${t.refundCount} recorded`), kpi('Net collected', money(t.net), 'payments less refunds'), kpi('Tender types', d.tenders.length, d.tenders.map((x) => x.method).join(', ') || 'none yet')),
+        h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, [['all', 'All'], ['payments', `Payments · ${t.count}`], ['refunds', `Refunds · ${t.refundCount}`]].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(txFilter === k), onclick: () => { txFilter = k; paintPanel(); } }, l)))),
+        rows.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Time', 'Type', 'For', 'Customer', 'Tender', 'Amount', 'Note'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, rows.map((x) => h('tr', {}, h('td', {}, `${d.from === d.to ? '' : `${x.date} `}${x.time}`), h('td', {}, h('span', { class: `status ${x.type === 'Refund' ? 'bad' : 'ok'}` }, x.type)), h('td', {}, h('b', {}, `${x.source} ${x.ref}`)), h('td', {}, x.customer || '—'), h('td', {}, x.method), h('td', {}, h('b', {}, `${x.type === 'Refund' ? '−' : ''}${money(x.amount)}`)), h('td', { class: 'muted' }, x.note || x.by || '')))))))
+          : h('div', { class: 'inv-list' }, emptyState('cash', 'No transactions in this period', 'Record a payment on an order, or mark an invoice as paid, and it appears here.', ['Go to orders', () => goTab('orders')])))];
+    },
+    cash() {
+      const add = (kind) => formSheet(kind === 'in' ? 'Cash in' : 'Cash out', [['amount', 'Amount', { inputmode: 'decimal', placeholder: '0.00' }], ['note', 'What for', { maxlength: 200, placeholder: kind === 'in' ? 'e.g. Opening float' : 'e.g. Bank deposit' }]], { amount: '', note: '' }, async (v) => { const c = parsePrice(v.amount || ''); if (!c) throw new Error('Enter an amount above zero.'); await api('POST', `/api/sites/${id}/cash`, { kind, amount: c, note: v.note }); cashData = null; });
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Cash log'), h('p', { class: 'muted' }, 'Money put into and taken out of the drawer, beside the cash payments recorded on orders.')), h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => add('out') }, ic('minus', 16), 'Cash out'), h('button', { class: 'btn', onclick: () => add('in') }, ic('plus', 16), 'Cash in')));
+      if (!cashData) { api('GET', `/api/sites/${id}/cash?${rq()}`).then((r) => { cashData = r; if (tab === 'cash') paintPanel(); }).catch((e) => { toast(e.message, true); cashData = { entries: [], totals: { cashSales: 0, cashRefunds: 0, paidIn: 0, paidOut: 0, expected: 0 } }; if (tab === 'cash') paintPanel(); }); return [h('div', { class: 'inv' }, head, rangeBar(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
+      const d = cashData, t = d.totals;
+      const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      return [h('div', { class: 'inv' }, head, rangeBar(),
+        h('div', { class: 'inv-kpis' }, kpi('Cash sales', money(t.cashSales), t.cashRefunds ? `${money(t.cashRefunds)} refunded in cash` : 'orders paid in cash'), kpi('Cash in', money(t.paidIn), 'added to the drawer'), kpi('Cash out', money(t.paidOut), 'taken from the drawer'), kpi('Expected in drawer', money(t.expected), 'for this period')),
+        d.entries.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Time', 'Type', 'Amount', 'What for', 'By', 'Action'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, d.entries.map((x) => h('tr', {}, h('td', {}, `${d.from === d.to ? '' : `${x.date} `}${x.time}`), h('td', {}, h('span', { class: `status ${x.kind === 'in' ? 'ok' : 'warn'}` }, x.kind === 'in' ? 'Cash in' : 'Cash out')), h('td', {}, h('b', {}, money(x.amount))), h('td', {}, x.note || '—'), h('td', { class: 'muted' }, x.by), h('td', {}, h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Delete this entry?', text: 'It is removed from the cash log.', action: 'Delete', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/cash/${x.id}`); cashData = null; paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Delete'))))))))
+          : h('div', { class: 'inv-list' }, emptyState('cash', 'No cash entries in this period', 'Log your opening float, bank deposits and anything else that goes in or out of the drawer.', ['Cash in', () => add('in')])))];
+    },
+    close() {
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Closeout'), h('p', { class: 'muted' }, 'Your open batch is every payment and refund recorded since the last closeout. Close it out at the end of the day to file the totals away.')));
+      if (!closeData) { api('GET', `/api/sites/${id}/closeouts`).then((r) => { closeData = r; if (tab === 'close') paintPanel(); }).catch((e) => { toast(e.message, true); closeData = { open: { tenders: [], totals: { payments: 0, count: 0, refunds: 0, refundCount: 0, net: 0 }, paidIn: 0, paidOut: 0, number: 1, since: 0 }, history: [] }; if (tab === 'close') paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(3, 'row'))]; }
+      const o = closeData.open, t = o.totals;
+      const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      const line = (label, value, cls = '') => h('div', { class: `rline ${cls}` }, h('span', {}, label), h('b', {}, value));
+      const empty = !t.count && !t.refundCount && !o.paidIn && !o.paidOut;
+      const when = (ms) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return [h('div', { class: 'inv' }, head,
+        h('div', { class: 'inv-kpis' }, kpi('Batch total', money(t.net), o.since ? `since ${when(o.since)}` : 'since you started'), kpi(`Payments (${t.count})`, money(t.payments), 'recorded'), kpi(`Refunds (${t.refundCount})`, money(t.refunds), 'recorded'), kpi('Status', 'Open', `batch ${o.number}`)),
+        h('div', { class: 'scard', style: 'padding:22px 24px' }, h('h3', {}, 'Current batch'), o.tenders.length ? o.tenders.map((x) => line(`${x.method} · ${x.count} payment${x.count === 1 ? '' : 's'}`, money(x.amount - x.refunds))) : h('p', { class: 'muted', style: 'padding:8px 0' }, 'No payments recorded in this batch yet.'), o.paidIn > 0 && line('Cash in (not part of the batch total)', money(o.paidIn)), o.paidOut > 0 && line('Cash out (not part of the batch total)', `−${money(o.paidOut)}`), line('Batch total', money(t.net), 'total'),
+          h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn', disabled: empty, onclick: async () => { if (!await confirmSheet({ title: `Close out batch ${o.number}?`, text: `${money(t.net)} from ${t.count} payment${t.count === 1 ? '' : 's'} will be filed under Batch history, and a new batch starts.`, action: 'Close out' })) return; try { await api('POST', `/api/sites/${id}/closeouts`); closeData = null; toast('Batch closed out'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Close out'))),
+        h('div', { class: 'scard' }, h('h3', {}, 'Batch history'), closeData.history.length ? h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Batch', 'Closed', 'By', 'Payments', 'Refunds', 'Amount'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, closeData.history.map((b2) => h('tr', {}, h('td', {}, h('b', {}, `Batch ${b2.number}`)), h('td', {}, when(b2.createdAt)), h('td', { class: 'muted' }, b2.by), h('td', {}, `${b2.totals.count} · ${money(b2.totals.payments)}`), h('td', {}, `${b2.totals.refundCount} · ${money(b2.totals.refunds)}`), h('td', {}, h('b', {}, money(b2.totals.net)))))))) : h('p', { class: 'muted', style: 'padding:0 22px 20px' }, 'No batches closed yet.')))];
+    },
+    'r-exports'() {
+      const grab = async (label, fn) => { try { const [name, rows] = await fn(); csvFile(name, rows); toast(`${label} downloaded`); } catch (e) { toast(e.message, true); } };
+      const iso = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');
+      const cash = (c) => (c / 100).toFixed(2);
+      const list = [
+        ['Orders, last 30 days', 'Every order with its totals, tax, tip, tender and who handled it.', async () => { const st = await api('GET', `/api/sites/${id}/stats?range=last30`); return [`${meta.slug}-orders`, [['Order', 'Date', 'Time', 'Type', 'Customer', 'Status', 'Net sales', 'Tax', 'Tip', 'Total', 'Paid by', 'Handled by'], ...st.orders.map((o) => [o.number, o.date, o.time, o.method, o.name, o.status, cash(o.subtotal - o.discount), cash(o.tax), cash(o.tip), cash(o.total), o.paid, o.by])]]; }],
+        ['Item sales, last 30 days', 'Units sold and sales for each item.', async () => { const st = await api('GET', `/api/sites/${id}/stats?range=last30`); return [`${meta.slug}-item-sales`, [['Item', 'Category', 'Sold', 'Sales'], ...st.items.map((i) => [i.name, i.category, i.qty, cash(i.sales)])]]; }],
+        ['Transactions, last 30 days', 'Recorded payments and refunds.', async () => { const d = await api('GET', `/api/sites/${id}/transactions?range=last30`); return [`${meta.slug}-transactions`, [['Date', 'Time', 'Type', 'For', 'Customer', 'Tender', 'Amount', 'Note'], ...d.payments.map((x) => [x.date, x.time, 'Payment', `${x.source} ${x.ref}`, x.customer, x.method, cash(x.amount), '']), ...d.refunds.map((x) => [x.date, x.time, 'Refund', `${x.source} ${x.ref}`, x.customer, x.method, `-${cash(x.amount)}`, x.note])]]; }],
+        ['Item list', 'Your whole inventory with prices and quantities.', async () => [`${meta.slug}-items`, [['Category', 'Item name', 'Price', 'Description', 'Stock', 'Taxable', 'Printer label', 'Revenue class'], ...menu.map((x) => [x.category, x.name, cash(x.price), x.desc, x.stock, x.taxable === false ? 'no' : 'yes', x.label, x.revclass])]]],
+        ['Customers', 'Everyone who has ordered or been invoiced.', async () => { const r = await api('GET', `/api/sites/${id}/customers`); return [`${meta.slug}-customers`, [['Name', 'Company', 'Email', 'Phone', 'Orders', 'Total spent', 'Last order'], ...r.customers.map((c) => [c.name, c.company || '', c.email, c.phone, c.orders, cash(c.spent), iso(c.last)])]]; }],
+        ['Invoices and estimates', 'Every invoice and estimate with its status.', async () => { const r = await api('GET', `/api/sites/${id}/invoices`); return [`${meta.slug}-invoices`, [['Number', 'Kind', 'Status', 'Customer', 'Email', 'Created', 'Due', 'Paid', 'Total'], ...r.invoices.map((v) => [v.label, v.kind, v.status, v.customer.name, v.customer.email, iso(v.createdAt), v.due, iso(v.paidAt), cash(v.total)])]]; }],
+      ];
+      return [h('div', { class: 'inv' }, h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Exports'), h('p', { class: 'muted' }, 'Download your records as spreadsheet files for your accountant or your own books.'))),
+        h('div', { class: 'scard', style: 'padding:8px 24px' }, list.map(([label, hint2, fn]) => h('div', { class: 'rline', style: 'align-items:center;padding:14px 0' }, h('span', {}, h('b', { style: 'color:var(--ink);font-weight:500;display:block' }, label), hint2), h('button', { class: 'btn soft sm', onclick: () => grab(label, fn) }, ic('dl', 14), 'Download')))))];
     },
 
     /* Inventory lists kept with the ordering settings: modifier groups, menus, printer labels, revenue classes, discounts. */
@@ -940,7 +1006,7 @@ export async function editor(id, mount, title) {
       const had = orders ? new Set(orders.map((x) => x.id)) : null;
       const arrived = had ? fresh.filter((x) => !had.has(x.id)).length : 0;
       const changed = !orders || JSON.stringify(fresh) !== JSON.stringify(orders);
-      orders = fresh;
+      if (changed) orders = fresh;
       if (arrived) { toast(arrived === 1 ? 'New order received' : `${arrived} new orders received`); announceOrders(fresh.filter((x) => !had.has(x.id)), meta.name); }
       if (changed && (tab === 'orders' || tab === 'start')) paintPanel(); else if (changed) paintPanel();
     } catch (e) { if (!quiet) toast(e.message, true); }
@@ -1110,6 +1176,32 @@ export async function editor(id, mount, title) {
     });
   }
 
+  /* ---------- payments recorded at the counter ---------- */
+  const rq = () => new URLSearchParams(salesRange === 'custom' && salesFrom && salesTo ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange === 'custom' ? 'today' : salesRange });
+  const rangeBar = () => h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days']].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String((salesRange === 'custom' ? 'today' : salesRange) === k), onclick: () => { salesRange = k; stats = null; txData = null; cashData = null; paintPanel(); } }, l))));
+  function csvFile(name, rows) {
+    const q2 = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+    const url = URL.createObjectURL(new Blob([`\ufeff${rows.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
+    h('a', { href: url, download: `${name}.csv` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  const putOrder = (x, fresh) => { Object.assign(x, fresh); const live = (orders || []).find((o) => o.id === fresh.id); if (live && live !== x) Object.assign(live, fresh); };
+  const TENDERS = ['Cash', 'Card', 'Online payment', 'Check', 'Gift card', 'Other'];
+  function takePayment(x) {
+    sheet((close) => [h('h2', {}, `Record payment for #${x.number}`), h('p', { class: 'muted' }, `${money(x.total)} from ${x.name}. This records how they paid; it does not charge a card.`),
+      h('div', { class: 'tender-grid' }, TENDERS.map((m) => h('button', { class: 'btn soft', onclick: async () => { try { putOrder(x, (await api('POST', `/api/sites/${id}/orders/${x.id}/payment`, { method: m })).order); close(); toast(`#${x.number} paid by ${m.toLowerCase()}`); paintPanel(); } catch (e) { toast(e.message, true); } } }, m))),
+      h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'))]);
+  }
+  function refundOrder(x) {
+    sheet((close) => {
+      const left = x.total - x.refunded;
+      const amt = h('input', { value: (left / 100).toFixed(2), inputmode: 'decimal', autofocus: true }), noteIn = h('input', { placeholder: 'Reason (optional)', maxlength: 300 }), err = h('p', { class: 'error', role: 'alert' });
+      return [h('h2', {}, `Refund order #${x.number}`), h('p', { class: 'muted' }, `Up to ${money(left)} can be refunded. This records the refund; give the money back the same way the customer paid (${x.paidMethod.toLowerCase()}).`),
+        h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), h('label', { class: 'field' }, h('span', {}, 'Note'), noteIn), err,
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn', onclick: async () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } try { putOrder(x, (await api('POST', `/api/sites/${id}/orders/${x.id}/payment`, { refund: c, note: noteIn.value })).order); close(); toast('Refund recorded'); paintPanel(); } catch (e) { err.textContent = e.message; } } }, 'Record refund'))];
+    });
+  }
+
   /* ---------- simple lists: a table, an Add button, and a pop-up to edit one row ---------- */
   const saveLists = async () => { await putOrdering(); paintPanel(); paint(true); };
   function listPage({ title, hint, add, heads, rows, cells, empty, edit, remove }) {
@@ -1182,7 +1274,7 @@ export async function editor(id, mount, title) {
   }
 
   /* ---------- invoices ---------- */
-  const setBills = (r) => { bills = { ...bills, ...Object.fromEntries(Object.entries(r).filter(([k]) => ['invoices', 'contacts'].includes(k))) }; customers = null; if (tab === 'invoices' || tab === 'customers') paintPanel(); };
+  const setBills = (r) => { bills = { ...bills, ...Object.fromEntries(Object.entries(r).filter(([k]) => ['invoices', 'contacts'].includes(k))) }; customers = null; if (tab === 'invoices' || tab === 'est' || tab === 'customers') paintPanel(); };
   function addCustomer() {
     const c = { name: '', company: '', email: '', phone: '', address: '' };
     sheet((close) => {
@@ -1203,7 +1295,12 @@ export async function editor(id, mount, title) {
         h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn', autofocus: true, onclick: async () => { try { setBills(await api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'paid', method: how.value, note: noteIn.value })); close(); toast(`${v.label} marked as paid`); } catch (e) { toast(e.message, true); } } }, 'Mark as paid'))];
     });
   }
-  async function openInvoice(existing, person) {
+  async function convertEstimate(v) {
+    if (!await confirmSheet({ title: `Convert ${v.label} to an invoice?`, text: 'It moves to Invoices as a draft, ready to send for payment.', action: 'Convert' })) return;
+    try { setBills(await api('POST', `/api/sites/${id}/invoices/${v.id}/convert`)); toast('Converted. Find it under Invoices.'); goTab('invoices'); } catch (e) { toast(e.message, true); }
+  }
+  async function openInvoice(existing, person, kind = existing?.kind || 'invoice') {
+    const est = kind === 'estimate';
     if (!bills) { try { bills = await api('GET', `/api/sites/${id}/invoices`); } catch (e) { return toast(e.message, true); } }
     if (!customers) { try { customers = (await api('GET', `/api/sites/${id}/customers`)).customers; } catch { customers = []; } }
     const v = existing ? JSON.parse(JSON.stringify(existing)) : { status: 'draft', customer: { name: person?.name || '', company: person?.company || '', email: person?.email || '', phone: person?.phone || '', address: person?.address || '' }, items: [{ name: '', qty: 1, price: 0, taxable: true }], notes: '', due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), taxRate: ordering.taxRate || 0, discount: 0, payUrl: '' };
@@ -1244,7 +1341,7 @@ export async function editor(id, mount, title) {
       };
       drawLines(); drawTotals();
       const discIn = h('input', { value: (v.discount / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const c = parsePrice(discIn.value || '0'); if (c !== null) { v.discount = c; drawTotals(); } } });
-      const body = () => ({ customer: cust, items: v.items.filter((l) => l.name.trim()), notes: v.notes, due: v.due, taxRate: v.taxRate, discount: v.discount, payUrl: v.payUrl });
+      const body = () => ({ kind, customer: cust, items: v.items.filter((l) => l.name.trim()), notes: v.notes, due: v.due, taxRate: v.taxRate, discount: v.discount, payUrl: v.payUrl });
       const save = () => (v.id ? api('PUT', `/api/sites/${id}/invoices/${v.id}`, body()) : api('POST', `/api/sites/${id}/invoices`, body()));
       const send = async (btn) => {
         btn.disabled = true;
@@ -1258,7 +1355,7 @@ export async function editor(id, mount, title) {
         } catch (e) { toast(e.message, true); btn.disabled = false; }
       };
       const sent = v.status === 'sent';
-      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.id ? v.label : 'New invoice'), sent && h('span', { class: `status ${invoiceLate(v) ? 'bad' : 'warn'}` }, invoiceLate(v) ? 'Past due' : 'Awaiting payment'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.id ? v.label : est ? 'New estimate' : 'New invoice'), sent && !est && h('span', { class: `status ${invoiceLate(v) ? 'bad' : 'warn'}` }, invoiceLate(v) ? 'Past due' : 'Awaiting payment'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         sent && h('p', { class: 'muted' }, `Sent ${fmtDate(v.sentAt)}${v.reminders ? ` · ${v.reminders} reminder${v.reminders === 1 ? '' : 's'}` : ''} · ${v.viewedAt ? `opened ${fmtDate(v.viewedAt)}` : 'not opened yet'}`),
         h('div', { class: 'bill-sec' }, h('h3', {}, 'Bill to'),
           h('div', { class: 'pair' }, cf('Name', 'name', { list: pid, maxlength: 120, autofocus: !v.id, placeholder: 'Start typing to find a customer' }), cf('Company', 'company', { maxlength: 120, placeholder: 'Optional' })),
@@ -1276,8 +1373,9 @@ export async function editor(id, mount, title) {
           h('div', { class: 'row' }, v.id && h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet(sent ? { title: `Cancel ${v.label}?`, text: 'It stays in your records as cancelled, and the customer’s page shows it is no longer due.', action: 'Cancel invoice', danger: true } : { title: `Delete ${v.label}?`, text: 'This draft is removed for good.', action: 'Delete', danger: true })) act(() => (sent ? api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'void' }) : api('DELETE', `/api/sites/${id}/invoices/${v.id}`))); } }, sent ? 'Cancel invoice' : 'Delete'),
             sent && h('button', { class: 'btn text sm', onclick: () => copyLink(v.url) }, 'Copy link'), sent && h('a', { class: 'btn text sm', href: v.url, target: '_blank', rel: 'noopener' }, 'View')),
           h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => act(save, () => toast('Invoice saved')) }, sent ? 'Save changes' : 'Save draft'),
-            sent && h('button', { class: 'btn soft', onclick: () => { close(); markPaid(v); } }, 'Mark paid'),
-            h('button', { class: 'btn', onclick: (e) => send(e.currentTarget) }, ic('mail', 16), sent ? 'Send reminder' : 'Send invoice')))];
+            sent && !est && h('button', { class: 'btn soft', onclick: () => { close(); markPaid(v); } }, 'Mark paid'),
+            est && v.id && h('button', { class: 'btn soft', onclick: () => { close(); convertEstimate(v); } }, 'Convert to invoice'),
+            h('button', { class: 'btn', onclick: (e) => send(e.currentTarget) }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : est ? 'Send estimate' : 'Send invoice')))];
     }, 'wide bill');
   }
   const dup = (v) => openInvoice({ ...v, id: undefined, label: undefined, status: 'draft', url: undefined, sentAt: null, viewedAt: null, paidAt: null, reminders: 0, due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) });
@@ -1400,8 +1498,8 @@ export async function editor(id, mount, title) {
   }
 
   // Invoices change without the merchant doing anything (a customer opens one), so the list is refreshed on each visit.
-  const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if (tab === 'invoices' && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
-  const goTab = (k) => { if (k === 'invoices') refreshBills(); if (k === 'start') dash = null; if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
+  const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if ((tab === 'invoices' || tab === 'est') && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
+  const goTab = (k) => { if (k === 'invoices' || k === 'est') refreshBills(); if (k === 'start') dash = null; if (k === 'tx') txData = null; if (k === 'cash') cashData = null; if (k === 'close') closeData = null; if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
   function startPanel() {
     const b = draft.business;
     const steps = [
@@ -1484,7 +1582,7 @@ export async function editor(id, mount, title) {
     rail.replaceChildren(...[mode === 'office' ? h('button', { class: 'rail-new', onclick: () => { goTab('invoices'); openInvoice(); } }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const open = g === group, many = g.tabs.length > 1;
       return [
-        h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, onclick: () => pick(g) }, navIcon(g.icon, 23), h('b', {}, g.label), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
+        h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, onclick: () => pick(g) }, navIcon(g.icon, 23), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         many && open && h('div', { class: 'nav-kids' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))),
       ];
     }).filter(Boolean),
@@ -1500,7 +1598,7 @@ export async function editor(id, mount, title) {
     subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
-    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
+    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
     labelTables(panel);
     panel.scrollTop = y;
@@ -1518,7 +1616,7 @@ export async function editor(id, mount, title) {
     const primary = groups.slice(0, PHONE_COUNT[mode]);
     const item = (icon, label, on, fn, badge) => h('button', { type: 'button', 'aria-current': on ? 'page' : null, onclick: fn }, h('span', { class: 'tb-ic' }, navIcon(icon, 24), badge > 0 && h('em', { class: 'badge' }, badge)), h('span', {}, label));
     tabbar.replaceChildren(...[
-      ...primary.map((g) => item(g.icon, g.label, g.tabs.includes(tab) && !previewing, () => { body.dataset.view = 'edit'; goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]); paintTop(); }, g.label === 'Orders' ? fresh : 0)),
+      ...primary.map((g) => item(g.icon, g.short || g.label, g.tabs.includes(tab) && !previewing, () => { body.dataset.view = 'edit'; goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]); paintTop(); }, g.tabs.includes('orders') ? fresh : 0)),
       mode === 'site' && item('preview', 'Preview', previewing, () => { body.dataset.view = previewing ? 'edit' : 'preview'; paintTop(); requestAnimationFrame(fit); }),
       item('more', 'More', !previewing && !primary.some((g) => g.tabs.includes(tab)), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
   }

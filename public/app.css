@@ -1834,3 +1834,8 @@ html[data-theme=dark] .sheet .btn.soft{background:rgba(255,255,255,.12)}
 .check input{width:18px;height:18px;flex:none;accent-color:var(--brand)}
 .check small{color:var(--muted);font-size:13px}
 .k-station{font:inherit;font-size:15px;color:var(--ink);background:var(--bg2);border:0;border-radius:980px;padding:9px 14px}
+
+.tender-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tender-grid .btn{min-height:56px;justify-content:center;font-size:16px;border-radius:14px!important}
+.payline{padding:10px 0 2px;border-top:1px solid var(--line);margin-top:4px;align-items:center}
+@media (min-width:901px){.nav-kids{max-height:none}}

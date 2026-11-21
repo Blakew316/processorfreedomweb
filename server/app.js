@@ -171,7 +171,7 @@ export function createApp(options = {}) {
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
   const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
-  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
+  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '' });
   function cleanItem(b, prev = {}) {
     const price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
     const name = str(b.name ?? prev.name, 120).trim();
@@ -585,7 +585,7 @@ export function createApp(options = {}) {
   });
 
   const invoiceUrl = (req, site, token) => `${siteUrl(req, site).replace(/\/$/, '')}/invoice/${token}`;
-  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, label: `INV-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
+  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
     payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
   const invoicesOf = (req, site) => db.all('SELECT * FROM invoices WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id).map((r) => toInvoice(r, req, site));
   function cleanInvoice(b) {
@@ -605,10 +605,11 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/sites/:id/invoices', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
-    const v = cleanInvoice(await readJson(req, 200_000));
+    const raw = await readJson(req, 200_000);
+    const v = cleanInvoice(raw);
     const id = newId(), now = Date.now();
     const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
-    db.run('INSERT INTO invoices (id, site_id, number, token, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), '{}', '[]', now, now);
+    db.run('INSERT INTO invoices (id, site_id, number, token, kind, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), raw.kind === 'estimate' ? 'estimate' : 'invoice', '{}', '[]', now, now);
     saveInvoice(id, v);
     keepContact(site.id, v.customer);
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
@@ -633,7 +634,7 @@ export function createApp(options = {}) {
     limit(`invoice:${site.id}`, 60, 3600000);
     const reminder = row.status === 'sent';
     const business = businessOf(site);
-    await mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url, reminder }), fromName: business.name, replyTo: business.email || orderingOf(site).notifyEmail }).catch((e) => { console.error('Invoice email failed:', e.message); bad(502, 'We could not send that email just now. Please try again, or copy the link and send it yourself.'); });
+    await mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url, reminder, estimate: inv.kind === 'estimate' }), fromName: business.name, replyTo: business.email || orderingOf(site).notifyEmail }).catch((e) => { console.error('Invoice email failed:', e.message); bad(502, 'We could not send that email just now. Please try again, or copy the link and send it yourself.'); });
     db.run("UPDATE invoices SET status = 'sent', sent_at = COALESCE(sent_at, ?), reminders = reminders + ?, updated_at = ? WHERE id = ?", Date.now(), reminder ? 1 : 0, Date.now(), row.id);
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), emailed: !!mailer.enabled });
   });
@@ -642,12 +643,134 @@ export function createApp(options = {}) {
     const row = ownInvoice(site, p.inv);
     const b = await readJson(req);
     const now = Date.now();
+    if (b.status === 'paid' && row.kind === 'estimate') bad(400, 'Convert this estimate to an invoice before taking payment.');
     if (b.status === 'paid') db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, str(b.method, 40).trim(), str(b.note, 300).trim(), now, now, row.id);
     else if (b.status === 'sent') db.run("UPDATE invoices SET status = 'sent', paid_at = NULL, paid_method = '', paid_note = '', sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, now, row.id);
     else if (b.status === 'void') db.run("UPDATE invoices SET status = 'void', updated_at = ? WHERE id = ?", now, row.id);
     else bad(400, 'Unknown status.');
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site) });
   });
+  // An accepted estimate becomes an invoice, ready to send for payment.
+  route('POST', '/api/sites/:id/invoices/:inv/convert', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const row = ownInvoice(site, p.inv);
+    if (row.kind !== 'estimate') bad(400, 'This is already an invoice.');
+    db.run("UPDATE invoices SET kind = 'invoice', status = 'draft', sent_at = NULL, viewed_at = NULL, reminders = 0, updated_at = ? WHERE id = ?", Date.now(), row.id);
+    json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site) });
+  });
+
+  /* Payments taken at the counter are recorded here, so the books add up. Nothing is charged by this system. */
+  const TENDERS = ['Cash', 'Card', 'Online payment', 'Check', 'Gift card', 'Other'];
+  route('POST', '/api/sites/:id/orders/:order/payment', async (req, res, p) => {
+    const { site, user, role } = ownSite(req, p.id, 'kitchen');
+    const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
+    const b = await readJson(req);
+    const now = Date.now();
+    if (b.refund !== undefined) {
+      if (role === 'kitchen') bad(403, 'Your login does not allow refunds. Ask a manager.');
+      if (!row.paid_at) bad(400, 'This order has no payment recorded, so there is nothing to refund.');
+      const amount = Math.round(Number(b.refund));
+      if (!(amount > 0) || amount > row.total - row.refunded) bad(400, `Enter an amount up to ${money(row.total - row.refunded)}.`);
+      db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, str(b.note, 300).trim(), now, now, row.id);
+    } else if (b.clear === true) {
+      if (row.refunded) bad(400, 'This payment has a refund against it and cannot be removed.');
+      db.run("UPDATE orders SET paid_at = NULL, paid_method = '', updated_at = ? WHERE id = ?", now, row.id);
+    } else {
+      const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
+      db.run('UPDATE orders SET paid_at = COALESCE(paid_at, ?), paid_method = ?, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, user.name || user.email, now, row.id);
+    }
+    json(res, 200, { order: toOrder(db.get('SELECT * FROM orders WHERE id = ?', row.id)) });
+  });
+
+  // A period chosen the same way as the sales report: today, yesterday, week, month, last30 or custom days.
+  function period(url, ordering) {
+    const dayOf = (ms) => new Date(wallNow(ordering, ms)).toISOString().slice(0, 10);
+    const shift = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
+    const today = dayOf(Date.now());
+    const range = str(url.searchParams.get('range'), 20) || 'today';
+    let from = today, to = today;
+    if (range === 'yesterday') from = to = shift(today, -1);
+    else if (range === 'week') from = shift(today, -new Date(`${today}T00:00:00Z`).getUTCDay());
+    else if (range === 'month') from = `${today.slice(0, 8)}01`;
+    else if (range === 'last30') from = shift(today, -29);
+    else if (range === 'custom') { const f = url.searchParams.get('from'), t = url.searchParams.get('to'); if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(t))) bad(400, 'Choose a start and end date.'); [from, to] = f <= t ? [f, t] : [t, f]; }
+    const lo = Date.parse(`${from}T00:00:00Z`) - 2 * DAY, hi = Date.parse(`${to}T00:00:00Z`) + 3 * DAY;
+    return { range, from, to, today, lo, hi, within: (ms) => { const d = dayOf(ms); return d >= from && d <= to; }, dayOf, timeOf: (ms) => { const w = new Date(wallNow(ordering, ms)); return `${String(w.getUTCHours()).padStart(2, '0')}:${String(w.getUTCMinutes()).padStart(2, '0')}`; } };
+  }
+  // Every recorded payment and refund between two moments: orders paid at the counter and invoices marked paid.
+  function moneyMoves(site, lo, hi) {
+    const payments = [], refunds = [];
+    for (const o of db.all('SELECT * FROM orders WHERE site_id = ? AND ((paid_at >= ? AND paid_at < ?) OR (refunded_at >= ? AND refunded_at < ?))', site.id, lo, hi, lo, hi)) {
+      if (o.paid_at >= lo && o.paid_at < hi) payments.push({ at: o.paid_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.total, tip: o.tip, by: o.handled_by });
+      if (o.refunded && o.refunded_at >= lo && o.refunded_at < hi) refunds.push({ at: o.refunded_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.refunded, note: o.refund_note });
+    }
+    for (const v of db.all("SELECT * FROM invoices WHERE site_id = ? AND status = 'paid' AND paid_at >= ? AND paid_at < ?", site.id, lo, hi)) payments.push({ at: v.paid_at, source: 'Invoice', ref: `INV-${v.number}`, customer: JSON.parse(v.customer).name || '', method: v.paid_method || 'Other', amount: v.total, tip: 0, by: '' });
+    return { payments, refunds };
+  }
+  const tally = ({ payments, refunds }) => {
+    const tenders = new Map();
+    for (const x of payments) { const t = tenders.get(x.method) || tenders.set(x.method, { method: x.method, count: 0, amount: 0, refunds: 0 }).get(x.method); t.count++; t.amount += x.amount; }
+    for (const x of refunds) { const t = tenders.get(x.method) || tenders.set(x.method, { method: x.method, count: 0, amount: 0, refunds: 0 }).get(x.method); t.refunds += x.amount; }
+    const paid = payments.reduce((a, x) => a + x.amount, 0), back = refunds.reduce((a, x) => a + x.amount, 0);
+    return { tenders: [...tenders.values()].sort((a, b) => b.amount - a.amount), totals: { payments: paid, count: payments.length, refunds: back, refundCount: refunds.length, net: paid - back } };
+  };
+  route('GET', '/api/sites/:id/transactions', (req, res, p, url) => {
+    const { site } = ownSite(req, p.id);
+    const pr = period(url, orderingOf(site));
+    const moves = moneyMoves(site, pr.lo, pr.hi);
+    const keep = (x) => pr.within(x.at);
+    const stamp = (x) => ({ ...x, date: pr.dayOf(x.at), time: pr.timeOf(x.at) });
+    const picked = { payments: moves.payments.filter(keep).map(stamp).sort((a, b) => b.at - a.at), refunds: moves.refunds.filter(keep).map(stamp).sort((a, b) => b.at - a.at) };
+    json(res, 200, { range: pr.range, from: pr.from, to: pr.to, ...picked, ...tally(picked), tenderList: TENDERS });
+  });
+
+  /* The cash drawer: money put in and taken out, beside the cash sales recorded on orders. */
+  const cashRows = (site, lo, hi) => db.all('SELECT id, kind, amount, note, by_name AS by, created_at AS at FROM cash_log WHERE site_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at DESC', site.id, lo, hi);
+  route('GET', '/api/sites/:id/cash', (req, res, p, url) => {
+    const { site } = ownSite(req, p.id);
+    const pr = period(url, orderingOf(site));
+    const entries = cashRows(site, pr.lo, pr.hi).filter((x) => pr.within(x.at)).map((x) => ({ ...x, date: pr.dayOf(x.at), time: pr.timeOf(x.at) }));
+    const moves = moneyMoves(site, pr.lo, pr.hi);
+    const cashSales = moves.payments.filter((x) => x.method === 'Cash' && pr.within(x.at)).reduce((a, x) => a + x.amount, 0);
+    const cashRefunds = moves.refunds.filter((x) => x.method === 'Cash' && pr.within(x.at)).reduce((a, x) => a + x.amount, 0);
+    const sum = (k) => entries.filter((x) => x.kind === k).reduce((a, x) => a + x.amount, 0);
+    json(res, 200, { range: pr.range, from: pr.from, to: pr.to, entries, totals: { cashSales, cashRefunds, paidIn: sum('in'), paidOut: sum('out'), expected: cashSales - cashRefunds + sum('in') - sum('out') } });
+  });
+  route('POST', '/api/sites/:id/cash', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const amount = Math.round(Number(b.amount));
+    if (!(amount > 0) || amount > 100_000_000) bad(400, 'Enter an amount above zero.');
+    db.run('INSERT INTO cash_log (id, site_id, kind, amount, note, by_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, b.kind === 'out' ? 'out' : 'in', amount, str(b.note, 200).trim(), user.name || user.email, Date.now());
+    json(res, 201, { ok: true });
+  });
+  route('DELETE', '/api/sites/:id/cash/:entry', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    db.run('DELETE FROM cash_log WHERE id = ? AND site_id = ?', p.entry, site.id);
+    json(res, 200, { ok: true });
+  });
+
+  /* Closeout: everything recorded since the last closeout is the open batch. Closing it files the totals away. */
+  function openBatch(site) {
+    const last = db.get('SELECT created_at, number FROM closeouts WHERE site_id = ? ORDER BY created_at DESC LIMIT 1', site.id);
+    const since = last ? last.created_at : 0, now = Date.now() + 1;
+    const moves = moneyMoves(site, since, now);
+    const cash = cashRows(site, since, now);
+    const sum = (k) => cash.filter((x) => x.kind === k).reduce((a, x) => a + x.amount, 0);
+    return { since, number: (last?.number || 0) + 1, ...tally(moves), paidIn: sum('in'), paidOut: sum('out') };
+  }
+  route('GET', '/api/sites/:id/closeouts', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    json(res, 200, { open: openBatch(site), history: db.all('SELECT id, number, from_at AS fromAt, created_at AS createdAt, by_name AS by, totals FROM closeouts WHERE site_id = ? ORDER BY created_at DESC LIMIT 200', site.id).map((r) => ({ ...r, totals: JSON.parse(r.totals) })) });
+  });
+  route('POST', '/api/sites/:id/closeouts', (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    const open = openBatch(site);
+    if (!open.totals.count && !open.totals.refundCount && !open.paidIn && !open.paidOut) bad(400, 'There is nothing in the open batch to close out.');
+    db.run('INSERT INTO closeouts (id, site_id, number, from_at, created_at, by_name, totals) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, open.number, open.since, Date.now(), user.name || user.email, JSON.stringify({ ...open.totals, tenders: open.tenders, paidIn: open.paidIn, paidOut: open.paidOut }));
+    json(res, 201, { ok: true });
+  });
+
   route('DELETE', '/api/sites/:id/invoices/:inv', (req, res, p) => {
     const { site } = ownSite(req, p.id);
     db.run('DELETE FROM invoices WHERE id = ? AND site_id = ?', p.inv, site.id);
@@ -821,21 +944,24 @@ export function createApp(options = {}) {
     const totals = blank(), prev = blank();
     const byHour = days === 1;
     const series = new Map();
-    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0 });
-    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0 }); }
+    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0, tips: 0 });
+    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0, tips: 0 }); }
     const methods = Object.fromEntries(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
-    const items = new Map(), cats = new Map(), revs = new Map(), list = [];
+    const items = new Map(), cats = new Map(), revs = new Map(), list = [], staff = new Map(), tenders = new Map(), promos = new Map(), removed = new Map();
+    const bump = (map, key, o) => { const r = map.get(key) || map.set(key, { name: key, orders: 0, net: 0, tips: 0, total: 0 }).get(key); r.orders++; r.net += o.subtotal - o.discount; r.tips += o.tip; r.total += o.total; };
     let cancelled = 0;
     for (const o of rows) {
       const day = dayOf(o.createdAt);
       if (day >= prevFrom && day <= prevTo && o.status !== 'cancelled') add(prev, o);
       if (day < from || day > to) continue;
       const w = new Date(wall(o.createdAt));
-      list.push({ number: o.number, date: day, time: `${String(w.getUTCHours()).padStart(2, '0')}:${String(w.getUTCMinutes()).padStart(2, '0')}`, method: o.method, name: o.name, status: o.status, subtotal: o.subtotal, discount: o.discount, promo: o.promo, tax: o.tax, fee: o.fee, tip: o.tip, total: o.total });
-      if (o.status === 'cancelled') { cancelled++; continue; }
+      list.push({ number: o.number, date: day, time: `${String(w.getUTCHours()).padStart(2, '0')}:${String(w.getUTCMinutes()).padStart(2, '0')}`, method: o.method, name: o.name, status: o.status, subtotal: o.subtotal, discount: o.discount, promo: o.promo, tax: o.tax, fee: o.fee, tip: o.tip, total: o.total, paid: o.paidAt ? o.paidMethod || 'Other' : '', by: o.handledBy });
+      if (o.status === 'cancelled') { cancelled++; for (const l of o.items) { const rm = removed.get(l.name) || removed.set(l.name, { name: l.name, qty: 0, value: 0 }).get(l.name); rm.qty += l.qty; rm.value += l.price * l.qty; } continue; }
       add(totals, o);
       const s1 = series.get(byHour ? String(w.getUTCHours()).padStart(2, '0') : day);
-      if (s1) { s1.orders++; s1.net += o.subtotal - o.discount; s1.tax += o.tax; }
+      if (s1) { s1.orders++; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; }
+      bump(staff, o.handledBy || 'Not recorded', o); bump(tenders, o.paidAt ? o.paidMethod || 'Other' : 'Not paid yet', o);
+      if (o.discount) { const pk = o.promo || 'Other discount'; const pr = promos.get(pk) || promos.set(pk, { name: pk, uses: 0, amount: 0 }).get(pk); pr.uses++; pr.amount += o.discount; }
       const m = methods[o.method] || (methods[o.method] = { method: o.method, orders: 0, net: 0, total: 0 });
       m.orders++; m.net += o.subtotal - o.discount; m.total += o.total;
       for (const l of o.items) {
@@ -852,7 +978,7 @@ export function createApp(options = {}) {
       totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax },
       methods: Object.values(methods), series: [...series.values()],
-      items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales), revenue: [...revs.values()].sort((a, b) => b.sales - a.sales),
+      items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales), revenue: [...revs.values()].sort((a, b) => b.sales - a.sales), employees: [...staff.values()].sort((a, b) => b.net - a.net), tenders: [...tenders.values()].sort((a, b) => b.total - a.total), promos: [...promos.values()].sort((a, b) => b.amount - a.amount), removed: [...removed.values()].sort((a, b) => b.value - a.value),
       orders: list.reverse().slice(0, 2000),
     });
   });
@@ -876,7 +1002,8 @@ export function createApp(options = {}) {
     const status = str((await readJson(req)).status, 20);
     if (!ORDER_STATUSES[status]) bad(400, 'Unknown status.');
     if (status !== row.status) {
-      db.run('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?', status, Date.now(), row.id);
+      const who = requireUser(req);
+      db.run('UPDATE orders SET status = ?, handled_by = ?, updated_at = ? WHERE id = ?', status, who.name || who.email, Date.now(), row.id);
       if (status === 'cancelled') for (const l of JSON.parse(row.items)) db.run('UPDATE menu_items SET stock = stock + ? WHERE id = ? AND stock IS NOT NULL', l.qty, l.id);
       const order = toOrder({ ...row, status });
       if (['confirmed', 'ready', 'cancelled'].includes(status)) mail(status, req, site, order, order.email);
