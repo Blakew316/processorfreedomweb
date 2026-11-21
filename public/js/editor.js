@@ -1354,6 +1354,7 @@ export async function editor(id, mount, title) {
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
+    panel.dataset.tab = cur[0];
     labelTables(panel);
     panel.scrollTop = y;
     const title2 = top.querySelector('.m-title b');
