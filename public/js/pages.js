@@ -74,10 +74,11 @@ export function siteFooter() {
   return h('footer', { class: 'site-foot' }, h('div', { class: 'page' },
     h('div', { class: 'ft-top' },
       h('div', { class: 'ft-brand' }, h('img', { src: '/assets/logo.svg', alt: '', width: 40, height: 40 }), h('div', {}, h('b', {}, 'PF Sites'), h('span', {}, 'Websites and online ordering by Processor Freedom.'))),
-      col('Explore', ...MENU().filter(([t]) => t !== 'Log in').map(([t, to]) => link(to, {}, t)), link('/faq', {}, 'All questions')),
-      col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up'), link('/contact', {}, 'Contact us')),
+      col('Explore', ...MENU().filter(([t]) => t !== 'Log in').map(([t, to]) => link(to, {}, t))),
+      col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up')),
+      col('Help', link('/faq', {}, 'All questions'), link('/contact', {}, 'Contact us')),
       col('Legal', link('/privacy', {}, 'Privacy Policy'), link('/terms', {}, 'Terms and Conditions'))),
-    h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', { class: 'ft-theme' }, 'Appearance', themeButton()), h('span', {}, 'Their software. Your processor.'))));
+    h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.'), h('span', { class: 'ft-theme' }, 'Appearance', themeButton()))));
 }
 
 export const faqList = (items = FAQ) => h('div', { class: 'faq' }, items.map(([q, a]) => h('details', {}, h('summary', {}, h('span', {}, q), h('i', { 'aria-hidden': 'true' })), h('p', {}, a))));
