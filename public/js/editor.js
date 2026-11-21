@@ -4,23 +4,35 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['start', 'Home', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['sales', 'Sales', 'chart', 'office'], ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'], ['inbox', 'Messages', 'inbox', 'office'],
-  ['menu', 'Menu', 'menu', 'office'], ['items', 'Items', 'tag', 'office'], ['ordering', 'Order settings', 'sliders', 'office'], ['team', 'Team', 'f_users', 'office'],
+  ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'],
+  ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'],
+  ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
+  ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
+  ['promos', 'Promo codes', 'tag', 'office'], ['deals', 'Discounts', 'tag', 'office'], ['rewards', 'Rewards', 'tag', 'office'],
+  ['inbox', 'Feedback', 'inbox', 'office'], ['team', 'Employees', 'f_users', 'office'],
+  ['ordering', 'Online ordering', 'sliders', 'office'], ['hours', 'Business hours', 'clock', 'office'], ['alerts', 'Alerts and emails', 'bell', 'office'],
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['items', 'sales', 'customers', 'invoices']);
+const WIDE = new Set(['start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
+const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes' };
+// Which settings cards belong on which screen.
+const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Alerts and reports', 'Order emails'] };
 const MODES = { office: 'Back office', site: 'Website' };
-const NAV_NAMES = new Set(['home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address']);
+const NAV_NAMES = new Set(['home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address', 'invoice', 'promo', 'feedback', 'team']);
 // The sidebar: a short list of sections. A section with more than one screen opens to show them underneath it.
 const NAV = {
   office: [
-    { label: 'Home', icon: 'home', tabs: ['start'] },
+    { label: 'Dashboard', icon: 'home', tabs: ['start'] },
     { label: 'Orders', icon: 'orders', tabs: ['orders'] },
-    { label: 'Menu', icon: 'menu', tabs: ['items', 'menu'], subs: ['Items', 'Categories'] },
-    { label: 'Sales', icon: 'sales', tabs: ['sales', 'invoices'], subs: ['Sales report', 'Invoices'] },
-    { label: 'Customers', icon: 'customers', tabs: ['customers', 'inbox'], subs: ['Customer list', 'Messages'] },
-    { label: 'Settings', icon: 'settings', tabs: ['ordering', 'team'], subs: ['Ordering', 'Staff logins'] },
+    { label: 'Inventory', icon: 'menu', tabs: ['items', 'menu'], subs: ['Items', 'Categories'] },
+    { label: 'Reporting', icon: 'sales', tabs: ['sales', 'r-items', 'r-types', 'r-taxes'], subs: ['Sales overview', 'Item sales', 'Order types', 'Taxes'] },
+    { label: 'Customers', icon: 'customers', tabs: ['customers'] },
+    { label: 'Invoices', icon: 'invoice', tabs: ['invoices'] },
+    { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards'], subs: ['Promo codes', 'Discounts', 'Rewards'] },
+    { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
+    { label: 'Employees', icon: 'team', tabs: ['team'] },
+    { label: 'Setup', icon: 'settings', tabs: ['ordering', 'hours', 'alerts'], subs: ['Online ordering', 'Business hours', 'Alerts and emails'] },
   ],
   site: [
     { label: 'Design', icon: 'design', tabs: ['design', 'history'], subs: ['Look and feel', 'Earlier versions'] },
@@ -33,9 +45,14 @@ const NAV = {
 const HEAD = {
   orders: ['Orders', 'New orders appear here on their own. Confirm each one, then mark it ready.'],
   menu: ['Categories', 'Group your menu and set the order customers see it in.'],
-  inbox: ['Messages', 'What people send through the contact form on your site.'],
-  ordering: ['Ordering', 'How customers order from you: pickup, delivery, hours, tax and more.'],
-  team: ['Staff logins', 'Give each person their own login, with only what they need.'],
+  inbox: ['Feedback', 'Messages customers send through the contact form on your site.'],
+  ordering: ['Online ordering', 'How customers can order from you: pickup, curbside, delivery, tax and tips.'],
+  hours: ['Business hours', 'When you take orders, ordering ahead, and how many orders the kitchen can handle.'],
+  alerts: ['Alerts and emails', 'What you are told about, and where order emails go.'],
+  promos: ['Promo codes', 'Codes customers type at checkout for money off.'],
+  deals: ['Discounts', 'Lower prices automatically at set times, such as happy hour.'],
+  rewards: ['Rewards', 'Thank regulars with a reward after a set number of orders.'],
+  team: ['Employees', 'Give each person their own login, with only what they need.'],
 };
 // On a phone the first four sections of each side sit in the tab bar; the rest is under More.
 const PHONE_COUNT = { office: 4, site: 3 };
@@ -74,6 +91,7 @@ export async function editor(id, mount, title) {
   const itemSavers = new Map();
   let versions = null;
   let customers = null, custQ = '';
+  let dash = null;
   let bills = null, billFilter = 'all', billQ = '';
   const lastTab = { office: 'start', site: 'design' };
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
@@ -578,7 +596,7 @@ export async function editor(id, mount, title) {
         !ordering.taxRate && menu.length > 0 && h('p', { class: 'hint', style: 'margin-top:4px' }, 'The Tax switch only has an effect once you set a sales tax rate under Ordering.'))];
     },
 
-    ordering() {
+    ordering(view = 'ordering') {
       const o = ordering;
       const saveOrdering = debounce(async () => {
         try { ordering = (await api('PUT', `/api/sites/${id}/ordering`, { ordering: o })).ordering; Object.assign(o, ordering); ordering = o; if (page === 'order' && !o.enabled) page = 'home'; paint(true); paintTop(); }
@@ -652,7 +670,9 @@ export async function editor(id, mount, title) {
         ] : [note('Turn this on to add an order page to your site. Customers choose items from your menu, pick how they want to receive them, and you get the order here and by email.')]),
       ];
       notify = null;
-      return out;
+      if (!o.enabled && view !== 'ordering') return [emptyState('sliders', 'Online ordering is off', 'Turn on online ordering first, then set this up.', ['Open online ordering', () => goTab('ordering')])];
+      const want = SETUP_VIEWS[view];
+      return out.flat(Infinity).filter(Boolean).filter((el) => { const t = el.querySelector?.(':scope > h3')?.textContent; return t ? want.includes(t) : view === 'ordering'; });
     },
 
     orders() {
@@ -684,20 +704,21 @@ export async function editor(id, mount, title) {
             h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Cancel order #${x.number}?`, text: 'The customer is told by email and any stock is returned.', action: 'Cancel order', danger: true })) setStatus(x, 'cancelled'); } }, 'Cancel')))))];
     },
 
-    sales() {
+    sales(V = 'overview') {
+      const TITLES = { overview: 'Sales overview', items: 'Item sales', types: 'Order types', taxes: 'Taxes' };
       const load = async () => {
         if (salesBusy) return;
         salesBusy = true;
         try { stats = await api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`); }
         catch (e) { toast(e.message, true); stats = stats || { failed: true }; }
         salesBusy = false;
-        if (tab === 'sales') paintPanel();
+        if (SALES_TABS[tab]) paintPanel();
       };
       const pick = (r) => { salesRange = r; stats = null; paintPanel(); };
       const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days'], ['custom', 'Custom']];
       const day = (d, o = { month: 'short', day: 'numeric' }) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
       const head = (st) => h('div', { class: 'inv-top' },
-        h('div', {}, h('h2', {}, 'Sales'), h('p', { class: 'muted' }, st && st.from ? (st.from === st.to ? day(st.from, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : `${day(st.from, { month: 'long', day: 'numeric' })} to ${day(st.to, { month: 'long', day: 'numeric', year: 'numeric' })}`) : 'Your sales, tax and best sellers.')),
+        h('div', {}, h('h2', {}, TITLES[V]), h('p', { class: 'muted' }, st && st.from ? (st.from === st.to ? day(st.from, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : `${day(st.from, { month: 'long', day: 'numeric' })} to ${day(st.to, { month: 'long', day: 'numeric', year: 'numeric' })}`) : 'Your sales, tax and best sellers.')),
         h('div', { class: 'row', style: 'flex-wrap:wrap' },
           st && st.orders && st.orders.length > 0 && h('button', { class: 'btn soft', onclick: () => exportCsv(st) }, ic('dl', 16), 'Export'),
           h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'),
@@ -731,22 +752,22 @@ export async function editor(id, mount, title) {
           kpi('Average order', money(t.average), null, 'Including tax, fees and tips', 'chart'),
           kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set', 'doc')),
         none && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
-        !none && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
-        !none && h('div', { class: 'sgrid3' },
-          h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
+        !none && V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
+        !none && V !== 'items' && h('div', { class: 'sgrid3 one' },
+          V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
             line('Item sales', money(t.gross)), t.discounts > 0 && line('Discounts and promo codes', `−${money(t.discounts)}`), line('Net sales', money(t.net), 'strong'),
             line('Sales tax', money(t.tax)), line('Delivery fees', money(t.fees)), line('Tips', money(t.tips)), line('Total collected', money(t.total), 'total')),
-          h('div', { class: 'scard' }, h('h3', {}, 'Sales tax'),
+          V === 'taxes' && h('div', { class: 'scard' }, h('h3', {}, 'Sales tax'),
             line('Taxable sales', money(t.taxable)), line('Non-taxable sales', money(t.nontaxable)), line('Tax collected', money(t.tax), 'total'),
             h('p', { class: 'hint' }, st.taxRate ? `Your rate is ${st.taxRate}%. Taxable sales are after discounts. Items with tax switched off are counted as non-taxable.` : 'You have no sales tax rate set. Add one under Ordering.')),
-          h('div', { class: 'scard' }, h('h3', {}, 'How customers ordered'),
+          V === 'types' && h('div', { class: 'scard' }, h('h3', {}, 'How customers ordered'),
             st.methods.map((m) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, ORDER_METHODS[m.method]?.name || m.method), h('span', {}, `${m.orders} order${m.orders === 1 ? '' : 's'} · ${money(m.net)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${(m.orders / mTotal) * 100}%` })), h('span', { class: 'small muted' }, `${Math.round((m.orders / mTotal) * 100)}% of orders`))))),
-        !none && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Item sales'), h('span', { class: 'small muted' }, `${st.items.length} item${st.items.length === 1 ? '' : 's'} · ${t.units} sold`)),
+        !none && V === 'items' && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Item sales'), h('span', { class: 'small muted' }, `${st.items.length} item${st.items.length === 1 ? '' : 's'} · ${t.units} sold`)),
           h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['', 'Item', 'Category', 'Sold', 'Sales', 'Share of sales'].map((x) => h('th', {}, x)))),
             h('tbody', {}, st.items.map((it, i) => h('tr', {}, h('td', { class: 'muted' }, i + 1), h('td', {}, h('b', {}, it.name), i === 0 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Most popular')), h('td', { class: 'muted' }, it.category), h('td', {}, it.qty), h('td', {}, money(it.sales)),
               h('td', {}, h('div', { class: 'share' }, h('div', { class: 'track2' }, h('i', { style: `width:${(it.sales / topSales) * 100}%` })), h('span', { class: 'small muted' }, `${t.gross ? Math.round((it.sales / t.gross) * 100) : 0}%`))))))))),
-        !none && st.categories.length > 1 && h('div', { class: 'scard' }, h('h3', {}, 'Sales by category'), st.categories.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
-        st.orders.length > 0 && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders in this period'), h('span', { class: 'small muted' }, `${st.orders.length} order${st.orders.length === 1 ? '' : 's'}`)),
+        !none && V === 'items' && st.categories.length > 1 && h('div', { class: 'scard' }, h('h3', {}, 'Sales by category'), st.categories.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
+        V === 'overview' && st.orders.length > 0 && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders in this period'), h('span', { class: 'small muted' }, `${st.orders.length} order${st.orders.length === 1 ? '' : 's'}`)),
           h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Order', 'When', 'Type', 'Customer', 'Items', 'Tax', 'Total', 'Status'].map((x) => h('th', {}, x)))),
             h('tbody', {}, st.orders.slice(0, 200).map((o) => h('tr', { class: o.status === 'cancelled' ? 'void' : '' }, h('td', {}, h('b', {}, `#${o.number}`)), h('td', { class: 'muted' }, `${st.from === st.to ? '' : `${day(o.date)} `}${o.time}`), h('td', {}, ORDER_METHODS[o.method]?.name || o.method), h('td', {}, o.name), h('td', {}, money(o.subtotal - o.discount)), h('td', {}, money(o.tax)), h('td', {}, h('b', {}, money(o.total))),
               h('td', {}, h('span', { class: `status ${o.status === 'cancelled' ? 'bad' : o.status === 'new' ? 'warn' : 'ok'}` }, ORDER_STATUSES[o.status] || o.status))))))),
@@ -901,7 +922,7 @@ export async function editor(id, mount, title) {
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
   const poll = setInterval(() => { if (ordering.enabled && document.visibilityState === 'visible') loadOrders(true); }, 20000);
-  const salesTick = setInterval(() => { if (tab === 'sales' && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if (tab === 'sales' && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
+  const salesTick = setInterval(() => { if (SALES_TABS[tab] && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if (SALES_TABS[tab] && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
   if (ordering.enabled) loadOrders(true);
 
   async function putOrdering() { ordering = (await api('PUT', `/api/sites/${id}/ordering`, { ordering })).ordering; }
@@ -1207,8 +1228,8 @@ export async function editor(id, mount, title) {
   /* Quick find: one box that jumps to any screen, setting, item or order. */
   const SETTINGS = [['Logo', 'design'], ['Brand colour', 'design'], ['Page background', 'design'], ['Typeface and corners', 'design'], ['Header', 'design'], ['Footer', 'design'], ['Announcement bar', 'design'], ['Site language', 'design'], ['Quick style', 'design'],
     ['Phone, address and email', 'business'], ['Social profiles', 'business'], ['Online payment link', 'business'],
-    ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'ordering'], ['Order ahead and scheduling', 'ordering'], ['Kitchen capacity', 'ordering'], ['Happy hour and timed prices', 'ordering'], ['Promo codes', 'ordering'], ['Loyalty rewards', 'ordering'], ['Low stock alerts', 'ordering'], ['Daily summary email', 'ordering'], ['Order emails', 'ordering'], ['Pause ordering', 'ordering'],
-    ['Notifications on this device', 'orders'], ['Kitchen screen', 'orders'], ['Sales tax collected', 'sales'], ['Best sellers', 'sales'], ['Export sales', 'sales'], ['Export customers', 'customers'], ['Send an invoice', 'invoices'], ['Catering and bulk orders', 'invoices'], ['Unpaid invoices', 'invoices'],
+    ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'hours'], ['Order ahead and scheduling', 'hours'], ['Kitchen capacity', 'hours'], ['Happy hour and timed prices', 'deals'], ['Promo codes', 'promos'], ['Loyalty rewards', 'rewards'], ['Low stock alerts', 'alerts'], ['Daily summary email', 'alerts'], ['Order emails', 'alerts'], ['Pause ordering', 'ordering'],
+    ['Notifications on this device', 'orders'], ['Kitchen screen', 'orders'], ['Sales tax collected', 'r-taxes'], ['Best sellers', 'r-items'], ['Export sales', 'sales'], ['Export customers', 'customers'], ['Send an invoice', 'invoices'], ['Catering and bulk orders', 'invoices'], ['Unpaid invoices', 'invoices'],
     ['Free web address', 'domain'], ['Connect my own domain', 'domain'], ['Privacy policy and terms', 'policies'], ['Google search description', 'seo'], ['Sharing image', 'seo'], ['Earlier versions', 'history'], ['Staff logins', 'team'], ['Daily refill', 'items'], ['Upload item list', 'menu'], ['Categories', 'menu']];
   let finding = false;
   function quickFind() {
@@ -1281,7 +1302,7 @@ export async function editor(id, mount, title) {
 
   // Invoices change without the merchant doing anything (a customer opens one), so the list is refreshed on each visit.
   const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if (tab === 'invoices' && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
-  const goTab = (k) => { if (k === 'invoices') refreshBills(); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
+  const goTab = (k) => { if (k === 'invoices') refreshBills(); if (k === 'start') dash = null; if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
   function startPanel() {
     const b = draft.business;
     const steps = [
@@ -1294,15 +1315,37 @@ export async function editor(id, mount, title) {
     steps.push([!!(orders && orders.length), 'Place a test order', meta.live ? 'Order from your own site to see exactly what customers see, then watch it arrive under Orders.' : 'Once you publish, order from your own site to see the whole flow.', ['Open my order page', () => (meta.live ? window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener') : toast('Publish your site first.', true))]]);
     const done = steps.filter(([ok]) => ok).length;
     const next = steps.findIndex(([ok]) => !ok);
-    return [
-      h('div', {}, h('h2', {}, done === steps.length ? 'You’re all set.' : 'Let’s get you live.'), h('p', { class: 'muted', style: 'margin-top:6px' }, `${done} of ${steps.length} done. Changes save on their own as you go.`),
-        h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': steps.length, 'aria-valuenow': done }, h('i', { style: `width:${(done / steps.length) * 100}%` }))),
-      h('div', { class: 'todo' }, steps.map(([ok, name, text, main, alt], i) => h('div', { class: `todo-row ${ok ? 'done' : ''} ${i === next ? 'next' : ''}` },
-        h('span', { class: 'tick' }, ok ? ic('check', 15) : String(i + 1)),
+    // Today's numbers, fetched each time the dashboard is opened.
+    if (!dash) { dash = { loading: true }; api('GET', `/api/sites/${id}/stats?range=today`).then((r) => { dash = r; if (tab === 'start') paintPanel(); }).catch(() => { dash = { failed: true }; }); }
+    const t = dash.totals;
+    const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+    const waiting = (orders || []).filter((x) => !['completed', 'cancelled'].includes(x.status));
+    const low = menu.filter((x) => x.available !== false && x.stock <= (ordering.lowStockAt ?? 5));
+    const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    const setup = done < steps.length && h('div', { class: 'scard setup' },
+      h('div', { class: 'row', style: 'justify-content:space-between;align-items:baseline' }, h('h3', {}, 'Finish setting up'), h('span', { class: 'small muted' }, `${done} of ${steps.length} done`)),
+      h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': steps.length, 'aria-valuenow': done }, h('i', { style: `width:${(done / steps.length) * 100}%` })),
+      h('div', { class: 'todo' }, steps.map(([ok, name, text, main, alt], i) => !ok && h('div', { class: `todo-row ${i === next ? 'next' : ''}` },
+        h('span', { class: 'tick' }, String(i + 1)),
         h('div', { class: 'grow' }, h('b', {}, name), h('p', {}, text),
-          h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]), alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0])))))),
-      note('Tip: to change how your site looks, switch to ', h('b', {}, 'Website'), ' at the top.'),
-    ];
+          h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]), alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0])))))));
+    return [h('div', { class: 'inv dashb' },
+      h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Dashboard'), h('p', { class: 'muted' }, today)),
+        h('div', { class: 'row', style: 'flex-wrap:wrap' }, meta.live && h('a', { class: 'btn soft', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open my order page', ic('out', 15)), h('button', { class: 'btn soft', onclick: () => { dash = null; loadOrders(true); paintPanel(); } }, 'Refresh'))),
+      setup,
+      h('div', { class: 'inv-kpis' }, ...(t ? [kpi('Net sales today', money(t.net), `${t.orders} order${t.orders === 1 ? '' : 's'}`, 'cash'), kpi('Orders waiting', waiting.length, waiting.length ? 'need your attention' : 'all caught up', 'bag'), kpi('Average order', money(t.average), 'including tax and tips', 'chart'), kpi('Running low', low.length, low.length ? 'items to restock' : 'stock looks good', 'cube')] : dash.failed ? [kpi('Net sales today', '—', 'could not load', 'cash')] : skel(4, 'kpi'))),
+      h('div', { class: 'sgrid2x' },
+        h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders waiting'), h('button', { class: 'btn text sm', onclick: () => goTab('orders') }, 'View all orders')),
+          waiting.length ? waiting.slice(0, 5).map((x) => h('div', { class: 'rline click', onclick: () => goTab('orders') }, h('span', {}, h('b', { style: 'color:var(--ink)' }, `#${x.number} · ${x.name}`), h('div', { class: 'small' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status]}`)), h('b', {}, money(x.total))))
+            : h('p', { class: 'muted', style: 'padding:14px 0' }, ordering.enabled ? 'No orders waiting. New ones appear here on their own.' : 'Online ordering is off. Turn it on under Setup.')),
+        h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Top sellers today'), h('button', { class: 'btn text sm', onclick: () => goTab('r-items') }, 'Item sales')),
+          t && dash.items.length ? dash.items.slice(0, 5).map((it) => h('div', { class: 'rline' }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, `${it.qty} sold · ${money(it.sales)}`)))
+            : h('p', { class: 'muted', style: 'padding:14px 0' }, 'Nothing sold yet today.')),
+        h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Running low'), h('button', { class: 'btn text sm', onclick: () => goTab('items') }, 'Manage items')),
+          low.length ? low.slice(0, 5).map((it) => h('div', { class: 'rline click', onclick: () => openItem(it.id) }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, it.stock === 0 ? 'Sold out' : `${it.stock} left`)))
+            : h('p', { class: 'muted', style: 'padding:14px 0' }, menu.length ? 'Nothing is running low.' : 'Add your menu to start tracking stock.')),
+        h('div', { class: 'scard' }, h('h3', {}, 'Shortcuts'),
+          h('div', { class: 'shortcuts' }, [['Add an item', 'tag', () => goTab('items')], ['Send an invoice', 'doc', () => { goTab('invoices'); openInvoice(); }], ['Kitchen screen', 'bell', () => go(`/app/site/${id}/kitchen`)], ['Edit my website', 'brush', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'btn soft', onclick: fn }, ic(icon, 16), l))))))];
   }
 
   function addSection() {
@@ -1353,7 +1396,7 @@ export async function editor(id, mount, title) {
     subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
-    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
+    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
     labelTables(panel);
     panel.scrollTop = y;
