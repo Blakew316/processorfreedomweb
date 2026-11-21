@@ -1,5 +1,5 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
-import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet } from './ui.js';
+import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme } from './ui.js';
 
 const root = document.getElementById('app');
 let cleanup = null;
@@ -9,7 +9,7 @@ const title = (t) => { document.title = t ? `${t} · Processor Freedom Sites` : 
 export function topbar(...right) {
   return h('header', { class: 'top' }, h('div', { class: 'in' },
     link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
-    h('nav', {}, ...right)));
+    h('nav', {}, ...right, themeButton())));
 }
 
 function changePassword() {
@@ -36,6 +36,7 @@ function accountMenu() {
       h('div', { style: 'padding:9px 12px' }, h('small', { class: 'muted' }, 'Signed in as'), h('div', { style: 'font-weight:500;overflow-wrap:anywhere' }, state.user.email)),
       state.user.admin && h('button', { onclick: () => { close(); go('/app/admin'); } }, 'Staff dashboard'),
       h('button', { onclick: () => { close(); changePassword(); } }, 'Change password'),
+      h('div', { style: 'padding:8px 12px 10px' }, h('small', { class: 'muted' }, 'Appearance'), h('div', { class: 'seg', style: 'margin-top:6px' }, [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']].map(([k, l]) => h('button', { 'aria-pressed': String(getTheme() === k), onclick: () => { setTheme(k); close(); } }, l)))),
       h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Sign out'));
     wrap.append(menu);
     setTimeout(() => document.addEventListener('click', away));
@@ -48,16 +49,7 @@ function accountMenu() {
 const DEMO_MENU = parseMenuCsv(MENU_TEMPLATE_CSV).items.map((x, i) => ({ ...x, id: `d${i}` }));
 const DEMO_ORDERING = { ...defaultOrdering(), enabled: true, methods: { pickup: true, curbside: true, delivery: true } };
 const tile = (color, icon, size = 22) => h('span', { class: 'itile', style: `--c:${color}`, html: svg(icon, size) });
-const I = {
-  bag: '<path d="M6 8h12l1 12H5z"/><path d="M9 8V6.500a3 3 0 016 0V8"/>',
-  list: '<path d="M8.500 7h11M8.500 12h11M8.500 17h11M4.500 7h.010M4.500 12h.010M4.500 17h.010"/>',
-  globe: '<circle cx="12" cy="12" r="8.500"/><path d="M3.500 12h17M12 3.500c2.500 2.500 3.500 5.500 3.500 8.500s-1 6-3.500 8.500c-2.500-2.500-3.500-5.500-3.500-8.500s1-6 3.500-8.500z"/>',
-  inbox: '<path d="M4 13l2.500-7.500h11L20 13v5a1.500 1.500 0 01-1.500 1.500h-13A1.500 1.500 0 014 18z"/><path d="M4 13h4.500l1 2.500h5l1-2.500H20"/>',
-  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.500-4.500"/>',
-  brush: '<path d="M14 4l6 6-8.500 8.500H5.500V12.500z"/>',
-  mail: '<rect x="3.500" y="5.500" width="17" height="13" rx="2.500"/><path d="M4 7.500l8 6 8-6"/>',
-  check: '<path d="M5 12.500l4.500 4.500L19 7.500"/>',
-};
+const I = { bag: ION.bag, list: ION.menu, globe: ION.globe, inbox: ION.inbox, search: ION.search, brush: ION.brush, mail: ION.mail, check: ION.check, person: ION.person, cash: ION.cash, items: ION.list };
 
 function landing() {
   title('');
@@ -249,9 +241,9 @@ async function admin() {
   mount(topbar(link('/app', {}, 'My sites'), accountMenu()), h('main', { class: 'page dash' },
     h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard'), h('p', { class: 'muted', style: 'margin-top:6px' }, 'Everything happening across Processor Freedom Sites.')), h('div', { class: 'row' }, h('input', { class: 'input', type: 'search', placeholder: 'Search sites, owners, orders…', 'aria-label': 'Search', style: 'width:260px;max-width:60vw', oninput: (e) => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('.dash .table tbody tr').forEach((tr) => { tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none'; }); } }), h('button', { class: 'btn soft', onclick: admin }, 'Refresh'))),
     h('div', { class: 'sgrid2' },
-      stat('', I.globe, 'Sites', st.sites, `${st.live} live`), stat('', '<circle cx="12" cy="9" r="3.500"/><path d="M5 19.500c.800-3.500 3.500-5.500 7-5.500s6.200 2 7 5.500"/>', 'Accounts', st.users, `${st.newUsers} this week`),
-      stat('', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('', '<path d="M12 4v16M16 7.500c-.700-1.200-2.200-2-4-2-2.200 0-4 1.200-4 3s1.500 2.700 4 3.200 4 1.400 4 3.300-1.800 3-4 3c-1.900 0-3.400-.800-4.100-2"/>', 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),
-      stat('', I.inbox, 'Messages', st.leads, 'from contact forms'), stat('', I.list, 'Menu items', st.items, `${st.orderingSites} ordering sites`)),
+      stat('', I.globe, 'Sites', st.sites, `${st.live} live`), stat('', I.person, 'Accounts', st.users, `${st.newUsers} this week`),
+      stat('', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('', I.cash, 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),
+      stat('', I.inbox, 'Messages', st.leads, 'from contact forms'), stat('', I.items, 'Menu items', st.items, `${st.orderingSites} ordering sites`)),
     h('h2', { class: 'h2' }, 'Domain requests', open.length > 0 && h('span', { class: 'badge', style: 'margin-left:10px;vertical-align:middle' }, open.length)),
     h('p', { class: 'muted', style: 'margin-bottom:14px' }, `Register the domain, point it at ${state.config.cnameTarget}, then attach it here. The site goes live on it immediately.`),
     table(['Site', 'Owner', 'Wants', 'Requested', 'Attach'], open.map((r) => h('tr', {}, h('td', {}, r.siteName), h('td', {}, r.owner), h('td', {}, h('b', {}, r.desired), r.note && h('div', { class: 'small muted' }, r.note)), h('td', {}, fmtDate(r.createdAt)), h('td', {}, attach(r.siteId, /\./.test(r.desired) ? r.desired : '')))), 'No open requests.'),

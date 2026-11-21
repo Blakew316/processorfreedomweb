@@ -1,5 +1,7 @@
 // Shared between the server and the browser. Pure functions only — no Node or DOM APIs.
 
+import { ION } from './icons.js';
+
 export const PLATFORM = 'Processor Freedom';
 
 export const esc = (v) =>
@@ -141,26 +143,7 @@ export const SECTION_TYPES = {
   contact: { name: 'Contact', blurb: 'Details, hours and a message form' },
 };
 
-export const ICONS = {
-  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
-  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-  shield: '<path d="M12 3.5l7 2.5v5.5c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6z"/><path d="M9 12l2.2 2.2L15.2 10"/>',
-  heart: '<path d="M12 20s-7.5-4.6-7.5-10A4.5 4.5 0 0112 7.2 4.5 4.5 0 0119.5 10c0 5.4-7.5 10-7.5 10z"/>',
-  leaf: '<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14"/><path d="M5 19c2-4 5-7 9-9"/>',
-  bolt: '<path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/>',
-  pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
-  phone: '<path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 005.5 5.5l1.5-2 4 1.5v3a2 2 0 01-2 2A15 15 0 014.5 5.5a2 2 0 012-2z"/>',
-  card: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/>',
-  check: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>',
-  sparkle: '<path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.500l5.2-1.800z"/><path d="M18.500 16v4M16.500 18h4"/>',
-  tool: '<path d="M14.500 6a4 4 0 005 5l-9 9a2.100 2.100 0 01-3-3z"/><path d="M14.500 6l3-2.500 3 3-2.500 3"/>',
-  truck: '<path d="M3 6.500h10.500v9.500H3zM13.500 10h4l3 3v3h-7z"/><circle cx="7" cy="17.500" r="1.800"/><circle cx="17" cy="17.500" r="1.800"/>',
-  users: '<circle cx="9" cy="9" r="3.200"/><path d="M3 19c.500-3.200 3-5 6-5s5.500 1.800 6 5"/><path d="M15.500 6.200a3 3 0 010 5.600M18 14.500c1.700.800 2.700 2.300 3 4.500"/>',
-  calendar: '<rect x="3.500" y="5" width="17" height="15" rx="2.500"/><path d="M3.500 10h17M8 3v4M16 3v4"/>',
-  gift: '<rect x="3.500" y="9" width="17" height="11" rx="2"/><path d="M3.500 13h17M12 9v11M12 9c-2-4-6-3-5 0M12 9c2-4 6-3 5 0"/>',
-  cup: '<path d="M5 8h11v5a5.500 5.500 0 01-11 0z"/><path d="M16 9.500h1.500a2.500 2.500 0 010 5H16M5 20h11"/>',
-  scissors: '<circle cx="6.500" cy="7" r="2.500"/><circle cx="6.500" cy="17" r="2.500"/><path d="M8.500 8.500L20 18M8.500 15.500L20 6"/>',
-};
+export const ICONS = Object.fromEntries(['star', 'clock', 'shield', 'heart', 'leaf', 'bolt', 'pin', 'phone', 'card', 'check', 'sparkle', 'tool', 'truck', 'users', 'calendar', 'gift', 'cup', 'scissors'].map((k) => [k, ION[`f_${k}`]]));
 
 /* ---------- Templates ---------- */
 
@@ -394,7 +377,7 @@ export function createSite(name, templateId, o = {}) {
     header: { sticky: true, cta: b.cta, showPhone: false, layout: 'left', style: 'glass' },
     announcement: { enabled: false, text: '', href: '' },
     sections: b.sections,
-    footer: { blurb: '', showPayments: true, showCredit: true, style: 'columns', color: 'soft' },
+    footer: { blurb: '', showPayments: true, showCredit: true, showMode: true, style: 'columns', color: 'soft' },
     seo: { title: '', description: '', keywords: '', image: '' },
     legal: {
       effective: today(),

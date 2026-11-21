@@ -1,5 +1,5 @@
 import { ORDER_METHODS, readyLabel, slotLabel, money } from '/shared/core.js';
-import { h, api, go, toast, ic, announceOrders, setAlerts, alertsOn, printTicket } from './ui.js';
+import { h, api, go, toast, ic, announceOrders, setAlerts, alertsOn, printTicket, themeButton } from './ui.js';
 
 /* A large-type screen for the counter or kitchen tablet: active orders only, one tap to move each along. */
 export async function kitchen(id, mount, title) {
@@ -36,7 +36,7 @@ export async function kitchen(id, mount, title) {
     draw();
   }
   const sound = h('button', { class: 'btn soft', onclick: () => { setAlerts(!alertsOn()); sound.replaceChildren(ic('bell', 16), alertsOn() ? 'Sound on' : 'Sound off'); } }, ic('bell', 16), alertsOn() ? 'Sound on' : 'Sound off');
-  mount(h('div', { class: 'k' }, h('header', { class: 'k-top' }, h('button', { class: 'icon-btn', 'aria-label': 'Back to editor', onclick: () => go(`/app/site/${id}?tab=orders`) }, ic('back')), h('b', {}, site.name), clock, h('span', { class: 'grow' }), sound), grid));
+  mount(h('div', { class: 'k' }, h('header', { class: 'k-top' }, h('button', { class: 'icon-btn', 'aria-label': 'Back to editor', onclick: () => go(`/app/site/${id}?tab=orders`) }, ic('back')), h('b', {}, site.name), clock, h('span', { class: 'grow' }), themeButton(), sound), grid));
   load();
   const timer = setInterval(load, 10000);
   return () => clearInterval(timer);

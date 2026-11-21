@@ -1,4 +1,6 @@
 import { renderPage } from '/shared/render.js';
+import { ION, ionSvg } from '/shared/icons.js';
+export { ION };
 
 export function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
@@ -29,8 +31,20 @@ const P = {
   clock: '<circle cx="12" cy="12" r="8.500"/><path d="M12 7.500V12l3 2"/>',
   inbox: '<path d="M4 13l2.500-7.500h11L20 13v5a1.500 1.500 0 01-1.500 1.500h-13A1.500 1.500 0 014 18z"/><path d="M4 13h4.500l1 2.500h5l1-2.500H20"/>', doc: '<path d="M7 3.500h7l4 4V20a.500.500 0 01-.500.500h-10.500A.500.500 0 016.500 20V4a.500.500 0 01.500-.500z"/><path d="M9.500 12h5M9.500 15.500h5"/>',
 };
-export const ic = (name, size = 18) => h('span', { style: 'display:inline-flex', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>` });
-export const svg = (inner, size = 22) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+export const ic = (name, size = 18) => h('span', { style: 'display:inline-flex', html: ION[name] ? ionSvg(name, size) : `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>` });
+/** Wraps raw icon markup. Understands both the icon set (512 grid) and hand-written 24-grid paths. */
+export const svg = (inner, size = 22) => (/stroke-width="32"|scale\(32\)/.test(inner) || /^<path d="M\d{3}/.test(inner)
+  ? `<svg viewBox="0 0 512 512" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">${inner}</svg>`
+  : `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`);
+
+/* Light or dark. Light unless the person chooses otherwise. */
+export const getTheme = () => { try { return localStorage.getItem('pf-theme') || 'light'; } catch { return 'light'; } };
+export function setTheme(t) {
+  try { localStorage.setItem('pf-theme', t); } catch { /* ignore */ }
+  document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
+  document.querySelectorAll('.theme-btn').forEach((b) => b.replaceChildren(ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18)));
+}
+export const themeButton = () => h('button', { class: 'icon-btn theme-btn', title: 'Switch between light and dark', 'aria-label': 'Switch between light and dark', onclick: () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark') }, ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18));
 
 export const LOGO = '<img src="/assets/logo.png" alt="" width="28" height="28">';
 

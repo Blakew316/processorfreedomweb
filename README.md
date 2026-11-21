@@ -37,7 +37,8 @@ an online ordering website, types their business name, picks a template, uploads
   Keys are generated on first start and stored with the data; nothing to configure.
 - **Version history**: the last 20 published versions can be restored.
 - **Bulk photos**: upload many photos at once; they are matched to items by file name.
-- **Dark appearance**: the builder follows the device's light or dark setting.
+- **Light and dark**: the builder is light by default, with a switch in the top bar (Light, Dark or Auto in the account menu).
+  Merchant sites carry their own light/dark switch for visitors, which the merchant can turn off.
 - **Password reset**: by email when email is configured, or by a one-time link staff create from the staff dashboard.
 - **Order emails**: the customer is emailed when the order is received, confirmed, ready or cancelled; the business is emailed for
   every new order. Requires `RESEND_API_KEY` and `EMAIL_FROM`.
@@ -89,6 +90,8 @@ See `.env.example` for every setting.
 
 Typography uses the system font stack, which is San Francisco and New York on Apple devices and the closest
 system face elsewhere. Apple does not license those fonts for embedding on the web.
+
+Icons are from [Ionicons](https://ionic.io/ionicons) (MIT licence), stored in `shared/icons.js`.
 
 ## Not included yet
 

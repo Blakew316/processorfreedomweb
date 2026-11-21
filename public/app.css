@@ -775,54 +775,68 @@ body:has(.dash){background:var(--bg2)}
 .sheet .field input[type=time]{padding:9px 10px}
 
 /* ---------- Dark appearance, following the device ---------- */
-@media (prefers-color-scheme:dark){
-  :root{--bg:#000;--bg2:#1c1c1e;--bg3:#2c2c2e;--card:#2c2c2e;--ink:#f5f5f7;--muted:#a1a1a6;--faint:#6e6e73;--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.2);--brand:#f5f5f7;--on-brand:#0a1f44;--glass:rgba(28,28,30,.82);--switch:#5b84d6;--blue:#7fb0ff;--green:#30d158;--red:#ff6961;--amber:#ffd60a;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.5)}
-  body{color-scheme:dark}
-  .ed{background:#000}
-  .ed-side,.panel,.one-wrap,.auth,body:has(.dash),.k,.l-sec.tint{background:#141416}
-  .rail{background:#1c1c1e}
-  .rail button[aria-current]{background:#2c2c2e}
-  .panel>.group,.todo-row,.auth-card,.one,.scard,.scard2,.step,.bento,.tcard,.k-card,.sheet,.card,.empty,.menu{box-shadow:0 0 0 .500px rgba(255,255,255,.1)}
-  .seg button[aria-pressed=true],.panel .seg button[aria-pressed=true]{background:#636366;box-shadow:none}
-  .pk{background:#1c1c1e}.pk:hover{background:#242426}
-  .pk[aria-pressed=true]{background:#3a3a3c;box-shadow:0 0 0 2px var(--brand)}
-  .dg{background:#f5f5f7}
-  .panel .field input:not([type=checkbox]):not([type=color]):focus,.panel .field textarea:focus,.panel .field select:focus,.zrow input:focus,.hrow input[type=time]:focus,.prow2 input:focus{background:#000;border-color:var(--switch);box-shadow:0 0 0 4px rgba(91,132,214,.25)}
-  .panel .item .field input:not([type=checkbox]),.panel .item .field textarea{background:#2c2c2e}
-  .input,.field input:not([type=checkbox]):not([type=color]),.field textarea,.field select{background:#1c1c1e;color:var(--ink)}
-  .todo-row.next,.ocard.new,.k-card.new{box-shadow:0 0 0 1.500px var(--switch)}
-  .todo-row.done .tick,.prog i,.bars i.on,.split div i{background:var(--switch);color:#fff}
-  .logo img,.one .mark,.l-end img,.auth-side img,.building img{box-shadow:0 0 0 1px rgba(255,255,255,.14)}
-  .toast{background:rgba(58,58,60,.92)}
-  .scrim{background:rgba(0,0,0,.55)}
-  .stage-in{background:#fff}
-  .browser,.phone .thumb,.thumb{background:#fff}
-  .browser .bar{background:#e8e8ed}
-  .browser .bar span{background:#fff;color:#6e6e73}
-  .imgz .bar em,.imgz .bar button{color:#1d1d1f}
-  .imgz .bar button{color:#d1372f}
-  .namer .box{background:#1c1c1e;outline-color:var(--line2)}
-  .namer input{color:var(--ink)}
-  .ed-top select,.hrow input[type=time]{color:var(--ink);color-scheme:dark}
-  .status.ok{color:var(--green)}
-  .btn.soft{color:var(--ink)}
-  .btn.line{color:var(--ink)}
-  .qr{background:#fff}
-  .swatch[aria-pressed=true]{box-shadow:0 0 0 2.500px #2c2c2e,0 0 0 4.500px #fff}
-  .swatch.custom{background:#3a3a3c}
-  .look{background:#1c1c1e}.look:hover{background:#242426}
-  .lk{background:#f5f5f7}
-  .k-top{background:#1c1c1e}
-  .building{background:rgba(0,0,0,.86)}
-}
+html[data-theme=dark]{--bg:#000;--bg2:#1c1c1e;--bg3:#2c2c2e;--card:#2c2c2e;--ink:#f5f5f7;--muted:#a1a1a6;--faint:#6e6e73;--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.2);--brand:#f5f5f7;--on-brand:#0a1f44;--glass:rgba(28,28,30,.82);--switch:#5b84d6;--blue:#7fb0ff;--green:#30d158;--red:#ff6961;--amber:#ffd60a;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.5)}
+html[data-theme=dark] body{color-scheme:dark}
+html[data-theme=dark] .ed{background:#000}
+html[data-theme=dark] .ed-side,html[data-theme=dark] .panel,html[data-theme=dark] .one-wrap,html[data-theme=dark] .auth,html[data-theme=dark] body:has(.dash),html[data-theme=dark] .k,html[data-theme=dark] .l-sec.tint{background:#141416}
+html[data-theme=dark] .rail{background:#1c1c1e}
+html[data-theme=dark] .rail button[aria-current]{background:#2c2c2e}
+html[data-theme=dark] .panel>.group,html[data-theme=dark] .todo-row,html[data-theme=dark] .auth-card,html[data-theme=dark] .one,html[data-theme=dark] .scard,html[data-theme=dark] .scard2,html[data-theme=dark] .step,html[data-theme=dark] .bento,html[data-theme=dark] .tcard,html[data-theme=dark] .k-card,html[data-theme=dark] .sheet,html[data-theme=dark] .card,html[data-theme=dark] .empty,html[data-theme=dark] .menu{box-shadow:0 0 0 .500px rgba(255,255,255,.1)}
+html[data-theme=dark] .seg button[aria-pressed=true],html[data-theme=dark] .panel .seg button[aria-pressed=true]{background:#636366;box-shadow:none}
+html[data-theme=dark] .pk{background:#1c1c1e}
+html[data-theme=dark] .pk:hover{background:#242426}
+html[data-theme=dark] .pk[aria-pressed=true]{background:#3a3a3c;box-shadow:0 0 0 2px var(--brand)}
+html[data-theme=dark] .dg{background:#f5f5f7}
+html[data-theme=dark] .panel .field input:not([type=checkbox]):not([type=color]):focus,html[data-theme=dark] .panel .field textarea:focus,html[data-theme=dark] .panel .field select:focus,html[data-theme=dark] .zrow input:focus,html[data-theme=dark] .hrow input[type=time]:focus,html[data-theme=dark] .prow2 input:focus{background:#000;border-color:var(--switch);box-shadow:0 0 0 4px rgba(91,132,214,.25)}
+html[data-theme=dark] .panel .item .field input:not([type=checkbox]),html[data-theme=dark] .panel .item .field textarea{background:#2c2c2e}
+html[data-theme=dark] .input,html[data-theme=dark] .field input:not([type=checkbox]):not([type=color]),html[data-theme=dark] .field textarea,html[data-theme=dark] .field select{background:#1c1c1e;color:var(--ink)}
+html[data-theme=dark] .todo-row.next,html[data-theme=dark] .ocard.new,html[data-theme=dark] .k-card.new{box-shadow:0 0 0 1.500px var(--switch)}
+html[data-theme=dark] .todo-row.done .tick,html[data-theme=dark] .prog i,html[data-theme=dark] .bars i.on,html[data-theme=dark] .split div i{background:var(--switch);color:#fff}
+html[data-theme=dark] .logo img,html[data-theme=dark] .one .mark,html[data-theme=dark] .l-end img,html[data-theme=dark] .auth-side img,html[data-theme=dark] .building img{box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+html[data-theme=dark] .toast{background:rgba(58,58,60,.92)}
+html[data-theme=dark] .scrim{background:rgba(0,0,0,.55)}
+html[data-theme=dark] .stage-in{background:#fff}
+html[data-theme=dark] .browser,html[data-theme=dark] .phone .thumb,html[data-theme=dark] .thumb{background:#fff}
+html[data-theme=dark] .browser .bar{background:#e8e8ed}
+html[data-theme=dark] .browser .bar span{background:#fff;color:#6e6e73}
+html[data-theme=dark] .imgz .bar em,html[data-theme=dark] .imgz .bar button{color:#1d1d1f}
+html[data-theme=dark] .imgz .bar button{color:#d1372f}
+html[data-theme=dark] .namer .box{background:#1c1c1e;outline-color:var(--line2)}
+html[data-theme=dark] .namer input{color:var(--ink)}
+html[data-theme=dark] .ed-top select,html[data-theme=dark] .hrow input[type=time]{color:var(--ink);color-scheme:dark}
+html[data-theme=dark] .status.ok{color:var(--green)}
+html[data-theme=dark] .btn.soft{color:var(--ink)}
+html[data-theme=dark] .btn.line{color:var(--ink)}
+html[data-theme=dark] .qr{background:#fff}
+html[data-theme=dark] .swatch[aria-pressed=true]{box-shadow:0 0 0 2.500px #2c2c2e,0 0 0 4.500px #fff}
+html[data-theme=dark] .swatch.custom{background:#3a3a3c}
+html[data-theme=dark] .look{background:#1c1c1e}
+html[data-theme=dark] .look:hover{background:#242426}
+html[data-theme=dark] .lk{background:#f5f5f7}
+html[data-theme=dark] .k-top{background:#1c1c1e}
+html[data-theme=dark] .building{background:rgba(0,0,0,.86)}
+
 .phead{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
-@media (prefers-color-scheme:dark){
-  .switch i{background:#48484a}
-  .lk i{background:#d2d2d7}
-  .look-clean .lk i:nth-child(2){background:#fff}
-  .look-soft .lk i:nth-child(2){background:#e8e8ed}
-  .look-bold .lk i{background:var(--b)}
-  .tag{background:#3a3a3c}
-  .zrow input{color:var(--ink)}
-  .zrow input:focus{background:#000}
-}
+html[data-theme=dark] .switch i{background:#48484a}
+html[data-theme=dark] .lk i{background:#d2d2d7}
+html[data-theme=dark] .look-clean .lk i:nth-child(2){background:#fff}
+html[data-theme=dark] .look-soft .lk i:nth-child(2){background:#e8e8ed}
+html[data-theme=dark] .look-bold .lk i{background:var(--b)}
+html[data-theme=dark] .tag{background:#3a3a3c}
+html[data-theme=dark] .zrow input{color:var(--ink)}
+html[data-theme=dark] .zrow input:focus{background:#000}
+
+
+html{color-scheme:light}
+html[data-theme=dark]{color-scheme:dark}
+.theme-btn{flex:none}
+.top nav .theme-btn{margin-left:-6px}
+/* Icon refinements */
+.rail button>span:first-child svg{width:19px;height:19px}
+.itile svg{width:21px;height:21px}
+.sico svg{width:17px;height:17px}
+.icon-btn svg{width:19px;height:19px}
+
+.icons{grid-template-columns:repeat(6,1fr);gap:6px}
+.icons button{border-radius:10px}
+.icons button svg{width:21px;height:21px}

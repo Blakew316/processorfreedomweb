@@ -2,18 +2,18 @@
 // in the builder and the published site, so what people see is what goes live.
 
 import { ORDER_CSS, ORDER_JS, menuSection, orderPage, orderStatusPage } from './order.js';
-import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM, strings } from './core.js';
+import { ION } from './icons.js';
+import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, contrast, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM, strings } from './core.js';
 
-const icon = (name, size = 24) =>
-  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.star}</svg>`;
+const icon = (name, size = 24) => `<svg viewBox="0 0 512 512" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">${ICONS[name] || ICONS.star}</svg>`;
 
 const SOCIAL = {
-  instagram: ['Instagram', 'https://instagram.com/', '<rect x="4" y="4" width="16" height="16" rx="4.500"/><circle cx="12" cy="12" r="3.600"/><circle cx="16.600" cy="7.400" r=".600" fill="currentColor"/>'],
-  facebook: ['Facebook', 'https://facebook.com/', '<path d="M14 8.500h2.500V5H14a3.500 3.500 0 00-3.500 3.500V11H8v3.500h2.500V21H14v-6.500h2.500L17 11h-3V8.500z"/>'],
-  tiktok: ['TikTok', 'https://tiktok.com/@', '<path d="M14 4v10.500a3.500 3.500 0 11-3.500-3.500M14 4c.300 2.500 2 4.200 4.500 4.500"/>'],
-  x: ['X', 'https://x.com/', '<path d="M5 5l14 14M19 5L5 19"/>'],
-  youtube: ['YouTube', 'https://youtube.com/@', '<rect x="3" y="6" width="18" height="12" rx="3.500"/><path d="M10.500 9.500l4 2.500-4 2.500z"/>'],
-  linkedin: ['LinkedIn', 'https://linkedin.com/company/', '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 11v5M8 8v.100M12 16v-5m0 2a2 2 0 014 0v3"/>'],
+  instagram: ['Instagram', 'https://instagram.com/', ION.s_instagram],
+  facebook: ['Facebook', 'https://facebook.com/', ION.s_facebook],
+  tiktok: ['TikTok', 'https://tiktok.com/@', ION.s_tiktok],
+  x: ['X', 'https://x.com/', ION.s_x],
+  youtube: ['YouTube', 'https://youtube.com/@', ION.s_youtube],
+  linkedin: ['LinkedIn', 'https://linkedin.com/company/', ION.s_linkedin],
 };
 
 export function socialUrl(key, value) {
@@ -24,18 +24,23 @@ export function socialUrl(key, value) {
   return handle ? SOCIAL[key][1] + handle : '';
 }
 
+function surface(bg, raw) {
+  const dark = lum(bg) < 0.35;
+  const ink = dark ? '#f5f5f7' : '#1d1d1f';
+  // A brand colour that all but disappears against the page (graphite on black) falls back to the text colour.
+  const accent = contrast(raw, bg) < 1.6 ? ink : readableAccent(raw, bg);
+  const a = (n) => (dark ? `rgba(255,255,255,${n})` : `rgba(0,0,0,${n})`);
+  const [gr, gg, gb] = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+  return `color-scheme:${dark ? 'dark' : 'light'};--bg:${bg};--bg2:${mix(bg, ink, dark ? 0.09 : 0.045)};--ink:${ink};--muted:${mix(ink, bg, 0.42)};--line:${a(dark ? 0.16 : 0.1)};--glass:rgba(${gr},${gg},${gb},.8);--accent:${accent};--on-accent:${onColor(accent)}`;
+}
 export function themeVars(site) {
   const t = site.theme || {};
   const bg = isHex(t.bg) ? t.bg.toLowerCase() : t.mode === 'dark' ? '#000000' : '#ffffff';
-  const dark = lum(bg) < 0.35;
-  const ink = dark ? '#f5f5f7' : '#1d1d1f';
   const raw = isHex(t.accent) ? t.accent : '#0071e3';
-  const accent = readableAccent(raw, bg);
   const f = FONTS[t.font] || FONTS.sans;
   const r = RADII[t.radius] || RADII.soft;
-  const a = (n) => (dark ? `rgba(255,255,255,${n})` : `rgba(0,0,0,${n})`);
-  const [gr, gg, gb] = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
-  return `:root{color-scheme:${dark ? 'dark' : 'light'};--bg:${bg};--bg2:${mix(bg, ink, dark ? 0.09 : 0.045)};--ink:${ink};--muted:${mix(ink, bg, 0.42)};--line:${a(dark ? 0.16 : 0.1)};--glass:rgba(${gr},${gg},${gb},.8);--accent:${accent};--on-accent:${onColor(accent)};--brand:${raw};--on-brand:${onColor(raw)};--font:${f.body};--font-head:${f.head};--r:${r.r}px;--r-sm:${Math.min(r.r, 14)}px;--r-btn:${r.btn}px}`;
+  // The second block is the opposite appearance, used when a visitor flips the light/dark switch.
+  return `:root{${surface(bg, raw)};--brand:${raw};--on-brand:${onColor(raw)};--font:${f.body};--font-head:${f.head};--r:${r.r}px;--r-sm:${Math.min(r.r, 14)}px;--r-btn:${r.btn}px}html[data-alt]{${surface(lum(bg) < 0.35 ? '#ffffff' : '#0b0b0c', raw)}}`;
 }
 
 export const SITE_CSS = `
@@ -229,6 +234,11 @@ section.on-brand.cta .panel{background:var(--bg2)}
 .ftr.simple .links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin:22px 0 0;padding:0;list-style:none}
 .ftr.simple .soc{justify-content:center}
 .ftr.simple .base{justify-content:center;text-align:center;flex-direction:column;align-items:center;margin-top:28px}
+.mode{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;border:0;background:color-mix(in srgb,currentColor 8%,transparent);color:var(--ink);cursor:pointer;opacity:.85;transition:opacity .2s,background .2s;vertical-align:middle;margin-left:6px}
+.mode:hover{opacity:1;background:color-mix(in srgb,currentColor 10%,transparent)}
+.mode .moon,html[data-alt] .mode .sun{display:none}
+html[data-alt] .mode .moon{display:block}
+html{transition:background-color .3s}
 [data-preview] .pf-flash{animation:pfflash 1.4s ease-out}
 @keyframes pfflash{0%,35%{box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--accent) 70%,transparent)}100%{box-shadow:inset 0 0 0 3px transparent}}
 [data-preview] [data-sec]{cursor:pointer;transition:box-shadow .15s}
@@ -260,6 +270,8 @@ section.on-brand.cta .panel{background:var(--bg2)}
 
 // Runs on every page. Uses event delegation so it keeps working when the builder swaps the page body.
 const SITE_JS = `(function(){var d=document,P=d.documentElement.hasAttribute('data-preview');
+try{if(!P&&localStorage.getItem('pf-mode')==='alt')d.documentElement.setAttribute('data-alt','')}catch(e){}
+d.addEventListener('click',function(e){var b=e.target.closest('.mode');if(!b)return;e.stopPropagation();var on=d.documentElement.toggleAttribute('data-alt');try{if(!P)localStorage.setItem('pf-mode',on?'alt':'')}catch(x){}},true);
 d.addEventListener('click',function(e){var t=e.target;
 var m=t.closest('.menu-btn');if(m){var n=d.querySelector('.nav');var o=n.classList.toggle('open');m.setAttribute('aria-expanded',o);return}
 var a=t.closest('a');
@@ -374,7 +386,7 @@ export function renderPage(site, page = 'home', opts = {}) {
     },
     testimonials(d) {
       const items = arr(d.items).filter((x) => x && str(x.quote).trim());
-      const stars = `<div class="stars" aria-label="5 out of 5 stars">${`<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">${ICONS.star}</svg>`.repeat(5)}</div>`;
+      const stars = `<div class="stars" aria-label="5 out of 5 stars">${`<svg viewBox="0 0 512 512" width="16" height="16" fill="currentColor" aria-hidden="true">${ION.starfill}</svg>`.repeat(5)}</div>`;
       return `<div class="wrap">${head(d)}<div class="quotes">${items.map((x) => `<figure class="quote">${stars}<blockquote>“${esc(x.quote)}”</blockquote><figcaption>${esc(x.name)}${x.role ? `<span>${esc(x.role)}</span>` : ''}</figcaption></figure>`).join('')}</div></div>`;
     },
     faq(d) {
@@ -438,7 +450,7 @@ export function renderPage(site, page = 'home', opts = {}) {
   }
 
   /* Footer */
-  const socials = Object.keys(SOCIAL).map((k) => { const u = socialUrl(k, site.social?.[k]); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="${SOCIAL[k][0]}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SOCIAL[k][2]}</svg></a>` : ''; }).join('');
+  const socials = Object.keys(SOCIAL).map((k) => { const u = socialUrl(k, site.social?.[k]); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="${SOCIAL[k][0]}"><svg viewBox="0 0 512 512" width="21" height="21" fill="currentColor">${SOCIAL[k][2]}</svg></a>` : ''; }).join('');
   const ft = site.footer || {};
   const payUrl = safeUrl(biz.payUrl);
   const footCols = `<div class="top">
@@ -450,7 +462,7 @@ export function renderPage(site, page = 'home', opts = {}) {
   const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`)].join('');
   const footSimple = `<a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}<ul class="links">${footLinks}</ul>`;
   const footCls = `${ft.style === 'simple' ? ' simple' : ''}${ft.color === 'brand' ? ' on-brand' : ft.color === 'dark' ? ' on-dark' : ft.color === 'plain' ? ' plain' : ''}`;
-  const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. ${esc(T.rights)}</span><span>${ft.showPayments !== false ? esc(T.cards) : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `${esc(T.websiteBy)} <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
+  const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. ${esc(T.rights)}</span><span>${ft.showPayments !== false ? esc(T.cards) : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `${esc(T.websiteBy)} <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}${ft.showMode !== false ? `<button class="mode" type="button" aria-label="Light or dark" title="Light / dark"><svg class="sun" viewBox="0 0 512 512" width="18" height="18" fill="currentColor">${ION.moon}</svg><svg class="moon" viewBox="0 0 512 512" width="18" height="18" fill="currentColor">${ION.sun}</svg></button>` : ''}</span></div></div></footer>`;
 
   /* Head */
   const seo = site.seo || {};
