@@ -2684,3 +2684,10 @@ header.top.brand-only .in,header.top.brand-only.glass-bar .in,header.top.brand-o
 header.top.brand-only .logo{gap:0}
 header.top.brand-only .logo img{width:52px;height:52px;border-radius:15px;box-shadow:0 4px 14px -6px rgba(10,20,45,.45)}
 @media (max-width:900px){header.top.brand-only .in,header.top.brand-only.glass-bar .in,header.top.brand-only.glass-bar.over-film .in{height:auto;padding:6px;border-radius:20px}header.top.brand-only .logo img{width:46px;height:46px;border-radius:14px}}
+
+/* ---------- One surface only: the mark by itself, nothing framed around it ---------- */
+header.top.brand-only .in,header.top.brand-only.glass-bar .in,header.top.brand-only.glass-bar.over-film .in,
+html[data-theme=dark] header.top.brand-only .in,html[data-theme=dark] header.top.brand-only.glass-bar .in,html[data-theme=dark] header.top.brand-only.glass-bar.over-film .in{background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;padding:0!important;border-radius:0!important;overflow:visible}
+header.top.brand-only .in::before,html[data-theme=dark] header.top.brand-only .in::before{display:none!important}
+header.top.brand-only .logo img{width:54px;height:54px;border-radius:22%;box-shadow:0 10px 26px -10px rgba(6,12,28,.55)}
+@media (max-width:900px){header.top.brand-only .logo img{width:48px;height:48px}}
