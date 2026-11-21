@@ -82,6 +82,63 @@ export const ORDER_CSS = `
   .cartbar:hover{text-decoration:none}
   .cartbar[hidden]{display:none}
 }
+
+/* Refinements */
+.ord-head h1{font-size:clamp(40px,5.6vw,64px);letter-spacing:-.035em;line-height:1.04}
+.ord-head p{font-size:20px;max-width:640px}
+.closed{border-radius:var(--r-sm);padding:16px 20px;font-weight:500}
+.cats{background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);padding:12px 0;gap:8px}
+.cats a{padding:8px 17px;font-size:15px;transition:background .2s,color .2s}
+.cats a:hover{background:var(--ink);color:var(--bg);opacity:1}
+.cat h2{font-size:28px;letter-spacing:-.025em}
+.ord-menu .tiles{gap:14px}
+.ord-menu .tile{border:0;background:var(--bg2);border-radius:var(--r);padding:22px;gap:22px;transition:transform .3s cubic-bezier(.25,.1,.25,1),box-shadow .3s}
+.ord-menu .tile:not(.off):hover{transform:translateY(-2px);box-shadow:0 18px 40px -26px rgba(0,0,0,.35)}
+.ord-menu .tile h3{font-size:19px;letter-spacing:-.02em}
+.ord-menu .tile p{font-size:15px;line-height:1.45;-webkit-line-clamp:2}
+.ord-menu .tile .price{font-size:17px}
+.ord-menu .tile .pic{width:128px;height:108px;border-radius:calc(var(--r-sm) + 2px);background:var(--bg)}
+.add{border:0;background:var(--bg);color:var(--ink);padding:9px 22px;font-size:15px;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.05);transition:background .2s,color .2s,transform .2s cubic-bezier(.34,1.56,.64,1)}
+.add:hover{background:var(--accent);color:var(--on-accent);box-shadow:none}
+.add:active{transform:scale(.94)}
+.cart{background:var(--bg);box-shadow:0 0 0 1px var(--line),0 30px 70px -36px rgba(0,0,0,.4);border-radius:calc(var(--r) + 4px);padding:28px;gap:20px}
+.cart h2{font-size:24px;letter-spacing:-.025em}
+.cart .f{font-size:13px;color:var(--muted);font-weight:500;gap:6px}
+.cart .f input,.cart .f textarea,.cart select,.prow input{background:var(--bg2);border-color:transparent;color:var(--ink);border-radius:12px;padding:13px 14px;font-size:16px;transition:background .2s,box-shadow .2s,border-color .2s}
+.cart .f input:focus,.cart .f textarea:focus,.cart select:focus,.prow input:focus{outline:0;background:var(--bg);border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
+.cart select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.prow button{border:0;background:var(--bg2);color:var(--ink);border-radius:12px;padding:0 18px}
+.oseg{background:var(--bg2);border:0;border-radius:12px;padding:3px}
+.oseg button{border-radius:9px;padding:9px 6px;font-size:15px;transition:background .25s,box-shadow .25s}
+.oseg button[aria-pressed=true]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14),0 0 0 .500px rgba(0,0,0,.05)}
+.line{padding-bottom:16px;font-size:16px}
+.line b{letter-spacing:-.01em}
+.step{background:var(--bg2);border:0}
+.step button{width:32px;height:32px}
+.tot{font-size:15px;gap:8px 12px;padding-top:4px}
+.tot .g{font-size:20px;letter-spacing:-.02em;padding-top:12px}
+.cart .btn{padding:17px 24px;font-size:17px;font-weight:600;border-radius:max(var(--r-btn),14px)}
+.osheet{background:rgba(0,0,0,.32);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);animation:ofade .25s ease}
+.osheet>div{border-radius:calc(var(--r) + 6px);padding:32px;box-shadow:0 40px 100px -20px rgba(0,0,0,.45);animation:orise .4s cubic-bezier(.25,.1,.25,1)}
+.osheet h2{font-size:28px;letter-spacing:-.03em}
+.osheet label{padding:14px 0;font-size:17px}
+.osheet label input{width:22px;height:22px}
+.osheet .acts .btn{padding:15px 20px}
+@keyframes ofade{from{opacity:0}}
+@keyframes orise{from{opacity:0;transform:translateY(24px) scale(.98)}}
+.track{gap:6px;margin:48px 0 14px}
+.track i{height:6px;border-radius:6px;transition:background .6s}
+.box{border-radius:calc(var(--r) + 2px);padding:30px}
+.cartbar{-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);padding:16px 24px;font-size:16px}
+@media (max-width:860px){
+  .osheet{place-items:end center;padding:0}
+  .osheet>div{max-width:none;border-radius:28px 28px 0 0;padding:28px 22px calc(22px + env(safe-area-inset-bottom));max-height:86vh;animation:osheet .45s cubic-bezier(.25,.1,.25,1)}
+  .ord-menu .tile{padding:18px;gap:14px}
+  .ord-menu .tile .pic{width:96px;height:84px}
+  .cart{padding:22px}
+}
+@keyframes osheet{from{transform:translateY(100%)}}
+@media (prefers-reduced-motion:reduce){.osheet,.osheet>div{animation:none}}
 `;
 
 /* Runs in the visitor's browser. Written as a real function and embedded as text. */

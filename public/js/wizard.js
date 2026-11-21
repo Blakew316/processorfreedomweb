@@ -32,12 +32,19 @@ export function wizard(mount, title) {
   const form = h('form', { class: 'one', onsubmit: async (e) => {
     e.preventDefault();
     if (!d.name.trim()) return;
-    button.disabled = true; button.textContent = 'Building your site…';
+    button.disabled = true;
+    // A short, calm moment while the site is put together.
+    const steps = ['Creating your pages', 'Setting up online ordering', 'Writing your policies', 'Getting your address ready'].map((t) => h('li', {}, h('i', { html: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.500 4.500L19 7.500"/></svg>' }), t));
+    const veil = h('div', { class: 'building', role: 'status' }, h('div', {}, h('img', { src: '/assets/logo.png', alt: '' }), h('h2', {}, `Building ${d.name.trim()}`), h('ul', {}, steps)));
+    document.body.append(veil);
+    steps.forEach((li, i) => setTimeout(() => li.classList.add('on'), 150 + i * 380));
     try {
-      const { site } = await api('POST', '/api/sites', { name: d.name, slug: cleanSlug(d.slug), template: 'order', kind: 'ordering' });
+      const [{ site }] = await Promise.all([api('POST', '/api/sites', { name: d.name, slug: cleanSlug(d.slug), template: 'order', kind: 'ordering' }), new Promise((r) => setTimeout(r, 1900))]);
       go(`/app/site/${site.id}`);
-    } catch (ex) { toast(ex.message, true); button.disabled = false; button.textContent = 'Create my site'; }
+      setTimeout(() => veil.remove(), 250);
+    } catch (ex) { veil.remove(); toast(ex.message, true); button.disabled = false; }
   } },
+    h('img', { class: 'mark', src: '/assets/logo.png', alt: '' }),
     h('h1', {}, 'What’s your business called?'),
     h('p', { class: 'sub' }, 'That’s all we need to start. You’ll add your menu, logo and details on the next screen, and nothing goes live until you publish.'),
     input, line,
