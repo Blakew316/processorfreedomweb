@@ -3372,3 +3372,14 @@ html[data-theme=dark] .tb-todo .tb-note em{color:#9cc0ff}
   .hs-l .hm>b{font-size:26px}.hm.big>b{font-size:40px}
 }
 .hm-l{text-align:left}
+/* Audit fixes */
+.switch input{width:1px!important;height:1px!important;min-width:0!important;margin:0!important}
+.prof,.prof-card,.prof-card>div{min-width:0}.prof-card>div{overflow-wrap:anywhere}
+@media (max-width:420px){.prof-card{flex-wrap:wrap}}
+.vt,.vt>*,.vt-row,.vt-type{min-width:0}
+.vt-type .field{min-width:0;flex:1 1 240px}.vt-type p{flex:1 1 100%;margin:0}
+.vt-money{min-width:0;flex:1 1 200px}
+@media (max-width:420px){.vt-bar{gap:10px;padding:12px}.vt-bar>span:first-child{font-size:17px}.vt-bar>b{font-size:22px}.vt-bar .btn{height:46px;padding:0 16px;font-size:15px}}
+html[data-theme=dark] .cg-day[data-today] b,html[data-theme=dark] .cm-d[data-today]>b{background:#fff;color:#0b1b3a}
+html[data-theme=dark] .mcal-d[data-today]{box-shadow:inset 0 0 0 1.5px #fff}
+.vt-type .field{max-width:340px}

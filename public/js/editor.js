@@ -1036,7 +1036,7 @@ export async function editor(id, mount, title, startTab = '') {
         try {
           const items = [{ name: d.note.trim() || 'Sale', qty: 1, price: t.sub }, t.tax > 0 && { name: `Sales tax (${rate}%)`, qty: 1, price: t.tax }, t.tip > 0 && { name: 'Tip', qty: 1, price: t.tip }].filter(Boolean);
           const c = d.customer || {};
-          const r = await api('POST', `/api/sites/${id}/invoices`, { customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '' }, items, taxRate: 0, notes: d.note.trim() });
+          const r = await api('POST', `/api/sites/${id}/invoices`, { walkIn: !d.customer, customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '' }, items, taxRate: 0, notes: d.note.trim() });
           await api('POST', `/api/sites/${id}/invoices/${r.invoice.id}/status`, { status: 'paid', method: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', note: 'Recorded with New sale' });
           bills = null; txData = null; stats = null;
           saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '' };
@@ -2265,8 +2265,10 @@ export async function editor(id, mount, title, startTab = '') {
   // Everything on the page as rows: the figures at the top, then each table under its own heading.
   function pageRows(k) {
     const rows = [[nameOf(k)], [meta.name], [`Exported ${new Date().toLocaleString()}`], []];
-    const figs = [...panel.querySelectorAll('.dk, .kpi, .inv-kpis > *')].map((x) => [...x.querySelectorAll('span, small, b')].map((e) => e.textContent.trim()).filter(Boolean)).filter((x) => x.length >= 2);
-    if (figs.length) { rows.push(['Summary']); for (const f of figs) rows.push([f[0], f[1], f[2] || '']); rows.push([]); }
+    // Each figure as label, value, note: the value without its % change, which goes in its own column.
+    const own = (e) => [...e.childNodes].filter((n) => n.nodeType === 3 || !n.classList?.contains('delta')).map((n) => n.textContent).join('').trim();
+    const figs = [...panel.querySelectorAll('.dk, .kpi, .inv-kpis > *, .hm')].map((x) => { const label = x.querySelector(':scope > .small, :scope > .dk-l, :scope > .hm-l'); const val = x.querySelector('b'); const d = x.querySelector('.delta, .hm-d'); const note = [...x.querySelectorAll(':scope > span.small, :scope > .dk-s, :scope > .hm-s')].pop(); return [label && label.textContent.trim(), val && own(val), d ? d.textContent.trim() : '', note && note !== label ? note.textContent.trim() : '']; }).filter((x) => x[0] && x[1]);
+    if (figs.length) { rows.push(['Summary', 'Amount', 'Change', 'Note']); for (const f of figs) rows.push(f); rows.push([]); }
     for (const t of panel.querySelectorAll('table')) {
       const title = t.closest('.scard, .group')?.querySelector('h3')?.textContent.trim();
       if (title) rows.push([title]);
@@ -2302,16 +2304,24 @@ export async function editor(id, mount, title, startTab = '') {
   }
   function reportSettings() {
     sheet((close) => {
-      const pick = (k, l) => h('button', { class: 'chip', 'aria-pressed': String(salesRange === k), onclick: () => { salesRange = k; try { localStorage.setItem(`pf-range-${id}`, k); } catch { /* private mode */ } close(); reload(tab, false); paintPanel(); toast(`Reports open on ${l.toLowerCase()}`); } }, l);
+      const pick = (k, l) => h('button', { class: 'chip', 'aria-pressed': String(salesRange === k), onclick: () => { try { localStorage.setItem(`pf-range-${id}`, k); } catch { /* private mode */ } close(); setRange(k); toast(`Reports open on ${l.toLowerCase()}`); } }, l);
       return [h('h2', {}, 'Report settings'), h('p', { class: 'muted' }, 'Which period reports open on, on this device.'), h('div', { class: 'inv-chips', style: 'flex-wrap:wrap' }, [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days']].map(([k, l]) => pick(k, l))),
         h('p', { class: 'hint' }, 'Days are counted in your business’s time zone, set with your business hours.'), h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: () => { close(); goTab('hours'); } }, 'Time zone and hours'), h('button', { class: 'btn', onclick: close }, 'Done'))];
     });
+  }
+  // Reports always print on white, whatever the screen theme.
+  function printLight() {
+    const root = document.documentElement, was = root.dataset.theme;
+    root.dataset.theme = 'light';
+    const back = () => { if (was) root.dataset.theme = was; else delete root.dataset.theme; window.removeEventListener('afterprint', back); };
+    window.addEventListener('afterprint', back);
+    setTimeout(() => { window.print(); setTimeout(back, 1000); }, 60);
   }
   function addReportTools(k) {
     const bar = h('div', { class: 'rep-tools' },
       h('button', { class: 'btn soft', type: 'button', onclick: () => exportReport(k) }, ic('dl', 16), 'Export'),
       (() => { const more = h('button', { class: 'icon-btn rep-more', type: 'button', title: 'More', 'aria-label': 'More', 'aria-haspopup': 'menu', onclick: () => popover(more, (close) => [
-        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); setTimeout(() => window.print(), 50); } }, h('span', {}, 'Print')),
+        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); printLight(); } }, h('span', {}, 'Print')),
         h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); exportReport(k); } }, h('span', {}, 'Export to Excel or CSV')),
         h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); reportSettings(); } }, h('span', {}, 'Report settings')),
         h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); quickbooks(); } }, h('span', {}, 'Sync with QuickBooks')),

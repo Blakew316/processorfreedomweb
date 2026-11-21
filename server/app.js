@@ -924,7 +924,7 @@ export function createApp(options = {}) {
     const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
     db.run('INSERT INTO invoices (id, site_id, number, token, kind, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), raw.kind === 'estimate' ? 'estimate' : 'invoice', '{}', '[]', now, now);
     saveInvoice(id, v);
-    keepContact(site.id, v.customer);
+    if (raw.walkIn !== true) keepContact(site.id, v.customer);   // a counter sale with no customer picked is not added to Customers
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
   });
   route('PUT', '/api/sites/:id/invoices/:inv', async (req, res, p) => {
