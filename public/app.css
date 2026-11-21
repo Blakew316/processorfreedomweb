@@ -1637,3 +1637,22 @@ html[data-theme=dark] .inv-empty>span:first-child{color:#fff;background:rgba(255
   .ed-body[data-mode=office] .panel[data-tab=ordering]>*,.ed-body[data-mode=office] .panel[data-tab=team]>*{margin:0}
   .ed-body[data-mode=office] .panel[data-tab=ordering]>.page-head,.ed-body[data-mode=office] .panel[data-tab=team]>.page-head,.ed-body[data-mode=office] .panel[data-tab=ordering]>.note{grid-column:1/-1}
 }
+
+/* Dashboard */
+.sgrid3.one{grid-template-columns:minmax(0,1fr)}
+.sgrid2x{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.dashb .scard{display:grid;gap:4px;align-content:start;padding:22px 24px}
+.dashb .scard h3{font-size:17px;letter-spacing:-.015em}
+.dashb .scard.setup{gap:14px}
+.dashb .scard.setup .todo{display:grid;gap:10px}
+.dashb .scard.setup .todo-row{box-shadow:none;background:var(--bg2);padding:14px 16px}
+.dashb .scard.setup .todo-row.next{background:var(--card);box-shadow:0 0 0 1.5px var(--brand)}
+.rline.click{cursor:pointer;border-radius:8px;margin:0 -8px;padding-left:8px;padding-right:8px}
+.rline.click:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.dashb .rline:last-child{border-bottom:0}
+.shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}
+.shortcuts .btn{justify-content:flex-start;padding:12px 14px}
+@media (max-width:900px){.sgrid2x{grid-template-columns:minmax(0,1fr)}.subnav:not([hidden]){overflow-x:auto;scrollbar-width:none}.subnav button{flex:1 0 auto}.shortcuts{grid-template-columns:1fr}}
+@media (min-width:901px){
+  .ed-body[data-mode=office] .panel[data-tab=ordering]>.inv-empty,.ed-body[data-mode=office] .panel[data-tab=ordering]>.group:first-of-type:last-of-type{grid-column:1/-1}
+}
