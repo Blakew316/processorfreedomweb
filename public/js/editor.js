@@ -753,7 +753,7 @@ export async function editor(id, mount, title) {
           kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set', 'doc')),
         none && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
         !none && V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
-        !none && V !== 'items' && h('div', { class: 'sgrid3 one' },
+        !none && V !== 'items' && h('div', { class: 'sgrid3 solo' },
           V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
             line('Item sales', money(t.gross)), t.discounts > 0 && line('Discounts and promo codes', `−${money(t.discounts)}`), line('Net sales', money(t.net), 'strong'),
             line('Sales tax', money(t.tax)), line('Delivery fees', money(t.fees)), line('Tips', money(t.tips)), line('Total collected', money(t.total), 'total')),
@@ -1381,15 +1381,18 @@ export async function editor(id, mount, title) {
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
     const group = groups.find((g) => g.tabs.includes(cur[0])) || groups[0];
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
-    rail.replaceChildren(h('span', { class: 'rail-h' }, MODES[mode]), ...groups.flatMap((g) => {
+    rail.replaceChildren(mode === 'office' ? h('button', { class: 'rail-new', onclick: () => { goTab('invoices'); openInvoice(); } }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const open = g === group, many = g.tabs.length > 1;
       return [
         h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, onclick: () => pick(g) }, navIcon(g.icon, 23), h('b', {}, g.label), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         many && open && h('div', { class: 'nav-kids' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))),
       ];
     }).filter(Boolean),
+      h('hr'),
+      h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, navIcon(mode === 'office' ? 'address' : 'business', 23), h('b', {}, mode === 'office' ? 'Website' : 'Back office')),
+      mode === 'office' && h('button', { class: 'nav-row', onclick: () => go(`/app/site/${id}/kitchen`) }, navIcon('orders', 23), h('b', {}, 'Kitchen screen')),
       h('span', { class: 'grow' }),
-      h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, navIcon('swap', 23), h('b', {}, mode === 'office' ? 'Edit my website' : 'Back to back office')));
+      h('small', { class: 'rail-foot' }, `© ${new Date().getFullYear()} Processor Freedom`));
     lastIn[group.label] = cur[0];
     // Phones have no sidebar, so a section's screens are switched with two clear buttons at the top.
     subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i])) : []));
@@ -1475,6 +1478,7 @@ export async function editor(id, mount, title) {
     paintTabbar();
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
+      h('img', { class: 'tb-logo', src: '/assets/icon-192.png', alt: '', width: 30, height: 30 }),
       h('span', { class: 'name' }, meta.name),
       h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),

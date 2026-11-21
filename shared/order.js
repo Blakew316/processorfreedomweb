@@ -156,6 +156,14 @@ export const ORDER_CSS = `
 .line{animation:oline .3s ease}
 @keyframes oline{from{opacity:0;transform:translateY(6px)}}
 @media (prefers-reduced-motion:reduce){.bump,.line{animation:none}}
+/* Same family as the back office: white cards with a hairline border, pill controls. */
+.ord-menu .tile{background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);border-radius:16px}
+.ord-menu .tile:not(.off):hover{box-shadow:inset 0 0 0 1px var(--line),0 14px 30px -22px rgba(0,0,0,.35)}
+.ord-menu .tile .pic{background:var(--bg2)}
+.cats a{background:var(--bg);box-shadow:inset 0 0 0 1px var(--line)}
+.cats a[aria-current]{box-shadow:none}
+.msearch input{background:var(--bg);border-color:var(--line);border-radius:980px}
+.add{background:var(--bg2);box-shadow:none}
 .cart-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .cart-x,.cart-scrim{display:none}
 .cats a[aria-current]{background:var(--ink);color:var(--bg)}
