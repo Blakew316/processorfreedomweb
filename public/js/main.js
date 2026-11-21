@@ -165,12 +165,41 @@ function auth(mode) {
     f('Email', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: !signup }),
     f(signup ? 'Create a password' : 'Password', { name: 'password', type: 'password', autocomplete: signup ? 'new-password' : 'current-password', required: true, minlength: signup ? 8 : 1 }),
     signup && h('p', { class: 'hint', style: 'margin-top:-8px' }, 'At least 8 characters.'),
+    !signup && h('p', { class: 'small', style: 'margin-top:-8px' }, link('/forgot', {}, 'Forgot your password?')),
     err, button,
     h('p', { class: 'center muted' }, signup ? 'Already have an account? ' : 'New here? ', link(`${signup ? '/login' : '/signup'}${q}`, {}, signup ? 'Sign in' : 'Create an account')));
   mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card' }, form,
     h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.png', alt: '', width: 48, height: 48 }),
       h('h2', {}, 'A website and online ordering, live in minutes.'),
       h('ul', {}, ['Menu built from your Excel or CSV file', 'Pickup, curbside and delivery', 'Your logo, colours and domain', 'Publish with one click'].map((t) => h('li', {}, h('i', { html: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>', 14) }), t)))))));
+}
+
+function forgot() {
+  title('Reset password');
+  const done = h('div', {});
+  const form = h('form', { onsubmit: async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api('POST', '/api/auth/forgot', Object.fromEntries(new FormData(form)));
+      form.replaceChildren(h('h1', {}, 'Check your email'), h('p', { class: 'sub' }, r.emailEnabled ? 'If an account exists for that address, a reset link is on its way. It works once and expires in 2 hours.' : 'Email is not switched on for this service yet, so no link could be sent. Contact Processor Freedom and we will send you a reset link directly.'), link('/login', { class: 'btn lg' }, 'Back to sign in'));
+    } catch (ex) { done.replaceChildren(h('p', { class: 'error', role: 'alert' }, ex.message)); }
+  } }, h('h1', {}, 'Reset your password'), h('p', { class: 'sub' }, 'Enter your email and we will send you a link.'),
+    h('label', { class: 'field' }, h('span', {}, 'Email'), h('input', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: true })), done,
+    h('button', { class: 'btn lg', type: 'submit' }, 'Send reset link'), h('p', { class: 'center muted' }, link('/login', {}, 'Back to sign in')));
+  mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card', style: 'grid-template-columns:1fr;max-width:460px' }, form)));
+}
+
+function reset() {
+  title('Choose a new password');
+  const token = new URLSearchParams(location.search).get('token') || '';
+  const err = h('p', { class: 'error', role: 'alert' });
+  const form = h('form', { onsubmit: async (e) => {
+    e.preventDefault(); err.textContent = '';
+    try { state.user = (await api('POST', '/api/auth/reset', { token, password: new FormData(form).get('password') })).user; toast('Password updated'); go('/app'); } catch (ex) { err.textContent = ex.message; }
+  } }, h('h1', {}, 'Choose a new password'), h('p', { class: 'sub' }, 'You will be signed in straight away.'),
+    h('label', { class: 'field' }, h('span', {}, 'New password'), h('input', { name: 'password', type: 'password', autocomplete: 'new-password', required: true, minlength: 8, autofocus: true })), h('p', { class: 'hint', style: 'margin-top:-8px' }, 'At least 8 characters.'), err,
+    h('button', { class: 'btn lg', type: 'submit' }, 'Save password'));
+  mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card', style: 'grid-template-columns:1fr;max-width:460px' }, form)));
 }
 
 /* ---------- Dashboard ---------- */
@@ -234,7 +263,13 @@ async function admin() {
       h('td', {}, h('span', { class: `status ${s.live ? 'ok' : ''}` }, s.live ? 'Live' : 'Draft')), h('td', {}, s.ordering.enabled ? (s.ordering.accepting ? 'On' : 'Paused') : 'Off'), h('td', {}, s.orders), h('td', {}, s.leads), h('td', {}, link(`/app/site/${s.id}`, { class: 'btn soft sm' }, 'Open')))), 'No sites yet.'),
     h('h2', { class: 'h2' }, 'Accounts'),
     table(['Name', 'Email', 'Sites', 'Joined', ''], data.users.map((u) => h('tr', {}, h('td', {}, u.name || '—'), h('td', {}, u.email), h('td', {}, u.sites), h('td', {}, fmtDate(u.createdAt)),
-      h('td', { style: 'text-align:right' }, u.id !== state.user.id && h('button', { class: 'btn danger sm', onclick: async () => {
+      h('td', { style: 'text-align:right;white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: async () => {
+        try {
+          const { link: url } = await api('POST', `/api/admin/users/${u.id}/reset-link`);
+          sheet((close) => [h('h2', {}, 'Password reset link'), h('p', { class: 'muted' }, `Send this to ${u.email}. It works once and expires in 2 hours.`), h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, url),
+            h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
+        } catch (ex) { toast(ex.message, true); }
+      } }, 'Reset link'), ' ', u.id !== state.user.id && h('button', { class: 'btn danger sm', onclick: async () => {
         if (!await confirmSheet({ title: `Delete ${u.email}?`, text: u.sites ? `This removes the account and its ${u.sites} site${u.sites === 1 ? '' : 's'}, including menus, orders and messages. Any published site goes offline. This cannot be undone.` : 'This removes the account. This cannot be undone.', action: 'Delete account', danger: true })) return;
         try { await api('DELETE', `/api/admin/users/${u.id}`); toast('Account deleted'); admin(); } catch (ex) { toast(ex.message, true); }
       } }, 'Delete')))), 'No accounts yet.')));
@@ -251,6 +286,9 @@ async function render() {
     let m;
     if (path === '/') landing();
     else if (path === '/login' || path === '/signup') auth(path.slice(1));
+    else if (path === '/forgot') forgot();
+    else if (path === '/reset') reset();
+    else if ((m = path.match(/^\/app\/site\/([\w-]+)\/kitchen$/))) cleanup = await (await import('./kitchen.js')).kitchen(m[1], mount, title);
     else if (path === '/app') await dashboard();
     else if (path === '/app/admin') await admin();
     else if (path === '/app/new') cleanup = (await import('./wizard.js')).wizard(mount, title);

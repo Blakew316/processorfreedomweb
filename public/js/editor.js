@@ -1,11 +1,11 @@
-import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket } from './ui.js';
 
 // Everything a merchant can change, always one click away.
 const TABS = [
   ['start', 'Get started', 'wand'], ['menu', 'Menu', 'list'], ['design', 'Look and feel', 'brush'], ['sections', 'Home page', 'doc'], ['business', 'Business info', 'store'],
-  ['ordering', 'Ordering', 'sliders'], ['orders', 'Orders', 'bag'], ['inbox', 'Messages', 'inbox'], ['domain', 'Web address', 'globe'], ['policies', 'Policies', 'lock'], ['seo', 'Search', 'search'],
+  ['ordering', 'Ordering', 'sliders'], ['orders', 'Orders', 'bag'], ['sales', 'Sales', 'chart'], ['inbox', 'Messages', 'inbox'], ['domain', 'Web address', 'globe'], ['policies', 'Policies', 'lock'], ['seo', 'Search', 'search'],
 ];
 const DIVIDE_AFTER = new Set(['start', 'business', 'inbox']);
 
@@ -29,6 +29,7 @@ export async function editor(id, mount, title) {
   let orders = null;
   let editItem = null;       // menu item being edited
   let orderFilter = 'active';
+  let stats = null;
   let notify = null;         // set while building a form whose changes are not part of the site draft
 
   /* ---------- saving and preview ---------- */
@@ -67,7 +68,20 @@ export async function editor(id, mount, title) {
     paintTop();
   }, 800);
   const draftChanged = () => changed();
-  function changed() { saveState = 'dirty'; if (meta.live) meta.dirty = true; repaint(); save(); paintTop(); }
+  const history = [JSON.stringify(draft)];
+  let at = 0;
+  const snap = debounce(() => { const now = JSON.stringify(draft); if (now === history[at]) return; history.splice(at + 1); history.push(now); if (history.length > 80) history.shift(); at = history.length - 1; paintTop(); }, 500);
+  function travel(by) {
+    snap.flush();
+    if (at + by < 0 || at + by >= history.length) return;
+    at += by;
+    const was = JSON.parse(history[at]);
+    for (const k of Object.keys(draft)) delete draft[k];
+    Object.assign(draft, was);
+    sel = null; saveState = 'dirty'; if (meta.live) meta.dirty = true;
+    repaint(); save(); paintPanel(); paintTop();
+  }
+  function changed() { saveState = 'dirty'; if (meta.live) meta.dirty = true; repaint(); save(); snap(); paintTop(); }
   const flush = async () => { if (saveState !== 'saved') await save.flush(); };
 
   /* ---------- form controls ---------- */
@@ -196,7 +210,8 @@ export async function editor(id, mount, title) {
         group('Quick style', h('p', { class: 'hint' }, 'One tap sets where your brand colour appears across the whole site. Fine-tune anything below.'), looks),
         group('Brand', text('Business name', draft.brand, 'name', { maxlength: 80 }), text('Tagline', draft.brand, 'tagline', { hint: 'A short line shown in your footer and search results.' }),
           image('Logo', draft.brand, 'logo', { logo: true, hint: 'PNG or SVG with a transparent background works best.', after: () => { if (draft.brand.logo && draft.brand.logoMode === 'text') draft.brand.logoMode = 'image'; paintPanel(); } }),
-          draft.brand.logo && seg('Show in header', draft.brand, 'logoMode', { image: 'Logo', both: 'Logo and name', text: 'Name only' })),
+          draft.brand.logo && seg('Show in header', draft.brand, 'logoMode', { image: 'Logo', both: 'Logo and name', text: 'Name only' }),
+          seg('Site language', draft, 'lang', LANGS), h('small', { class: 'hint' }, 'Changes the built-in words on your site, such as buttons, the order page and form labels. Your own text stays as you wrote it.')),
         group('Colours', h('div', { class: 'field' }, h('span', {}, 'Brand colour'), sw, h('small', {}, 'Buttons, links and any part set to “Brand colour”.')),
           h('div', { class: 'field' }, h('span', {}, 'Page background'), bgSw, h('small', {}, 'Text switches between dark and light automatically so it stays readable.'))),
         group('Header', seg('Layout', draft.header, 'layout', HEADER_LAYOUTS), seg('Colour', draft.header, 'style', HEADER_STYLES), linkField('Header button', draft.header, 'cta'),
@@ -371,15 +386,37 @@ export async function editor(id, mount, title) {
           h('label', { class: 'switch' }, h('span', {}, 'Track how many are left'), h('input', { type: 'checkbox', checked: it.stock != null, onchange: (e) => { it.stock = e.target.checked ? 10 : null; saveItem(); drawStock(); } }), h('i')),
           it.stock != null && wrap('In stock', h('input', { type: 'number', min: 0, max: 999999, value: it.stock, oninput: (e) => { it.stock = Math.max(0, Math.round(Number(e.target.value)) || 0); saveItem(); } }), 'Goes down with every order. The item shows as sold out at zero.'));
         drawStock();
+        it.options = Array.isArray(it.options) ? it.options : [];
+        const optBox = h('div', { class: 'stack' });
+        const drawOpts = () => optBox.replaceChildren(...it.options.map((g, gi) => h('div', { class: 'item' }, h('div', { class: 'in', style: 'padding-top:12px' },
+          h('div', { class: 'row' }, h('label', { class: 'field grow' }, h('input', { value: g.name, placeholder: 'e.g. Size', 'aria-label': 'Option name', oninput: (e) => { g.name = e.target.value; saveItem(); } })), h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove option', onclick: () => { it.options.splice(gi, 1); saveItem(); drawOpts(); } }, ic('trash', 16))),
+          wrap('Choices', h('textarea', { rows: 4, value: choicesText(g.choices), placeholder: 'Small\nLarge +1.50', oninput: (e) => { g.choices = parseChoices(e.target.value); saveItem(); } })),
+          h('label', { class: 'switch' }, h('span', {}, 'Customer must choose'), h('input', { type: 'checkbox', checked: g.required, onchange: (e) => { g.required = e.target.checked; saveItem(); } }), h('i')),
+          h('label', { class: 'switch' }, h('span', {}, 'Can pick more than one'), h('input', { type: 'checkbox', checked: g.multi, onchange: (e) => { g.multi = e.target.checked; saveItem(); } }), h('i'))))),
+          h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { it.options.push({ name: it.options.length ? 'Add-ons' : 'Size', required: !it.options.length, multi: !!it.options.length, choices: [] }); drawOpts(); } }, ic('plus', 14), 'Add option'));
+        drawOpts();
         const listId = uid('dl');
         const out = [h('button', { class: 'back', onclick: () => { saveItem.flush(); editItem = null; paintPanel(); } }, ic('back', 16), 'All items'), h('h2', {}, it.name || 'Item'),
           group('', text('Item name', it, 'name', { maxlength: 120 }), h('div', { class: 'pair' }, wrap('Price', priceIn), text('Category', it, 'category', { list: listId, maxlength: 60 })), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))),
             area('Description', it, 'desc', { rows: 3, maxlength: 500 }), image('Photo', it, 'image', { hint: 'Shown beside the item on your menu and order page.' })),
+          group('Options', h('p', { class: 'hint' }, 'Sizes, add-ons and choices. Put one choice per line, with an extra charge if there is one, like “Large +1.50”.'), optBox),
           group('Availability', toggle('Available to order', it, 'available', (v) => v !== false), stockBox),
           group('', h('button', { class: 'btn danger', style: 'justify-self:start', onclick: async () => { menu = (await api('DELETE', `/api/sites/${id}/menu/${it.id}`)).items; editItem = null; paintPanel(); paint(true); } }, 'Delete item'))];
         notify = null;
         return out;
       }
+      let dragId = null;
+      const dropOn = async (target) => {
+        const moved = menu.find((x) => x.id === dragId);
+        if (!moved || moved.id === target.id) return paintPanel();
+        menu = menu.filter((x) => x.id !== moved.id);
+        menu.splice(menu.findIndex((x) => x.id === target.id), 0, moved);
+        try {
+          if (moved.category !== target.category) { moved.category = target.category; await api('PUT', `/api/sites/${id}/menu/${moved.id}`, moved); }
+          menu = (await api('PUT', `/api/sites/${id}/menu-order`, { ids: menu.map((x) => x.id) })).items;
+        } catch (e) { toast(e.message, true); }
+        paintPanel(); paint(true);
+      };
       const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : x.stock != null ? `${x.stock} left` : '');
       return [
         group('Menu and inventory', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
@@ -387,11 +424,12 @@ export async function editor(id, mount, title) {
           h('div', { class: 'row', style: 'flex-wrap:wrap' },
             h('a', { class: 'btn soft sm', download: 'menu-template.csv', href: `data:text/csv;charset=utf-8,${encodeURIComponent(MENU_TEMPLATE_CSV)}` }, ic('dl', 14), 'Download template'),
             h('button', { class: 'btn soft sm', onclick: async () => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: cats.at(-1) || 'Menu' })).items; editItem = menu.find((x) => !before.has(x.id))?.id; paintPanel(); paint(true); } catch (e) { toast(e.message, true); } } }, ic('plus', 14), 'Add item'))),
-        ...cats.map((c) => group(c, h('div', { class: 'slist' }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}` },
+        ...cats.map((c) => group(c, h('div', { class: 'slist' }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
+          h('span', { class: 'grip', title: 'Drag to reorder' }, ic('grip', 16)),
           h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
           h('button', { class: 't', onclick: () => { editItem = x.id; paintPanel(); } }, h('b', {}, x.name), h('span', {}, [money(x.price), stockText(x)].filter(Boolean).join(' · '))),
           h('label', { class: 'switch', title: 'Available to order' }, h('input', { type: 'checkbox', 'aria-label': `${x.name} available`, checked: x.available !== false, onchange: async (e) => { x.available = e.target.checked; await api('PUT', `/api/sites/${id}/menu/${x.id}`, x); paintPanel(); paint(true); } }), h('i'))))))),
-        menu.length > 0 && group('', h('p', { class: 'hint' }, `${menu.length} item${menu.length === 1 ? '' : 's'} in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}.`),
+        menu.length > 0 && group('', h('p', { class: 'hint' }, `${menu.length} item${menu.length === 1 ? '' : 's'} in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}. Drag an item to move it.`),
           !ordering.enabled && note('Online ordering is off, so customers can browse this menu but not order. Turn it on in ', h('b', {}, 'Ordering options'), '.'),
           h('button', { class: 'btn danger sm', style: 'justify-self:start', onclick: async () => { if (!await confirmSheet({ title: 'Remove every item?', text: 'Your whole menu will be deleted. Past orders are kept.', action: 'Remove all', danger: true })) return; menu = (await api('DELETE', `/api/sites/${id}/menu/all`)).items; paintPanel(); paint(true); } }, 'Remove all items')),
       ];
@@ -416,7 +454,7 @@ export async function editor(id, mount, title) {
           o.enabled && toggle('Accepting orders right now', o, 'accepting', undefined, redraw),
           o.enabled && !o.accepting && note('Ordering is paused. Customers can see your menu but cannot place orders.'),
           o.enabled && !menu.length && note(h('b', {}, 'Your menu is empty. '), 'Add items in Menu and inventory so customers have something to order.'),
-          o.enabled && h('button', { class: 'btn soft sm', style: 'justify-self:start', onclick: () => setPage('order') }, 'View order page')),
+          o.enabled && h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft sm', onclick: () => setPage('order') }, 'Preview order page'), meta.live && h('a', { class: 'btn soft sm', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open as a customer', ic('out', 14)))),
         ...(o.enabled ? [
           method('pickup', num('Ready in (minutes)', 'prepMinutes'), text('Pickup instructions', o, 'pickupNote', { placeholder: 'Collect at the front counter', maxlength: 300 })),
           method('curbside', text('Curbside instructions', o, 'curbsideNote', { maxlength: 300, hint: 'Customers are asked for their vehicle make, model and colour.' })),
@@ -424,6 +462,21 @@ export async function editor(id, mount, title) {
           group('Checkout', wrap('Sales tax (%)', h('input', { type: 'number', min: 0, max: 30, step: '0.001', value: o.taxRate, oninput: (e) => { o.taxRate = Number(e.target.value) || 0; saveOrdering(); } }), 'Added to every order. Enter 0 if your prices include tax.'),
             toggle('Let customers add a tip', o, 'tips'), toggle('Let customers add notes', o, 'allowNotes'),
             note(h('b', {}, 'Payment. '), draft.business.payUrl ? 'Customers can pay through your online payment link after ordering, or pay when they receive their order.' : 'Customers pay when they receive their order. Add your Processor Freedom payment link in Business details to offer online payment.')),
+          group('Opening hours', toggle('Only take orders during set hours', o, 'useHours', (v) => v === true, redraw),
+            o.useHours && [wrap('Time zone', h('select', { onchange: (e) => { o.timezone = e.target.value; saveOrdering(); } }, Object.entries(TIMEZONES).map(([k, l]) => h('option', { value: k, selected: o.timezone === k }, l)))),
+              h('div', { class: 'hours' }, DAYS.map((day, i) => { const hr = o.hours[i]; return h('div', { class: `hrow ${hr.closed ? 'off' : ''}` }, h('b', {}, day.slice(0, 3)),
+                h('input', { type: 'time', value: hr.open, disabled: hr.closed, 'aria-label': `${day} opens`, onchange: (e) => { hr.open = e.target.value || hr.open; saveOrdering(); } }), h('span', {}, 'to'),
+                h('input', { type: 'time', value: hr.close, disabled: hr.closed, 'aria-label': `${day} closes`, onchange: (e) => { hr.close = e.target.value || hr.close; saveOrdering(); } }),
+                h('label', { class: 'switch', title: 'Open this day' }, h('input', { type: 'checkbox', 'aria-label': `${day} open`, checked: !hr.closed, onchange: (e) => { hr.closed = !e.target.checked; saveOrdering(); redraw(); } }), h('i'))); })),
+              h('small', { class: 'hint' }, 'A closing time earlier than the opening time means you close after midnight.')],
+            toggle('Let customers order ahead for a later time', o, 'scheduling', (v) => v === true), h('small', { class: 'hint' }, 'Offers pickup and delivery times every 15 minutes, today and tomorrow.')),
+          group('Promo codes', h('div', { class: 'stack' }, o.promos.map((pr, i) => h('div', { class: 'prow2' },
+            h('input', { value: pr.code, placeholder: 'CODE', 'aria-label': 'Promo code', maxlength: 24, style: 'text-transform:uppercase', oninput: (e) => { pr.code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); saveOrdering(); } }),
+            h('input', { value: pr.type === 'amount' ? (pr.value / 100).toFixed(2) : pr.value, inputmode: 'decimal', 'aria-label': 'Amount off', oninput: (e) => { const n = pr.type === 'amount' ? parsePrice(e.target.value || '0') : Math.round(Number(e.target.value)); if (n !== null && Number.isFinite(n)) { pr.value = n; saveOrdering(); } } }),
+            h('button', { type: 'button', class: 'btn soft sm', title: 'Switch between percent and dollars', onclick: () => { pr.type = pr.type === 'amount' ? 'percent' : 'amount'; pr.value = pr.type === 'amount' ? 500 : 10; saveOrdering(); redraw(); } }, pr.type === 'amount' ? '$ off' : '% off'),
+            h('label', { class: 'switch', title: 'Active' }, h('input', { type: 'checkbox', 'aria-label': 'Active', checked: pr.active, onchange: (e) => { pr.active = e.target.checked; saveOrdering(); } }), h('i')),
+            h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove code', onclick: () => { o.promos.splice(i, 1); saveOrdering(); redraw(); } }, ic('trash', 16))))),
+            h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { o.promos.push({ code: o.promos.length ? '' : 'WELCOME10', type: 'percent', value: 10, active: true }); saveOrdering(); redraw(); } }, ic('plus', 14), 'Add promo code')),
           group('Order emails', text('Send new orders to', o, 'notifyEmail', { type: 'email', placeholder: draft.business.email || state.user.email }),
             note(state.config.emailEnabled ? 'Customers get an email when their order is received, confirmed, ready and if it is cancelled. You get an email for every new order.' : h('span', {}, h('b', {}, 'Email is not switched on yet. '), 'Orders still arrive in your Orders list. Processor Freedom needs to connect an email service before confirmations are sent.'))),
         ] : [note('Turn this on to add an order page to your site. Customers choose items from your menu, pick how they want to receive them, and you get the order here and by email.')]),
@@ -439,16 +492,33 @@ export async function editor(id, mount, title) {
       const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); Object.assign(x, r.order); paintPanel(); } catch (e) { toast(e.message, true); } };
       const next = { new: ['confirmed', 'Confirm order'], confirmed: ['ready', 'Mark ready'], ready: ['completed', 'Complete'] };
       const seg = h('div', { class: 'seg' }, [['active', `Active · ${active.length}`], ['all', 'All orders']].map(([k, l]) => h('button', { 'aria-pressed': String(orderFilter === k), onclick: () => { orderFilter = k; paintPanel(); } }, l)));
-      return [group('Orders', seg,
+      const alertBox = h('label', { class: 'switch' }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Sound and pop-up alerts'), h('div', { class: 'small muted' }, 'Chime on every new order while this page is open.')), h('input', { type: 'checkbox', checked: alertsOn(), onchange: (e) => setAlerts(e.target.checked) }), h('i'));
+      return [group('Orders', alertBox, h('a', { class: 'btn soft sm', style: 'justify-self:start', href: `/app/site/${id}/kitchen`, target: '_blank' }, 'Open kitchen screen', ic('out', 14)), seg,
         !shown.length && note(orders.length ? 'No active orders right now.' : h('span', {}, h('b', {}, 'No orders yet. '), ordering.enabled ? 'New orders appear here as they come in. This list refreshes on its own.' : 'Turn on online ordering in Ordering options to start taking orders.')),
         shown.map((x) => h('article', { class: `ocard ${x.status === 'new' ? 'new' : ''}` },
           h('header', {}, h('b', {}, `#${x.number} · ${x.name}`), h('span', { class: `status ${x.status === 'cancelled' ? 'bad' : x.status === 'completed' ? '' : x.status === 'new' ? 'warn' : 'ok'}` }, x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status])),
           h('div', { class: 'small muted' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`),
-          h('div', { class: 'its' }, x.items.map((l) => h('div', {}, h('span', {}, `${l.qty} × ${l.name}`), h('span', {}, money(l.price * l.qty)))), h('div', { style: 'font-weight:600;margin-top:4px' }, h('span', {}, 'Total'), h('span', {}, money(x.total)))),
+          h('div', { class: 'its' }, x.items.map((l) => h('div', {}, h('span', {}, `${l.qty} × ${l.name}`, l.opts?.length > 0 && h('span', { class: 'muted', style: 'display:block;font-size:13px' }, l.opts.join(', '))), h('span', {}, money(l.price * l.qty)))), x.discount > 0 && h('div', { class: 'muted' }, h('span', {}, `Discount ${x.promo}`), h('span', {}, `−${money(x.discount)}`)), h('div', { style: 'font-weight:600;margin-top:4px' }, h('span', {}, 'Total'), h('span', {}, money(x.total)))),
           h('div', { class: 'small' }, h('a', { href: `tel:${x.phone.replace(/[^\d+]/g, '')}` }, x.phone), ' · ', h('a', { href: `mailto:${x.email}` }, x.email)),
+          x.scheduled && h('div', { class: 'small' }, h('b', {}, 'Scheduled for '), slotLabel(x.scheduled, ordering)),
           x.address && h('div', { class: 'small' }, h('b', {}, 'Deliver to '), x.address), x.vehicle && h('div', { class: 'small' }, h('b', {}, 'Vehicle '), x.vehicle), x.notes && h('div', { class: 'small' }, h('b', {}, 'Notes '), x.notes),
           next[x.status] && h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => setStatus(x, next[x.status][0]) }, next[x.status][0] === 'ready' ? `Mark ${readyLabel(x.method).toLowerCase()}` : next[x.status][1]),
+            h('button', { class: 'btn soft sm', onclick: () => printTicket(x, meta.name, { method: ORDER_METHODS[x.method]?.name || x.method, when: x.scheduled ? slotLabel(x.scheduled, ordering) : 'As soon as possible', total: money(x.total) }) }, ic('print', 14), 'Print'),
             h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Cancel order #${x.number}?`, text: 'The customer is told by email and any stock is returned.', action: 'Cancel order', danger: true })) setStatus(x, 'cancelled'); } }, 'Cancel')))))];
+    },
+
+    sales() {
+      if (!stats) { api('GET', `/api/sites/${id}/stats`).then((r) => { stats = r; if (tab === 'sales') paintPanel(); }).catch((e) => toast(e.message, true)); return [h('div', { class: 'loading', style: 'min-height:200px' }, h('div', { class: 'spinner' }))]; }
+      const st = stats;
+      const peak = Math.max(1, ...st.days.map((d) => d.sales));
+      const card = (label, value) => h('div', { class: 'kpi' }, h('span', { class: 'small muted' }, label), h('b', {}, value));
+      const totalMethods = Object.values(st.methods).reduce((a, b) => a + b, 0) || 1;
+      return [group('Last 30 days', h('div', { class: 'kpis' }, card('Sales', money(st.sales)), card('Orders', st.orders), card('Average order', money(st.average)), card('Tips', money(st.tips))),
+        h('div', { class: 'bars', role: 'img', 'aria-label': 'Sales per day for the last 30 days' }, st.days.map((d) => h('i', { title: `${d.date}: ${money(d.sales)} · ${d.orders} order${d.orders === 1 ? '' : 's'}`, style: `height:${Math.max(2, (d.sales / peak) * 100)}%`, class: d.sales ? 'on' : '' }))),
+        h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', {}, st.days[0].date.slice(5)), h('span', {}, 'Today'))),
+        group('Best sellers', st.top.length ? h('table', { class: 'ptable' }, h('tbody', {}, st.top.map((t) => h('tr', {}, h('td', {}, t.name), h('td', { class: 'muted' }, `${t.qty} sold`), h('td', {}, money(t.sales)))))) : note('No sales yet. Your best-selling items appear here once orders come in.')),
+        group('How customers order', Object.keys(ORDER_METHODS).filter((m) => st.methods[m]).map((m) => h('div', { class: 'split' }, h('span', {}, ORDER_METHODS[m].name), h('div', {}, h('i', { style: `width:${(st.methods[m] / totalMethods) * 100}%` })), h('b', {}, st.methods[m]))), !Object.keys(st.methods).length && note('Nothing to show yet.')),
+        h('button', { class: 'btn soft sm', style: 'justify-self:start', onclick: () => { stats = null; paintPanel(); } }, 'Refresh')];
     },
 
     inbox() {
@@ -473,7 +543,7 @@ export async function editor(id, mount, title) {
       const arrived = had ? fresh.filter((x) => !had.has(x.id)).length : 0;
       const changed = !orders || JSON.stringify(fresh) !== JSON.stringify(orders);
       orders = fresh;
-      if (arrived) toast(arrived === 1 ? 'New order received' : `${arrived} new orders received`);
+      if (arrived) { toast(arrived === 1 ? 'New order received' : `${arrived} new orders received`); announceOrders(fresh.filter((x) => !had.has(x.id)), meta.name); }
       if (changed && (tab === 'orders' || tab === 'start')) paintPanel(); else if (changed) paintPanel();
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
@@ -590,7 +660,8 @@ export async function editor(id, mount, title) {
         : h('button', { class: 'btn soft', onclick: () => liveSheet(false) }, ic('check', 15), 'Published');
     top.replaceChildren(
       h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
-      h('span', { class: 'name' }, meta.name), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
+      h('span', { class: 'name' }, meta.name),
+      h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
       h('div', { class: 'mid' },
         h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
         h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
@@ -636,6 +707,7 @@ export async function editor(id, mount, title) {
         h('div', { class: 'row small', style: 'flex-wrap:wrap;justify-content:center' }, h('span', { class: 'muted' }, 'Share on'),
           h('a', { href: `https://www.facebook.com/sharer/sharer.php?u=${share}`, target: '_blank', rel: 'noopener' }, 'Facebook'), h('a', { href: `https://x.com/intent/post?url=${share}&text=${encodeURIComponent(meta.name)}`, target: '_blank', rel: 'noopener' }, 'X'),
           h('a', { href: `mailto:?subject=${encodeURIComponent(meta.name)}&body=${share}` }, 'Email')),
+        h('p', { class: 'hint' }, 'Most customers find restaurants on Google. Add this link as your website and ordering link in your ', h('a', { href: 'https://business.google.com/', target: '_blank', rel: 'noopener' }, 'Google Business Profile'), '.'),
         !meta.customDomain && h('p', { class: 'hint' }, 'Want your own domain? Open the ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); close(); tab = 'domain'; paintPanel(); } }, 'Domain'), ' tab.'),
         h('div', { class: 'row', style: 'justify-content:center' }, h('button', { class: 'btn text sm', onclick: close }, 'Done'),
           h('button', { class: 'btn danger sm', onclick: async () => {
@@ -656,6 +728,8 @@ export async function editor(id, mount, title) {
       if (target !== page) { frame.addEventListener('load', jump, { once: true }); setPage(target); } else { e.data.hash ? jump() : frame.contentWindow.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
   };
+  const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
+  window.addEventListener('keydown', onKey);
   const onLeave = (e) => { if (saveState !== 'saved') { save.flush(); e.preventDefault(); e.returnValue = ''; } };
   window.addEventListener('message', onMessage);
   window.addEventListener('beforeunload', onLeave);
@@ -663,5 +737,5 @@ export async function editor(id, mount, title) {
   mount(h('div', { class: 'ed' }, top, body));
   paintTop(); paintPanel(); paint(true);
 
-  return () => { stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
+  return () => { window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }

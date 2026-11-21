@@ -2,7 +2,7 @@
 // in the builder and the published site, so what people see is what goes live.
 
 import { ORDER_CSS, ORDER_JS, menuSection, orderPage, orderStatusPage } from './order.js';
-import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM } from './core.js';
+import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM, strings } from './core.js';
 
 const icon = (name, size = 24) =>
   `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.star}</svg>`;
@@ -269,11 +269,11 @@ if(h.charAt(0)==='#'){var el=d.getElementById(h.slice(1));el&&el.scrollIntoView(
 if(t.closest('button,input,textarea,summary,label'))return;
 var s=t.closest('[data-sec]');if(s)parent.postMessage({pf:'section',id:s.getAttribute('data-sec')},'*')});
 d.addEventListener('submit',function(e){var f=e.target;if(!f.classList.contains('msg'))return;e.preventDefault();
-var done=function(){f.innerHTML='<div class="sent" role="status"><h3>Message sent</h3><p>Thank you. We will be in touch soon.</p></div>'};
+var done=function(){var h=d.createElement('h3');h.textContent=f.dataset.sent||'Message sent';var q=d.createElement('p');q.textContent=f.dataset.sub||'';var w=d.createElement('div');w.className='sent';w.setAttribute('role','status');w.appendChild(h);w.appendChild(q);f.innerHTML='';f.appendChild(w)};
 if(P){done();return}
-var b=f.querySelector('button');b.disabled=true;b.textContent='Sending…';
+var b=f.querySelector('button');var bt=b.textContent;b.disabled=true;b.textContent='…';
 var body={};new FormData(f).forEach(function(v,k){body[k]=v});
-fetch(f.action,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw 0;done()}).catch(function(){b.disabled=false;b.textContent='Send message';var n=f.querySelector('.note');n.textContent='Something went wrong. Please try again, or contact us directly.';n.style.color='#d1372f'})});
+fetch(f.action,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw 0;done()}).catch(function(){b.disabled=false;b.textContent=bt;var n=f.querySelector('.note');n.textContent='Something went wrong. Please try again, or contact us directly.';n.style.color='#d1372f'})});
 })();`;
 
 const paras = (text) => str(text, 60000).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
@@ -310,6 +310,8 @@ export function renderPage(site, page = 'home', opts = {}) {
   const biz = site.business || {};
   const name = str(brand.name, 80) || 'My Business';
   const sections = arr(site.sections).filter((s) => s && s.enabled !== false);
+  const lang = site.lang === 'es' ? 'es' : 'en';
+  const T = strings(lang);
   const ordering = opts.ordering || null;
   const menu = arr(opts.menu);
   const legalOn = Object.keys(LEGAL_PAGES).filter((k) => site.legal?.[k]?.enabled !== false);
@@ -358,7 +360,7 @@ export function renderPage(site, page = 'home', opts = {}) {
           : `<div class="grid">${items.map((x) => `<article class="card">${safeImg(x.image) ? `<div class="pic">${img(x.image, x.name)}</div>` : ''}<div class="body"><h3>${esc(x.name)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${x.price ? `<div class="price">${esc(x.price)}</div>` : ''}</div></article>`).join('')}</div>`;
       return `<div class="wrap">${head(d)}${body}</div>`;
     },
-    menu(d) { return menuSection(d, { menu, ordering, preview, orderHref: pageHref('order') }); },
+    menu(d) { return menuSection(d, { menu, ordering, preview, orderHref: pageHref('order'), lang }); },
     features(d) {
       const items = arr(d.items).filter((x) => x && str(x.title).trim());
       return `<div class="wrap">${head(d)}<div class="feat">${items.map((x) => `<div><div class="ic">${icon(x.icon, 34)}</div><h3>${esc(x.title)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}</div>`).join('')}</div></div>`;
@@ -382,13 +384,13 @@ export function renderPage(site, page = 'home', opts = {}) {
     },
     contact(d) {
       const info = [
-        address.length ? `<div><h3>Location</h3><address>${address.map(esc).join('<br>')}</address>${mapUrl ? `<p><a href="${esc(mapUrl)}" target="_blank" rel="noopener">Get directions</a></p>` : ''}</div>` : '',
-        biz.phone || biz.email ? `<div><h3>Contact</h3>${biz.phone ? `<p><a ${href(biz.phone)}>${esc(biz.phone)}</a></p>` : ''}${biz.email ? `<p><a ${href(biz.email)}>${esc(biz.email)}</a></p>` : ''}</div>` : '',
-        d.showHours !== false && hoursHtml ? `<div><h3>Hours</h3>${hoursHtml}</div>` : '',
+        address.length ? `<div><h3>${esc(T.location)}</h3><address>${address.map(esc).join('<br>')}</address>${mapUrl ? `<p><a href="${esc(mapUrl)}" target="_blank" rel="noopener">${esc(T.directions)}</a></p>` : ''}</div>` : '',
+        biz.phone || biz.email ? `<div><h3>${esc(T.contact)}</h3>${biz.phone ? `<p><a ${href(biz.phone)}>${esc(biz.phone)}</a></p>` : ''}${biz.email ? `<p><a ${href(biz.email)}>${esc(biz.email)}</a></p>` : ''}</div>` : '',
+        d.showHours !== false && hoursHtml ? `<div><h3>${esc(T.hours)}</h3>${hoursHtml}</div>` : '',
       ].join('');
       const form = d.showForm === false ? '' : opts.sent
-        ? `<div class="msg"><div class="sent" role="status"><h3>Message sent</h3><p>Thank you. We will be in touch soon.</p></div></div>`
-        : `<form class="msg" method="post" action="${esc(base)}/_forms/contact"><div class="two"><label class="f">Name<input name="name" autocomplete="name" required maxlength="120"></label><label class="f">Email<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div><label class="f">Phone <input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label class="f">Message<textarea name="message" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><label>Leave this empty<input name="company_website" tabindex="-1" autocomplete="off"></label></div><button class="btn" type="submit">Send message</button><p class="note">${legalOn.includes('privacy') ? `By sending this message you agree to our <a ${pageHref('privacy')}>Privacy Policy</a>.` : 'We only use your details to reply to you.'}</p></form>`;
+        ? `<div class="msg"><div class="sent" role="status"><h3>${esc(T.sent)}</h3><p>${esc(T.sentSub)}</p></div></div>`
+        : `<form class="msg" method="post" action="${esc(base)}/_forms/contact" data-sent="${esc(T.sent)}" data-sub="${esc(T.sentSub)}"><div class="two"><label class="f">${esc(T.name)}<input name="name" autocomplete="name" required maxlength="120"></label><label class="f">${esc(T.email)}<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div><label class="f">${esc(T.phone)} <input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label class="f">${esc(T.message)}<textarea name="message" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><label>Leave this empty<input name="company_website" tabindex="-1" autocomplete="off"></label></div><button class="btn" type="submit">${esc(T.send)}</button><p class="note">${legalOn.includes('privacy') ? `${esc(T.agree)} <a ${pageHref('privacy')}>${esc(T.privacy)}</a>.` : esc(T.onlyReply)}</p></form>`;
       return `<div class="wrap"><div class="cols${form ? '' : ' one'}"><div><h2>${esc(d.title)}</h2>${d.subtitle ? `<p class="sub">${esc(d.subtitle)}</p>` : ''}<div class="info">${info}</div></div>${form}</div></div>`;
     },
   };
@@ -400,8 +402,8 @@ export function renderPage(site, page = 'home', opts = {}) {
   const navLinks = sections.filter((s) => str(s.nav).trim()).map((s) => `<a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a>`).join('');
   const hc = site.header || {};
   const ann = site.announcement || {};
-  const header = `<a class="skip" href="#main">Skip to content</a>${ann.enabled && str(ann.text).trim() ? `<div class="bar">${esc(ann.text)}${href(ann.href) ? `<a ${href(ann.href)}>Learn more ›</a>` : ''}</div>` : ''}
-<header class="hdr${hc.sticky === false ? '' : ' sticky'}${hc.layout === 'center' ? ' center' : hc.layout === 'mid' ? ' mid' : ''}${hc.style === 'brand' ? ' on-brand' : hc.style === 'dark' ? ' on-dark' : ''}"><div class="wrap"><a class="brand" ${pageHref('home')}>${brandHtml}</a><nav class="nav" id="nav" aria-label="Main">${navLinks}${hc.showPhone && biz.phone ? `<a ${href(biz.phone)}>${esc(biz.phone)}</a>` : ''}${btn(hc.cta, 'sm')}</nav><button class="menu-btn" aria-label="Menu" aria-controls="nav" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button></div></header>`;
+  const header = `<a class="skip" href="#main">${esc(T.skip)}</a>${ann.enabled && str(ann.text).trim() ? `<div class="bar">${esc(ann.text)}${href(ann.href) ? `<a ${href(ann.href)}>${esc(T.learnMore)} ›</a>` : ''}</div>` : ''}
+<header class="hdr${hc.sticky === false ? '' : ' sticky'}${hc.layout === 'center' ? ' center' : hc.layout === 'mid' ? ' mid' : ''}${hc.style === 'brand' ? ' on-brand' : hc.style === 'dark' ? ' on-dark' : ''}"><div class="wrap"><a class="brand" ${pageHref('home')}>${brandHtml}</a><nav class="nav" id="nav" aria-label="Main">${navLinks}${hc.showPhone && biz.phone ? `<a ${href(biz.phone)}>${esc(biz.phone)}</a>` : ''}${btn(hc.cta, 'sm')}</nav><button class="menu-btn" aria-label="${esc(T.menu)}" aria-controls="nav" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button></div></header>`;
 
   /* Body */
   let main;
@@ -419,18 +421,18 @@ export function renderPage(site, page = 'home', opts = {}) {
     }).join('\n');
     if (!main && preview) main = `<section><div class="wrap">${emptyBox('Your page is empty. Add a section to get started.')}</div></section>`;
   } else if (page === 'order' && ordering?.enabled) {
-    pageTitle = 'Order online';
-    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', payNote: safeUrl(biz.payUrl) ? 'You can pay online after placing your order, or when you receive it.' : 'Payment is collected when you receive your order.' });
+    pageTitle = T.orderOnline;
+    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now });
   } else if (page === 'order-status' && opts.order) {
-    pageTitle = `Order #${opts.order.number}`;
-    main = orderStatusPage({ order: opts.order, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>Call ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home') });
+    pageTitle = `${T.order} #${opts.order.number}`;
+    main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang });
   } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
-    pageTitle = LEGAL_PAGES[page];
-    main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">Effective ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;
+    pageTitle = T[page] || LEGAL_PAGES[page];
+    main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">${esc(T.effective)} ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;
   } else {
     status = 404;
     pageTitle = 'Page not found';
-    main = `<section class="hero center"><div class="wrap"><p class="eyebrow">404</p><h1>Page not found.</h1><p class="lede">The page you are looking for does not exist or has moved.</p><div class="actions"><a class="btn" ${pageHref('home')}>Back to home</a></div></div></section>`;
+    main = `<section class="hero center"><div class="wrap"><p class="eyebrow">404</p><h1>${esc(T.notFound)}</h1><p class="lede">${esc(T.notFoundSub)}</p><div class="actions"><a class="btn" ${pageHref('home')}>${esc(T.backHome)}</a></div></div></section>`;
   }
 
   /* Footer */
@@ -439,14 +441,14 @@ export function renderPage(site, page = 'home', opts = {}) {
   const payUrl = safeUrl(biz.payUrl);
   const footCols = `<div class="top">
 <div><a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}</div>
-<div><h3>Explore</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>Order online</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>Pay online</a></li>` : ''}</ul></div>
-<div><h3>Contact</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
-<div><h3>Legal</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${LEGAL_PAGES[k]}</a></li>`).join('')}</ul></div>
+<div><h3>${esc(T.explore)}</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>${esc(T.payOnline)}</a></li>` : ''}</ul></div>
+<div><h3>${esc(T.contact)}</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
+<div><h3>${esc(T.legal)}</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`).join('')}</ul></div>
 </div>`;
-  const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>Order online</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${LEGAL_PAGES[k]}</a></li>`)].join('');
+  const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`)].join('');
   const footSimple = `<a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}<ul class="links">${footLinks}</ul>`;
   const footCls = `${ft.style === 'simple' ? ' simple' : ''}${ft.color === 'brand' ? ' on-brand' : ft.color === 'dark' ? ' on-dark' : ft.color === 'plain' ? ' plain' : ''}`;
-  const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. All rights reserved.</span><span>${ft.showPayments !== false ? 'Visa · Mastercard · American Express · Discover accepted' : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `Website by <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
+  const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. ${esc(T.rights)}</span><span>${ft.showPayments !== false ? esc(T.cards) : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `${esc(T.websiteBy)} <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
 
   /* Head */
   const seo = site.seo || {};
@@ -474,6 +476,6 @@ ${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywo
 <meta name="theme-color" content="${site.theme?.mode === 'dark' ? '#000000' : '#ffffff'}"><link rel="icon" href="${favicon}">
 <style id="pf-vars">${vars}</style><style>${SITE_CSS}${ordering?.enabled || menu.length ? ORDER_CSS : ''}</style>${ld}${page === 'order-status' && !['completed', 'cancelled'].includes(opts.order?.status) ? '<meta http-equiv="refresh" content="30">' : ''}`;
   const body = `${header}\n<main id="main">${main}</main>\n${footer}`;
-  const html = `<!doctype html><html lang="en"${preview ? ' data-preview' : ''}><head>${headHtml}</head><body>${body}<script>${SITE_JS}</script>${ordering?.enabled ? `<script>${ORDER_JS}</script>` : ''}</body></html>`;
+  const html = `<!doctype html><html lang="${lang}"${preview ? ' data-preview' : ''}><head>${headHtml}</head><body>${body}<script>${SITE_JS}</script>${ordering?.enabled ? `<script>${ORDER_JS}</script>` : ''}</body></html>`;
   return { html, body, vars, title, status };
 }

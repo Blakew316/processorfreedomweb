@@ -22,7 +22,15 @@ an online ordering website, types their business name, picks a template, uploads
   a header row work too. Each item can have a photo, be hidden, or have its stock counted down to sold out.
 - **Online ordering**: pickup, curbside and delivery, each with its own settings (ready time, instructions, delivery fee, minimum and
   area), sales tax, tips and order notes. Customers get an order page with a cart and a status page that updates as the order moves.
-- **Orders**: new orders appear in the builder and refresh on their own. Confirm, mark ready, complete or cancel.
+- **Item options**: sizes, add-ons and choices per item, required or optional, single or multiple, each with its own extra charge.
+- **Opening hours and ordering ahead**: per-day ordering hours in the business's time zone, and optional scheduled pickup or delivery times.
+- **Promo codes**: percent or dollar-off codes applied at checkout.
+- **Orders**: new orders appear in the builder and refresh on their own, with a chime and browser notification. Confirm, mark ready,
+  complete or cancel, print a kitchen ticket, or open the large-type kitchen screen at `/app/site/<id>/kitchen`.
+- **Sales**: 30-day sales, order count, average order, best sellers and pickup/curbside/delivery split.
+- **Spanish**: a site language switch that translates the built-in words on merchant sites.
+- **Editor extras**: undo and redo, drag to reorder menu items.
+- **Password reset**: by email when email is configured, or by a one-time link staff create from the staff dashboard.
 - **Order emails**: the customer is emailed when the order is received, confirmed, ready or cancelled; the business is emailed for
   every new order. Requires `RESEND_API_KEY` and `EMAIL_FROM`.
 - **Staff tools** at `/app/admin`: totals, every site, and domain requests with one-step attach.
@@ -77,6 +85,6 @@ system face elsewhere. Apple does not license those fonts for embedding on the w
 ## Not included yet
 
 - Card payment inside checkout. Orders are paid on receipt, or through the merchant's Processor Freedom payment link shown after ordering.
-- Item options and modifiers (sizes, add-ons), scheduled orders for a later time, and ordering hours. Ordering is paused with a switch.
-- Password reset and contact-form notifications by email.
+- Text-message alerts for new orders, and a built-in stock photo library.
+- Contact-form notifications by email. Order emails are English only.
 - Billing for the builder itself.

@@ -5,8 +5,8 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES } from '../shared/core.js';
-import { createMailer, orderEmail } from './mail.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money } from '../shared/core.js';
+import { createMailer, orderEmail, resetEmail } from './mail.js';
 import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
@@ -151,20 +151,20 @@ export function createApp(options = {}) {
     return out;
   }
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
-  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock });
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
-  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
+  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
   function cleanItem(b, prev = {}) {
     const price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
     const name = str(b.name ?? prev.name, 120).trim();
     if (!name) bad(400, 'Give the item a name.');
     if (price == null || !(price >= 0) || price > 100_000_00) bad(400, 'Enter a price like 9.99.');
     const stock = b.stock === undefined ? prev.stock ?? null : b.stock === null || b.stock === '' ? null : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
-    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, stock };
+    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, stock, options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
   }
   function insertItems(siteId, items) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
-    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, stock, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.stock ?? null, sort++);
+    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, stock, options, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.stock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++);
   }
   function businessOf(site) {
     const c = JSON.parse(site.published || site.draft);
@@ -173,7 +173,8 @@ export function createApp(options = {}) {
   }
   function mail(kind, req, site, order, to) {
     const business = businessOf(site);
-    const msg = orderEmail(kind, { business, order, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
+    const when = order.scheduled ? slotLabel(order.scheduled, orderingOf(site)) : '';
+    const msg = orderEmail(kind, { business, order, when, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
     Promise.resolve().then(() => mailer.send({ to, ...msg, fromName: business.name, replyTo: kind === 'merchant' ? order.email : business.email })).catch((e) => console.error('Order email failed:', e.message));
   }
 
@@ -266,6 +267,34 @@ export function createApp(options = {}) {
     // Sign out every other device.
     db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
     json(res, 200, { ok: true });
+  });
+
+  function resetLinkFor(req, userId) {
+    const token = randomBytes(32).toString('base64url');
+    db.run('DELETE FROM resets WHERE user_id = ?', userId);
+    db.run('INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + 2 * 3600000);
+    return `${appOrigin(req)}/reset?token=${token}`;
+  }
+  route('POST', '/api/auth/forgot', async (req, res) => {
+    limit(`forgot:${ipOf(req)}`, 6, 3600000);
+    const email = str((await readJson(req)).email, 200).trim().toLowerCase();
+    const u = db.get('SELECT id, name, email FROM users WHERE email = ?', email);
+    if (u) { const msg = resetEmail({ name: u.name, link: resetLinkFor(req, u.id) }); mailer.send({ to: u.email, ...msg }).catch((e) => console.error('Reset email failed:', e.message)); }
+    // The same answer either way, so this cannot be used to find out who has an account.
+    json(res, 200, { ok: true, emailEnabled: !!mailer.enabled });
+  });
+  route('POST', '/api/auth/reset', async (req, res) => {
+    limit(`reset:${ipOf(req)}`, 10, 3600000);
+    const b = await readJson(req);
+    const row = db.get('SELECT * FROM resets WHERE token_hash = ? AND expires_at > ?', sha(str(b.token, 200)), Date.now());
+    if (!row) bad(400, 'This reset link has expired or was already used. Ask for a new one.');
+    if (str(b.password, 200).length < 8) bad(400, 'Use at least 8 characters for your password.');
+    db.run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassword(str(b.password, 200)), row.user_id);
+    db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
+    db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
+    startSession(req, res, row.user_id);
+    const u = db.get('SELECT id, email, name FROM users WHERE id = ?', row.user_id);
+    json(res, 200, { user: { ...u, admin: ADMINS.has(u.email) } });
   });
 
   route('GET', '/api/address', (req, res, p, url) => {
@@ -427,7 +456,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const prev = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id) || bad(404, 'That item no longer exists.');
     const it = cleanItem(await readJson(req), prev);
-    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, stock = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.stock, prev.id);
+    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, stock = ?, options = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.stock, it.options, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
 
@@ -436,6 +465,31 @@ export function createApp(options = {}) {
     if (p.item === 'all') db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
     else db.run('DELETE FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id);
     json(res, 200, { items: menuOf(site.id) });
+  });
+
+  route('PUT', '/api/sites/:id/menu-order', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const ids = (await readJson(req)).ids;
+    if (!Array.isArray(ids)) bad(400, 'Could not read that request.');
+    ids.slice(0, 1000).forEach((itemId, i) => db.run('UPDATE menu_items SET sort = ? WHERE id = ? AND site_id = ?', i + 1, str(itemId, 40), site.id));
+    json(res, 200, { items: menuOf(site.id) });
+  });
+
+  route('GET', '/api/sites/:id/stats', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const since = Date.now() - 30 * DAY;
+    const rows = db.all("SELECT * FROM orders WHERE site_id = ? AND status != 'cancelled' AND created_at > ? ORDER BY created_at", site.id, since).map(toOrder);
+    const tz = orderingOf(site).timezone;
+    const dayOf = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+    const days = {}; const items = {}; const methods = {};
+    for (let i = 29; i >= 0; i--) days[dayOf(Date.now() - i * DAY)] = { orders: 0, sales: 0 };
+    for (const o of rows) {
+      const d = days[dayOf(o.createdAt)]; if (d) { d.orders++; d.sales += o.total; }
+      methods[o.method] = (methods[o.method] || 0) + 1;
+      for (const l of o.items) { items[l.name] ||= { name: l.name, qty: 0, sales: 0 }; items[l.name].qty += l.qty; items[l.name].sales += l.price * l.qty; }
+    }
+    const sales = rows.reduce((a, o) => a + o.total, 0);
+    json(res, 200, { orders: rows.length, sales, average: rows.length ? Math.round(sales / rows.length) : 0, tips: rows.reduce((a, o) => a + o.tip, 0), days: Object.entries(days).map(([date, v]) => ({ date, ...v })), top: Object.values(items).sort((a, b) => b.qty - a.qty).slice(0, 8), methods });
   });
 
   route('PUT', '/api/sites/:id/ordering', async (req, res, p) => {
@@ -501,6 +555,13 @@ export function createApp(options = {}) {
     });
   });
 
+  // For when a merchant is locked out: staff create a one-time link and pass it on.
+  route('POST', '/api/admin/users/:id/reset-link', (req, res, p) => {
+    requireAdmin(req);
+    const target = db.get('SELECT id FROM users WHERE id = ?', p.id) || bad(404, 'That account no longer exists.');
+    json(res, 200, { link: resetLinkFor(req, target.id) });
+  });
+
   // Removes an account and everything it owns: sites, menus, orders and messages.
   route('DELETE', '/api/admin/users/:id', (req, res, p) => {
     const me = requireAdmin(req);
@@ -557,36 +618,48 @@ export function createApp(options = {}) {
       return isJson ? json(res, 200, { ok: true }) : redirect(res, `${base}/?sent=1#contact`, 303);
     }
     const ordering = orderingOf(site);
+    if (path === '/_promo' && req.method === 'GET' && !draft) {
+      limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000);
+      const promo = ordering.enabled && findPromo(ordering, new URL(req.url, 'http://x').searchParams.get('code'));
+      return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
+    }
     if (path === '/_order' && req.method === 'POST' && !draft) {
       limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000);
       const b = await readJson(req, 50_000);
       if (!ordering.enabled || !ordering.accepting) bad(409, 'Online ordering is paused right now. Please call us to order.');
       const method = str(b.method, 20);
       if (!ordering.methods[method]) bad(400, 'Choose how you would like to receive your order.');
+      const scheduled = str(b.when, 20);
+      if (scheduled) { if (!orderSlots(ordering, method).includes(scheduled)) bad(409, 'That time is no longer available. Please choose another.'); }
+      else if (!isOpenNow(ordering)) bad(409, ordering.scheduling ? 'We are closed right now. Please choose a time for your order.' : 'We are closed right now. Please order during our opening hours.');
       const who = { name: str(b.name, 120).trim(), phone: str(b.phone, 40).trim(), email: str(b.email, 200).trim(), address: method === 'delivery' ? str(b.address, 300).trim() : '', vehicle: method === 'curbside' ? str(b.vehicle, 120).trim() : '', notes: ordering.allowNotes ? str(b.notes, 500).trim() : '' };
       if (!who.name || who.phone.replace(/\D/g, '').length < 7 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(who.email)) bad(400, 'Please add your name, phone number and a valid email address.');
       if (method === 'delivery' && !who.address) bad(400, 'Please add your delivery address.');
       if (method === 'curbside' && !who.vehicle) bad(400, 'Please describe your vehicle so we can find you.');
-      const want = new Map();
-      for (const l of Array.isArray(b.items) ? b.items.slice(0, 100) : []) { const q = Math.round(Number(l?.qty)); if (q > 0 && q <= 50) want.set(str(l.id, 40), (want.get(str(l.id, 40)) || 0) + q); }
-      if (!want.size) bad(400, 'Your order is empty.');
+      const wanted = (Array.isArray(b.items) ? b.items.slice(0, 100) : []).map((l) => ({ id: str(l?.id, 40), qty: Math.round(Number(l?.qty)), picks: Array.isArray(l?.opts) ? l.opts.slice(0, 12).map((g) => (Array.isArray(g) ? g.slice(0, 30).map(Number) : [])) : [] })).filter((l) => l.qty > 0 && l.qty <= 50);
+      if (!wanted.length) bad(400, 'Your order is empty.');
+      const promo = str(b.promo).trim() ? findPromo(ordering, b.promo) || bad(400, 'That promo code is not valid.') : null;
       let order;
       db.raw.exec('BEGIN IMMEDIATE');
       try {
-        const lines = [];
-        for (const [itemId, qty] of want) {
-          const it = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', itemId, site.id);
-          if (!it || !it.available || it.stock === 0) bad(409, `${it ? it.name : 'One of your items'} is no longer available. Please remove it and try again.`);
-          if (it.stock != null && it.stock < qty) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
-          lines.push({ id: it.id, name: it.name, price: it.price, qty });
+        const lines = []; const need = new Map();
+        for (const w of wanted) {
+          const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', w.id, site.id);
+          if (!row || !row.available || row.stock === 0) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
+          const it = toItem(row);
+          const picked = resolveOptions(it, w.picks);
+          if (picked.error) bad(400, picked.error);
+          need.set(it.id, (need.get(it.id) || 0) + w.qty);
+          if (it.stock != null && it.stock < need.get(it.id)) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
+          lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks });
         }
-        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0);
+        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo);
         if (method === 'delivery' && t.subtotal < ordering.deliveryMin) bad(400, 'Your order is below the delivery minimum.');
-        for (const l of lines) db.run('UPDATE menu_items SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL', l.qty, l.id);
+        for (const [itemId, qty] of need) db.run('UPDATE menu_items SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL', qty, itemId);
         const number = (db.get('SELECT MAX(number) AS n FROM orders WHERE site_id = ?', site.id).n || 1000) + 1;
         const oid = newId(); const now = Date.now();
-        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, tax, fee, tip, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.tax, t.fee, t.tip, t.total, now, now);
+        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, now, now);
         db.raw.exec('COMMIT');
         order = toOrder(db.get('SELECT * FROM orders WHERE id = ?', oid));
       } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
@@ -694,7 +767,7 @@ export function createApp(options = {}) {
     if (path.startsWith('/assets/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path.startsWith('/shared/')) return (await sendFile(res, join(ROOT, 'shared'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\n', { 'Content-Type': 'text/plain' });
-    if (path === '/' || /^\/(login|signup|app(\/.*)?)$/.test(path)) {
+    if (path === '/' || /^\/(login|signup|forgot|reset|app(\/.*)?)$/.test(path)) {
       // Link previews need absolute image addresses, so the shell is filled in per request.
       shell ??= await fs.readFile(join(ROOT, 'public', 'index.html'), 'utf8');
       return html(res, 200, shell.replaceAll('__ORIGIN__', esc(appOrigin(req))), cache);

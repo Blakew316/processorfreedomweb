@@ -33,13 +33,13 @@ const HEAD = {
 };
 
 /** Builds one order email. `kind` is placed, confirmed, ready, cancelled or merchant. */
-export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta }) {
+export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta, when }) {
   const [title, intro] = HEAD[kind](order);
   const forMerchant = kind === 'merchant';
-  const rows = order.items.map((l) => [`${l.qty} × ${l.name}`, money(l.price * l.qty)]);
-  const totals = [['Subtotal', order.subtotal], ['Tax', order.tax], ['Delivery', order.fee], ['Tip', order.tip]].filter(([, v]) => v > 0).map(([k, v]) => [k, money(v)]);
+  const rows = order.items.map((l) => [`${l.qty} × ${l.name}${l.opts?.length ? ` (${l.opts.join(', ')})` : ''}`, money(l.price * l.qty)]);
+  const totals = [['Subtotal', order.subtotal], [`Discount${order.promo ? ` (${order.promo})` : ''}`, -order.discount], ['Tax', order.tax], ['Delivery', order.fee], ['Tip', order.tip]].filter(([, v]) => v).map(([k, v]) => [k, v < 0 ? `−${money(-v)}` : money(v)]);
   const details = [
-    [ORDER_METHODS[order.method].name, kind === 'placed' && eta ? `About ${eta} minutes` : ''],
+    [ORDER_METHODS[order.method].name, when ? `Scheduled for ${when}` : kind === 'placed' && eta ? `About ${eta} minutes` : ''],
     forMerchant && ['Customer', `${order.name} · ${order.phone} · ${order.email}`],
     order.address && ['Deliver to', order.address], order.vehicle && ['Vehicle', order.vehicle], order.notes && ['Notes', order.notes],
   ].filter(Boolean);
@@ -58,4 +58,13 @@ ${forMerchant ? '' : `<p style="margin:28px 0 0;font-size:13px;line-height:1.5;c
 </td></tr></table></td></tr></table></body></html>`;
   const text = [`${business.name} · Order #${order.number}`, '', title, intro, '', ...details.map(([k, v]) => `${k}: ${v}`), '', ...rows.map(([k, v]) => `${k}  ${v}`), ...totals.map(([k, v]) => `${k}: ${v}`), `Total: ${money(order.total)}`, '', url || ''].join('\n');
   return { subject: forMerchant ? `${title} #${order.number} · ${money(order.total)}` : `${title} · ${business.name} #${order.number}`, html, text };
+}
+
+export function resetEmail({ name, link }) {
+  const hello = name ? `Hi ${name.split(' ')[0]},` : 'Hi,';
+  return {
+    subject: 'Reset your Processor Freedom Sites password',
+    text: `${hello}\n\nUse this link to choose a new password. It works once and expires in 2 hours.\n\n${link}\n\nIf you did not ask for this, you can ignore this email.`,
+    html: `<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1d1d1f"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" style="max-width:480px;background:#fff;border-radius:18px"><tr><td style="padding:36px 32px"><h1 style="margin:0 0 10px;font-size:26px;letter-spacing:-.02em;font-weight:600">Reset your password</h1><p style="margin:0 0 22px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(hello)} use the button below to choose a new password. The link works once and expires in 2 hours.</p><p style="margin:0 0 22px"><a href="${esc(link)}" style="display:inline-block;background:#0a1f44;color:#fff;text-decoration:none;border-radius:980px;padding:12px 24px;font-size:15px;font-weight:500">Choose a new password</a></p><p style="margin:0;font-size:13px;color:#86868b">If you did not ask for this, you can ignore this email.</p></td></tr></table></td></tr></table></body></html>`,
+  };
 }

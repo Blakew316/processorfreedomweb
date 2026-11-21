@@ -51,7 +51,13 @@ export function openDb(dataDir) {
     CREATE INDEX IF NOT EXISTS orders_site ON orders(site_id, created_at);
   `);
   // Added after the first release; older databases gain the column here.
-  if (!db.prepare("SELECT 1 FROM pragma_table_info('sites') WHERE name = 'ordering'").get()) db.exec('ALTER TABLE sites ADD COLUMN ordering TEXT');
+  const addColumn = (table, column, type) => { if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`); };
+  addColumn('sites', 'ordering', 'TEXT');
+  addColumn('menu_items', 'options', 'TEXT');
+  addColumn('orders', 'discount', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('orders', 'promo', "TEXT NOT NULL DEFAULT ''");
+  addColumn('orders', 'scheduled', "TEXT NOT NULL DEFAULT ''");
+  db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
   return {
     raw: db,

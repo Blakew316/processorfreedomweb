@@ -1,6 +1,6 @@
 // The order page and order status page of a published site, plus the small script that runs the cart.
 
-import { esc, str, arr, safeImg, money, ORDER_METHODS, ORDER_STATUSES, readyLabel, openMethods } from './core.js';
+import { esc, str, arr, safeImg, money, ORDER_METHODS, readyLabel, openMethods, strings, fill, isOpenNow, orderSlots, slotLabel } from './core.js';
 
 export const ORDER_CSS = `
 .order,.ostat{padding:72px 0 104px}
@@ -32,7 +32,8 @@ export const ORDER_CSS = `
 .oseg{display:flex;background:var(--bg);border-radius:12px;padding:3px;gap:3px;border:1px solid var(--line)}
 .oseg button{flex:1;font:inherit;font-size:14px;font-weight:500;border:0;background:none;color:var(--ink);border-radius:9px;padding:8px 6px;cursor:pointer}
 .oseg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent)}
-#checkout{display:grid;gap:14px}
+#checkout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.cart{grid-template-columns:minmax(0,1fr)}
 .cart .f input,.cart .f textarea{font-size:16px;padding:11px 13px}
 .cart .f textarea{min-height:70px}
 .mnote{font-size:14px;color:var(--muted)}
@@ -44,6 +45,22 @@ export const ORDER_CSS = `
 .cart .btn{width:100%}
 .cart .btn[disabled]{opacity:.45;pointer-events:none}
 .cartbar{display:none}
+.lopt{grid-column:1/-1;color:var(--muted);font-size:13px;margin-top:-2px}
+.cart select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;width:100%}
+.prow{display:flex;gap:8px}
+.prow input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 13px;text-transform:uppercase}
+.prow button{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--accent);border-radius:var(--r-sm);padding:0 16px;cursor:pointer}
+.osheet{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.4);display:grid;place-items:center;padding:16px}
+.osheet>div{background:var(--bg);color:var(--ink);border-radius:var(--r);width:100%;max-width:460px;max-height:88vh;overflow:auto;padding:28px;display:grid;gap:18px}
+.osheet h2{font-size:24px}
+.osheet fieldset{border:0;padding:0;margin:0;display:grid;gap:2px}
+.osheet legend{font-weight:600;font-size:16px;padding:0;margin-bottom:6px}
+.osheet legend span{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+.osheet label{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:16px;cursor:pointer}
+.osheet label input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.osheet label em{margin-left:auto;font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
+.osheet .acts{display:flex;gap:10px}
+.osheet .acts .btn{flex:1}
 .ostat .wrap{max-width:720px}
 .ostat h1{font-size:clamp(34px,5vw,52px);letter-spacing:-.03em}
 .ostat .lede{margin-top:12px}
@@ -72,73 +89,111 @@ function orderClient() {
   var d = document, P = d.documentElement.hasAttribute('data-preview');
   var fmt = function (c) { return '$' + (c / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
   var h = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
-  var S = { cart: {}, method: '', tip: 0, busy: false, err: '', f: {} };
+  var S = { lines: [], method: '', tip: 0, when: '', promo: null, perr: '', busy: false, err: '', f: {} };
   var conf = function () { var el = d.getElementById('pf-order'); try { return el ? JSON.parse(el.textContent) : null; } catch (e) { return null; } };
   var key = function (c) { return 'pf-cart-' + c.key; };
-  function load(c) { try { var v = JSON.parse(localStorage.getItem(key(c)) || '{}'); S.cart = v.cart || {}; S.method = v.method || ''; S.f = v.f || {}; } catch (e) {} }
-  function keep(c) { try { localStorage.setItem(key(c), JSON.stringify({ cart: S.cart, method: S.method, f: S.f })); } catch (e) {} }
-  function lines(c) { return Object.keys(S.cart).filter(function (id) { return c.items[id] && S.cart[id] > 0; }).map(function (id) { var it = c.items[id]; var q = Math.min(S.cart[id], it.max); return { id: id, name: it.n, price: it.p, qty: q }; }).filter(function (l) { return l.qty > 0; }); }
-  function field(name, label, type, req, ac) { return '<label class="f">' + label + '<input name="' + name + '" type="' + (type || 'text') + '"' + (req ? ' required' : '') + (ac ? ' autocomplete="' + ac + '"' : '') + ' maxlength="200" value="' + h(S.f[name]) + '"></label>'; }
+  function load(c) { try { var v = JSON.parse(localStorage.getItem(key(c)) || '{}'); S.lines = Array.isArray(v.lines) ? v.lines : []; S.method = v.method || ''; S.f = v.f || {}; } catch (e) {} }
+  function keep(c) { try { localStorage.setItem(key(c), JSON.stringify({ lines: S.lines, method: S.method, f: S.f })); } catch (e) {} }
+  function price(it, o) { var p = it.p; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) p += g.c[ci][1]; }); }); return p; }
+  function labels(it, o) { var out = []; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) out.push(g.c[ci][0]); }); }); return out.join(', '); }
+  function lines(c) { return S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; }).map(function (l, i) { var it = c.items[l.id]; return { i: i, id: l.id, o: l.o || [], name: it.n, opt: labels(it, l.o), price: price(it, l.o), qty: Math.min(l.q, it.max) }; }); }
+  function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it) return; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q = Math.min(hit.q + 1, it.max); else S.lines.push({ id: id, o: o || [], q: 1 }); }
+  function field(name, label, type, req, ac) { return '<label class="f">' + h(label) + '<input name="' + name + '" type="' + (type || 'text') + '"' + (req ? ' required' : '') + (ac ? ' autocomplete="' + ac + '"' : '') + ' maxlength="200" value="' + h(S.f[name]) + '"></label>'; }
+  function slots(c) { return c.slots[S.method === 'delivery' ? 'delivery' : 'pickup'] || []; }
   function draw() {
     var c = conf(), el = d.getElementById('cart'); if (!c || !el) return;
+    var T = c.T;
     if (c.methods.indexOf(S.method) < 0) S.method = c.methods[0] || '';
+    S.lines = S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; });
+    var sl = slots(c), can = c.open && (c.asap || sl.length > 0);
+    if (S.when && !sl.some(function (x) { return x[0] === S.when; })) S.when = '';
+    if (!c.asap && !S.when && sl.length) S.when = sl[0][0];
     var L = lines(c), sub = L.reduce(function (s, l) { return s + l.price * l.qty; }, 0), count = L.reduce(function (s, l) { return s + l.qty; }, 0);
-    var tax = Math.round(sub * c.tax / 100), fee = S.method === 'delivery' ? c.fee : 0, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub + tax + fee + tip;
-    var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>View order · ' + count + (count === 1 ? ' item' : ' items') + '</span><span>' + fmt(total) + '</span>'; }
-    var out = '<h2>Your order</h2>';
-    if (!L.length) { el.innerHTML = out + '<p class="none">' + (c.open ? 'Add items from the menu to get started.' : 'Online ordering is paused right now.') + '</p>'; return; }
-    out += L.map(function (l) { return '<div class="line"><b>' + h(l.name) + '</b><span>' + fmt(l.price * l.qty) + '</span><div class="step"><button type="button" data-qty="-1" data-id="' + l.id + '" aria-label="Remove one ' + h(l.name) + '">−</button><span>' + l.qty + '</span><button type="button" data-qty="1" data-id="' + l.id + '" aria-label="Add one ' + h(l.name) + '">+</button></div></div>'; }).join('');
-    if (c.methods.length > 1) out += '<div class="oseg" role="group" aria-label="How would you like your order?">' + c.methods.map(function (m) { return '<button type="button" data-method="' + m + '" aria-pressed="' + (S.method === m) + '">' + c.names[m] + '</button>'; }).join('') + '</div>';
-    var note = { pickup: 'Pickup' + (c.prep ? ' in about ' + c.prep + ' minutes' : '') + '. ' + c.pickupNote, curbside: 'Curbside' + (c.prep ? ' in about ' + c.prep + ' minutes' : '') + '. ' + c.curbsideNote, delivery: 'Delivery' + (c.dmin ? ' in about ' + c.dmin + ' minutes' : '') + '. ' + c.area }[S.method] || '';
+    var disc = !S.promo ? 0 : S.promo.type === 'amount' ? Math.min(sub, S.promo.value) : Math.round(sub * S.promo.value / 100);
+    var tax = Math.round((sub - disc) * c.tax / 100), fee = S.method === 'delivery' ? c.fee : 0, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
+    var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(total) + '</span>'; }
+    var out = '<h2>' + h(T.yourOrder) + '</h2>';
+    if (!L.length) { el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? T.closedNow : T.paused) + '</p>'; return; }
+    out += L.map(function (l) { return '<div class="line"><b>' + h(l.name) + '</b><span>' + fmt(l.price * l.qty) + '</span>' + (l.opt ? '<span class="lopt">' + h(l.opt) + '</span>' : '') + '<div class="step"><button type="button" data-qty="-1" data-i="' + l.i + '" aria-label="−">−</button><span>' + l.qty + '</span><button type="button" data-qty="1" data-i="' + l.i + '" aria-label="+">+</button></div></div>'; }).join('');
+    if (c.methods.length > 1) out += '<div class="oseg" role="group">' + c.methods.map(function (m) { return '<button type="button" data-method="' + m + '" aria-pressed="' + (S.method === m) + '">' + h(c.names[m]) + '</button>'; }).join('') + '</div>';
+    var about = function (n) { return n ? ' ' + T.inAbout.replace('{n}', n) : ''; };
+    var note = { pickup: c.names.pickup + about(c.prep) + '. ' + c.pickupNote, curbside: c.names.curbside + about(c.prep) + '. ' + c.curbsideNote, delivery: c.names.delivery + about(c.dmin) + '. ' + c.area }[S.method] || '';
     out += '<p class="mnote">' + h(note) + '</p>';
-    out += '<form id="checkout" novalidate>' + field('name', 'Name', 'text', 1, 'name') + field('phone', 'Phone', 'tel', 1, 'tel') + field('email', 'Email for your confirmation', 'email', 1, 'email');
-    if (S.method === 'delivery') out += field('address', 'Delivery address', 'text', 1, 'street-address');
-    if (S.method === 'curbside') out += field('vehicle', 'Vehicle make, model and colour', 'text', 1);
-    if (c.notes) out += '<label class="f">Notes for us<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
-    if (c.tips) out += '<div><div class="mnote" style="margin-bottom:6px">Add a tip</div><div class="oseg" role="group" aria-label="Tip">' + [0, 10, 15, 20].map(function (t) { return '<button type="button" data-tip="' + t + '" aria-pressed="' + (S.tip === t) + '">' + (t ? t + '%' : 'None') + '</button>'; }).join('') + '</div></div>';
-    out += '<div class="tot"><span>Subtotal</span><span>' + fmt(sub) + '</span>' + (tax ? '<span>Tax</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>Delivery</span><span>' + fmt(fee) + '</span>' : '') + (tip ? '<span>Tip</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">Total</span><span class="g">' + fmt(total) + '</span></div>';
+    out += '<form id="checkout" novalidate>';
+    if (sl.length) out += '<label class="f">' + h(T.when) + '<select name="when">' + (c.asap ? '<option value="">' + h(T.asap) + '</option>' : '') + sl.map(function (x) { return '<option value="' + x[0] + '"' + (S.when === x[0] ? ' selected' : '') + '>' + h(x[1]) + '</option>'; }).join('') + '</select></label>';
+    out += field('name', T.name, 'text', 1, 'name') + field('phone', T.phone, 'tel', 1, 'tel') + field('email', T.emailConfirm, 'email', 1, 'email');
+    if (S.method === 'delivery') out += field('address', T.address, 'text', 1, 'street-address');
+    if (S.method === 'curbside') out += field('vehicle', T.vehicle, 'text', 1);
+    if (c.notes) out += '<label class="f">' + h(T.notes) + '<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
+    if (c.promos) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.promo) + '</div><div class="prow"><input name="promo" maxlength="24" autocomplete="off" value="' + h(S.promo ? S.promo.code : S.f.promo) + '"><button type="button" data-promo="1">' + h(T.apply) + '</button></div>' + (S.perr ? '<p class="oerr" style="margin-top:6px">' + h(S.perr) + '</p>' : '') + '</div>';
+    if (c.tips) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.tip) + '</div><div class="oseg" role="group">' + [0, 10, 15, 20].map(function (t) { return '<button type="button" data-tip="' + t + '" aria-pressed="' + (S.tip === t) + '">' + (t ? t + '%' : h(T.none)) + '</button>'; }).join('') + '</div></div>';
+    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span></div>';
     var short = S.method === 'delivery' && sub < c.min;
-    if (short) out += '<p class="mnote">Delivery orders start at ' + fmt(c.min) + '. Add ' + fmt(c.min - sub) + ' more.</p>';
+    if (short) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
     if (S.err) out += '<p class="oerr" role="alert">' + h(S.err) + '</p>';
-    out += '<button class="btn" type="submit"' + (short || !c.open || S.busy ? ' disabled' : '') + '>' + (S.busy ? 'Placing order…' : c.open ? 'Place order · ' + fmt(total) : 'Ordering is paused') + '</button><p class="note">' + h(c.pay) + '</p></form>';
+    out += '<button class="btn" type="submit"' + (short || !can || S.busy ? ' disabled' : '') + '>' + h(S.busy ? T.placing : can ? T.place + ' · ' + fmt(total) : c.open ? T.closedNow : T.pausedBtn) + '</button><p class="note">' + h(c.pay) + '</p></form>';
     var a = d.activeElement, an = a && a.form && a.form.id === 'checkout' ? a.name : '';
     el.innerHTML = out;
     if (an) { var n = el.querySelector('[name="' + an + '"]'); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (e) {} } }
   }
+  function choose(c, id) {
+    var it = c.items[id], T = c.T, box = d.createElement('div'); box.className = 'osheet';
+    box.innerHTML = '<div role="dialog" aria-modal="true"><h2>' + h(it.n) + '</h2><form>' + it.g.map(function (g, gi) { return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + g.c.map(function (ch, ci) { return '<label><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === 0 ? ' checked' : '') + '>' + h(ch[0]) + (ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
+    var close = function () { box.remove(); };
+    box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('[data-x]')) close(); });
+    box.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      var o = it.g.map(function (g, gi) { return [].map.call(e.target.querySelectorAll('[name=g' + gi + ']:checked'), function (i) { return Number(i.value); }); });
+      var miss = it.g.filter(function (g, gi) { return g.r && !o[gi].length; })[0];
+      if (miss) { var p = e.target.querySelector('.oerr'); p.hidden = false; p.textContent = T.choose + ': ' + miss.n; return; }
+      put(c, id, o); keep(c); close(); draw();
+    });
+    d.body.appendChild(box);
+  }
   d.addEventListener('click', function (e) {
+    var re = e.target.closest('[data-reorder]');
+    if (re) { try { var r = JSON.parse(re.getAttribute('data-reorder')); localStorage.setItem('pf-cart-' + r.key, JSON.stringify({ lines: r.lines, f: {} })); } catch (x) {} return; }
     var c = conf(); if (!c) return;
-    var t = e.target.closest('[data-add],[data-qty],[data-method],[data-tip]'); if (!t) return;
-    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (it) S.cart[t.dataset.add] = Math.min((S.cart[t.dataset.add] || 0) + 1, it.max); }
-    if (t.dataset.qty) { var id = t.dataset.id, q = (S.cart[id] || 0) + Number(t.dataset.qty); if (q <= 0) delete S.cart[id]; else S.cart[id] = Math.min(q, c.items[id] ? c.items[id].max : q); }
+    var t = e.target.closest('[data-add],[data-qty],[data-method],[data-tip],[data-promo]'); if (!t) return;
+    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (it.g && it.g.length) { choose(c, t.dataset.add); return; } put(c, t.dataset.add, []); }
+    if (t.dataset.qty) { var l = S.lines[Number(t.dataset.i)]; if (l) { l.q += Number(t.dataset.qty); if (l.q <= 0) S.lines.splice(Number(t.dataset.i), 1); else l.q = Math.min(l.q, c.items[l.id] ? c.items[l.id].max : l.q); } }
     if (t.dataset.method) S.method = t.dataset.method;
     if (t.dataset.tip) S.tip = Number(t.dataset.tip);
+    if (t.dataset.promo) {
+      var code = (S.f.promo || '').trim(); S.perr = ''; S.promo = null;
+      if (!code) { draw(); return; }
+      if (P) { S.perr = c.T.promoBad; draw(); return; }
+      fetch(c.promoUrl + '?code=' + encodeURIComponent(code)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) { S.promo = j; draw(); }).catch(function () { S.perr = c.T.promoBad; draw(); });
+      return;
+    }
     S.err = ''; keep(c); draw();
-    if (t.dataset.add) { var o = t.textContent; t.textContent = 'Added'; setTimeout(function () { t.textContent = o; }, 900); }
+    if (t.dataset.add) { var o = t.textContent; t.textContent = c.T.added; setTimeout(function () { t.textContent = o; }, 900); }
   });
-  d.addEventListener('input', function (e) { var c = conf(); if (c && e.target.form && e.target.form.id === 'checkout') { S.f[e.target.name] = e.target.value; keep(c); } });
+  d.addEventListener('input', function (e) { var c = conf(); if (c && e.target.form && e.target.form.id === 'checkout') { if (e.target.name === 'when') { S.when = e.target.value; return; } S.f[e.target.name] = e.target.value; keep(c); } });
   d.addEventListener('submit', function (e) {
     if (e.target.id !== 'checkout') return; e.preventDefault();
     var c = conf(), f = e.target; if (!c || S.busy) return;
     var bad = [].filter.call(f.querySelectorAll('[required]'), function (i) { return !i.value.trim(); })[0];
-    if (bad) { S.err = 'Please fill in every field so we can get your order to you.'; draw(); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(S.f.email || '')) { S.err = 'Enter a valid email address for your confirmation.'; draw(); return; }
+    if (bad) { S.err = c.T.fillAll; draw(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(S.f.email || '')) { S.err = c.T.badEmail; draw(); return; }
     if (P) { S.err = 'This is a preview. Orders can be placed once your site is published.'; draw(); return; }
     S.busy = true; S.err = ''; draw();
-    var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty }; }), method: S.method, tip: S.tip, name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, vehicle: S.f.vehicle, notes: S.f.notes };
+    var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, vehicle: S.f.vehicle, notes: S.f.notes };
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'x'); return j; }); })
-      .then(function (j) { S.cart = {}; keep(c); location.href = j.url; })
-      .catch(function (x) { S.busy = false; S.err = x.message && x.message !== 'x' ? x.message : 'We could not place your order. Please try again or call us.'; draw(); });
+      .then(function (j) { S.lines = []; keep(c); location.href = j.url; })
+      .catch(function (x) { S.busy = false; S.err = x.message && x.message !== 'x' ? x.message : c.T.failed; draw(); });
   });
   window.pfOrderInit = function () { var c = conf(); if (c) { if (!S.loaded) { load(c); S.loaded = 1; } draw(); } };
   window.pfOrderInit();
 }
 export const ORDER_JS = `(${orderClient.toString()})();`;
 
-const tile = (x, { ordering, preview, button }) => {
+const tile = (x, { ordering, button, T }) => {
   const out = x.available === false || x.stock === 0;
   const src = safeImg(x.image);
-  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${money(x.price)}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? '<span class="soldout">Sold out</span>' : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>Add</button>`}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">Only ${x.stock} left</span>` : ''}</div>` : out ? '<div class="act"><span class="soldout">Sold out</span></div>' : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
+  const from = arr(x.options).some((g) => g.required && g.choices.every((c) => c.price > 0));
+  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${from ? '+' : ''}${money(x.price)}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
 export function groupMenu(menu) {
@@ -153,48 +208,59 @@ export function groupMenu(menu) {
 }
 
 /** The menu shown as a section on the home page. */
-export function menuSection(d, { menu, ordering, preview, orderHref }) {
+export function menuSection(d, { menu, ordering, preview, orderHref, lang }) {
+  const T = strings(lang);
   const cats = groupMenu(menu);
   if (!cats.length) return preview ? `<div class="wrap">${d.title ? `<div class="sec-head"><h2>${esc(d.title)}</h2></div>` : ''}<div class="empty">Your menu items appear here. Upload your item list in the Menu tab.</div></div>` : '';
   const strip = (x) => (d.showPhotos === false ? { ...x, image: '' } : x);
-  return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.name)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { preview })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>Order online</a></div>` : ''}</div>`;
+  return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.name)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { T })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>${esc(T.orderOnline)}</a></div>` : ''}</div>`;
 }
 
-export function orderPage({ menu, ordering, base, preview, siteKey, payNote }) {
+export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now }) {
   const o = ordering;
+  const T = strings(lang);
   const methods = openMethods(o);
   const open = o.accepting && methods.length > 0;
+  const asap = isOpenNow(o, now);
+  const slot = (m) => orderSlots(o, m, now).map((v) => [v, slotLabel(v, o, lang, now)]);
+  const slots = { pickup: slot('pickup'), delivery: methods.includes('delivery') ? slot('delivery') : [] };
+  const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
   const items = {};
-  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: it.price, max: it.stock == null ? 50 : Math.min(50, it.stock) };
+  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: it.price, max: it.stock == null ? 50 : Math.min(50, it.stock), g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
+  const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
-    key: siteKey, post: `${base}/_order`, open, items, methods, names: Object.fromEntries(Object.entries(ORDER_METHODS).map(([k, v]) => [k, v.name])),
-    tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes,
-    pickupNote: o.pickupNote, curbsideNote: o.curbsideNote, area: o.deliveryArea, pay: payNote,
+    key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, slots, items, methods, names, T,
+    tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes, promos: arr(o.promos).some((x) => x.active),
+    pickupNote: o.pickupNote, curbsideNote: o.curbsideNote, area: o.deliveryArea, pay: hasPayUrl ? T.payEither : T.payLater,
   };
-  const ways = methods.map((m) => ORDER_METHODS[m].name.toLowerCase());
-  const lede = ways.length ? `Order ahead for ${ways.length > 1 ? `${ways.slice(0, -1).join(', ')} or ${ways.at(-1)}` : ways[0]}.${o.prepMinutes ? ` Most orders are ready in about ${o.prepMinutes} minutes.` : ''}` : '';
+  const ways = methods.map((m) => names[m].toLowerCase());
+  const lede = ways.length ? `${fill(T.orderAhead, { ways: ways.length > 1 ? `${ways.slice(0, -1).join(', ')} ${T.or} ${ways.at(-1)}` : ways[0] })}${o.prepMinutes ? ` ${fill(T.readyIn, { n: o.prepMinutes })}` : ''}` : '';
+  const notice = !open ? T.notTaking : !asap ? (can ? T.closedSchedule : T.closedNow) : '';
   const body = cats.length
-    ? `${cats.length > 1 ? `<nav class="cats" aria-label="Menu categories">${cats.map((c) => `<a href="#${c.id}">${esc(c.name)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.name)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: open, preview, button: true })).join('')}</div></div>`).join('')}`
-    : `<div class="empty">${preview ? 'Your menu is empty. Upload your item list in the Menu tab.' : 'Our menu is being updated. Please check back soon.'}</div>`;
-  return `<section class="order"><div class="wrap"><header class="ord-head"><h1>Order online</h1>${lede ? `<p>${esc(lede)}</p>` : ''}${open ? '' : '<p class="closed">We are not taking online orders right now. Please check back soon or give us a call.</p>'}</header>
+    ? `${cats.length > 1 ? `<nav class="cats" aria-label="${esc(T.menu)}">${cats.map((c) => `<a href="#${c.id}">${esc(c.name)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.name)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: can, button: true, T })).join('')}</div></div>`).join('')}`
+    : `<div class="empty">${preview ? 'Your menu is empty. Upload your item list in the Menu tab.' : esc(T.menuSoon)}</div>`;
+  return `<section class="order"><div class="wrap"><header class="ord-head"><h1>${esc(T.orderOnline)}</h1>${lede ? `<p>${esc(lede)}</p>` : ''}${notice ? `<p class="closed">${esc(notice)}</p>` : ''}</header>
 <div class="ord-grid"><div class="ord-menu">${body}</div><aside class="cart" id="cart" aria-live="polite"></aside></div></div><a class="cartbar" id="cartbar" href="#cart" hidden></a></section>
 <script type="application/json" id="pf-order">${JSON.stringify(conf).replace(/</g, '\\u003c')}</script>`;
 }
 
-export function orderStatusPage({ order, payUrl, phoneHtml, homeHref }) {
+export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, orderHref, siteKey, lang }) {
+  const T = strings(lang);
   const steps = ['new', 'confirmed', 'ready', 'completed'];
   const at = steps.indexOf(order.status);
   const cancelled = order.status === 'cancelled';
-  const label = (s) => (s === 'ready' ? readyLabel(order.method) : ORDER_STATUSES[s]);
-  const headline = cancelled ? 'This order was cancelled.' : { new: 'We have your order.', confirmed: 'Your order is confirmed.', ready: order.method === 'delivery' ? 'Your order is on its way.' : 'Your order is ready.', completed: 'Thank you. Enjoy!' }[order.status];
-  const sub = cancelled ? 'If this is a surprise, please get in touch with us.' : order.status === 'new' ? `Thanks, ${order.name.split(' ')[0]}. We sent a confirmation to ${order.email} and will update this page as your order moves along.` : 'This page updates automatically.';
-  const lines = arr(order.items).map((l) => `<div class="line"><b>${l.qty} × ${esc(l.name)}</b><span>${money(l.price * l.qty)}</span></div>`).join('');
-  const row = (k, v) => (v ? `<dt>${k}</dt><dd>${esc(v)}</dd>` : '');
-  return `<section class="ostat"><div class="wrap"><p class="eyebrow">Order #${esc(order.number)}</p><h1>${esc(headline)}</h1><p class="lede">${esc(sub)}</p>
-${cancelled ? '' : `<div class="track" role="img" aria-label="Order progress: ${esc(label(order.status))}">${steps.map((s, i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div><div class="trackl">${steps.map((s, i) => (i === at ? `<b>${esc(label(s))}</b>` : `<span>${esc(label(s))}</span>`)).join('')}</div>`}
-<div class="box"><h2>${esc(ORDER_METHODS[order.method]?.name || 'Order')} details</h2><dl class="kv">${row('Name', order.name)}${row('Phone', order.phone)}${row('Deliver to', order.address)}${row('Vehicle', order.vehicle)}${row('Notes', order.notes)}</dl></div>
-<div class="box"><h2>Your items</h2>${lines}<div class="tot"><span>Subtotal</span><span>${money(order.subtotal)}</span>${order.tax ? `<span>Tax</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>Delivery</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>Tip</span><span>${money(order.tip)}</span>` : ''}<span class="g">Total</span><span class="g">${money(order.total)}</span></div>
-${payUrl && !cancelled ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">Pay online</a></div><p class="note">Or pay when you receive your order.</p>` : '<p class="note">Payment is collected when you receive your order.</p>'}</div>
-<div class="actions">${phoneHtml}<a class="btn ghost" ${homeHref}>Back to home</a></div></div></section>`;
+  const label = (s) => (s === 'ready' ? readyLabel(order.method, lang) : { new: T.received, confirmed: T.confirmed, completed: T.completed }[s]);
+  const headline = cancelled ? T.h_cancel : { new: T.h_new, confirmed: T.h_confirmed, ready: order.method === 'delivery' ? T.h_way : T.h_ready, completed: T.h_done }[order.status];
+  const sub = cancelled ? T.s_cancel : order.status === 'new' ? fill(T.s_new, { name: order.name.split(' ')[0], email: order.email }) : T.s_live;
+  const lines = arr(order.items).map((l) => `<div class="line"><b>${l.qty} × ${esc(l.name)}</b><span>${money(l.price * l.qty)}</span>${arr(l.opts).length ? `<span class="lopt">${esc(l.opts.join(', '))}</span>` : ''}</div>`).join('');
+  const row = (k, v) => (v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : '');
+  const again = JSON.stringify({ key: siteKey, lines: arr(order.items).map((l) => ({ id: l.id, o: l.picks || [], q: l.qty })) });
+  const methodName = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery }[order.method] || T.order;
+  return `<section class="ostat"><div class="wrap"><p class="eyebrow">${esc(T.order)} #${esc(order.number)}</p><h1>${esc(headline)}</h1><p class="lede">${esc(sub)}</p>
+${cancelled ? '' : `<div class="track" role="img" aria-label="${esc(label(order.status))}">${steps.map((s, i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div><div class="trackl">${steps.map((s, i) => (i === at ? `<b>${esc(label(s))}</b>` : `<span>${esc(label(s))}</span>`)).join('')}</div>`}
+<div class="box"><h2>${esc(methodName)} · ${esc(T.details)}</h2><dl class="kv">${row(T.scheduledFor, order.scheduled ? slotLabel(order.scheduled, ordering || {}, lang) : '')}${row(T.name, order.name)}${row(T.phone, order.phone)}${row(T.deliverTo, order.address)}${row(T.vehicleShort, order.vehicle)}${row(T.notesShort, order.notes)}</dl></div>
+<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span></div>
+${payUrl && !cancelled ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
+<div class="actions">${phoneHtml}<a class="btn${phoneHtml ? ' ghost' : ''}" ${orderHref} data-reorder="${esc(again)}">${esc(T.orderAgain)}</a><a class="btn ghost" ${homeHref}>${esc(T.backHome)}</a></div></div></section>`;
 }

@@ -386,6 +386,7 @@ export function createSite(name, templateId, o = {}) {
   return {
     v: 1,
     template: t.id,
+    lang: o.lang === 'es' ? 'es' : 'en',
     brand: { name: n, tagline: b.tagline, logo: '', logoMode: 'text' },
     theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', bg: '', font: FONTS[o.font] ? o.font : t.font, radius: RADII[o.radius] ? o.radius : t.radius },
     business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: b.hours, payUrl: '' },
@@ -428,6 +429,7 @@ export function normalizeSite(input) {
   const base = createSite(str(obj(s.brand).name, 80), str(s.template, 40));
   const out = { ...base };
   for (const k of ['brand', 'theme', 'business', 'social', 'header', 'announcement', 'footer', 'seo']) out[k] = { ...base[k], ...obj(s[k]) };
+  out.lang = s.lang === 'es' ? 'es' : 'en';
   out.brand.name = str(out.brand.name, 80).trim() || base.brand.name;
   if (!isHex(out.theme.accent)) out.theme.accent = base.theme.accent;
   if (!FONTS[out.theme.font]) out.theme.font = base.theme.font;
@@ -579,7 +581,7 @@ export const ORDER_METHODS = {
   delivery: { name: 'Delivery', blurb: 'You deliver to their address' },
 };
 export const ORDER_STATUSES = { new: 'Received', confirmed: 'Confirmed', ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled' };
-export const readyLabel = (method) => (method === 'delivery' ? 'Out for delivery' : method === 'curbside' ? 'Ready for curbside' : 'Ready for pickup');
+export const readyLabel = (method, lang = 'en') => { const T = STRINGS[lang] || STRINGS.en; return method === 'delivery' ? T.outDelivery : method === 'curbside' ? T.readyCurb : T.readyPickup; };
 
 export const money = (cents) => `$${(Math.round(Number(cents) || 0) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 
@@ -686,6 +688,11 @@ export function parseMenuCsv(text) {
   return out;
 }
 
+export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+export const TIMEZONES = { 'America/New_York': 'Eastern', 'America/Chicago': 'Central', 'America/Denver': 'Mountain', 'America/Phoenix': 'Arizona', 'America/Los_Angeles': 'Pacific', 'America/Anchorage': 'Alaska', 'Pacific/Honolulu': 'Hawaii' };
+const hhmm = (v, d) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v)) ? v : d);
+const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+
 export function defaultOrdering() {
   return {
     enabled: false, accepting: true,
@@ -693,6 +700,9 @@ export function defaultOrdering() {
     prepMinutes: 20, deliveryMinutes: 45, deliveryFee: 0, deliveryMin: 0, deliveryArea: '',
     pickupNote: '', curbsideNote: 'Park in a curbside space and call us when you arrive.',
     taxRate: 0, tips: true, allowNotes: true, notifyEmail: '',
+    useHours: false, timezone: 'America/Chicago', scheduling: false,
+    hours: DAYS.map(() => ({ closed: false, open: '11:00', close: '21:00' })),
+    promos: [],
   };
 }
 const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
@@ -709,15 +719,125 @@ export function normalizeOrdering(input) {
     pickupNote: str(o.pickupNote, 300), curbsideNote: str(o.curbsideNote ?? d.curbsideNote, 300),
     taxRate: Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0,
     tips: o.tips !== false, allowNotes: o.allowNotes !== false, notifyEmail: str(o.notifyEmail, 200).trim(),
+    useHours: o.useHours === true, timezone: TIMEZONES[o.timezone] ? o.timezone : d.timezone, scheduling: o.scheduling === true,
+    hours: DAYS.map((_, i) => { const h = arr(o.hours)[i] || {}; return { closed: h.closed === true, open: hhmm(h.open, '11:00'), close: hhmm(h.close, '21:00') }; }),
+    promos: arr(o.promos).slice(0, 30).map((x) => ({ code: str(x?.code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_00, 0) : int(x?.value, 0, 100, 10), active: x?.active !== false })).filter((x) => x.code),
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
 
+export const findPromo = (o, code) => { const c = str(code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''); return (c && arr(o?.promos).find((x) => x.active && x.code === c)) || null; };
+
 /** The one place order totals are calculated. Amounts are in cents. */
-export function orderTotals(lines, method, ordering, tipPercent = 0) {
+export function orderTotals(lines, method, ordering, tipPercent = 0, promo = null) {
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
-  const tax = Math.round((subtotal * (ordering.taxRate || 0)) / 100);
+  const discount = !promo ? 0 : promo.type === 'amount' ? Math.min(subtotal, promo.value) : Math.round((subtotal * promo.value) / 100);
+  const tax = Math.round(((subtotal - discount) * (ordering.taxRate || 0)) / 100);
   const fee = method === 'delivery' ? ordering.deliveryFee || 0 : 0;
   const tip = ordering.tips ? Math.round((subtotal * Math.min(100, Math.max(0, Number(tipPercent) || 0))) / 100) : 0;
-  return { subtotal, tax, fee, tip, total: subtotal + tax + fee + tip };
+  return { subtotal, discount, tax, fee, tip, total: subtotal - discount + tax + fee + tip };
 }
+
+/* Opening hours work on "wall clock" time in the business's time zone. */
+export function wallNow(ordering, nowMs = Date.now()) {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: ordering.timezone || 'America/Chicago', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+  const p = Object.fromEntries(f.formatToParts(new Date(nowMs)).map((x) => [x.type, Number(x.value)]));
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute);
+}
+export function openAtWall(ordering, wall) {
+  if (!ordering.useHours) return true;
+  const d = new Date(wall);
+  const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const today = ordering.hours[d.getUTCDay()], prev = ordering.hours[(d.getUTCDay() + 6) % 7];
+  const late = (h) => mins(h.close) <= mins(h.open);   // closes after midnight
+  if (!today.closed && m >= mins(today.open) && (late(today) || m < mins(today.close))) return true;
+  return !prev.closed && late(prev) && m < mins(prev.close);
+}
+export const isOpenNow = (ordering, nowMs) => openAtWall(ordering, wallNow(ordering, nowMs));
+export const slotValue = (wall) => new Date(wall).toISOString().slice(0, 16);
+const clock = (wall) => { const d = new Date(wall); const h = d.getUTCHours(), m = d.getUTCMinutes(); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+export function slotLabel(value, ordering, lang = 'en', nowMs = Date.now()) {
+  const wall = Date.parse(`${value}:00Z`);
+  if (!Number.isFinite(wall)) return '';
+  const day = Math.floor(wall / 86400000) - Math.floor(wallNow(ordering, nowMs) / 86400000);
+  const T = STRINGS[lang] || STRINGS.en;
+  return `${day === 0 ? T.today : day === 1 ? T.tomorrow : new Date(wall).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })} ${clock(wall)}`;
+}
+/** Times a customer may schedule an order for: every 15 minutes, today and tomorrow, while open. */
+export function orderSlots(ordering, method = 'pickup', nowMs = Date.now()) {
+  if (!ordering.scheduling) return [];
+  const now = wallNow(ordering, nowMs);
+  const lead = (method === 'delivery' ? ordering.deliveryMinutes : ordering.prepMinutes) || 0;
+  const first = Math.ceil((now + lead * 60000) / 900000) * 900000;
+  const end = (Math.floor(now / 86400000) + 2) * 86400000;
+  const out = [];
+  for (let w = first; w < end && out.length < 200; w += 900000) if (openAtWall(ordering, w)) out.push(slotValue(w));
+  return out;
+}
+
+/* Item options: sizes, add-ons and choices. */
+export function cleanOptions(input) {
+  return arr(input).slice(0, 12).map((g) => ({
+    name: str(g?.name, 60).trim(), required: g?.required === true, multi: g?.multi === true,
+    choices: arr(g?.choices).slice(0, 30).map((c) => ({ name: str(c?.name, 80).trim(), price: int(c?.price, 0, 1_000_00, 0) })).filter((c) => c.name),
+  })).filter((g) => g.name && g.choices.length);
+}
+/** "Large +1.50" per line → choices. */
+export const parseChoices = (text) => str(text, 4000).split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(.*?)[\s,;:-]*\+?\s*\$?\s*(\d+(?:[.,]\d{1,2})?)\s*$/); return m && m[1].trim() ? { name: m[1].trim(), price: parsePrice(m[2]) || 0 } : { name: l, price: 0 }; });
+export const choicesText = (choices) => arr(choices).map((c) => (c.price ? `${c.name} +${(c.price / 100).toFixed(2)}` : c.name)).join('\n');
+/** Checks a customer's picks against an item. Returns { price, labels } or an error message. */
+export function resolveOptions(item, picks) {
+  const groups = arr(item.options);
+  let extra = 0; const labels = [];
+  for (let g = 0; g < groups.length; g++) {
+    const grp = groups[g];
+    const chosen = [...new Set(arr(arr(picks)[g]).map(Number))].filter((i) => Number.isInteger(i) && grp.choices[i]);
+    if (grp.required && !chosen.length) return { error: `Choose ${grp.name.toLowerCase()} for ${item.name}.` };
+    if (!grp.multi && chosen.length > 1) return { error: `Choose only one ${grp.name.toLowerCase()} for ${item.name}.` };
+    for (const i of chosen) { extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
+  }
+  return { price: item.price + extra, labels };
+}
+
+/* Words that appear on merchant sites, in English and Spanish. */
+export const LANGS = { en: 'English', es: 'Español' };
+export const STRINGS = {
+  en: {
+    orderOnline: 'Order online', add: 'Add', added: 'Added', soldOut: 'Sold out', onlyLeft: 'Only {n} left', yourOrder: 'Your order', emptyCart: 'Add items from the menu to get started.', paused: 'Online ordering is paused right now.',
+    closedNow: 'We are closed right now.', closedSchedule: 'We are closed right now. You can schedule an order for later.', notTaking: 'We are not taking online orders right now. Please check back soon or give us a call.',
+    name: 'Name', phone: 'Phone', emailConfirm: 'Email for your confirmation', address: 'Delivery address', vehicle: 'Vehicle make, model and colour', notes: 'Notes for us', tip: 'Add a tip', none: 'None',
+    subtotal: 'Subtotal', discount: 'Discount', tax: 'Tax', delivery: 'Delivery', tipLine: 'Tip', total: 'Total', place: 'Place order', placing: 'Placing order…', pausedBtn: 'Ordering is paused',
+    pickup: 'Pickup', curbside: 'Curbside', when: 'When', asap: 'As soon as possible', today: 'Today', tomorrow: 'Tomorrow', inAbout: 'in about {n} minutes',
+    promo: 'Promo code', apply: 'Apply', promoBad: 'That code is not valid.', minOrder: 'Delivery orders start at {a}. Add {b} more.', fillAll: 'Please fill in every field so we can get your order to you.', badEmail: 'Enter a valid email address for your confirmation.',
+    failed: 'We could not place your order. Please try again or call us.', viewOrder: 'View order', item: 'item', items: 'items', choose: 'Choose', required: 'Required', optional: 'Optional', addToOrder: 'Add to order', cancel: 'Cancel',
+    orderAhead: 'Order ahead for {ways}.', readyIn: 'Most orders are ready in about {n} minutes.', or: 'or', menuSoon: 'Our menu is being updated. Please check back soon.',
+    payLater: 'Payment is collected when you receive your order.', payEither: 'You can pay online after placing your order, or when you receive it.', payOnline: 'Pay online', orPayLater: 'Or pay when you receive your order.',
+    order: 'Order', received: 'Received', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', readyPickup: 'Ready for pickup', readyCurb: 'Ready for curbside', outDelivery: 'Out for delivery',
+    h_new: 'We have your order.', h_confirmed: 'Your order is confirmed.', h_ready: 'Your order is ready.', h_way: 'Your order is on its way.', h_done: 'Thank you. Enjoy!', h_cancel: 'This order was cancelled.',
+    s_new: 'Thanks, {name}. We sent a confirmation to {email} and will update this page as your order moves along.', s_live: 'This page updates automatically.', s_cancel: 'If this is a surprise, please get in touch with us.',
+    details: 'details', yourItems: 'Your items', deliverTo: 'Deliver to', vehicleShort: 'Vehicle', notesShort: 'Notes', scheduledFor: 'Scheduled for', call: 'Call', backHome: 'Back to home', orderAgain: 'Order again',
+    explore: 'Explore', contact: 'Contact', legal: 'Legal', location: 'Location', hours: 'Hours', directions: 'Get directions', rights: 'All rights reserved.', cards: 'Visa · Mastercard · American Express · Discover accepted', websiteBy: 'Website by',
+    email: 'Email', message: 'Message', send: 'Send message', sent: 'Message sent', sentSub: 'Thank you. We will be in touch soon.', agree: 'By sending this message you agree to our', onlyReply: 'We only use your details to reply to you.',
+    privacy: 'Privacy Policy', terms: 'Terms of Service', policies: 'Store Policies', accessibility: 'Accessibility', effective: 'Effective', skip: 'Skip to content', menu: 'Menu', notFound: 'Page not found.', notFoundSub: 'The page you are looking for does not exist or has moved.', learnMore: 'Learn more',
+  },
+  es: {
+    orderOnline: 'Ordenar en línea', add: 'Agregar', added: 'Agregado', soldOut: 'Agotado', onlyLeft: 'Solo quedan {n}', yourOrder: 'Tu pedido', emptyCart: 'Agrega artículos del menú para comenzar.', paused: 'Los pedidos en línea están en pausa.',
+    closedNow: 'Estamos cerrados en este momento.', closedSchedule: 'Estamos cerrados en este momento. Puedes programar un pedido para más tarde.', notTaking: 'No estamos tomando pedidos en línea en este momento. Vuelve pronto o llámanos.',
+    name: 'Nombre', phone: 'Teléfono', emailConfirm: 'Correo para tu confirmación', address: 'Dirección de entrega', vehicle: 'Marca, modelo y color del vehículo', notes: 'Notas para nosotros', tip: 'Agregar propina', none: 'Ninguna',
+    subtotal: 'Subtotal', discount: 'Descuento', tax: 'Impuesto', delivery: 'Entrega', tipLine: 'Propina', total: 'Total', place: 'Hacer pedido', placing: 'Enviando pedido…', pausedBtn: 'Pedidos en pausa',
+    pickup: 'Para recoger', curbside: 'En la acera', when: 'Cuándo', asap: 'Lo antes posible', today: 'Hoy', tomorrow: 'Mañana', inAbout: 'en unos {n} minutos',
+    promo: 'Código de promoción', apply: 'Aplicar', promoBad: 'Ese código no es válido.', minOrder: 'Los pedidos a domicilio comienzan en {a}. Agrega {b} más.', fillAll: 'Completa todos los campos para poder entregarte tu pedido.', badEmail: 'Ingresa un correo válido para tu confirmación.',
+    failed: 'No pudimos enviar tu pedido. Inténtalo de nuevo o llámanos.', viewOrder: 'Ver pedido', item: 'artículo', items: 'artículos', choose: 'Elige', required: 'Obligatorio', optional: 'Opcional', addToOrder: 'Agregar al pedido', cancel: 'Cancelar',
+    orderAhead: 'Ordena con anticipación: {ways}.', readyIn: 'La mayoría de los pedidos están listos en unos {n} minutos.', or: 'o', menuSoon: 'Estamos actualizando nuestro menú. Vuelve pronto.',
+    payLater: 'El pago se realiza al recibir tu pedido.', payEither: 'Puedes pagar en línea después de ordenar, o al recibir tu pedido.', payOnline: 'Pagar en línea', orPayLater: 'O paga al recibir tu pedido.',
+    order: 'Pedido', received: 'Recibido', confirmed: 'Confirmado', completed: 'Completado', cancelled: 'Cancelado', readyPickup: 'Listo para recoger', readyCurb: 'Listo en la acera', outDelivery: 'En camino',
+    h_new: 'Recibimos tu pedido.', h_confirmed: 'Tu pedido está confirmado.', h_ready: 'Tu pedido está listo.', h_way: 'Tu pedido va en camino.', h_done: '¡Gracias! Que lo disfrutes.', h_cancel: 'Este pedido fue cancelado.',
+    s_new: 'Gracias, {name}. Enviamos una confirmación a {email} y actualizaremos esta página conforme avance tu pedido.', s_live: 'Esta página se actualiza automáticamente.', s_cancel: 'Si esto es una sorpresa, por favor contáctanos.',
+    details: 'detalles', yourItems: 'Tus artículos', deliverTo: 'Entregar en', vehicleShort: 'Vehículo', notesShort: 'Notas', scheduledFor: 'Programado para', call: 'Llamar', backHome: 'Volver al inicio', orderAgain: 'Pedir de nuevo',
+    explore: 'Explorar', contact: 'Contacto', legal: 'Legal', location: 'Ubicación', hours: 'Horario', directions: 'Cómo llegar', rights: 'Todos los derechos reservados.', cards: 'Aceptamos Visa · Mastercard · American Express · Discover', websiteBy: 'Sitio web por',
+    email: 'Correo', message: 'Mensaje', send: 'Enviar mensaje', sent: 'Mensaje enviado', sentSub: 'Gracias. Nos pondremos en contacto pronto.', agree: 'Al enviar este mensaje aceptas nuestra', onlyReply: 'Solo usamos tus datos para responderte.',
+    privacy: 'Política de privacidad', terms: 'Términos del servicio', policies: 'Políticas de la tienda', accessibility: 'Accesibilidad', effective: 'Vigente desde', skip: 'Ir al contenido', menu: 'Menú', notFound: 'Página no encontrada.', notFoundSub: 'La página que buscas no existe o fue movida.', learnMore: 'Más información',
+  },
+};
+export const strings = (lang) => STRINGS[lang] || STRINGS.en;
+export const fill = (text, vars) => String(text).replace(/\{(\w+)\}/g, (m, k) => (vars[k] ?? ''));

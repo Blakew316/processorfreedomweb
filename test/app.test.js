@@ -239,7 +239,7 @@ test('item lists are parsed for name and price', () => {
 
 test('order totals', () => {
   const o = { ...defaultOrdering(), taxRate: 8.25, deliveryFee: 399 };
-  assert.deepEqual(orderTotals([{ price: 350, qty: 3 }, { price: 1299, qty: 1 }], 'delivery', o, 15), { subtotal: 2349, tax: 194, fee: 399, tip: 352, total: 3294 });
+  assert.deepEqual(orderTotals([{ price: 350, qty: 3 }, { price: 1299, qty: 1 }], 'delivery', o, 15), { subtotal: 2349, discount: 0, tax: 194, fee: 399, tip: 352, total: 3294 });
   assert.equal(orderTotals([{ price: 350, qty: 1 }], 'pickup', o, 0).fee, 0);
 });
 
@@ -408,4 +408,108 @@ test('staff can delete accounts, with their sites', async () => {
   assert.equal((await anon('GET', '/', null, { host: 'gonesoon.pfsites.test' })).status, 404);
   assert.equal((await victim('GET', '/api/sites')).status, 401);
   assert.ok(!(await staff('GET', '/api/admin')).data.users.some((u) => u.email === 'gone@shop.test'));
+});
+
+test('item options, promo codes, opening hours, scheduling, reset links, stats, Spanish', async () => {
+  const core = await import('../shared/core.js');
+  const sent = [];
+  const dir3 = mkdtempSync(join(tmpdir(), 'pfsites-'));
+  const app3 = createApp({ dataDir: dir3, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', ADMIN_EMAILS: 'boss@pf.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const server3 = createServer(app3);
+  await new Promise((r) => server3.listen(0, r));
+  const prevBase = base; base = `http://127.0.0.1:${server3.address().port}`;
+  try {
+    const me = client(), anon = client();
+    await me('POST', '/api/auth/signup', { email: 'opt@shop.test', name: 'Opt Owner', password: 'long-enough-pw' });
+    const site = (await me('POST', '/api/sites', { name: 'Opt Cafe', template: 'order', kind: 'ordering', csv: 'Taco,3.50\nBurrito,9.00\nSoda,2.00' })).data.site;
+    const host = { host: 'optcafe.pfsites.test' };
+    let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const [taco, burrito, soda] = items;
+
+    // Options: a required single choice and optional extras
+    items = (await me('PUT', `/api/sites/${site.id}/menu/${burrito.id}`, { options: [{ name: 'Protein', required: true, choices: [{ name: 'Chicken', price: 0 }, { name: 'Steak', price: 200 }] }, { name: 'Extras', multi: true, choices: [{ name: 'Guacamole', price: 150 }, { name: 'Cheese', price: 75 }] }, { name: 'Empty', choices: [] }] })).data.items;
+    assert.equal(items.find((x) => x.id === burrito.id).options.length, 2);
+
+    // Reorder
+    items = (await me('PUT', `/api/sites/${site.id}/menu-order`, { ids: [soda.id, taco.id, burrito.id] })).data.items;
+    assert.deepEqual(items.map((x) => x.name), ['Soda', 'Taco', 'Burrito']);
+
+    const settings = { ...site.ordering, taxRate: 10, promos: [{ code: 'welcome10', type: 'percent', value: 10 }, { code: 'OLD', type: 'amount', value: 500, active: false }] };
+    assert.deepEqual((await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: settings })).data.ordering.promos.map((x) => x.code), ['WELCOME10', 'OLD']);
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+
+    const who = { name: 'Ana Ruiz', phone: '903-555-0100', email: 'ana@example.com', method: 'pickup' };
+    const place = (b) => anon('POST', '/_order', { ...who, ...b }, host);
+    assert.equal((await place({ items: [{ id: burrito.id, qty: 1 }] })).status, 400, 'protein is required');
+    assert.equal((await place({ items: [{ id: burrito.id, qty: 1, opts: [[0, 1]] }] })).status, 400, 'only one protein');
+    assert.equal((await anon('GET', '/_promo?code=nope', null, host)).status, 404);
+    assert.equal((await anon('GET', '/_promo?code=old', null, host)).status, 404, 'inactive code');
+    assert.deepEqual((await anon('GET', '/_promo?code=Welcome10', null, host)).data, { code: 'WELCOME10', type: 'percent', value: 10 });
+    assert.equal((await place({ items: [{ id: taco.id, qty: 1 }], promo: 'BOGUS' })).status, 400);
+
+    let r = await place({ items: [{ id: burrito.id, qty: 2, opts: [[1], [0, 1]] }, { id: taco.id, qty: 1 }], promo: 'welcome10' });
+    assert.equal(r.status, 201);
+    await new Promise((x) => setTimeout(x, 20));
+    const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    // burrito 900 + 200 + 150 + 75 = 1325 ×2 = 2650, + taco 350 = 3000; 10% off = 300; tax 10% of 2700 = 270
+    assert.deepEqual([order.subtotal, order.discount, order.promo, order.tax, order.total], [3000, 300, 'WELCOME10', 270, 2970]);
+    assert.deepEqual(order.items[0].opts, ['Steak', 'Guacamole', 'Cheese']);
+    const mailed = sent.find((m) => m.to === 'ana@example.com');
+    assert.match(mailed.html, /Steak, Guacamole, Cheese/);
+    assert.match(mailed.html, /Discount \(WELCOME10\)/);
+    r = await anon('GET', `/order/${order.token}`, null, host);
+    assert.match(r.data, /Steak, Guacamole, Cheese/);
+    assert.match(r.data, /Order again/);
+
+    // Opening hours: closed all week means no ASAP orders; scheduling offers nothing either
+    const closed = { ...settings, useHours: true, hours: core.DAYS.map(() => ({ closed: true, open: '11:00', close: '21:00' })) };
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: closed });
+    assert.equal((await place({ items: [{ id: taco.id, qty: 1 }] })).status, 409);
+    assert.match((await anon('GET', '/order', null, host)).data, /We are closed right now/);
+    // Open around the clock with scheduling: a valid slot is accepted, a made-up one is not
+    const always = { ...settings, useHours: true, scheduling: true, hours: core.DAYS.map(() => ({ closed: false, open: '00:00', close: '00:00' })) };
+    const saved = (await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: always })).data.ordering;
+    const slots = core.orderSlots(saved, 'pickup');
+    assert.ok(slots.length > 50);
+    assert.equal((await place({ items: [{ id: taco.id, qty: 1 }], when: '2020-01-01T10:00' })).status, 409);
+    assert.equal((await place({ items: [{ id: taco.id, qty: 1 }], when: slots[4] })).status, 201);
+    assert.equal((await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0].scheduled, slots[4]);
+    assert.match((await anon('GET', '/order', null, host)).data, /"slots":\{"pickup":\[\["20/);
+
+    // Sales summary
+    r = await me('GET', `/api/sites/${site.id}/stats`);
+    assert.equal(r.data.orders, 2);
+    assert.equal(r.data.days.length, 30);
+    assert.equal(r.data.top[0].name, 'Burrito');
+    assert.equal((await client()('GET', `/api/sites/${site.id}/stats`)).status, 401);
+
+    // Spanish
+    const draft = (await me('GET', `/api/sites/${site.id}`)).data.site.draft;
+    draft.lang = 'es';
+    await me('POST', `/api/sites/${site.id}/publish`, { draft });
+    r = await anon('GET', '/order', null, host);
+    assert.match(r.data, /<html lang="es"/);
+    assert.match(r.data, /Ordenar en línea/);
+    assert.match((await anon('GET', '/privacy', null, host)).data, /Política de privacidad/);
+
+    // Password reset by email, and a staff-made link
+    sent.length = 0;
+    assert.equal((await anon('POST', '/api/auth/forgot', { email: 'nobody@shop.test' })).status, 200);
+    assert.equal(sent.length, 0);
+    await anon('POST', '/api/auth/forgot', { email: 'OPT@shop.test' });
+    await new Promise((x) => setTimeout(x, 20));
+    const token = sent[0].text.match(/reset\?token=([\w-]+)/)[1];
+    assert.equal((await anon('POST', '/api/auth/reset', { token: 'wrong', password: 'brand-new-pw' })).status, 400);
+    assert.equal((await anon('POST', '/api/auth/reset', { token, password: 'short' })).status, 400);
+    assert.equal((await client()('POST', '/api/auth/reset', { token, password: 'brand-new-pw' })).status, 200);
+    assert.equal((await client()('POST', '/api/auth/reset', { token, password: 'again-new-pw' })).status, 400, 'single use');
+    assert.equal((await me('GET', '/api/sites')).status, 401, 'old sessions are signed out');
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'opt@shop.test', password: 'brand-new-pw' })).status, 200);
+    const boss = client();
+    await boss('POST', '/api/auth/signup', { email: 'boss@pf.test', password: 'long-enough-pw' });
+    const target = (await boss('GET', '/api/admin')).data.users.find((u) => u.email === 'opt@shop.test');
+    r = await boss('POST', `/api/admin/users/${target.id}/reset-link`);
+    assert.match(r.data.link, /^http:\/\/app\.pfsites\.test\/reset\?token=/);
+    assert.equal((await client()('POST', `/api/admin/users/${target.id}/reset-link`)).status, 401);
+  } finally { base = prevBase; server3.close(); app3.close(); rmSync(dir3, { recursive: true, force: true }); }
 });
