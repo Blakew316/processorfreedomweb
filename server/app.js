@@ -1,5 +1,6 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { gzipSync } from 'node:zlib';
 import { promises as fs, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
@@ -13,7 +14,7 @@ import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
 const ROOT = resolvePath(fileURLToPath(new URL('..', import.meta.url)));
-const MIME = { '.mp4': 'video/mp4', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json' };
 const DAY = 86400000;
 const SESSION_DAYS = 30;
 const MAX_SITES = 25;
@@ -85,6 +86,9 @@ export function createApp(options = {}) {
 
   // What the app itself may load and talk to: its own files, the two libraries it uses, and nothing else. It cannot be framed by another site or post a form elsewhere.
   const APP_CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob: https:", "font-src 'self' data:", "connect-src 'self'", "frame-src 'self' https:", "worker-src 'self'", "manifest-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'"].join('; ');
+
+  const BOOT_HEAD = '<link rel="preload" as="image" href="/assets/demo/hero.jpg" fetchpriority="high"><style>.boot{position:fixed;inset:0;display:grid;align-content:end;justify-items:center;padding:0 20px 38vh;background:#0b1220 url(/assets/demo/hero.jpg) center/cover no-repeat;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}.boot::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,12,28,.42),rgba(6,12,28,.05) 30%,rgba(6,12,28,.55))}.boot h1{position:relative;margin:0;text-align:center;font-size:clamp(38px,5.3vw,78px);font-weight:600;letter-spacing:-.045em;line-height:1.05}.boot em{font-family:"Instrument Serif",Georgia,serif;font-weight:400;letter-spacing:-.015em}</style>';
+  const BOOT_BODY = '<div class="boot"><h1>Your business, <em>beautifully online.</em></h1></div>';
 
   /* ---------- small helpers ---------- */
 
@@ -1479,6 +1483,7 @@ export function createApp(options = {}) {
 
   /* ---------- static files ---------- */
 
+  const zipped = new Map();
   async function sendFile(res, dir, rel, headers = {}) {
     const full = resolvePath(dir, `.${sep}${rel}`);
     if (!full.startsWith(resolvePath(dir) + sep)) return false;
@@ -1492,6 +1497,13 @@ export function createApp(options = {}) {
         const end = range[1] && range[2] ? Math.min(Number(range[2]), buf.length - 1) : buf.length - 1;
         if (!(start <= end) || start >= buf.length) { send(res, 416, '', { 'Content-Range': `bytes */${buf.length}` }); return true; }
         send(res, 206, buf.subarray(start, end + 1), { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${buf.length}`, ...headers });
+        return true;
+      }
+      // Text files travel compressed. The squeezed copy is kept, so the work is done once per file.
+      if (/^(text\/|application\/(json|xml|manifest\+json)|image\/svg)/.test(type) && buf.length > 1400 && /\bgzip\b/.test(String(res.req.headers['accept-encoding'] || ''))) {
+        let z = zipped.get(full);
+        if (!z || z.size !== buf.length) { z = { size: buf.length, gz: gzipSync(buf, { level: 8 }) }; zipped.set(full, z); }
+        send(res, 200, z.gz, { 'Content-Type': type, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding', ...headers });
         return true;
       }
       send(res, 200, buf, { 'Content-Type': type, 'Accept-Ranges': 'bytes', ...headers });
@@ -1553,15 +1565,18 @@ export function createApp(options = {}) {
     if (path === '/sw.js') return (await sendFile(res, join(ROOT, 'public'), 'sw.js', { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' })) || send(res, 404, 'Not found');
     if (path === '/manifest.webmanifest') return (await sendFile(res, join(ROOT, 'public'), 'manifest.webmanifest', { 'Cache-Control': 'no-cache', 'Content-Type': 'application/manifest+json' })) || send(res, 404, 'Not found');
     const cache = { 'Cache-Control': 'no-cache' };
+    if (path.startsWith('/assets/fonts/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), { 'Cache-Control': 'public, max-age=31536000, immutable' })) || send(res, 404, 'Not found');
     if (path.startsWith('/assets/demo/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), { 'Cache-Control': 'public, max-age=604800' })) || send(res, 404, 'Not found');
     if (path.startsWith('/assets/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path.startsWith('/shared/')) return (await sendFile(res, join(ROOT, 'shared'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path === '/robots.txt') return send(res, 200, `User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\nSitemap: ${appOrigin(req)}/sitemap.xml\n`, { 'Content-Type': 'text/plain' });
-    if (path === '/sitemap.xml') return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', '/faq', '/privacy', '/terms', '/signup'].map((u) => `<url><loc>${esc(appOrigin(req))}${u}</loc></url>`).join('')}</urlset>`, { 'Content-Type': 'application/xml' });
-    if (path === '/' || /^\/(login|signup|forgot|reset|faq|privacy|terms|app(\/.*)?)$/.test(path)) {
+    if (path === '/sitemap.xml') return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', '/faq', '/contact', '/privacy', '/terms', '/signup'].map((u) => `<url><loc>${esc(appOrigin(req))}${u}</loc></url>`).join('')}</urlset>`, { 'Content-Type': 'application/xml' });
+    if (path === '/' || /^\/(login|signup|forgot|reset|faq|privacy|terms|contact|app(\/.*)?)$/.test(path)) {
       // Link previews need absolute image addresses, so the shell is filled in per request.
       shell ??= await fs.readFile(join(ROOT, 'public', 'index.html'), 'utf8');
-      return html(res, 200, shell.replaceAll('__ORIGIN__', esc(appOrigin(req))), { ...cache, 'Content-Security-Policy': APP_CSP, 'Permissions-Policy': 'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)' });
+      // The home page arrives with its first frame already drawn, so there is something to look at before the scripts run.
+      const page = shell.replaceAll('__ORIGIN__', esc(appOrigin(req))).replace('<!--BOOT-HEAD-->', path === '/' ? BOOT_HEAD : '').replace('<!--BOOT-BODY-->', path === '/' ? BOOT_BODY : '');
+      return html(res, 200, page, { ...cache, 'Content-Security-Policy': APP_CSP, 'Permissions-Policy': 'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)' });
     }
     return html(res, 404, simplePage('Page not found', `This page does not exist on ${PLATFORM} Sites.`));
   }

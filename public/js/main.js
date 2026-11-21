@@ -1,5 +1,5 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
-import { siteFooter, faqList, faqPage, privacyPage, termsPage, FAQ, dock, testimonialsSection } from './pages.js';
+import { siteFooter, faqList, faqPage, privacyPage, termsPage, contactPage, FAQ, dock, testimonialsSection } from './pages.js';
 import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
 
 const root = document.getElementById('app');
@@ -132,7 +132,14 @@ function landing() {
     h('div', { class: 'gain-art', style: `--photo:url(/assets/demo/${photo}.jpg)` }, art()));
   const endInput = h('input', { placeholder: 'Your business name', 'aria-label': 'Business name', maxlength: 80, autocomplete: 'organization' });
   const pill = (t, cls = '') => h('i', { class: `st ${cls}` }, t);
-  const mockOrders = () => office;
+  // A recording of the real back office: an order arrives, is confirmed, then marked ready. It plays only while it is on screen.
+  const mockOrders = () => {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches || navigator.connection?.saveData;
+    const film = still ? h('img', { src: '/assets/demo/orders.jpg', alt: 'The orders screen with a new order confirmed and ready', loading: 'lazy' })
+      : h('video', { poster: '/assets/demo/orders.jpg', src: '/assets/demo/orders.mp4', muted: true, loop: true, playsinline: true, preload: 'none', 'aria-label': 'An order arriving in the back office, being confirmed and marked ready' });
+    if (!still) { film.muted = true; film.loop = true; film.setAttribute('muted', ''); film.setAttribute('playsinline', ''); new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) film.play().catch(() => {}); else film.pause(); }), { threshold: 0.35 }).observe(film); }
+    return h('div', { class: 'mock film-mock' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, 'Orders · Harbor & Vine')), film);
+  };
   const mockInvoice = () => h('div', { class: 'mock inv-mock' },
     h('div', { class: 'mk-head' }, h('div', {}, h('small', {}, 'Invoice'), h('b', {}, 'INV-1018')), pill('Paid', 'ready')),
     h('div', { class: 'mk-to' }, h('small', {}, 'Bill to'), h('b', {}, 'Acme Co'), h('span', {}, 'Office lunch for 40')),
@@ -165,6 +172,7 @@ function landing() {
       h('section', { class: 'l-hero has-video' }, heroVideo(), h('div', { class: 'page' },
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
         h('div', { class: 'ticks' }, tick('No code'), tick('Live in minutes'), tick('Pickup, curbside and delivery'), tick('Your own domain')),
+        h('div', { class: 'hero-cta' }, h('button', { class: 'btn lg', type: 'button', onclick: () => start() }, 'Build my site', h('i', { 'aria-hidden': 'true' }, '→')), h('a', { class: 'hero-sec', href: '#examples' }, 'See what others built')),
         h('div', { class: 'stage' },
           h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), barUrl), desk),
           h('div', { class: 'phone' }, phone),
@@ -194,7 +202,7 @@ function landing() {
       h('section', { class: 'page' }, h('div', { class: 'l-close reveal' },
         h('div', { class: 'l-close-copy' },
           h('img', { src: '/assets/logo.svg', alt: '', width: 56, height: 56 }),
-          h('h2', {}, 'Open for business online, this afternoon.'),
+          h('h2', {}, 'Open for business online, ', h('em', {}, 'this afternoon.')),
           h('p', {}, 'Name it, add your menu, publish. Nothing is public until you say so.'),
           h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(endInput.value.trim() || input.value.trim()); } }, h('div', { class: 'box' }, endInput, h('button', { class: 'btn', type: 'submit' }, 'Build my website')))),
         h('div', { class: 'l-close-art', 'aria-hidden': 'true' }))),
@@ -410,7 +418,7 @@ async function render() {
     if (path === '/') landing();
     else if (path === '/login' || path === '/signup') auth(path.slice(1));
     else if (path === '/forgot') forgot();
-    else if (path === '/faq' || path === '/privacy' || path === '/terms') { title(); mount(brandBar(), { faq: faqPage, privacy: privacyPage, terms: termsPage }[path.slice(1)](), siteFooter(), dock()); }
+    else if (path === '/faq' || path === '/privacy' || path === '/terms' || path === '/contact') { title(); mount(brandBar(), { faq: faqPage, privacy: privacyPage, terms: termsPage, contact: contactPage }[path.slice(1)](), siteFooter(), dock()); }
     else if (path === '/reset') reset();
     else if ((m = path.match(/^\/app\/site\/([\w-]+)\/kitchen$/))) cleanup = await (await import('./kitchen.js')).kitchen(m[1], mount, title);
     else if (path === '/app') await dashboard();

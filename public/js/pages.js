@@ -72,7 +72,7 @@ export function siteFooter() {
     h('div', { class: 'ft-top' },
       h('div', { class: 'ft-brand' }, h('img', { src: '/assets/logo.svg', alt: '', width: 40, height: 40 }), h('div', {}, h('b', {}, 'PF Sites'), h('span', {}, 'Websites and online ordering by Processor Freedom.'))),
       col('Explore', ...MENU().filter(([t]) => t !== 'Log in').map(([t, to]) => link(to, {}, t)), link('/faq', {}, 'All questions')),
-      col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up'), h('a', { href: `mailto:${CONTACT}` }, 'Contact support')),
+      col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up'), link('/contact', {}, 'Contact us')),
       col('Legal', link('/privacy', {}, 'Privacy Policy'), link('/terms', {}, 'Terms and Conditions'))),
     h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', { class: 'ft-theme' }, 'Appearance', themeButton()), h('span', {}, 'Their software. Your processor.'))));
 }
@@ -86,6 +86,15 @@ const docPage = (title, intro, sections) => h('main', { class: 'doc' }, h('div',
 
 export const privacyPage = () => docPage('Privacy Policy', 'What we collect, why, and the choices you have. Written to be read.', PRIVACY);
 export const termsPage = () => docPage('Terms and Conditions', 'The agreement between you and Processor Freedom for using PF Sites.', TERMS);
+export const contactPage = () => h('main', { class: 'doc' }, h('div', { class: 'page' },
+  h('p', { class: 'kicker' }, 'Contact'), h('h1', {}, 'Talk to a person.'), h('p', { class: 'doc-intro' }, 'PF Sites is built and supported by Processor Freedom. Whether you are deciding if it fits or you are stuck on something, write to us.'),
+  h('div', { class: 'reach' },
+    h('a', { class: 'reach-card', href: `mailto:${CONTACT}` }, h('small', {}, 'Email'), h('b', {}, CONTACT), h('span', {}, 'Sales questions and support. Tell us your business name and what you are trying to do.')),
+    h('div', { class: 'reach-card' }, h('small', {}, 'Already a Processor Freedom merchant?'), h('b', {}, 'Ask your representative'), h('span', {}, 'They can set up your site with you and answer questions about your account.')),
+    link('/faq', { class: 'reach-card' }, h('small', {}, 'Quick answers'), h('b', {}, 'Questions and answers'), h('span', {}, 'The things people ask most, answered in a sentence or two.'))),
+  h('section', {}, h('h2', {}, h('span', {}, '01'), 'What helps us help you'), h('ul', {}, ['The web address of your site, if you have one.', 'What you expected to happen and what happened instead.', 'A screenshot, if something looks wrong.'].map((x) => h('li', {}, x)))),
+  h('section', {}, h('h2', {}, h('span', {}, '02'), 'About PF Sites'), h('p', {}, 'Processor Freedom helps businesses take payments. PF Sites is the other half: the website, the online ordering and the back office that brings those payments in. One company, one login, one place to call.'))));
+
 export const faqPage = () => h('main', { class: 'doc' }, h('div', { class: 'page' },
   h('p', { class: 'kicker' }, 'Help'), h('h1', {}, 'Questions and answers'), h('p', { class: 'doc-intro' }, 'The things people ask before they start. If yours is not here, write to us.'),
-  faqList(), h('div', { class: 'doc-cta' }, h('div', {}, h('b', {}, 'Still have a question?'), h('span', {}, 'A person will reply.')), h('a', { class: 'btn', href: `mailto:${CONTACT}` }, 'Email support'))));
+  faqList(), h('div', { class: 'doc-cta' }, h('div', {}, h('b', {}, 'Still have a question?'), h('span', {}, 'A person will reply.')), link('/contact', { class: 'btn' }, 'Contact us'))));
