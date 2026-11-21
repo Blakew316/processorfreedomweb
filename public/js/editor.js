@@ -1892,6 +1892,7 @@ export async function editor(id, mount, title, startTab = '') {
   }
   /* ---------- phone navigation ---------- */
   const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main screens' });
+  const lastQuick = {};
   function paintTabbar() {
     const mode = modeOf(tab);
     const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
@@ -1900,23 +1901,34 @@ export async function editor(id, mount, title, startTab = '') {
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has) })).filter((g) => g.tabs.length);
     const primary = groups.slice(0, PHONE_COUNT[mode]);
     const item = (icon, label, on, fn, badge) => h('button', { type: 'button', 'aria-current': on ? 'page' : null, onclick: fn }, h('span', { class: 'tb-ic' }, navIcon(icon, 24), badge > 0 && h('em', { class: 'badge' }, badge)), h('span', {}, label));
+    // On a phone the back office has four fixed places and More; every label is one short word.
+    const QUICK = [['home', 'Home', ['start']], ['orders', 'Orders', ['orders']], ['menu', 'Items', ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs']], ['sales', 'Reports', ['sales']]].filter(([, , ks]) => has(ks[0]));
     tabbar.replaceChildren(...[
-      ...primary.map((g) => item(g.icon, g.short || g.label, g.tabs.includes(tab) && !previewing, () => { body.dataset.view = 'edit'; goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]); paintTop(); }, g.tabs.includes('orders') ? fresh : 0)),
+      ...(mode === 'office' ? QUICK.map(([icon, label, ks]) => item(icon, label, ks.includes(tab), () => { body.dataset.view = 'edit'; goTab(ks.includes(lastQuick[label]) ? lastQuick[label] : ks[0]); paintTop(); }, ks[0] === 'orders' ? fresh : 0))
+        : primary.map((g) => item(g.icon, g.short || g.label.split(' ')[0], g.tabs.includes(tab) && !previewing, () => { body.dataset.view = 'edit'; goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]); paintTop(); }, 0))),
       mode === 'site' && item('preview', 'Preview', previewing, () => { body.dataset.view = previewing ? 'edit' : 'preview'; paintTop(); requestAnimationFrame(fit); }),
-      item('more', 'More', !previewing && !primary.some((g) => g.tabs.includes(tab)), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
+      item('more', 'More', !previewing && (mode === 'office' ? !QUICK.some(([, , ks]) => ks.includes(tab)) : !primary.some((g) => g.tabs.includes(tab))), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
+    for (const [, label, ks] of QUICK) if (ks.includes(tab)) lastQuick[label] = tab;
   }
   function moreSheet() {
     sheet((close) => {
       const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
-      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, NAV_NAMES.has(icon) ? navIcon(icon, 21) : h('span', { class: 'nav-ic' }, ic(icon, 20)), h('b', {}, label), extra, navIcon('chev', 14));
       const has = (k) => tabs.some(([t]) => t === k);
-      const group = (mode) => h('div', { class: 'more-group' }, h('h3', {}, mode === 'office' ? 'Run your business' : 'Edit your website'), h('div', { class: 'more-list' }, NAV[mode].filter((g) => g.tabs.some(has)).flatMap((g) => (g.tabs.filter(has).length > 1 ? g.tabs.filter(has).map((k) => row(g.icon, g.subs[g.tabs.indexOf(k)] === g.label ? g.label : `${g.label}: ${g.subs[g.tabs.indexOf(k)]}`, () => { body.dataset.view = 'edit'; goTab(k); paintTop(); }, [k === tab && h('span', { class: 'tag' }, 'Open')]))
-        : [row(g.icon, g.label, () => { body.dataset.view = 'edit'; goTab(g.tabs.filter(has)[0]); paintTop(); }, [g.tabs.includes(tab) && h('span', { class: 'tag' }, 'Open'), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)])]))));
-      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, meta.name), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
-        group(modeOf(tab)), group(modeOf(tab) === 'office' ? 'site' : 'office'),
-        h('div', { class: 'more-group' }, h('h3', {}, 'More'), h('div', { class: 'more-list' },
+      const open = (k) => () => { body.dataset.view = 'edit'; goTab(k); paintTop(); };
+      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, icon && (NAV_NAMES.has(icon) ? navIcon(icon, 21) : h('span', { class: 'nav-ic' }, ic(icon, 20))), h('b', {}, label), extra, navIcon('chev', 14));
+      // One card per section, its pages listed underneath: the same shape as the Settings app on an iPhone.
+      const section = (g) => { const ks = g.tabs.filter(has); return h('div', { class: 'more-group' }, h('h3', {}, g.label), h('div', { class: 'more-list' }, ks.map((k) => row(ks.length > 1 ? '' : g.icon, ks.length > 1 ? g.subs[g.tabs.indexOf(k)] : g.label, open(k), [k === tab && h('span', { class: 'tag' }, 'Here'), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)])))); };
+      const mode = modeOf(tab), other = mode === 'office' ? 'site' : 'office';
+      const singles = NAV[mode].filter((g) => g.tabs.filter(has).length === 1), multi = NAV[mode].filter((g) => g.tabs.filter(has).length > 1);
+      return [h('div', { class: 'more-grab', 'aria-hidden': 'true' }), h('div', { class: 'row more-head' }, h('div', { class: 'grow' }, h('small', {}, mode === 'office' ? 'Back office' : 'Website'), h('h2', {}, meta.name)), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        singles.length > 0 && h('div', { class: 'more-group' }, h('div', { class: 'more-list' }, singles.map((g) => row(g.icon, g.label, open(g.tabs.filter(has)[0]), [g.tabs.includes(tab) && h('span', { class: 'tag' }, 'Here')])))),
+        ...multi.map(section),
+        h('div', { class: 'more-group' }, h('h3', {}, 'Account'), h('div', { class: 'more-list' },
+          mode === 'office' && row('settings', 'All settings', open('settings')),
+          mode === 'office' && row('customers', 'Profile and sign-in', open('profile')),
+          row(other === 'site' ? 'design' : 'home', other === 'site' ? 'Edit my website' : 'Back office', open(lastTab[other])),
           meta.live && row('out', 'View my live site', () => window.open(meta.url, '_blank', 'noopener')),
-          row('bell', 'Kitchen screen', () => go(`/app/site/${id}/kitchen`)),
+          row('orders', 'Kitchen screen', () => go(`/app/site/${id}/kitchen`)),
           canOfferInstall() && row('phone', 'Install the app on this device', installApp),
           row('back', 'All my sites', async () => { await flush(); go('/app'); })))];
     }, 'more');
@@ -1991,6 +2003,7 @@ export async function editor(id, mount, title, startTab = '') {
     popover(btn, (close) => [
       h('button', { class: 'tb-who', type: 'button', onclick: () => { close(); goTab('profile'); } }, tIcon('user', 22), h('span', {}, h('b', {}, state.user.name || state.user.email), h('small', {}, roleName))),
       h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('profile'); } }, 'Profile and sign-in'),
+      h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'Settings'),
       h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); go('/app'); } }, 'All my sites'),
       h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Log out'),
     ]);
@@ -2012,7 +2025,7 @@ export async function editor(id, mount, title, startTab = '') {
   }
   const topRight = () => {
     const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !unread() }));
-    const gear = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Settings', 'aria-label': 'Settings', onclick: openSettings }, tIcon('gear'));
+    const gear = h('button', { class: 'icon-btn tb-btn tb-gear', type: 'button', title: 'Settings', 'aria-label': 'Settings', onclick: openSettings }, tIcon('gear'));
     const me = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Profile', 'aria-label': 'Profile', 'aria-haspopup': 'dialog', onclick: () => openProfileMenu(me) }, tIcon('user'));
     return h('div', { class: 'tb-right' }, bell, gear, me);
   };
@@ -2042,7 +2055,7 @@ export async function editor(id, mount, title, startTab = '') {
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', title: modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', 'aria-label': modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', onclick: async () => { if (modeOf(tab) === 'site') return goTab(lastTab.office); await flush(); go('/app'); } }, ic('back')),
       h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo.svg', alt: 'PF Sites', width: 42, height: 42 })),
-      h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),
+      h('span', { class: 'm-title' }, h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || [])[1] || '')),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label)],
       modeOf(tab) === 'site' && h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
