@@ -309,5 +309,6 @@ const NAV_ICONS = {
   more: '<circle cx="6" cy="12" r="1.300"/><circle cx="12" cy="12" r="1.300"/><circle cx="18" cy="12" r="1.300"/>',
   preview: '<path d="M2.800 12S6.200 5.800 12 5.800 21.200 12 21.200 12 17.800 18.200 12 18.200 2.800 12 2.800 12z"/><circle cx="12" cy="12" r="2.700"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
+  back: '<path d="M15 6l-6 6 6 6"/>',
 };
 export const navIcon = (name, size = 20) => h('span', { class: 'nav-ic', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.650" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICONS[name] || ''}</svg>` });

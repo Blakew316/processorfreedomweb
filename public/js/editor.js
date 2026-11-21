@@ -725,7 +725,8 @@ export async function editor(id, mount, title) {
         salesBusy = false;
         if (SALES_TABS[tab]) paintPanel();
       };
-      const pick = (r) => { salesRange = r; stats = null; txData = null; cashData = null; paintPanel(); };
+      const pick = (r) => { salesRange = r; paintPanel(); };
+      if (stats && !stats.failed && !salesBusy && salesRange !== 'custom' && stats.range !== salesRange) load();
       const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days'], ['custom', 'Custom']];
       const day = (d, o = { month: 'short', day: 'numeric' }) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
       const head = (st) => h('div', { class: 'inv-top' },
@@ -880,7 +881,7 @@ export async function editor(id, mount, title) {
     },
 
     insights() {
-      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Insights'), h('p', { class: 'muted' }, 'Your business snapshot for the last seven days, worked out from your own orders.')), h('button', { class: 'btn soft', onclick: () => { insightData = null; paintPanel(); } }, 'Refresh'));
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Insights'), h('p', { class: 'muted' }, 'Your business snapshot for the last seven days, worked out from your own orders.')), h('button', { class: 'btn soft', onclick: async () => { await reload('insights'); paintPanel(); toast('Up to date'); } }, 'Refresh'));
       if (!insightData) { api('GET', `/api/sites/${id}/stats?range=last7`).then((r) => { insightData = r; if (tab === 'insights') paintPanel(); }).catch((e) => { toast(e.message, true); insightData = { failed: true }; if (tab === 'insights') paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
       const st = insightData;
       if (st.failed || !st.totals) return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-list' }, emptyState('alert', 'We could not load your insights', 'Press Refresh to try again.')))];
@@ -950,9 +951,9 @@ export async function editor(id, mount, title) {
     },
     devices() {
       if (!deviceData) { api('GET', `/api/sites/${id}/devices`).then((r) => { deviceData = r; if (tab === 'devices') paintPanel(); }).catch((e) => { toast(e.message, true); deviceData = { devices: [] }; if (tab === 'devices') paintPanel(); }); return [group('', skel(3, 'row'))]; }
-      const here = h('button', { class: 'btn', style: 'justify-self:start', onclick: async () => { try { await enablePush(); pushIsOn = true; deviceData = null; toast('This device will be notified of new orders'); paintPanel(); } catch (e) { toast(e.message, true); } } }, ic('bell', 16), 'Notify this device');
+      const here = h('button', { class: 'btn', style: 'justify-self:start', onclick: async () => { try { await enablePush(); pushIsOn = true; await reload('devices'); toast('This device will be notified of new orders'); paintPanel(); } catch (e) { toast(e.message, true); } } }, ic('bell', 16), 'Notify this device');
       return [group('Notified devices', deviceData.devices.length ? h('div', { class: 'slist' }, deviceData.devices.map((d) => h('div', { class: 'srow', style: 'padding:12px 12px 12px 16px;gap:10px' }, h('span', { class: 'sico' }, ic('phone', 16)), h('div', { class: 'grow', style: 'min-width:0' }, h('b', { style: 'font-weight:500;font-size:15px;display:block' }, d.name || d.email), h('span', { class: 'small muted' }, `Added ${fmtDate(d.createdAt)} · via ${d.service}`)),
-        h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Stop notifying this device?', text: 'It will no longer get new-order notifications.', action: 'Remove', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/devices/${d.id}`); deviceData = null; paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Remove'))))
+        h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Stop notifying this device?', text: 'It will no longer get new-order notifications.', action: 'Remove', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/devices/${d.id}`); await reload('devices'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Remove'))))
         : emptyState('phone', 'No devices yet', 'Turn on notifications on the phone, tablet or computer you keep at the counter.'), pushIsOn !== true && here,
         h('small', { class: 'hint' }, 'On iPhone and iPad, add PF Sites to your Home Screen first, then turn notifications on from there.'))];
     },
@@ -960,7 +961,7 @@ export async function editor(id, mount, title) {
       const tabNow = asCalendar ? 'calendar' : 'appts';
       const b = ordering.booking;
       const add = () => formSheet('Add appointment', [['serviceName', 'What for', { maxlength: 80, placeholder: b.services[0]?.name || 'e.g. Table for dinner' }], ['date', 'Date', { type: 'date' }], ['time', 'Time', { type: 'time' }], ['name', 'Customer name', { maxlength: 120 }], ['phone', 'Phone', { type: 'tel' }], ['party', 'Number of people', { type: 'number', min: 1 }], ['notes', 'Notes', { maxlength: 500 }]],
-        { serviceName: b.services[0]?.name || '', date: apptData?.today || new Date().toISOString().slice(0, 10), time: '18:00', name: '', phone: '', party: '2', notes: '' }, async (v) => { await api('POST', `/api/sites/${id}/appointments`, v); apptData = null; });
+        { serviceName: b.services[0]?.name || '', date: apptData?.today || new Date().toISOString().slice(0, 10), time: '18:00', name: '', phone: '', party: '2', notes: '' }, async (v) => { await api('POST', `/api/sites/${id}/appointments`, v); await reload('appts'); });
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, asCalendar ? 'Calendar' : 'Appointments'), h('p', { class: 'muted' }, asCalendar ? 'Every booking for the next two weeks, day by day.' : 'Booking requests from your website, and appointments you add yourself.')),
         h('div', { class: 'row' }, !b.enabled && h('button', { class: 'btn soft', onclick: () => goTab('booking') }, 'Set up online booking'), h('button', { class: 'btn', onclick: add }, ic('plus', 16), 'Add appointment')));
       if (!apptData) { api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; if (tab === tabNow) paintPanel(); }).catch((e) => { toast(e.message, true); apptData = { today: '', appointments: [] }; if (tab === tabNow) paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
@@ -1004,7 +1005,7 @@ export async function editor(id, mount, title) {
     },
     schedule() {
       const add = () => formSheet('Add a shift', [['name', 'Who', { list: 'pf-people', maxlength: 80 }], ['day', 'Day', { type: 'date' }], ['start', 'Starts', { type: 'time' }], ['finish', 'Ends', { type: 'time' }], ['note', 'Note', { maxlength: 120, placeholder: 'Optional, e.g. Opening' }]],
-        { name: shiftData?.people[0] || '', day: shiftData?.today || '', start: '09:00', finish: '17:00', note: '' }, async (v) => { await api('POST', `/api/sites/${id}/shifts`, v); shiftData = null; }, () => h('datalist', { id: 'pf-people' }, (shiftData?.people || []).map((x) => h('option', { value: x }))));
+        { name: shiftData?.people[0] || '', day: shiftData?.today || '', start: '09:00', finish: '17:00', note: '' }, async (v) => { await api('POST', `/api/sites/${id}/shifts`, v); await reload('schedule'); }, () => h('datalist', { id: 'pf-people' }, (shiftData?.people || []).map((x) => h('option', { value: x }))));
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Scheduling'), h('p', { class: 'muted' }, 'Plan who is working and when, for the week ahead.')), h('button', { class: 'btn', onclick: add }, ic('plus', 16), 'Add shift'));
       if (!shiftData) { api('GET', `/api/sites/${id}/shifts`).then((r) => { shiftData = r; if (tab === 'schedule') paintPanel(); }).catch((e) => { toast(e.message, true); shiftData = { today: new Date().toISOString().slice(0, 10), people: [], shifts: [] }; if (tab === 'schedule') paintPanel(); }); return [h('div', { class: 'inv' }, head, skel(5, 'row'))]; }
       const { today, shifts } = shiftData;
@@ -1016,7 +1017,7 @@ export async function editor(id, mount, title) {
       return [h('div', { class: 'inv' }, head,
         h('div', { class: 'inv-kpis' }, kpi('Shifts this week', week.length, 'next 7 days'), kpi('Hours scheduled', week.reduce((a, x) => a + hours(x), 0).toFixed(1), 'next 7 days'), kpi('People scheduled', new Set(week.map((x) => x.name)).size, 'this week'), kpi('Today', shifts.filter((x) => x.day === today).length, 'shifts')),
         days.map((d) => { const list = shifts.filter((x) => x.day === d); return h('div', { class: 'scard', style: 'padding:18px 24px' }, h('h3', {}, `${d === today ? 'Today · ' : ''}${new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })}`),
-          list.length ? list.map((x) => h('div', { class: 'appt' }, h('div', { class: 'appt-t' }, h('b', {}, t12(x.start)), h('small', {}, `to ${t12(x.finish)}`)), h('div', { class: 'grow' }, h('b', {}, x.name), h('div', { class: 'small muted' }, [`${hours(x).toFixed(1)} hours`, x.note].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { try { await api('DELETE', `/api/sites/${id}/shifts/${x.id}`); shiftData = null; paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Remove'))) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'Nobody scheduled.')); }))];
+          list.length ? list.map((x) => h('div', { class: 'appt' }, h('div', { class: 'appt-t' }, h('b', {}, t12(x.start)), h('small', {}, `to ${t12(x.finish)}`)), h('div', { class: 'grow' }, h('b', {}, x.name), h('div', { class: 'small muted' }, [`${hours(x).toFixed(1)} hours`, x.note].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { try { await api('DELETE', `/api/sites/${id}/shifts/${x.id}`); await reload('schedule'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Remove'))) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'Nobody scheduled.')); }))];
     },
     timesheets() {
       const head = (btn) => h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Timesheets'), h('p', { class: 'muted' }, 'Clock in when you start and out when you finish. Hours add up here for payroll.')), btn);
@@ -1037,8 +1038,9 @@ export async function editor(id, mount, title) {
           : h('div', { class: 'inv-list' }, emptyState('clock', 'No time recorded yet', 'Press Clock in when your shift starts. Staff with their own login can do the same.')))];
     },
     tx() {
-      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Transactions'), h('p', { class: 'muted' }, 'Every payment and refund you have recorded, from orders and invoices.')), h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'), h('button', { class: 'btn soft', onclick: () => { txData = null; paintPanel(); } }, 'Refresh')));
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Transactions'), h('p', { class: 'muted' }, 'Every payment and refund you have recorded, from orders and invoices.')), h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'), h('button', { class: 'btn soft', onclick: async () => { await reload('tx'); paintPanel(); toast('Up to date'); } }, 'Refresh')));
       if (!txData) { api('GET', `/api/sites/${id}/transactions?${rq()}`).then((r) => { txData = r; if (tab === 'tx') paintPanel(); }).catch((e) => { toast(e.message, true); txData = { payments: [], refunds: [], tenders: [], totals: { payments: 0, count: 0, refunds: 0, refundCount: 0, net: 0 } }; if (tab === 'tx') paintPanel(); }); return [h('div', { class: 'inv' }, head, rangeBar(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(5, 'row'))]; }
+      if (txData.range && txData.range !== rq().get('range')) reload('tx', true);
       const d = txData, t = d.totals;
       const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
       const rows = [...(txFilter !== 'refunds' ? d.payments.map((x) => ({ ...x, type: 'Payment' })) : []), ...(txFilter !== 'payments' ? d.refunds.map((x) => ({ ...x, type: 'Refund' })) : [])].sort((a, b) => b.at - a.at);
@@ -1050,15 +1052,16 @@ export async function editor(id, mount, title) {
           : h('div', { class: 'inv-list' }, emptyState('cash', 'No transactions in this period', 'Record a payment on an order, or mark an invoice as paid, and it appears here.', ['Go to orders', () => goTab('orders')])))];
     },
     cash() {
-      const add = (kind) => formSheet(kind === 'in' ? 'Cash in' : 'Cash out', [['amount', 'Amount', { inputmode: 'decimal', placeholder: '0.00' }], ['note', 'What for', { maxlength: 200, placeholder: kind === 'in' ? 'e.g. Opening float' : 'e.g. Bank deposit' }]], { amount: '', note: '' }, async (v) => { const c = parsePrice(v.amount || ''); if (!c) throw new Error('Enter an amount above zero.'); await api('POST', `/api/sites/${id}/cash`, { kind, amount: c, note: v.note }); cashData = null; });
+      const add = (kind) => formSheet(kind === 'in' ? 'Cash in' : 'Cash out', [['amount', 'Amount', { inputmode: 'decimal', placeholder: '0.00' }], ['note', 'What for', { maxlength: 200, placeholder: kind === 'in' ? 'e.g. Opening float' : 'e.g. Bank deposit' }]], { amount: '', note: '' }, async (v) => { const c = parsePrice(v.amount || ''); if (!c) throw new Error('Enter an amount above zero.'); await api('POST', `/api/sites/${id}/cash`, { kind, amount: c, note: v.note }); await reload('cash'); });
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Cash log'), h('p', { class: 'muted' }, 'Money put into and taken out of the drawer, beside the cash payments recorded on orders.')), h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => add('out') }, ic('minus', 16), 'Cash out'), h('button', { class: 'btn', onclick: () => add('in') }, ic('plus', 16), 'Cash in')));
       if (!cashData) { api('GET', `/api/sites/${id}/cash?${rq()}`).then((r) => { cashData = r; if (tab === 'cash') paintPanel(); }).catch((e) => { toast(e.message, true); cashData = { entries: [], totals: { cashSales: 0, cashRefunds: 0, paidIn: 0, paidOut: 0, expected: 0 } }; if (tab === 'cash') paintPanel(); }); return [h('div', { class: 'inv' }, head, rangeBar(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
+      if (cashData.range && cashData.range !== rq().get('range')) reload('cash', true);
       const d = cashData, t = d.totals;
       const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
       return [h('div', { class: 'inv' }, head, rangeBar(),
         h('div', { class: 'inv-kpis' }, kpi('Cash sales', money(t.cashSales), t.cashRefunds ? `${money(t.cashRefunds)} refunded in cash` : 'orders paid in cash'), kpi('Cash in', money(t.paidIn), 'added to the drawer'), kpi('Cash out', money(t.paidOut), 'taken from the drawer'), kpi('Expected in drawer', money(t.expected), 'for this period')),
         d.entries.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Time', 'Type', 'Amount', 'What for', 'By', 'Action'].map((x) => h('th', {}, x)))),
-          h('tbody', {}, d.entries.map((x) => h('tr', {}, h('td', {}, `${d.from === d.to ? '' : `${x.date} `}${x.time}`), h('td', {}, h('span', { class: `status ${x.kind === 'in' ? 'ok' : 'warn'}` }, x.kind === 'in' ? 'Cash in' : 'Cash out')), h('td', {}, h('b', {}, money(x.amount))), h('td', {}, x.note || '—'), h('td', { class: 'muted' }, x.by), h('td', {}, h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Delete this entry?', text: 'It is removed from the cash log.', action: 'Delete', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/cash/${x.id}`); cashData = null; paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Delete'))))))))
+          h('tbody', {}, d.entries.map((x) => h('tr', {}, h('td', {}, `${d.from === d.to ? '' : `${x.date} `}${x.time}`), h('td', {}, h('span', { class: `status ${x.kind === 'in' ? 'ok' : 'warn'}` }, x.kind === 'in' ? 'Cash in' : 'Cash out')), h('td', {}, h('b', {}, money(x.amount))), h('td', {}, x.note || '—'), h('td', { class: 'muted' }, x.by), h('td', {}, h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Delete this entry?', text: 'It is removed from the cash log.', action: 'Delete', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/cash/${x.id}`); await reload('cash'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Delete'))))))))
           : h('div', { class: 'inv-list' }, emptyState('cash', 'No cash entries in this period', 'Log your opening float, bank deposits and anything else that goes in or out of the drawer.', ['Cash in', () => add('in')])))];
     },
     close() {
@@ -1072,7 +1075,7 @@ export async function editor(id, mount, title) {
       return [h('div', { class: 'inv' }, head,
         h('div', { class: 'inv-kpis' }, kpi('Batch total', money(t.net), o.since ? `since ${when(o.since)}` : 'since you started'), kpi(`Payments (${t.count})`, money(t.payments), 'recorded'), kpi(`Refunds (${t.refundCount})`, money(t.refunds), 'recorded'), kpi('Status', 'Open', `batch ${o.number}`)),
         h('div', { class: 'scard', style: 'padding:22px 24px' }, h('h3', {}, 'Current batch'), o.tenders.length ? o.tenders.map((x) => line(`${x.method} · ${x.count} payment${x.count === 1 ? '' : 's'}`, money(x.amount - x.refunds))) : h('p', { class: 'muted', style: 'padding:8px 0' }, 'No payments recorded in this batch yet.'), o.paidIn > 0 && line('Cash in (not part of the batch total)', money(o.paidIn)), o.paidOut > 0 && line('Cash out (not part of the batch total)', `−${money(o.paidOut)}`), line('Batch total', money(t.net), 'total'),
-          h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn', disabled: empty, onclick: async () => { if (!await confirmSheet({ title: `Close out batch ${o.number}?`, text: `${money(t.net)} from ${t.count} payment${t.count === 1 ? '' : 's'} will be filed under Batch history, and a new batch starts.`, action: 'Close out' })) return; try { await api('POST', `/api/sites/${id}/closeouts`); closeData = null; toast('Batch closed out'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Close out'))),
+          h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn', disabled: empty, onclick: async () => { if (!await confirmSheet({ title: `Close out batch ${o.number}?`, text: `${money(t.net)} from ${t.count} payment${t.count === 1 ? '' : 's'} will be filed under Batch history, and a new batch starts.`, action: 'Close out' })) return; try { await api('POST', `/api/sites/${id}/closeouts`); await reload('close'); toast('Batch closed out'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Close out'))),
         h('div', { class: 'scard' }, h('h3', {}, 'Batch history'), closeData.history.length ? h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Batch', 'Closed', 'By', 'Payments', 'Refunds', 'Amount'].map((x) => h('th', {}, x)))),
           h('tbody', {}, closeData.history.map((b2) => h('tr', {}, h('td', {}, h('b', {}, `Batch ${b2.number}`)), h('td', {}, when(b2.createdAt)), h('td', { class: 'muted' }, b2.by), h('td', {}, `${b2.totals.count} · ${money(b2.totals.payments)}`), h('td', {}, `${b2.totals.refundCount} · ${money(b2.totals.refunds)}`), h('td', {}, h('b', {}, money(b2.totals.net)))))))) : h('p', { class: 'muted', style: 'padding:0 22px 20px' }, 'No batches closed yet.')))];
     },
@@ -1342,7 +1345,7 @@ export async function editor(id, mount, title) {
 
   /* ---------- payments recorded at the counter ---------- */
   const rq = () => new URLSearchParams(salesRange === 'custom' && salesFrom && salesTo ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange === 'custom' ? 'today' : salesRange });
-  const rangeBar = () => h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days']].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String((salesRange === 'custom' ? 'today' : salesRange) === k), onclick: () => { salesRange = k; stats = null; txData = null; cashData = null; paintPanel(); } }, l))));
+  const rangeBar = () => h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days']].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String((salesRange === 'custom' ? 'today' : salesRange) === k), onclick: () => { salesRange = k; paintPanel(); } }, l))));
   function csvFile(name, rows) {
     const q2 = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
     const url = URL.createObjectURL(new Blob([`\ufeff${rows.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
@@ -1681,7 +1684,22 @@ export async function editor(id, mount, title) {
 
   // Invoices change without the merchant doing anything (a customer opens one), so the list is refreshed on each visit.
   const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if ((tab === 'invoices' || tab === 'est') && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
-  const goTab = (k) => { if (k === 'invoices' || k === 'est') refreshBills(); if (k === 'start') dash = null; if (k === 'tx') txData = null; if (k === 'cash') cashData = null; if (k === 'close') closeData = null; if (k === 'insights') insightData = null; if (k === 'appts' || k === 'calendar') apptData = null; if (k === 'schedule') shiftData = null; if (k === 'timesheets') clockData = null; if (k === 'projects') refreshBills(); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
+  // What each screen loads, so a visit can refresh it quietly instead of clearing the page and drawing it again.
+  const FEEDS = {
+    start: [() => 'stats?range=today', (v) => { dash = v; }, () => (dash && dash.totals ? dash : null)],
+    tx: [() => `transactions?${rq()}`, (v) => { txData = v; }, () => txData], cash: [() => `cash?${rq()}`, (v) => { cashData = v; }, () => cashData],
+    close: [() => 'closeouts', (v) => { closeData = v; }, () => closeData], insights: [() => 'stats?range=last7', (v) => { insightData = v; }, () => insightData],
+    appts: [() => 'appointments', (v) => { apptData = v; }, () => apptData], calendar: [() => 'appointments', (v) => { apptData = v; }, () => apptData],
+    schedule: [() => 'shifts', (v) => { shiftData = v; }, () => shiftData], timesheets: [() => 'timeclock', (v) => { clockData = v; }, () => clockData],
+    plans: [() => 'plans', (v) => { planData = v; }, () => planData], gift: [() => 'gift-cards', (v) => { giftData = v; }, () => giftData], devices: [() => 'devices', (v) => { deviceData = v; }, () => deviceData],
+  };
+  // Fetches a screen's data again and swaps it in. The page only redraws if something actually changed.
+  async function reload(k, quiet) {
+    const f = FEEDS[k]; if (!f) return;
+    try { const fresh = await api('GET', `/api/sites/${id}/${f[0]()}`); const same = JSON.stringify(fresh) === JSON.stringify(f[2]()); f[1](fresh); if (quiet && !same && tab === k && !document.querySelector('.scrim')) paintPanel(); }
+    catch (e) { if (!quiet) toast(e.message, true); }
+  }
+  const goTab = (k) => { if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
   function startPanel() {
     const b = draft.business;
     const steps = [
@@ -1710,7 +1728,7 @@ export async function editor(id, mount, title) {
           h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]), alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0])))))));
     return [h('div', { class: 'inv dashb' },
       h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Dashboard'), h('p', { class: 'muted' }, today)),
-        h('div', { class: 'row', style: 'flex-wrap:wrap' }, meta.live && h('a', { class: 'btn soft', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open my order page', ic('out', 15)), h('button', { class: 'btn soft', onclick: () => { dash = null; loadOrders(true); paintPanel(); } }, 'Refresh'))),
+        h('div', { class: 'row', style: 'flex-wrap:wrap' }, meta.live && h('a', { class: 'btn soft', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open my order page', ic('out', 15)), h('button', { class: 'btn soft', onclick: async () => { loadOrders(true); await reload('start'); paintPanel(); toast('Up to date'); } }, 'Refresh'))),
       setup,
       h('div', { class: 'inv-kpis' }, ...(t ? [kpi('Net sales today', money(t.net), `${t.orders} order${t.orders === 1 ? '' : 's'}`, 'cash'), kpi('Orders waiting', waiting.length, waiting.length ? 'need your attention' : 'all caught up', 'bag'), kpi('Average order', money(t.average), 'including tax and tips', 'chart'), kpi('Running low', low.length, low.length ? 'items to restock' : 'stock looks good', 'cube')] : dash.failed ? [kpi('Net sales today', '—', 'could not load', 'cash')] : skel(4, 'kpi'))),
       h('div', { class: 'sgrid2x' },
@@ -1724,7 +1742,7 @@ export async function editor(id, mount, title) {
           low.length ? low.slice(0, 5).map((it) => h('div', { class: 'rline click', onclick: () => openItem(it.id) }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, it.stock === 0 ? 'Sold out' : `${it.stock} left`)))
             : h('p', { class: 'muted', style: 'padding:14px 0' }, menu.length ? 'Nothing is running low.' : 'Add your menu to start tracking stock.')),
         h('div', { class: 'scard' }, h('h3', {}, 'Shortcuts'),
-          h('div', { class: 'shortcuts' }, [['Add an item', 'tag', () => goTab('items')], ['Send an invoice', 'doc', () => { goTab('invoices'); openInvoice(); }], ['Kitchen screen', 'bell', () => go(`/app/site/${id}/kitchen`)], ['Edit my website', 'brush', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'btn soft', onclick: fn }, ic(icon, 16), l))))))];
+          h('div', { class: 'shortcuts' }, [['Add an item', 'tag', () => goTab('items')], ['Send an invoice', 'doc', () => openInvoice()], ['Kitchen screen', 'bell', () => go(`/app/site/${id}/kitchen`)], ['Edit my website', 'brush', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'btn soft', onclick: fn }, ic(icon, 16), l))))))];
   }
 
   function addSection() {
@@ -1761,15 +1779,15 @@ export async function editor(id, mount, title) {
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
     const group = groups.find((g) => g.tabs.includes(cur[0])) || groups[0];
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
-    rail.replaceChildren(...[mode === 'office' ? h('button', { class: 'rail-new', onclick: () => { goTab('invoices'); openInvoice(); } }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
+    rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navIcon('back', 23), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const open = g === group, many = g.tabs.length > 1;
       return [
         h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, onclick: () => pick(g) }, navIcon(g.icon, 23), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         many && open && h('div', { class: 'nav-kids' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))),
       ];
     }).filter(Boolean),
-      h('hr'),
-      h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, navIcon(mode === 'office' ? 'address' : 'business', 23), h('b', {}, mode === 'office' ? 'Website' : 'Back office')),
+      mode === 'office' && h('hr'),
+      mode === 'office' && h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab.site) }, navIcon('address', 23), h('b', {}, 'Website')),
       mode === 'office' && h('button', { class: 'nav-row', onclick: () => go(`/app/site/${id}/kitchen`) }, navIcon('orders', 23), h('b', {}, 'Kitchen screen')),
       h('span', { class: 'grow' }),
       mode === 'site' && railPub,
@@ -1861,7 +1879,7 @@ export async function editor(id, mount, title) {
     top.dataset.mode = modeOf(tab); top.dataset.view = body.dataset.view;
     paintTabbar();
     top.replaceChildren(...[
-      h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
+      h('button', { class: 'icon-btn', title: modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', 'aria-label': modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', onclick: async () => { if (modeOf(tab) === 'site') return goTab(lastTab.office); await flush(); go('/app'); } }, ic('back')),
       h('img', { class: 'tb-logo', src: '/assets/icon-192.png', alt: '', width: 30, height: 30 }),
       h('span', { class: 'name brand' }, 'PF Sites'),
       h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),

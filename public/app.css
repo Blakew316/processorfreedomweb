@@ -1852,3 +1852,82 @@ html[data-theme=dark] .sheet .btn.soft{background:rgba(255,255,255,.12)}
 .appt-t small{color:var(--muted);font-size:13px}
 .zrow.svc{display:grid;grid-template-columns:minmax(0,1fr) 84px 96px 40px;gap:8px;align-items:center}
 @media (max-width:700px){.appt{flex-wrap:wrap}.appt-t{width:auto}.appt .row{flex:1 1 100%;justify-content:flex-start!important}}
+
+/* =====================================================================
+   Stillness and alignment.
+   Nothing animates when a page or a filter changes. Pop-ups fade in once.
+   Icons sit dead centre. No underline on selected pills.
+   ===================================================================== */
+.panel.enter>*,.panel>*,.nav-kids,.inv-empty>span:first-child,.todo-row,.inv-row,.srow,.ocard,.scard{animation:none!important}
+.btn,.chip,.rail button,.nav-row,.inv-chips .chip{transition:background-color .15s ease,color .15s ease,border-color .15s ease!important}
+.sheet{animation:popin .22s ease-out!important}
+.scrim{animation:fade .18s ease-out!important}
+.scrim.out{animation:fadeout .14s ease-in forwards!important}
+.scrim.out .sheet{animation:none!important}
+.toast{animation:fade .2s ease-out!important}
+.menu{animation:fade .15s ease-out!important}
+@keyframes popin{from{opacity:0;transform:translateY(6px)}}
+@media (max-width:900px){.sheet,.sheet.wide,.sheet.bill,.sheet.isheet,.sheet.live{animation:sheetup .3s cubic-bezier(.22,.61,.36,1)!important}}
+.skel::after{animation-duration:1.8s}
+
+/* Selected pills: a flat tint, no line underneath. */
+.ed-body .inv-chips .chip[aria-pressed=true],html:not([data-theme=dark]) .ed-body[data-mode=office] .inv-chips .chip[aria-pressed=true],html:not([data-theme=dark]) .inv-chips .chip[aria-pressed=true]{box-shadow:none!important;background:#dde7fb;border-color:#dde7fb;color:var(--brand)}
+html[data-theme=dark] .ed-body .inv-chips .chip[aria-pressed=true]{background:rgba(255,255,255,.16);border-color:transparent;color:#fff}
+.seg button[aria-pressed=true],.panel .seg button[aria-pressed=true]{box-shadow:0 0 0 1px var(--line)!important}
+
+/* Empty pages: the icon is centred in its tile, and the whole message is centred in its card. */
+.inv-empty{display:flex!important;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:72px 24px;width:100%;min-height:340px}
+.inv-empty>span:first-child,html:not([data-theme=dark]) .inv-empty>span:first-child,html[data-theme=dark] .inv-empty>span:first-child{display:flex!important;align-items:center;justify-content:center;flex:none;width:64px;height:64px;border-radius:20px;margin:0 0 8px;padding:0;line-height:0}
+.inv-empty>span:first-child svg{display:block;width:28px;height:28px;margin:0}
+.inv-empty b{font-size:19px;font-weight:600;margin:0}
+.inv-empty p{max-width:440px;margin:0;font-size:15px;line-height:1.5}
+.inv-empty .btn{margin-top:16px!important}
+.inv-list:has(>.inv-empty){display:flex;align-items:center;justify-content:center}
+.group>.inv-empty{min-height:260px}
+
+/* Page header: title on the left, actions on the right, on one baseline. */
+.inv-top{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.inv-top>div:first-child{min-width:0;flex:1 1 320px}
+.inv-top .row{flex:none;align-items:center;gap:10px}
+.inv-top .btn{flex:none}
+
+/* The page area clips to its rounded corners and scrolls smoothly on its own. */
+@media (min-width:901px){.ed-side{overflow:hidden}}
+.ed-side>.panel{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background-attachment:scroll!important;scroll-behavior:auto;overscroll-behavior:contain}
+.rail{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.rail>*{flex:none}
+.rail>.grow{flex:1 0 12px}
+
+/* Website sidebar: the way back is the first thing in it. */
+.rail .nav-back,.rail .nav-back:hover{margin:6px 0 4px;color:var(--ink)}
+.rail .nav-back b{font-weight:500!important}
+
+/* Kitchen screen */
+.k{background:linear-gradient(180deg,#f3f5fa,#f7f6f3);min-height:100dvh}
+html[data-theme=dark] .k{background:#0c0d10}
+.k-top{background:var(--card);border-bottom:1px solid var(--line);padding:12px 20px;gap:12px;box-shadow:none}
+.k-top>b{font-size:19px;font-weight:600;letter-spacing:-.01em}
+.k-top .btn,.k-top .btn.soft,html:not([data-theme=dark]) .k-top .btn.soft{background:#e7eaf1;box-shadow:none;border-radius:980px;min-height:44px;padding:0 18px;font-size:15px;font-weight:500;color:var(--ink);gap:8px}
+html[data-theme=dark] .k-top .btn.soft{background:rgba(255,255,255,.12);color:#fff}
+.k-back{margin-right:4px}
+.k-grid{padding:24px;gap:18px;align-content:start;min-height:calc(100dvh - 70px)}
+.k-grid:has(.k-empty){display:flex;align-items:center;justify-content:center}
+.k-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:56px 64px;background:var(--card);border:1px solid var(--line);border-radius:22px;max-width:520px;width:100%;margin-bottom:8vh}
+.k-ico{display:flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:22px;background:#e9eef8;color:var(--brand);margin-bottom:8px;line-height:0}
+html[data-theme=dark] .k-ico{background:rgba(255,255,255,.1);color:#fff}
+.k-ico svg{display:block}
+.k-empty h2{font-size:26px;letter-spacing:-.02em;margin:0;color:var(--ink)}
+.k-empty p{color:var(--muted);font-size:16px;margin:0}
+.k-card{border-radius:18px;box-shadow:none;border:1px solid var(--line)}
+.k-card.new{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.k-acts .btn{border-radius:980px;box-shadow:none}
+.k-acts .btn:not(.soft){background:var(--brand);color:#fff}
+@media (max-width:700px){.k-top{flex-wrap:wrap}.k-top>b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.k-empty{padding:40px 24px}}
+
+.rail .nav-chev{transition:none!important}
+.switch i,.switch i::after,.switch i::before{transition-duration:.15s}
+.k .k-card{background:var(--card)!important;background-image:none!important}
+.k .k-acts .btn,.k .k-acts .btn:hover{box-shadow:none!important;filter:none;border-radius:980px;min-height:52px}
+.k .k-acts .btn:not(.soft){background:var(--brand)!important;color:#fff}
+.k .k-acts .btn.soft{background:#e7eaf1!important;color:var(--ink);min-width:56px}
+html[data-theme=dark] .k .k-acts .btn.soft{background:rgba(255,255,255,.12)!important;color:#fff}
