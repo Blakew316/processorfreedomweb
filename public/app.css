@@ -1526,3 +1526,22 @@ html:not([data-theme=dark]) body:has(.dash){background:linear-gradient(180deg,#e
 html:not([data-theme=dark]) .rail button[aria-current] .rail-ic,html:not([data-theme=dark]) .rail button[aria-current]>span.rail-ic{background:linear-gradient(180deg,#1b3f8f,#0a1f44);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 6px 14px -6px rgba(10,31,68,.6)}
 html:not([data-theme=dark]) .rail button[aria-current] .rail-t b{color:var(--coal)}
 html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) .delta.up{background:rgba(74,222,128,.16);color:#6ee79a}
+
+/* No solid blocks: every tile stays light. Only a wash of colour, never a filled chunk. */
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1){background:linear-gradient(160deg,#fbfcfe,#eef1f6);box-shadow:0 0 0 .5px rgba(18,38,78,.1),0 1px 2px rgba(18,38,78,.05),0 14px 28px -20px rgba(18,38,78,.3)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) b{color:var(--ink)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) span:not(.kico):not(.delta){color:var(--muted)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) .kico{color:var(--slate);background:#fff;box-shadow:0 0 0 .5px rgba(18,38,78,.1)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1)::before,html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1)::after{opacity:1}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+1) .delta.up{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+2){background:linear-gradient(160deg,#f8fafe,#edf2fb)}
+html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(4n+4){background:linear-gradient(160deg,#fdfcfa,#f7f5ef)}
+html:not([data-theme=dark]) .scard2:nth-child(3n+1) .itile{background:var(--tint);color:var(--slate)}
+html:not([data-theme=dark]) .todo-row.done .tick{background:var(--tint2);color:var(--brand)}
+html:not([data-theme=dark]) .rail button[aria-current] .rail-ic,html:not([data-theme=dark]) .rail button[aria-current]>span.rail-ic{background:linear-gradient(180deg,#e3ebfa,#d3dff5);color:var(--brand);box-shadow:inset 0 0 0 .5px rgba(10,31,68,.14),inset 0 1px 0 rgba(255,255,255,.7)}
+html[data-theme=dark] .rail button[aria-current] .rail-ic,html[data-theme=dark] .rail button[aria-current]>span.rail-ic{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+html:not([data-theme=dark]) .inv-chips .chip[aria-pressed=true]{background:linear-gradient(180deg,#e3ebfa,#d3dff5);color:var(--brand);box-shadow:inset 0 0 0 .5px rgba(10,31,68,.18),inset 0 1px 0 rgba(255,255,255,.7);font-weight:600}
+html:not([data-theme=dark]) .daypick button[aria-pressed=true]{background:linear-gradient(180deg,#e3ebfa,#d3dff5);color:var(--brand);box-shadow:inset 0 0 0 .5px rgba(10,31,68,.18)}
+html:not([data-theme=dark]) .ins-n{background:var(--tint2);color:var(--brand)}
+html:not([data-theme=dark]) .cbar i.on{background:linear-gradient(180deg,#a9c0f0,#5f84dc);box-shadow:none}
+html:not([data-theme=dark]) .track2 i,html:not([data-theme=dark]) .prog i{background:linear-gradient(90deg,#5f84dc,#a9c0f0)}
