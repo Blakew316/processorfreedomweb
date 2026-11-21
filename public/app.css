@@ -2529,3 +2529,33 @@ header.top.glass-bar.brand-only{padding-left:20px}
 header.top.glass-bar.brand-only .in{margin:0}
 @media (max-width:900px){header.top.glass-bar.brand-only{padding-left:12px}}
 header.top.brand-only:not(.glass-bar) .in{max-width:none;padding-left:20px}
+
+/* ---------- Home page: finishing pass ---------- */
+.l-show{padding-bottom:24px}
+.ticker{padding:20px 0}
+.l-gains{padding-top:56px}
+.l-faq{padding-top:104px}
+/* An example says what a tap will do. */
+.show-card{position:relative}
+.show-card::after{content:"Start with this →";position:absolute;left:50%;top:44%;transform:translate(-50%,10px);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;color:#0a1f44;background:rgba(255,255,255,.94);box-shadow:0 14px 34px -12px rgba(0,0,0,.55);opacity:0;transition:opacity .25s,transform .35s cubic-bezier(.2,.8,.2,1);pointer-events:none;white-space:nowrap}
+.show-card:hover::after,.show-card:focus-visible::after{opacity:1;transform:translate(-50%,0)}
+.show-card .thumb{transition:filter .3s}
+.show-card:hover .thumb{filter:brightness(.82)}
+/* The photographs behind the headliners breathe a little when you reach them. */
+.gain-art{background-size:112% auto,cover;transition:background-size 1.6s cubic-bezier(.2,.8,.2,1),box-shadow .4s}
+.gain.in .gain-art{background-size:100% auto,cover}
+.gain-art:hover{box-shadow:0 60px 120px -56px rgba(8,16,36,.8),inset 0 0 0 1px rgba(255,255,255,.12)}
+.gain-art>*{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.gain-art:hover>*{transform:translateY(-4px)}
+/* The menu arrives after the page does, and everything shows where the keyboard is. */
+@keyframes dockin{from{opacity:0;transform:translateY(120%)}to{opacity:1;transform:none}}
+.dock-in{animation:dockin .7s .5s cubic-bezier(.2,.8,.2,1) both}
+.dock-in a:focus-visible,.faq summary:focus-visible,.show-card:focus-visible,.ft-col a:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:10px}
+.faq details{transition:background .25s}
+.faq details[open]{background:color-mix(in srgb,var(--card) 60%,transparent)}
+.faq summary{padding-left:14px;padding-right:14px}
+.faq details p{padding-left:14px}
+.ft-col a{transition:color .2s,transform .2s}
+.ft-col a:hover{transform:translateX(2px)}
+::selection{background:color-mix(in srgb,var(--brand) 22%,transparent)}
+@media (prefers-reduced-motion:reduce){.dock-in{animation:none}.gain-art,.gain-art>*{transition:none}}

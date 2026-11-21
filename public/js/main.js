@@ -15,7 +15,7 @@ export function topbar(...right) {
   // Inside the app the brand sits in the middle, the same as in the back office.
   const inApp = location.pathname.startsWith('/app');
   return h('header', { class: `top${inApp ? ' app' : ''}` }, h('div', { class: 'in' },
-    inApp ? link('/app', { class: 'logo mid' }, h('img', { src: '/assets/icon-192.png', alt: '', width: 30, height: 30 }), h('span', {}, 'PF Sites'))
+    inApp ? link('/app', { class: 'logo mid' }, h('img', { src: '/assets/logo.svg', alt: '', width: 30, height: 30 }), h('span', {}, 'PF Sites'))
       : link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
     h('nav', {}, ...right, themeButton())));
 }
@@ -193,7 +193,7 @@ function landing() {
 
       h('section', { class: 'page' }, h('div', { class: 'l-close reveal' },
         h('div', { class: 'l-close-copy' },
-          h('img', { src: '/assets/icon-192.png', alt: '', width: 56, height: 56 }),
+          h('img', { src: '/assets/logo.svg', alt: '', width: 56, height: 56 }),
           h('h2', {}, 'Open for business online, this afternoon.'),
           h('p', {}, 'Name it, add your menu, publish. Nothing is public until you say so.'),
           h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(endInput.value.trim() || input.value.trim()); } }, h('div', { class: 'box' }, endInput, h('button', { class: 'btn', type: 'submit' }, 'Build my website')))),
@@ -250,7 +250,7 @@ function auth(mode) {
     signup && h('p', { class: 'center small muted' }, 'By creating an account you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
     h('p', { class: 'center muted' }, signup ? 'Already have an account? ' : 'New here? ', link(`${signup ? '/login' : '/signup'}${q}`, {}, signup ? 'Sign in' : 'Create an account')));
   mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card' }, form,
-    h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.png', alt: '', width: 48, height: 48 }),
+    h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.svg', alt: '', width: 48, height: 48 }),
       h('h2', {}, 'A website and online ordering, live in minutes.'),
       h('ul', {}, ['Menu built from your Excel or CSV file', 'Pickup, curbside and delivery', 'Your logo, colours and domain', 'Publish with one click'].map((t) => h('li', {}, h('i', { html: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>', 14) }), t)))))));
 }
@@ -318,7 +318,7 @@ function installBanner() {
   let hidden = false;
   try { hidden = !!localStorage.getItem('pf-install-hide'); } catch { /* private mode */ }
   if (hidden || !canOfferInstall() || !matchMedia('(max-width:900px)').matches) return null;
-  const el = h('div', { class: 'ins-banner' }, h('img', { src: '/assets/icon-192.png', alt: '', width: 48, height: 48 }),
+  const el = h('div', { class: 'ins-banner' }, h('img', { src: '/assets/logo.svg', alt: '', width: 48, height: 48 }),
     h('div', { class: 'grow' }, h('b', {}, 'Get the app'), h('span', {}, 'Add it to your Home Screen for full screen and order alerts.')),
     h('button', { class: 'btn sm', onclick: installApp }, 'Install'),
     h('button', { class: 'icon-btn', 'aria-label': 'Not now', onclick: () => { try { localStorage.setItem('pf-install-hide', '1'); } catch { /* fine */ } el.remove(); } }, ic('x', 16)));

@@ -47,7 +47,7 @@ export function setTheme(t) {
 }
 export const themeButton = () => h('button', { class: 'icon-btn theme-btn', title: 'Switch between light and dark', 'aria-label': 'Switch between light and dark', onclick: () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark') }, ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18));
 
-export const LOGO = '<img src="/assets/logo.png" alt="" width="28" height="28">';
+export const LOGO = '<img src="/assets/logo.svg" alt="" width="28" height="28">';
 
 export const state = { user: null, config: { addressPrefix: '', addressSuffix: '', cnameTarget: '', emailEnabled: false } };
 
@@ -278,7 +278,7 @@ export async function installApp() {
   const plus = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4.500"/><path d="M12 8.500v7M8.500 12h7"/></svg>';
   const step = (n, icon, title, text) => h('div', { class: 'ins-step' }, h('span', { class: 'ins-n' }, n), h('div', {}, h('b', {}, title, icon && h('i', { class: 'ins-ic', html: icon })), h('p', {}, text)));
   const ios = isIOS();
-  sheet((close) => [h('img', { class: 'ins-icon', src: '/assets/icon-192.png', alt: '', width: 84, height: 84 }), h('h2', { style: 'text-align:center' }, 'Add to your Home Screen'),
+  sheet((close) => [h('img', { class: 'ins-icon', src: '/assets/logo.svg', alt: '', width: 84, height: 84 }), h('h2', { style: 'text-align:center' }, 'Add to your Home Screen'),
     h('p', { class: 'muted', style: 'text-align:center' }, 'Open Processor Freedom Sites like an app: full screen, one tap from your Home Screen, with new-order notifications.'),
     h('div', { class: 'ins-steps' }, ...(ios
       ? [step(1, share, 'Tap Share', 'The square with an arrow, in the bar at the bottom of Safari (or the top on iPad).'), step(2, plus, 'Choose “Add to Home Screen”', 'Scroll down the list if you do not see it straight away.'), step(3, '', 'Tap Add', 'The Processor Freedom icon appears on your Home Screen.')]

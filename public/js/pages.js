@@ -70,7 +70,7 @@ export function siteFooter() {
   const col = (title, ...links) => h('div', { class: 'ft-col' }, h('b', {}, title), ...links);
   return h('footer', { class: 'site-foot' }, h('div', { class: 'page' },
     h('div', { class: 'ft-top' },
-      h('div', { class: 'ft-brand' }, h('img', { src: '/assets/icon-192.png', alt: '', width: 40, height: 40 }), h('div', {}, h('b', {}, 'PF Sites'), h('span', {}, 'Websites and online ordering by Processor Freedom.'))),
+      h('div', { class: 'ft-brand' }, h('img', { src: '/assets/logo.svg', alt: '', width: 40, height: 40 }), h('div', {}, h('b', {}, 'PF Sites'), h('span', {}, 'Websites and online ordering by Processor Freedom.'))),
       col('Explore', ...MENU().filter(([t]) => t !== 'Log in').map(([t, to]) => link(to, {}, t)), link('/faq', {}, 'All questions')),
       col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up'), h('a', { href: `mailto:${CONTACT}` }, 'Contact support')),
       col('Legal', link('/privacy', {}, 'Privacy Policy'), link('/terms', {}, 'Terms and Conditions'))),
