@@ -16,7 +16,7 @@ export function topbar(...right) {
   // Inside the app the brand sits in the middle, the same as in the back office.
   const inApp = location.pathname.startsWith('/app');
   return h('header', { class: `top${inApp ? ' app' : ''}` }, h('div', { class: 'in' },
-    inApp ? link('/app', { class: 'logo mid', 'aria-label': 'PF Sites' }, h('img', { src: '/assets/logo.svg', alt: 'PF Sites', width: 42, height: 42 }))
+    inApp ? link('/app', { class: 'logo mid', 'aria-label': 'PF Sites' }, h('img', { src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 }))
       : link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
     h('nav', {}, ...right, !inApp && themeButton())));
 }

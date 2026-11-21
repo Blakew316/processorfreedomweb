@@ -2959,3 +2959,67 @@ html[data-theme=dark] .ed-body[data-mode=office] .panel{background:var(--bg)}
 .nav-kids-in{padding-right:10px}
 .rail .nav-kids button{font-size:14.5px;padding-left:12px;padding-right:8px;border-radius:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rail .nav-row.nav-swap,.rail .nav-row{padding-left:10px}
+
+/* ---------- Dashboard, rebuilt ---------- */
+/* Wider on big screens, so the page is not a thin strip between two empty margins. */
+.ed-body[data-mode=office] .panel.narrow>*,.ed-body[data-mode=office] .inv.dashb{max-width:1280px}
+.dashb{gap:18px}
+.dash-hello{align-items:flex-end;margin-bottom:2px}
+.dash-hello h2{font-size:clamp(30px,2.6vw,40px)!important;font-weight:700;letter-spacing:-.035em;line-height:1.05;margin:2px 0 6px}
+.dh-date{margin:0;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dh-biz{display:flex;align-items:center;gap:10px;margin:0;font-size:16px}
+.dh-live{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;border-radius:999px;padding:4px 11px;background:color-mix(in srgb,var(--amber) 12%,transparent);color:var(--amber)}
+.dh-live::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.dh-live.on{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green)}
+/* Four figures, each its own card with a tile. */
+.dks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.dk{display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:2px;align-items:center;background:var(--card);border-radius:18px;padding:18px 20px;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(10,20,45,.04),0 10px 24px -18px rgba(10,20,45,.22)}
+.dk .tile-ic{grid-row:1}
+.dk-l{font-size:14px;color:var(--muted);font-weight:500}
+.dk b{grid-column:1/-1;font-size:clamp(26px,2.2vw,34px);font-weight:700;letter-spacing:-.035em;line-height:1.1;margin-top:10px;font-variant-numeric:tabular-nums}
+.dk-s{grid-column:1/-1;font-size:13px;color:var(--muted)}
+/* Setup: a ring, then one line per step with its button on the right. */
+.dashb .scard.setup2{display:grid;gap:14px;padding:20px 22px}
+.su-head{display:flex;align-items:center;gap:16px}
+.su-head h3{margin:0;font-size:19px;letter-spacing:-.02em}
+.su-head p{margin:2px 0 0;color:var(--muted);font-size:14.5px}
+.su-ring{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--blue) calc(var(--p)*1%),color-mix(in srgb,var(--ink) 9%,transparent) 0)}
+.su-ring b{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--card);font-size:13px;font-weight:700}
+.su-list{display:grid;border-top:1px solid var(--line)}
+.su-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line)}
+.su-row:last-child{border-bottom:0;padding-bottom:2px}
+.su-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--bg2);color:var(--muted)}
+.su-row.next .su-n{background:var(--brand);color:var(--on-brand)}
+.su-t b{display:block;font-size:15.5px;font-weight:600}
+.su-t small{display:block;font-size:14px;color:var(--muted);margin-top:1px}
+.su-a{display:flex;align-items:center;gap:6px}
+/* Quick actions as a tidy list. */
+.dashb .shortcuts{display:grid;grid-template-columns:1fr;gap:0;margin-top:4px}
+.qa{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;border:0;border-bottom:1px solid var(--line);background:none;padding:6px 2px;text-align:left;color:var(--ink);cursor:pointer;border-radius:0}
+.qa:last-child{border-bottom:0}
+.qa b{flex:1;font-size:15.5px;font-weight:500}
+.qa .nav-ic{color:var(--faint)}
+.qa:hover b{color:var(--blue)}
+.dashb .scard{border-radius:18px}
+.dashb .scard h3{font-size:18px}
+
+/* ---------- Top bar and sidebar: stronger, and everything on one line ---------- */
+.tb-brand .tb-logo,.top.app .logo.mid img{width:44px;height:44px;border-radius:24%;box-shadow:0 4px 12px -6px rgba(10,20,45,.5)}
+html[data-theme=dark] .tb-brand .tb-logo,html[data-theme=dark] .top.app .logo.mid img{box-shadow:0 0 0 1px rgba(255,255,255,.16)}
+.tb-btn{width:44px;height:44px}
+.tb-btn .tb-ic svg{width:23px;height:23px}
+.ed-top>.icon-btn:first-child{width:44px;height:44px}
+/* Every sidebar row, selected or not, starts at the same place. */
+.rail .nav-row,.rail .nav-row[aria-current=page],.rail .nav-row.nav-swap,.rail .nav-row.nav-back{padding:6px 10px!important;margin:0!important;min-height:44px;gap:12px!important;width:100%;box-sizing:border-box;border-radius:12px}
+.rail .nav-row .tile-ic{margin:0!important}
+.rail .nav-row b{font-size:15.5px!important;font-weight:500}
+.rail .nav-row[aria-current=page] b,.rail .nav-row[data-here] b,.rail .nav-row[data-open] b{font-weight:600}
+@media (max-width:1100px){.dks{grid-template-columns:1fr 1fr}}
+@media (max-width:900px){
+  .dks{grid-template-columns:1fr 1fr;gap:10px}.dk{padding:14px;border-radius:16px}.dk b{font-size:26px;margin-top:8px}
+  .dash-hello h2{font-size:28px!important}
+  .su-row{grid-template-columns:auto minmax(0,1fr);row-gap:10px}.su-a{grid-column:2;justify-content:flex-start}
+  .dashb .scard.setup2{padding:16px}
+}
+@media (min-width:901px){.ed-body[data-mode=office] .panel>*{max-width:1280px!important;width:100%;margin-left:auto;margin-right:auto}}
+@media (min-width:901px){.ed-body[data-mode=office] .ed-side>.panel,.ed-body[data-mode=office] .ed-side>.subnav+.panel{padding:32px max(36px,calc((100% - 1320px)/2)) 96px!important}}

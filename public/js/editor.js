@@ -1796,22 +1796,24 @@ export async function editor(id, mount, title, startTab = '') {
     // Today's numbers, fetched each time the dashboard is opened.
     if (!dash) { dash = { loading: true }; api('GET', `/api/sites/${id}/stats?range=today`).then((r) => { dash = r; if (tab === 'start') paintPanel(); }).catch(() => { dash = { failed: true }; }); }
     const t = dash.totals;
-    const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+    const kpi = (label, value, sub, icon) => h('div', { class: 'dk' }, navTile({ cash: 'sales', bag: 'orders', chart: 'insights', cube: 'menu' }[icon] || 'page', 34), h('span', { class: 'dk-l' }, label), h('b', {}, value), h('span', { class: 'dk-s' }, sub));
     const waiting = (orders || []).filter((x) => !['completed', 'cancelled'].includes(x.status));
     const low = menu.filter((x) => x.available !== false && x.stock <= (ordering.lowStockAt ?? 5));
     const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    const setup = done < steps.length && h('div', { class: 'scard setup' },
-      h('div', { class: 'row', style: 'justify-content:space-between;align-items:baseline' }, h('h3', {}, 'Finish setting up'), h('span', { class: 'small muted' }, `${done} of ${steps.length} done`)),
-      h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': steps.length, 'aria-valuenow': done }, h('i', { style: `width:${(done / steps.length) * 100}%` })),
-      h('div', { class: 'todo' }, steps.map(([ok, name, text, main, alt], i) => !ok && h('div', { class: `todo-row ${i === next ? 'next' : ''}` },
-        h('span', { class: 'tick' }, String(i + 1)),
-        h('div', { class: 'grow' }, h('b', {}, name), h('p', {}, text),
-          h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]), alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0])))))));
+    const pct = Math.round((done / steps.length) * 100);
+    const setup = done < steps.length && h('div', { class: 'scard setup2' },
+      h('div', { class: 'su-head' }, h('div', { class: 'su-ring', style: `--p:${pct}`, 'aria-hidden': 'true' }, h('b', {}, `${done}/${steps.length}`)), h('div', {}, h('h3', {}, 'Finish setting up'), h('p', {}, done === steps.length - 1 ? 'One step left.' : `${steps.length - done} steps left. Each takes a minute or two.`))),
+      h('div', { class: 'su-list' }, steps.map(([ok, name, text, main, alt], i) => !ok && h('div', { class: `su-row ${i === next ? 'next' : ''}` },
+        h('span', { class: 'su-n' }, String(i + 1)),
+        h('div', { class: 'su-t' }, h('b', {}, name), h('small', {}, text)),
+        h('div', { class: 'su-a' }, alt && h('button', { class: 'btn text sm', onclick: alt[1] }, alt[0]), h('button', { class: `btn sm ${i === next ? '' : 'soft'}`, onclick: main[1] }, main[0]))))));
+    const hour = new Date().getHours(), hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    const first = (state.user.name || '').trim().split(/\s+/)[0];
     return [h('div', { class: 'inv dashb' },
-      h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Dashboard'), h('p', { class: 'muted' }, today)),
+      h('div', { class: 'inv-top dash-hello' }, h('div', {}, h('p', { class: 'dh-date' }, today), h('h2', {}, first ? `${hello}, ${first}` : hello), h('p', { class: 'muted dh-biz' }, meta.name, h('span', { class: `dh-live ${meta.live ? 'on' : ''}` }, meta.live ? (meta.dirty ? 'Live · changes not published' : 'Live') : 'Not published yet'))),
         h('div', { class: 'row', style: 'flex-wrap:wrap' }, meta.live && h('a', { class: 'btn soft', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open my order page', ic('out', 15)), h('button', { class: 'btn soft', onclick: async () => { loadOrders(true); await reload('start'); paintPanel(); toast('Up to date'); } }, 'Refresh'))),
+      h('div', { class: 'dks' }, ...(t ? [kpi('Net sales today', money(t.net), `${t.orders} order${t.orders === 1 ? '' : 's'}`, 'cash'), kpi('Orders waiting', waiting.length, waiting.length ? 'need your attention' : 'all caught up', 'bag'), kpi('Average order', money(t.average), 'including tax and tips', 'chart'), kpi('Running low', low.length, low.length ? 'items to restock' : 'stock looks good', 'cube')] : dash.failed ? [kpi('Net sales today', '—', 'could not load', 'cash')] : skel(4, 'kpi'))),
       setup,
-      h('div', { class: 'inv-kpis' }, ...(t ? [kpi('Net sales today', money(t.net), `${t.orders} order${t.orders === 1 ? '' : 's'}`, 'cash'), kpi('Orders waiting', waiting.length, waiting.length ? 'need your attention' : 'all caught up', 'bag'), kpi('Average order', money(t.average), 'including tax and tips', 'chart'), kpi('Running low', low.length, low.length ? 'items to restock' : 'stock looks good', 'cube')] : dash.failed ? [kpi('Net sales today', '—', 'could not load', 'cash')] : skel(4, 'kpi'))),
       h('div', { class: 'sgrid2x' },
         h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders waiting'), h('button', { class: 'btn text sm', onclick: () => goTab('orders') }, 'View all orders')),
           waiting.length ? waiting.slice(0, 5).map((x) => h('div', { class: 'rline click', onclick: () => goTab('orders') }, h('span', {}, h('b', { style: 'color:var(--ink)' }, `#${x.number} · ${x.name}`), h('div', { class: 'small' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status]}`)), h('b', {}, money(x.total))))
@@ -1823,7 +1825,7 @@ export async function editor(id, mount, title, startTab = '') {
           low.length ? low.slice(0, 5).map((it) => h('div', { class: 'rline click', onclick: () => openItem(it.id) }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, it.stock === 0 ? 'Sold out' : `${it.stock} left`)))
             : h('p', { class: 'muted', style: 'padding:14px 0' }, menu.length ? 'Nothing is running low.' : 'Add your menu to start tracking stock.')),
         h('div', { class: 'scard' }, h('h3', {}, 'Shortcuts'),
-          h('div', { class: 'shortcuts' }, [['Add an item', 'tag', () => goTab('items')], ['Send an invoice', 'doc', () => openInvoice()], ['Kitchen screen', 'bell', () => go(`/app/site/${id}/kitchen`)], ['Edit my website', 'brush', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'btn soft', onclick: fn }, ic(icon, 16), l))))))];
+          h('div', { class: 'shortcuts' }, [['Add an item', 'menu', () => goTab('items')], ['Send an invoice', 'invoice', () => openInvoice()], ['Kitchen screen', 'preview', () => go(`/app/site/${id}/kitchen`)], ['Edit my website', 'design', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'qa', onclick: fn }, navTile(icon, 34), h('b', {}, l), navIcon('chev', 14)))))))];
   }
 
   function addSection() {
@@ -2055,7 +2057,7 @@ export async function editor(id, mount, title, startTab = '') {
     paintTabbar();
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', title: modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', 'aria-label': modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', onclick: async () => { if (modeOf(tab) === 'site') return goTab(lastTab.office); await flush(); go('/app'); } }, ic('back')),
-      h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo.svg', alt: 'PF Sites', width: 42, height: 42 })),
+      h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 })),
       h('span', { class: 'm-title' }, h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || [])[1] || '')),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label)],
