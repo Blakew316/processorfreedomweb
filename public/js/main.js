@@ -231,11 +231,13 @@ export const sampleName = (id) => SAMPLE[id] || 'Your Business';
 
 function auth(mode) {
   const signup = mode === 'signup';
-  if (state.user) return go('/app');   // already signed in: straight to their sites
   title(signup ? 'Create your account' : 'Sign in');
   const q = location.search;
   const next = () => go(new URLSearchParams(q).has('name') || new URLSearchParams(q).has('template') ? `/app/new${q}` : '/app');
-  if (state.user) return next();
+  // Log in takes someone who is already signed in to their sites. Sign up always shows the form, because it is for making a new account;
+  // the one exception is arriving with a site already chosen to build, which carries straight on.
+  const building = new URLSearchParams(q).has('name') || new URLSearchParams(q).has('template');
+  if (state.user && (!signup || building)) return next();
   const err = h('p', { class: 'error center', role: 'alert' });
   const f = (label, attrs) => h('label', { class: 'field' }, h('span', {}, label), h('input', attrs));
   const button = h('button', { class: 'btn lg', type: 'submit' }, signup ? 'Create account' : 'Sign in');
@@ -255,6 +257,7 @@ function auth(mode) {
     f(signup ? 'Create a password' : 'Password', { name: 'password', type: 'password', autocomplete: signup ? 'new-password' : 'current-password', required: true, minlength: signup ? 8 : 1 }),
     signup && h('p', { class: 'hint', style: 'margin-top:-8px' }, 'At least 8 characters.'),
     !signup && h('p', { class: 'small', style: 'margin-top:-8px' }, link('/forgot', {}, 'Forgot your password?')),
+    signup && state.user && h('p', { class: 'note small', style: 'margin:0' }, 'You are signed in as ', h('b', {}, state.user.email), '. Creating a new account here signs that one out on this device. ', link('/app', {}, 'Go to my sites instead')),
     err, button,
     signup && h('p', { class: 'center small muted' }, 'By creating an account you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
     h('p', { class: 'center muted' }, signup ? 'Already have an account? ' : 'New here? ', link(`${signup ? '/login' : '/signup'}${q}`, {}, signup ? 'Sign in' : 'Create an account')));
