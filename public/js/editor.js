@@ -1,6 +1,6 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, saveSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
@@ -21,6 +21,8 @@ const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 
 const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Alerts and reports', 'Order emails'] };
 const MODES = { office: 'Back office', site: 'Website' };
 const NAV_NAMES = new Set(['calendar', 'insights', 'home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address', 'invoice', 'promo', 'feedback', 'team']);
+// Setup lives behind the gear at the top right, in its own section of Settings, not in the sidebar.
+const SETUP = { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'booking', 'alerts', 'devices', 'appearance'], subs: ['Business information', 'Business hours', 'Online ordering', 'Online booking', 'Alerts and emails', 'Devices', 'Appearance'] };
 // The sidebar: a short list of sections. A section with more than one screen opens to show them underneath it.
 const NAV = {
   office: [
@@ -34,7 +36,6 @@ const NAV = {
     { label: 'Customers', icon: 'customers', tabs: ['customers'] },
     { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards', 'gift'], subs: ['Promo codes', 'Happy hour', 'Rewards', 'Gift cards'] },
     { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
-    { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'booking', 'alerts', 'devices', 'appearance'], subs: ['Business information', 'Business hours', 'Online ordering', 'Online booking', 'Alerts and emails', 'Devices', 'Appearance'] },
   ],
   site: [
     { label: 'Design', icon: 'design', tabs: ['design', 'history'], subs: ['Look and feel', 'Earlier versions'] },
@@ -195,6 +196,37 @@ export async function editor(id, mount, title, startTab = '') {
   /* ---------- form controls ---------- */
 
   const wrap = (label, control, hint) => h('label', { class: 'field' }, label && h('span', {}, label), control, hint && h('small', {}, hint));
+  /* ---------- business hours: Monday to Sunday, times every half hour ---------- */
+  // One set of hours drives both the website and online ordering. Stored Sunday-first (as the ordering code expects), shown Monday-first.
+  const WEEK = [1, 2, 3, 4, 5, 6, 0];
+  const clock12 = (t) => { const [hh, mm] = String(t).split(':').map(Number); return `${hh % 12 || 12}:${String(mm || 0).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+  const HALF_HOURS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
+  // The website's opening-hours text, worked out from the grid: days with the same times are joined, e.g. "Monday – Friday · 9:00 AM – 5:00 PM".
+  function hoursText(week) {
+    const rows = [];
+    for (const d of WEEK) {
+      const x = week[d], value = x.closed ? 'Closed' : `${clock12(x.open)} – ${clock12(x.close)}`, last = rows[rows.length - 1];
+      if (last && last.value === value) last.to = d; else rows.push({ from: d, to: d, value });
+    }
+    return rows.map((r) => ({ label: r.from === r.to ? DAYS[r.from] : `${DAYS[r.from]} – ${DAYS[r.to]}`, value: r.value }));
+  }
+  function hoursGrid(week, onChange) {
+    const pick = (value, label, set, disabled) => h('select', { class: 'hsel', 'aria-label': label, disabled, onchange: (e) => { set(e.target.value); onChange(); } },
+      [...new Set([...HALF_HOURS, value])].sort().map((t) => h('option', { value: t, selected: t === value }, clock12(t))));
+    const grid = h('div', { class: 'wk' });
+    const draw = () => grid.replaceChildren(...WEEK.map((d) => { const x = week[d], day = DAYS[d];
+      return h('div', { class: `wk-row${x.closed ? ' off' : ''}` },
+        h('b', { class: 'wk-day' }, day),
+        h('label', { class: 'switch', title: x.closed ? 'Closed' : 'Open' }, h('input', { type: 'checkbox', 'aria-label': `Open on ${day}`, checked: !x.closed, onchange: (e) => { x.closed = !e.target.checked; draw(); onChange(); } }), h('i')),
+        x.closed ? h('span', { class: 'wk-closed' }, 'Closed') : h('div', { class: 'wk-times' }, pick(x.open, `${day} opens`, (v) => { x.open = v; }), h('span', { class: 'wk-to' }, 'to'), pick(x.close, `${day} closes`, (v) => { x.close = v; })));
+    }));
+    draw();
+    return h('div', {}, grid,
+      h('div', { class: 'wk-tools' }, h('button', { type: 'button', class: 'btn text sm', onclick: () => { const m = week[1]; for (const d of [2, 3, 4, 5]) Object.assign(week[d], { closed: m.closed, open: m.open, close: m.close }); draw(); onChange(); } }, 'Copy Monday to Tuesday–Friday'), h('button', { type: 'button', class: 'btn text sm', onclick: () => { const m = week[1]; for (const d of [2, 3, 4, 5, 6, 0]) Object.assign(week[d], { closed: m.closed, open: m.open, close: m.close }); draw(); onChange(); } }, 'Copy Monday to every day')),
+      h('small', { class: 'hint' }, 'A closing time earlier than the opening time means you close after midnight.'));
+  }
+  const saveHoursSoon = debounce(() => { putOrdering().catch((e) => toast(e.message, true)); }, 500);
+
   const text = (label, o, k, { hint, ...a } = {}, fire = notify || changed) => wrap(label, h('input', { value: str(o[k]), oninput: (e) => { o[k] = e.target.value; fire(); }, ...a }), hint);
   const area = (label, o, k, { hint, ...a } = {}, fire = notify || changed) => wrap(label, h('textarea', { rows: 3, value: str(o[k], 60000), oninput: (e) => { o[k] = e.target.value; fire(); }, ...a }), hint);
   const toggle = (label, o, k, on = (v) => v !== false, after, fire = notify || changed) => h('label', { class: 'switch' }, h('span', {}, label), h('input', { type: 'checkbox', checked: (on || ((v) => v !== false))(o[k]), onchange: (e) => { o[k] = e.target.checked; fire(); after?.(); } }), h('i'));
@@ -393,9 +425,9 @@ export async function editor(id, mount, title, startTab = '') {
       return [
         group('Business information', text('Email', b, 'email', { type: 'email' }), text('Phone', b, 'phone', { type: 'tel' }), text('Street address', b, 'address1'),
           h('div', { class: 'pair' }, text('City', b, 'city'), h('div', { class: 'pair' }, text('State', b, 'state'), text('ZIP', b, 'zip')))),
-        group('Opening hours', list('', b, 'hours', { add: 'Add hours', max: 10, make: () => ({ label: 'Monday – Friday', value: '9:00 AM – 5:00 PM' }), name: (x) => `${x.label}  ·  ${x.value}`, fields: (x) => [h('div', { class: 'pair' }, text('Days', x, 'label'), text('Hours', x, 'value'))] })),
+        group('Opening hours', h('p', { class: 'hint', style: 'margin:0 0 4px' }, 'Shown on your website. Online ordering follows the same hours when it is set to.'), hoursGrid(ordering.hours, () => { b.hours = hoursText(ordering.hours); saveHoursSoon(); changed(); })),
         group('Payments', text('Online payment link', b, 'payUrl', { placeholder: 'https://', hint: 'Your Processor Freedom payment page. Adds “Pay online” to your footer and makes it available for buttons.' })),
-        group('Social profiles', ...[['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['x', 'X'], ['youtube', 'YouTube'], ['linkedin', 'LinkedIn']].map(([k, l]) => text(l, draft.social, k, { placeholder: '@username or link' }))),
+        group('Social profiles', h('div', { class: 'socials' }, [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['x', 'X'], ['youtube', 'YouTube'], ['linkedin', 'LinkedIn']].map(([k, l]) => h('label', { class: 'soc' }, h('span', {}, l), h('input', { value: str(draft.social[k]), placeholder: '@username or link', autocomplete: 'off', oninput: (e) => { draft.social[k] = e.target.value; changed(); } }))))),
       ];
     },
 
@@ -671,11 +703,7 @@ export async function editor(id, mount, title, startTab = '') {
             note(h('b', {}, 'Payment. '), draft.business.payUrl ? 'Customers can pay through your online payment link after ordering, or pay when they receive their order.' : 'Customers pay when they receive their order. Add your Processor Freedom payment link in Business details to offer online payment.')),
           group('Opening hours', toggle('Only take orders during set hours', o, 'useHours', (v) => v === true, redraw),
             o.useHours && [wrap('Time zone', h('select', { onchange: (e) => { o.timezone = e.target.value; saveOrdering(); } }, Object.entries(TIMEZONES).map(([k, l]) => h('option', { value: k, selected: o.timezone === k }, l)))),
-              h('div', { class: 'hours' }, DAYS.map((day, i) => { const hr = o.hours[i]; return h('div', { class: `hrow ${hr.closed ? 'off' : ''}` }, h('b', {}, day.slice(0, 3)),
-                h('input', { type: 'time', value: hr.open, disabled: hr.closed, 'aria-label': `${day} opens`, onchange: (e) => { hr.open = e.target.value || hr.open; saveOrdering(); } }), h('span', {}, 'to'),
-                h('input', { type: 'time', value: hr.close, disabled: hr.closed, 'aria-label': `${day} closes`, onchange: (e) => { hr.close = e.target.value || hr.close; saveOrdering(); } }),
-                h('label', { class: 'switch', title: 'Open this day' }, h('input', { type: 'checkbox', 'aria-label': `${day} open`, checked: !hr.closed, onchange: (e) => { hr.closed = !e.target.checked; saveOrdering(); redraw(); } }), h('i'))); })),
-              h('small', { class: 'hint' }, 'A closing time earlier than the opening time means you close after midnight.')],
+              hoursGrid(o.hours, () => { draft.business.hours = hoursText(o.hours); saveOrdering(); changed(); })],
             toggle('Let customers order ahead for a later time', o, 'scheduling', (v) => v === true), h('small', { class: 'hint' }, 'Offers pickup and delivery times every 15 minutes, today and tomorrow.')),
           group('Kitchen capacity', wrap('Most orders in any 15 minutes', h('input', { type: 'number', min: 0, max: 500, value: o.slotLimit || '', placeholder: 'No limit', style: 'max-width:160px', oninput: (e) => { o.slotLimit = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'Stops the kitchen being overbooked. Once a time is full, customers are offered the next one. Leave empty for no limit.')),
           group('Happy hour and timed prices', h('p', { class: 'hint' }, 'Lower prices automatically at set times. Customers see the old price crossed out while it is on.'),
@@ -728,7 +756,7 @@ export async function editor(id, mount, title, startTab = '') {
           const want = e.target.checked;
           try { if (want) { await enablePush(); toast('This device will be notified of new orders'); } else { await disablePush(); } pushIsOn = want; } catch (ex) { e.target.checked = !want; toast(ex.message, true); }
         } }), h('i'));
-      return [group('Alerts', alertBox, pushBox, h('a', { class: 'btn soft sm', style: 'justify-self:start', href: `/app/site/${id}/kitchen`, target: '_blank' }, 'Open kitchen screen', ic('out', 14)), seg,
+      return [group('Alerts', alertBox, pushBox, seg,
         !shown.length && (orders.length ? emptyState('check', 'All caught up', 'No active orders right now. New ones appear here on their own.')
           : !ordering.enabled ? emptyState('bag', 'No orders yet', 'Turn on online ordering to start taking orders.', ['Open ordering', () => goTab('ordering')])
             : emptyState('bag', 'No orders yet', meta.live ? 'Place a test order from your own site to see exactly what customers see. It arrives here within seconds.' : 'Publish your site, then place a test order to see the whole flow.', meta.live ? ['Open my order page', () => window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener')] : null)),
@@ -844,7 +872,7 @@ export async function editor(id, mount, title, startTab = '') {
         api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'customers') paintPanel(); }).catch((e) => { toast(e.message, true); customers = []; if (tab === 'customers') paintPanel(); });
         return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(6, 'row'))];
       }
-      if (!customers.length) return [h('div', { class: 'inv' }, head(h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer')), h('div', { class: 'inv-list' }, emptyState('person', 'No customers yet', 'People appear here after their first order. You can also add catering and wholesale customers yourself, ready to invoice.', ['Add customer', addCustomer])))];
+      if (!customers.length) return [h('div', { class: 'inv' }, head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCustomers }, ic('up2', 16), 'Import customers'), h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer'))), h('div', { class: 'inv-list' }, emptyState('person', 'No customers yet', 'People appear here after their first order. You can also add catering and wholesale customers yourself, ready to invoice.', ['Add customer', addCustomer])))];
       const repeat = customers.filter((c) => c.orders > 1).length;
       const spent = customers.reduce((a, c) => a + c.spent, 0), count = customers.reduce((a, c) => a + c.orders, 0);
       const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
@@ -856,15 +884,8 @@ export async function editor(id, mount, title, startTab = '') {
           : [h('tr', {}, h('td', { colspan: 8, class: 'muted', style: 'text-align:center;padding:28px' }, 'Nobody matches that search.'))]));
       };
       draw();
-      const exportList = () => {
-        const q2 = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-        const rows = [['Name', 'Email', 'Phone', 'Orders', 'Total spent', 'First order', 'Last order', 'Favourite item'], ...customers.map((c) => [c.name, c.email, c.phone, c.orders, (c.spent / 100).toFixed(2), new Date(c.first).toISOString().slice(0, 10), c.last ? new Date(c.last).toISOString().slice(0, 10) : '', c.favourite])];
-        const url = URL.createObjectURL(new Blob([`\ufeff${rows.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
-        h('a', { href: url, download: `${meta.slug}-customers.csv` }).click();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      };
       return [h('div', { class: 'inv' },
-        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: exportList }, ic('dl', 16), 'Export'), h('button', { class: 'btn soft', onclick: () => { customers = null; paintPanel(); } }, 'Refresh'), h('button', { class: 'btn soft', onclick: importCustomers }, ic('up2', 16), 'Import'), h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer'))),
+        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCustomers }, ic('up2', 16), 'Import'), h('button', { class: 'btn soft', onclick: exportCustomers }, ic('dl', 16), 'Export'), h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer'))),
         h('div', { class: 'inv-kpis' }, kpi('Customers', customers.length, 'have ordered at least once', 'person'), kpi('Regulars', repeat, `${customers.length ? Math.round((repeat / customers.length) * 100) : 0}% came back`, 'f_users'), kpi('Average per customer', money(customers.length ? spent / customers.length : 0), 'across all their orders', 'cash'), kpi('Orders', count, 'not counting cancelled', 'bag')),
         h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search by name, email or phone', value: custQ, 'aria-label': 'Search customers', oninput: (e) => { custQ = e.target.value.trim().toLowerCase(); draw(); } }))),
         h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Customer', 'Email', 'Phone', 'Orders', 'Spent', 'Last order', 'Favourite', ''].map((x) => h('th', {}, x)))), tbody)),
@@ -983,14 +1004,14 @@ export async function editor(id, mount, title, startTab = '') {
     },
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
-      const ICON = { Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
+      const ICON = { Setup: 'settings', Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
       const card = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, navTile(ICON[title] || 'page', 32), title), ...kids);
       const u = state.user;
       return [h('div', { class: 'set-grid' },
+        card('Setup', ...links(...SETUP.tabs.map((k, i) => [SETUP.subs[i], k]))),
         card('Profile', h('p', {}, h('b', {}, u.name || 'No name yet'), `, ${roleName}`), h('p', { class: 'muted' }, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-step sign-in is ', h('b', {}, u.twoFactor ? 'on' : 'off')), ...links(['Edit your profile', 'profile'])),
-        card('About your business', ...links(['Business information', 'bizinfo'], ['Business hours', 'hours'], ['Closeout', 'close'])),
+        card('About your business', ...links(['Closeout', 'close'], ['Taxes', 'r-taxes'], ['Tips', 'tips'])),
         card('Employees', ...links(['Team and logins', 'team'], ['Scheduling', 'schedule'], ['Timesheets', 'timesheets'])),
-        card('Business operations', ...links(['Online ordering', 'ordering'], ['Online booking', 'booking'], ['Alerts and emails', 'alerts'], ['Devices', 'devices'], ['Tips', 'tips'], ['Taxes', 'r-taxes'], ['Appearance', 'appearance'])),
         card('Transactions', ...links(['Orders', 'orders'], ['Transactions', 'tx'], ['Cash log', 'cash'], ['Invoices', 'invoices'], ['Estimates', 'est'], ['Recurring payments', 'plans'])),
         card('Inventory', ...links(['Items', 'items'], ['Categories', 'menu'], ['Modifier groups', 'mods'], ['Menus', 'menus'], ['Printer labels', 'labels'], ['Revenue classes', 'revs'], ['Discounts', 'discs'])),
         card('Customers and promotions', ...links(['Customers', 'customers'], ['Promo codes', 'promos'], ['Happy hour', 'deals'], ['Rewards', 'rewards'], ['Gift cards', 'gift'])),
@@ -1523,6 +1544,21 @@ export async function editor(id, mount, title, startTab = '') {
 
   /* ---------- invoices ---------- */
   const setBills = (r) => { bills = { ...bills, ...Object.fromEntries(Object.entries(r).filter(([k]) => ['invoices', 'contacts'].includes(k))) }; customers = null; if (tab === 'invoices' || tab === 'est' || tab === 'customers') paintPanel(); };
+  // Export everyone, in the same columns Import reads, so a list can go out and come back in.
+  function exportCustomers() {
+    if (!customers || !customers.length) return toast('There are no customers to export yet.', true);
+    const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');
+    const rows = [['Name', 'Company', 'Email', 'Phone', 'Address', 'Orders', 'Total spent', 'First order', 'Last order', 'Favourite item'],
+      ...customers.map((c) => [c.name, c.company || '', c.email || '', c.phone || '', c.address || '', c.orders, Number((c.spent / 100).toFixed(2)), day(c.first), day(c.last), c.favourite || ''])];
+    sheet((close) => {
+      const go2 = async (kind, btn) => { btn.disabled = true; try { await saveSheetFile(`${meta.slug}-customers`, rows, kind); close(); toast(`${customers.length} customer${customers.length === 1 ? '' : 's'} exported`); } catch (e) { btn.disabled = false; toast(e.message, true); } };
+      return [h('h2', {}, 'Export customers'), h('p', { class: 'muted' }, `${customers.length} customer${customers.length === 1 ? '' : 's'}: name, company, email, phone, address, orders and spend. The file can be imported again here or into another system.`),
+        h('div', { class: 'xport' },
+          h('button', { class: 'xport-opt', type: 'button', onclick: (e) => go2('xlsx', e.currentTarget) }, h('b', {}, 'Excel'), h('small', {}, '.xlsx, opens in Excel, Numbers and Google Sheets')),
+          h('button', { class: 'xport-opt', type: 'button', onclick: (e) => go2('csv', e.currentTarget) }, h('b', {}, 'CSV'), h('small', {}, '.csv, works with almost any system'))),
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'))];
+    });
+  }
   async function importCustomers() {
     const [file] = await pickFiles(false, SHEET_TYPES);
     if (!file) return;
@@ -1530,15 +1566,16 @@ export async function editor(id, mount, title, startTab = '') {
     try { rows = parseCsv(await readSheetFile(file)); } catch (e) { return toast(e.message, true); }
     const heads = (rows.shift() || []).map((x) => String(x).toLowerCase().trim());
     const col = (...names) => heads.findIndex((x) => names.some((n) => x.includes(n)));
-    const at = { first: col('first'), last: col('last'), name: heads.findIndex((x) => x === 'name' || x.includes('full name') || x.includes('customer')), company: col('company', 'business'), email: col('email', 'e-mail'), phone: col('phone', 'mobile', 'tel'), address: col('address', 'street') };
+    const exact = (...names) => heads.findIndex((x) => names.includes(x));
+    const at = { first: exact('first', 'first name', 'firstname', 'given name'), last: exact('last', 'last name', 'lastname', 'surname', 'family name'), name: heads.findIndex((x) => x === 'name' || x.includes('full name') || x.includes('customer')), company: col('company', 'business'), email: col('email', 'e-mail'), phone: col('phone', 'mobile', 'tel'), address: col('address', 'street') };
     const pick = (r, i) => (i >= 0 ? String(r[i] ?? '').trim() : '');
     const people = rows.map((r) => ({ name: pick(r, at.name) || [pick(r, at.first), pick(r, at.last)].filter(Boolean).join(' '), company: pick(r, at.company), email: pick(r, at.email), phone: pick(r, at.phone), address: pick(r, at.address) })).filter((c) => c.name || c.company || c.email);
     for (const c of people) if (!c.name && !c.company) c.name = c.email;
     sheet((close) => [h('h2', {}, people.length ? `${people.length} customer${people.length === 1 ? '' : 's'} found` : 'We could not read that file'),
-      h('p', { class: 'muted' }, people.length ? `From ${file.name}. People already on your list are updated, not duplicated.` : 'The file needs a heading row with columns such as Name, Email and Phone.'),
+      h('p', { class: 'muted' }, people.length ? `From ${file.name}. People already on your list are updated, not duplicated.` : 'Use a CSV or Excel file with a heading row, with columns such as Name, Email and Phone.'),
       people.length > 0 && h('table', { class: 'ptable' }, h('thead', {}, h('tr', {}, h('th', {}, 'Name'), h('th', {}, 'Email'), h('th', {}, 'Phone'))), h('tbody', {}, people.slice(0, 6).map((c) => h('tr', {}, h('td', {}, c.name || c.company), h('td', { class: 'muted' }, c.email), h('td', { class: 'muted' }, c.phone))))),
       people.length > 6 && h('p', { class: 'small muted' }, `and ${people.length - 6} more`),
-      h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), people.length > 0 && h('button', { class: 'btn', onclick: async (e) => { e.currentTarget.disabled = true; try { const r = await api('POST', `/api/sites/${id}/contacts/import`, { rows: people }); customers = null; bills = null; close(); toast(`${r.added} customer${r.added === 1 ? '' : 's'} imported${r.skipped ? `, ${r.skipped} skipped` : ''}`); paintPanel(); } catch (ex) { toast(ex.message, true); e.currentTarget.disabled = false; } } }, 'Import'))]);
+      h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), people.length > 0 && h('button', { class: 'btn', onclick: async (e) => { e.currentTarget.disabled = true; try { const r = { added: 0, skipped: 0 }; for (let k = 0; k < people.length; k += 1000) { const part = await api('POST', `/api/sites/${id}/contacts/import`, { rows: people.slice(k, k + 1000) }); r.added += part.added; r.skipped += part.skipped; r.contacts = part.contacts; } customers = null; bills = null; close(); toast(`${r.added} customer${r.added === 1 ? '' : 's'} imported${r.skipped ? `, ${r.skipped} skipped` : ''}`); paintPanel(); } catch (ex) { toast(ex.message, true); e.currentTarget.disabled = false; } } }, 'Import'))]);
   }
   function addCustomer() {
     const c = { name: '', company: '', email: '', phone: '', address: '' };
@@ -1692,7 +1729,7 @@ export async function editor(id, mount, title, startTab = '') {
   const SETTINGS = [['Logo', 'design'], ['Brand colour', 'design'], ['Page background', 'design'], ['Typeface and corners', 'design'], ['Header', 'design'], ['Footer', 'design'], ['Announcement bar', 'design'], ['Site language', 'design'], ['Quick style', 'design'],
     ['Phone, address and email', 'business'], ['Social profiles', 'business'], ['Online payment link', 'business'],
     ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'hours'], ['Order ahead and scheduling', 'hours'], ['Kitchen capacity', 'hours'], ['Happy hour and timed prices', 'deals'], ['Promo codes', 'promos'], ['Loyalty rewards', 'rewards'], ['Low stock alerts', 'alerts'], ['Daily summary email', 'alerts'], ['Order emails', 'alerts'], ['Pause ordering', 'ordering'],
-    ['Notifications on this device', 'orders'], ['Kitchen screen', 'orders'], ['Sales tax collected', 'r-taxes'], ['Best sellers', 'r-items'], ['Export sales', 'sales'], ['Export customers', 'customers'], ['Send an invoice', 'invoices'], ['Catering and bulk orders', 'invoices'], ['Unpaid invoices', 'invoices'],
+    ['Notifications on this device', 'orders'], ['Sales tax collected', 'r-taxes'], ['Best sellers', 'r-items'], ['Export sales', 'sales'], ['Export customers', 'customers'], ['Send an invoice', 'invoices'], ['Catering and bulk orders', 'invoices'], ['Unpaid invoices', 'invoices'],
     ['Free web address', 'domain'], ['Connect my own domain', 'domain'], ['Privacy policy and terms', 'policies'], ['Google search description', 'seo'], ['Sharing image', 'seo'], ['Earlier versions', 'history'], ['Staff logins', 'team'], ['Daily refill', 'items'], ['Upload item list', 'menu'], ['Categories', 'menu']];
   let finding = false;
   function quickFind() {
@@ -1780,7 +1817,7 @@ export async function editor(id, mount, title, startTab = '') {
     try { const fresh = await api('GET', `/api/sites/${id}/${f[0]()}`); const same = JSON.stringify(fresh) === JSON.stringify(f[2]()); f[1](fresh); if (quiet && !same && tab === k && !document.querySelector('.scrim')) paintPanel(); }
     catch (e) { if (!quiet) toast(e.message, true); }
   }
-  const goTab = (k, fromHistory = false) => { if (!known(k)) k = 'start'; if (!fromHistory && location.pathname !== pathFor(k)) window.history.pushState(null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
+  const goTab = (k, fromHistory = false) => { if (!known(k)) k = 'start'; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history.pushState(null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
   function startPanel() {
     const b = draft.business;
     const steps = [
@@ -1825,7 +1862,7 @@ export async function editor(id, mount, title, startTab = '') {
           low.length ? low.slice(0, 5).map((it) => h('div', { class: 'rline click', onclick: () => openItem(it.id) }, h('span', { style: 'color:var(--ink)' }, it.name), h('b', {}, it.stock === 0 ? 'Sold out' : `${it.stock} left`)))
             : h('p', { class: 'muted', style: 'padding:14px 0' }, menu.length ? 'Nothing is running low.' : 'Add your menu to start tracking stock.')),
         h('div', { class: 'scard' }, h('h3', {}, 'Shortcuts'),
-          h('div', { class: 'shortcuts' }, [['Add an item', 'menu', () => goTab('items')], ['Send an invoice', 'invoice', () => openInvoice()], ['Kitchen screen', 'preview', () => go(`/app/site/${id}/kitchen`)], ['Edit my website', 'design', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'qa', onclick: fn }, navTile(icon, 34), h('b', {}, l), navIcon('chev', 14)))))))];
+          h('div', { class: 'shortcuts' }, [['Add an item', 'menu', () => goTab('items')], ['Send an invoice', 'invoice', () => openInvoice()], ['Edit my website', 'design', () => goTab(lastTab.site)]].map(([l, icon, fn]) => h('button', { class: 'qa', onclick: fn }, navTile(icon, 34), h('b', {}, l), navIcon('chev', 14)))))))];
   }
 
   function addSection() {
@@ -1851,35 +1888,50 @@ export async function editor(id, mount, title, startTab = '') {
   const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '' }, rail, h('aside', { class: 'ed-side' }, tabsEl, subnav, panel), stage);
 
   const openNav = new Set(); let navFor = null;
+  /* One soft highlight that glides to the page you are on, instead of each row snapping on and off. */
+  const glow = h('span', { class: 'rail-glow', 'aria-hidden': 'true' });
+  let glowFirst = true;
+  function placeGlow(settle) {
+    if (!glow.isConnected) rail.prepend(glow);
+    const target = rail.querySelector('.nav-kids:not([data-shut]) button[aria-current=page]') || rail.querySelector('.nav-row[aria-current=page]') || rail.querySelector('.nav-row[data-here]');
+    if (!target) { glow.style.opacity = '0'; return; }
+    const r = rail.getBoundingClientRect(), t = target.getBoundingClientRect();
+    if (glowFirst) { glow.style.transition = 'none'; glowFirst = false; requestAnimationFrame(() => { glow.style.transition = ''; }); }
+    glow.style.opacity = '1';
+    glow.style.transform = `translate(${Math.round(t.left - r.left)}px, ${Math.round(t.top - r.top + rail.scrollTop)}px)`;
+    glow.style.width = `${Math.round(t.width)}px`; glow.style.height = `${Math.round(t.height)}px`;
+    glow.classList.toggle('sub', !!target.closest('.nav-kids'));
+    // Lists open and close with a short glide; follow them as they move.
+    if (settle) for (const ms of [120, 260, 420]) setTimeout(() => placeGlow(false), ms);
+  }
   function paintPanel() {
     const y = panel.scrollTop;
     const cur = tabs.find(([k]) => k === tab) || tabs[0];
     const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
     const mode = cur[3];
     lastTab[mode] = cur[0];
+    noteVisit(cur[0]);
     if (body.dataset.mode !== mode) { body.dataset.mode = mode; if (mode === 'office') body.dataset.view = 'edit'; paintTop(); requestAnimationFrame(fit); }
     panel.classList.toggle('narrow', mode === 'office' && !WIDE.has(cur[0]));
     const has = (k) => tabs.some(([t]) => t === k);
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
-    const group = groups.find((g) => g.tabs.includes(cur[0])) || { label: cur[1], icon: cur[2], tabs: [cur[0]], subs: [cur[1]] };   // Settings and Profile are reached from the top right, not the sidebar
+    const group = groups.find((g) => g.tabs.includes(cur[0])) || (SETUP.tabs.includes(cur[0]) ? { ...SETUP, tabs: SETUP.tabs.filter(has), subs: SETUP.subs.filter((_, i) => has(SETUP.tabs[i])) } : { label: cur[1], icon: cur[2], tabs: [cur[0]], subs: [cur[1]] });   // Settings and Profile are reached from the top right, not the sidebar
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
     // A section with several pages only opens or closes when pressed; choosing a page underneath is what takes you there.
     if (navFor !== cur[0]) { navFor = cur[0]; openNav.add(group.label); }
     rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navTile('back', 30), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const many = g.tabs.length > 1, open = many ? openNav.has(g.label) : g === group;
       const kids = many && h('div', { class: 'nav-kids', 'data-shut': open ? null : '1' }, h('div', { class: 'nav-kids-in' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))));
-      const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; };
+      const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; placeGlow(true); };
       return [
         h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, 'data-here': many && g === group ? '1' : null, onclick: (e) => (many ? toggle(e.currentTarget) : pick(g)) }, navTile(g.icon, 30), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         kids,
       ];
     }).filter(Boolean),
-      mode === 'office' && h('hr'),
-      mode === 'office' && h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab.site) }, navTile('address', 30), h('b', {}, 'Website')),
-      mode === 'office' && h('button', { class: 'nav-row', onclick: () => go(`/app/site/${id}/kitchen`) }, navTile('preview', 30), h('b', {}, 'Kitchen screen')),
       h('span', { class: 'grow' }),
       mode === 'site' && railPub,
       h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].filter(Boolean));
+    placeGlow(true);
     lastIn[group.label] = cur[0];
     // Phones have no sidebar, so a section's screens are switched with two clear buttons at the top.
     subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i])) : []));
@@ -1931,7 +1983,6 @@ export async function editor(id, mount, title, startTab = '') {
           mode === 'office' && row('customers', 'Profile and sign-in', open('profile')),
           row(other === 'site' ? 'design' : 'home', other === 'site' ? 'Edit my website' : 'Back office', open(lastTab[other])),
           meta.live && row('out', 'View my live site', () => window.open(meta.url, '_blank', 'noopener')),
-          row('orders', 'Kitchen screen', () => go(`/app/site/${id}/kitchen`)),
           canOfferInstall() && row('phone', 'Install the app on this device', installApp),
           row('back', 'All my sites', async () => { await flush(); go('/app'); })))];
     }, 'more');
@@ -1981,7 +2032,7 @@ export async function editor(id, mount, title, startTab = '') {
   const unread = () => !!notes && notes.some((x) => x.at > lastSeen());
   async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !unread(); } catch { /* shown as empty */ } }
   // A small panel that hangs from one of the top-right buttons and closes when you click away.
-  function popover(anchor, build) {
+  function popover(anchor, build, side = 'right') {
     if (popEl) { const same = popEl._for === anchor; popEl._close(); if (same) return; }
     const el = h('div', { class: 'tb-pop', role: 'dialog' }); el._for = anchor;
     const close = () => { el.remove(); popEl = null; document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); anchor.setAttribute('aria-expanded', 'false'); };
@@ -1989,7 +2040,7 @@ export async function editor(id, mount, title, startTab = '') {
     const esc = (e) => { if (e.key === 'Escape') close(); };
     el._close = close; el.append(...[build(close)].flat(Infinity).filter(Boolean));
     document.body.append(el); popEl = el; anchor.setAttribute('aria-expanded', 'true');
-    const r = anchor.getBoundingClientRect(); el.style.top = `${Math.round(r.bottom + 10)}px`; el.style.right = `${Math.max(12, Math.round(window.innerWidth - r.right))}px`;
+    const r = anchor.getBoundingClientRect(); el.style.top = `${Math.round(r.bottom + 8)}px`; if (side === 'left') { el.classList.add('left'); el.style.left = `${Math.max(12, Math.min(Math.round(r.left), window.innerWidth - 300))}px`; } else el.style.right = `${Math.max(12, Math.round(window.innerWidth - r.right))}px`;
     setTimeout(() => { document.addEventListener('mousedown', away); document.addEventListener('keydown', esc); });
   }
   const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'Just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`; };
@@ -2016,12 +2067,20 @@ export async function editor(id, mount, title, startTab = '') {
     sheet((close) => {
       const row = (t, d, k, icon) => h('button', { class: 'set-row', type: 'button', onclick: () => { close(); goTab(k); } }, navTile(icon, 32), h('span', {}, h('b', {}, t), h('small', {}, d)), navIcon('chev', 14));
       return [h('div', { class: 'drawer-h' }, h('h2', {}, tIcon('gear', 22), 'Settings'), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: close }, tIcon('x', 18))),
-        h('p', { class: 'drawer-k' }, 'Frequently used'),
+        h('p', { class: 'drawer-k' }, 'Setup'),
         row('Business information', 'Your business name, address, phone number and logo.', 'bizinfo', 'business'),
-        row('Business hours', 'When you are open, and when online orders are taken.', 'hours', 'calendar'),
+        row('Business hours', 'Monday to Sunday, for your website and online ordering.', 'hours', 'calendar'),
         row('Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', 'ordering', 'orders'),
         row('Online booking', 'What customers can book, how long it takes and how many at once.', 'booking', 'calendar'),
         row('Alerts and emails', 'How you hear about new orders and what customers are sent.', 'alerts', 'feedback'),
+        row('Devices', 'Phones and tablets that are told about every new order.', 'devices', 'page'),
+        row('Appearance', 'Light or dark, on this device.', 'appearance', 'design'),
+        h('p', { class: 'drawer-k' }, 'Website'),
+        row('Look and feel', 'Colours, fonts, logo and layout of your website.', 'design', 'design'),
+        row('Home page', 'The sections on your home page, in order.', 'sections', 'page'),
+        row('Web address', 'Your free address, or a domain of your own.', 'domain', 'address'),
+        row('Policies and search', 'Privacy, terms and how you appear on Google.', 'policies', 'invoice'),
+        h('p', { class: 'drawer-k' }, 'Account'),
         row('Profile and sign-in', 'Your name, email, password and two-step sign-in.', 'profile', 'customers'),
         h('div', { class: 'drawer-f' }, h('button', { class: 'btn', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'View all settings'))];
     }, 'drawer');
@@ -2035,13 +2094,26 @@ export async function editor(id, mount, title, startTab = '') {
   loadNotes();
 
   /* Where am I: Dashboard › Sales activity › Orders. Each step is a link back up. */
+  // The pages opened most recently, newest first, remembered on this device.
+  function recent() { try { return JSON.parse(localStorage.getItem(`pf-recent-${id}`) || '[]').filter(known); } catch { return []; } }
+  function noteVisit(k) { if (k === 'start' || modeOf(k) !== 'office') return; try { localStorage.setItem(`pf-recent-${id}`, JSON.stringify([k, ...recent().filter((x) => x !== k)].slice(0, 6))); } catch { /* private mode */ } }
+  const nameOf = (k) => { const g = [...NAV.office, SETUP].find((x) => x.tabs.includes(k)); return g && g.subs ? g.subs[g.tabs.indexOf(k)] : (tabs.find(([t]) => t === k) || [])[1] || k; };
+  /* Where am I: Dashboard › Setup › Business information. Every step can be pressed.
+     "Dashboard" goes home; the section name opens its pages and the ones you used last. */
   function crumbs() {
     if (tab === 'start' || modeOf(tab) === 'site') return null;
-    const mode = modeOf(tab), g = NAV[mode].find((x) => x.tabs.includes(tab));
-    const step = (label, to) => (to ? h('a', { href: pathFor(to), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(to); } }, label) : h('span', {}, label));
-    const page = g && g.subs ? g.subs[g.tabs.indexOf(tab)] : (tabs.find(([k]) => k === tab) || [])[1];
-    const steps = [step('Dashboard', 'start'), mode === 'site' && step('Website', NAV.site[0].tabs[0] === tab ? '' : NAV.site[0].tabs[0]), g && g.tabs.length > 1 && step(g.label, g.tabs[0] === tab ? '' : g.tabs[0]), step(page || (g && g.label) || '', '')].filter(Boolean);
-    const last = steps[steps.length - 1]; steps[steps.length - 1] = h('b', { 'aria-current': 'page' }, last.textContent);
+    const g = [...NAV.office, SETUP].find((x) => x.tabs.includes(tab));
+    const inSettings = g === SETUP || tab === 'profile';
+    const home = h('a', { class: 'crumb', href: pathFor('start'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, 'Dashboard');
+    const jump = (anchor, section) => popover(anchor, (close) => {
+      const item = (k) => h('button', { class: `tb-item${k === tab ? ' here' : ''}`, type: 'button', onclick: () => { close(); goTab(k); } }, nameOf(k), k === tab && h('small', {}, 'You are here'));
+      const lately = recent().filter((k) => k !== tab && !(section && section.tabs.includes(k))).slice(0, 4);
+      return [section && h('p', { class: 'tb-k' }, section.label), section && section.tabs.filter(known).map(item), lately.length > 0 && h('p', { class: 'tb-k' }, 'Recently opened'), lately.map(item)];
+    }, 'left');
+    const sec = g && g.tabs.length > 1 && h('button', { class: 'crumb', type: 'button', 'aria-haspopup': 'dialog', onclick: (e) => jump(e.currentTarget, g) }, g.label, h('span', { class: 'crumb-v', 'aria-hidden': 'true' }, '⌄'));
+    const here = h('button', { class: 'crumb now', type: 'button', 'aria-current': 'page', 'aria-haspopup': 'dialog', title: 'Recently opened pages', onclick: (e) => jump(e.currentTarget, null) }, nameOf(tab), recent().some((k) => k !== tab) && h('span', { class: 'crumb-v', 'aria-hidden': 'true' }, '⌄'));
+    const settingsLink = inSettings && h('a', { class: 'crumb', href: pathFor('settings'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('settings'); } }, 'Settings');
+    const steps = [home, settingsLink, sec, here].filter(Boolean);
     return h('nav', { class: 'crumbs', 'aria-label': 'You are here' }, steps.flatMap((x, i) => (i ? [h('i', { 'aria-hidden': 'true' }, '›'), x] : [x])));
   }
 

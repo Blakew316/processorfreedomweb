@@ -738,7 +738,10 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const rows = (await readJson(req, 1_500_000)).rows;
     let added = 0, skipped = 0;
-    for (const r of Array.isArray(rows) ? rows.slice(0, 5000) : []) { try { keepContact(site.id, cleanContact(r)); added++; } catch { skipped++; } }
+    if (Array.isArray(rows) && rows.length > 1000) bad(413, 'Send at most 1,000 customers at a time.');
+    if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', site.id).n > 50000) bad(400, 'A site can keep up to 50,000 customers.');
+    db.raw.exec('BEGIN');
+    try { for (const r of Array.isArray(rows) ? rows : []) { try { keepContact(site.id, cleanContact(r)); added++; } catch { skipped++; } } db.raw.exec('COMMIT'); } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
     json(res, 200, { added, skipped, contacts: contactsOf(site.id) });
   });
 

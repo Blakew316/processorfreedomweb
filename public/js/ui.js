@@ -200,6 +200,25 @@ export async function readSheetFile(file) {
   return '';
 }
 
+const loadSheetLib = () => (sheetLib ||= new Promise((ok, fail) => document.head.append(h('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', onload: ok, onerror: () => { sheetLib = null; fail(new Error('We could not make an Excel file right now. Try CSV instead.')); } }))));
+/** Saves rows (the first row is the headings) as a spreadsheet the person downloads: .xlsx for Excel, or .csv. */
+export async function saveSheetFile(name, rows, kind = 'csv') {
+  let blob;
+  if (kind === 'xlsx') {
+    await loadSheetLib();
+    const X = window.XLSX, ws = X.utils.aoa_to_sheet(rows);
+    ws['!cols'] = rows[0].map((_, i) => ({ wch: Math.min(40, Math.max(10, ...rows.slice(0, 200).map((r) => String(r[i] ?? '').length + 2))) }));
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Customers');
+    blob = new Blob([X.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  } else {
+    const q = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+    blob = new Blob([`\ufeff${rows.map((r) => r.map(q).join(',')).join('\r\n')}`], { type: 'text/csv' });
+  }
+  const url = URL.createObjectURL(blob);
+  h('a', { href: url, download: `${name}.${kind}` }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+
 /* A short two-note chime for new orders. */
 let audio;
 export function chime() {
@@ -314,5 +333,10 @@ const NAV_ICONS = {
 /* The same icons the way an iPhone shows them in Settings: a white glyph on a small rounded tile.
    The tiles stay within one family of navy, blue and slate, so a list reads as calm rather than as a rainbow. */
 const TILE = { home: 'navy', insights: 'navy', design: 'navy', orders: 'blue', calendar: 'blue', promo: 'blue', business: 'blue', menu: 'steel', invoice: 'steel', page: 'steel', sales: 'ink', team: 'ink', preview: 'ink', customers: 'slate', feedback: 'slate', address: 'slate', settings: 'grey', swap: 'grey', more: 'grey', back: 'grey' };
-export const navTile = (name, size = 30) => h('span', { class: `tile-ic t-${TILE[name] || 'steel'}`, style: `width:${size}px;height:${size}px`, 'aria-hidden': 'true', html: `<svg viewBox="0 0 24 24" width="${Math.round(size * 0.62)}" height="${Math.round(size * 0.62)}" fill="none" stroke="currentColor" stroke-width="2.050" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || NAV_ICONS.page}</svg>` });
+export function navTile(name, size = 30) {
+  const el = h('span', { class: `tile-ic t-${TILE[name] || 'steel'}`, style: `width:${size}px;height:${size}px`, 'aria-hidden': 'true', html: `<svg viewBox="0 0 24 24" width="${Math.round(size * 0.62)}" height="${Math.round(size * 0.62)}" fill="none" stroke="currentColor" stroke-width="2.050" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || NAV_ICONS.page}</svg>` });
+  // Each drawing is nudged so its ink, not its canvas, sits in the middle of the tile.
+  requestAnimationFrame(() => { try { const svg = el.firstElementChild, b = svg.getBBox(); if (b.width) svg.setAttribute('viewBox', `${(b.x + b.width / 2 - 12).toFixed(2)} ${(b.y + b.height / 2 - 12).toFixed(2)} 24 24`); } catch { /* not on screen yet */ } });
+  return el;
+}
 export const navIcon = (name, size = 20) => h('span', { class: 'nav-ic', html: `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.650" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICONS[name] || ''}</svg>` });
