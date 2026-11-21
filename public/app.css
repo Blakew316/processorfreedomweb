@@ -1931,3 +1931,16 @@ html[data-theme=dark] .k-ico{background:rgba(255,255,255,.1);color:#fff}
 .k .k-acts .btn:not(.soft){background:var(--brand)!important;color:#fff}
 .k .k-acts .btn.soft{background:#e7eaf1!important;color:var(--ink);min-width:56px}
 html[data-theme=dark] .k .k-acts .btn.soft{background:rgba(255,255,255,.12)!important;color:#fff}
+
+/* ---------- Dark mode legibility ---------- */
+/* The main button is a light pill in dark mode, so its words must be dark. */
+html[data-theme=dark] .btn:not(.soft):not(.text):not(.danger):not(.line),
+html[data-theme=dark] .rail .rail-pub .btn:not(.soft),
+html[data-theme=dark] .k .k-acts .btn:not(.soft){color:var(--on-brand)!important}
+html[data-theme=dark] .btn:not(.soft):not(.text):not(.danger):not(.line) svg{color:var(--on-brand)}
+html[data-theme=dark] .dg.aa{color:#1d1d1f}
+html[data-theme=dark] .ed-top .seg{background:rgba(255,255,255,.1)!important;box-shadow:none}
+html[data-theme=dark] .ed-top .seg button{color:#f5f5f7!important;background:transparent!important}
+html[data-theme=dark] .ed-top .seg button[aria-pressed=true]{background:rgba(255,255,255,.24)!important;color:#fff!important}
+html[data-theme=dark] .daypick button[aria-pressed=true]{background:#f5f5f7!important;color:#0a1f44!important;box-shadow:none}
+html[data-theme=dark] .tag.sale{color:var(--ink);background:rgba(255,255,255,.14)}

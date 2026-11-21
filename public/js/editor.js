@@ -420,7 +420,7 @@ export async function editor(id, mount, title) {
       const count = (o, k, max) => { const el = h('small', {}); const draw = () => { el.textContent = `${str(o[k]).length}/${max} characters`; }; draw(); return [el, draw]; };
       const [dc, drawDc] = count(s, 'description', 200);
       const [kc, drawKc] = count(s, 'keywords', 200);
-      const drawPv = () => pv.replaceChildren(h('div', { class: 'small', style: 'color:var(--green)' }, meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')), h('div', { style: 'color:#1a0dab;font-size:17px;margin:2px 0' }, str(s.title).trim() || autoTitle), h('div', { class: 'small' }, str(s.description).trim() || autoDesc));
+      const drawPv = () => pv.replaceChildren(h('div', { class: 'small', style: 'color:#1e8e3e' }, meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')), h('div', { style: 'color:#1a0dab;font-size:17px;margin:2px 0' }, str(s.title).trim() || autoTitle), h('div', { class: 'small' }, str(s.description).trim() || autoDesc));
       drawPv();
       const on = (fn) => ({ oninput: (e) => { s[e.target.dataset.k] = e.target.value; fn?.(); drawPv(); changed(); } });
       return [
