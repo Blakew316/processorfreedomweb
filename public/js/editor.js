@@ -458,7 +458,7 @@ export async function editor(id, mount, title) {
       const drawTop = () => {
         const n = (k) => menu.filter((it) => stateOf(it) === k).length;
         const onSale = menu.filter((it) => it.sale > 0).length;
-        kpis.replaceChildren(...[['Items', menu.length], ['Units in stock', menu.reduce((a, it) => a + (it.stock || 0), 0)], ['Low stock', n('low')], ['Sold out', n('out')]].map(([l, v]) => h('div', { class: 'kpi' }, h('span', { class: 'small muted' }, l), h('b', {}, v))));
+        kpis.replaceChildren(...[['Items', menu.length, 'tag'], ['Units in stock', menu.reduce((a, it) => a + (it.stock || 0), 0), 'cube'], ['Low stock', n('low'), 'alert'], ['Sold out', n('out'), 'x']].map(([l, v, icon]) => h('div', { class: 'kpi' }, h('span', { class: 'kico' }, ic(icon, 17)), h('span', { class: 'small muted' }, l), h('b', {}, v))));
         chips.replaceChildren(...[['all', `All · ${menu.length}`], ['low', `Low stock · ${n('low')}`], ['out', `Sold out · ${n('out')}`], ['hidden', `Hidden · ${n('hidden')}`], ...(onSale ? [['sale', `On sale · ${onSale}`]] : [])].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(invFilter === k), onclick: () => { invFilter = k; drawTop(); drawList(); } }, l)));
       };
       const bulk = async (body, note) => {
@@ -649,7 +649,7 @@ export async function editor(id, mount, title) {
 
       const st = stats, t = st.totals;
       const change = (now, was) => { if (!was) return now ? h('span', { class: 'delta up' }, 'New') : null; const pct = Math.round(((now - was) / was) * 100); return h('span', { class: `delta ${pct >= 0 ? 'up' : 'down'}`, title: `Compared with ${day(st.previous.from)}${st.previous.from === st.previous.to ? '' : ` to ${day(st.previous.to)}`}` }, `${pct >= 0 ? '+' : ''}${pct}%`); };
-      const kpi = (label, value, extra, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value, extra), sub && h('span', { class: 'small muted' }, sub));
+      const kpi = (label, value, extra, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value, extra), sub && h('span', { class: 'small muted' }, sub));
       const peak = Math.max(1, ...st.series.map((x) => x.net));
       const hour = (k) => { const n = Number(k); return `${n % 12 || 12}${n < 12 ? 'a' : 'p'}`; };
       const busy = st.series.filter((x) => x.orders);
@@ -663,10 +663,10 @@ export async function editor(id, mount, title) {
       const none = !t.orders;
       return [h('div', { class: 'inv sales' }, head(st), filter,
         h('div', { class: 'inv-kpis' },
-          kpi('Net sales', money(t.net), change(t.net, st.previous.net), `${money(t.gross)} in items${t.discounts ? `, ${money(t.discounts)} discounts` : ''}`),
-          kpi('Orders', t.orders, change(t.orders, st.previous.orders), t.cancelled ? `${t.cancelled} cancelled, not counted` : `${t.units} item${t.units === 1 ? '' : 's'} sold`),
-          kpi('Average order', money(t.average), null, 'Including tax, fees and tips'),
-          kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set')),
+          kpi('Net sales', money(t.net), change(t.net, st.previous.net), `${money(t.gross)} in items${t.discounts ? `, ${money(t.discounts)} discounts` : ''}`, 'cash'),
+          kpi('Orders', t.orders, change(t.orders, st.previous.orders), t.cancelled ? `${t.cancelled} cancelled, not counted` : `${t.units} item${t.units === 1 ? '' : 's'} sold`, 'bag'),
+          kpi('Average order', money(t.average), null, 'Including tax, fees and tips', 'chart'),
+          kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set', 'doc')),
         none && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
         !none && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
         !none && h('div', { class: 'sgrid3' },

@@ -1045,3 +1045,93 @@ html[data-theme=dark] .sales .scard{box-shadow:0 0 0 .500px rgba(255,255,255,.1)
   .sales .scard,.inv-kpis .kpi{box-shadow:0 0 0 1px #ddd!important;break-inside:avoid}
   .inv{gap:12px}
 }
+
+/* ---------- Depth: light, shade and layering ---------- */
+:root{
+  --lift-1:0 0 0 .500px rgba(10,31,68,.07),0 1px 1px rgba(10,31,68,.04),0 8px 20px -10px rgba(10,31,68,.16);
+  --lift-2:0 0 0 .500px rgba(10,31,68,.08),0 2px 4px rgba(10,31,68,.05),0 22px 44px -18px rgba(10,31,68,.28);
+  --sheen:linear-gradient(180deg,#fff 0%,#fafbfd 100%);
+  --well:linear-gradient(180deg,#eef0f4,#f3f4f7);
+  --ambient:radial-gradient(1100px 520px at 12% -12%,rgba(10,31,68,.075),transparent 62%),radial-gradient(900px 520px at 104% -6%,rgba(10,31,68,.05),transparent 60%),#f3f4f7;
+  --navy:linear-gradient(180deg,#1b3a78 0%,#0a1f44 100%);
+  --edge:inset 0 1px 0 rgba(255,255,255,.9);
+}
+html[data-theme=dark]{
+  --lift-1:0 0 0 .500px rgba(255,255,255,.09),0 1px 1px rgba(0,0,0,.4),0 10px 24px -10px rgba(0,0,0,.7);
+  --lift-2:0 0 0 .500px rgba(255,255,255,.12),0 2px 4px rgba(0,0,0,.5),0 26px 50px -18px rgba(0,0,0,.85);
+  --sheen:linear-gradient(180deg,#303033 0%,#28282a 100%);
+  --well:linear-gradient(180deg,#161618,#1c1c1e);
+  --ambient:radial-gradient(1100px 520px at 12% -12%,rgba(91,132,214,.13),transparent 62%),radial-gradient(900px 520px at 104% -6%,rgba(91,132,214,.08),transparent 60%),#121214;
+  --navy:linear-gradient(180deg,#7ea0e6 0%,#5b84d6 100%);
+  --edge:inset 0 1px 0 rgba(255,255,255,.07);
+}
+/* surfaces sit in soft ambient light */
+.ed-side,.panel,.one-wrap,.auth,body:has(.dash),.k,html[data-theme=dark] .ed-side,html[data-theme=dark] .panel,html[data-theme=dark] .one-wrap,html[data-theme=dark] .auth,html[data-theme=dark] body:has(.dash),html[data-theme=dark] .k{background:var(--ambient)}
+.panel{background-attachment:local}
+.ed-side{background-attachment:scroll}
+.ed{background:linear-gradient(180deg,#e9ebf0,#eef0f4)}
+html[data-theme=dark] .ed{background:#0a0a0b}
+/* cards catch light on top and cast a soft shadow */
+.panel>.group,.todo-row,.inv-kpis .kpi,.inv-list,.inv-search,.sales .scard,.scard,.scard2,.auth-card,.one,.step,.bento,.card,.empty,.k-card,.panel>.note,.panel>p.note,
+html[data-theme=dark] .panel>.group,html[data-theme=dark] .todo-row,html[data-theme=dark] .inv-kpis .kpi,html[data-theme=dark] .inv-list,html[data-theme=dark] .inv-search,html[data-theme=dark] .sales .scard,html[data-theme=dark] .scard,html[data-theme=dark] .scard2,html[data-theme=dark] .auth-card,html[data-theme=dark] .one,html[data-theme=dark] .step,html[data-theme=dark] .bento,html[data-theme=dark] .card,html[data-theme=dark] .empty,html[data-theme=dark] .k-card{background:var(--sheen);box-shadow:var(--lift-1),var(--edge)}
+.sales .scard:hover{box-shadow:var(--lift-1),var(--edge)}
+.scard:hover,.step:hover,.bento:hover,.inv-kpis .kpi:hover,.todo-row:hover{box-shadow:var(--lift-2),var(--edge)}
+.inv-kpis .kpi,.todo-row,.step,.bento{transition:box-shadow .35s var(--ease),transform .35s var(--ease)}
+.inv-kpis .kpi:hover{transform:translateY(-2px)}
+.todo-row.next,html[data-theme=dark] .todo-row.next{box-shadow:0 0 0 1.500px var(--switch),0 18px 36px -18px color-mix(in srgb,var(--switch) 70%,transparent),var(--edge)}
+/* headline numbers: a corner of light and a small badge */
+.inv-kpis .kpi{position:relative;overflow:hidden;isolation:isolate}
+.inv-kpis .kpi::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(180px 110px at 100% 0%,color-mix(in srgb,var(--switch) 13%,transparent),transparent 72%)}
+.kico{position:absolute;top:14px;right:14px;display:grid;place-items:center;width:34px;height:34px;border-radius:11px;color:var(--switch);background:linear-gradient(180deg,color-mix(in srgb,var(--switch) 10%,var(--card)),color-mix(in srgb,var(--switch) 18%,var(--card)));box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 10px -5px color-mix(in srgb,var(--switch) 60%,transparent)}
+html[data-theme=dark] .kico{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.inv-kpis .kpi>span:not(.kico){padding-right:40px}
+/* wells: fields and tracks sit slightly below the surface */
+.panel .field input:not([type=checkbox]):not([type=color]),.panel .field textarea,.panel .field select,.inv-qty .inv-in,.track2,.prog,.seg,.panel .seg,.isheet .field input:not([type=checkbox]),.isheet .field textarea{box-shadow:inset 0 1px 2px rgba(10,31,68,.07)}
+html[data-theme=dark] .panel .field input:not([type=checkbox]):not([type=color]),html[data-theme=dark] .panel .field textarea,html[data-theme=dark] .track2,html[data-theme=dark] .prog,html[data-theme=dark] .seg{box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+.seg button[aria-pressed=true],.panel .seg button[aria-pressed=true]{box-shadow:0 1px 2px rgba(10,31,68,.14),0 4px 10px -4px rgba(10,31,68,.22),var(--edge)}
+/* navy elements get a gentle top-to-bottom shade */
+.btn:not(.soft):not(.text):not(.danger):not(.line),.inv-chips .chip[aria-pressed=true],.fakebtn,.chips span.on{background:var(--navy);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 8px 18px -8px color-mix(in srgb,var(--switch) 75%,transparent)}
+.btn:not(.soft):not(.text):not(.danger):not(.line):hover{opacity:1;filter:brightness(1.12)}
+html[data-theme=dark] .btn:not(.soft):not(.text):not(.danger):not(.line),html[data-theme=dark] .inv-chips .chip[aria-pressed=true]{color:#fff}
+.btn.soft,.inv-chips .chip,.panel .btn.soft{background:var(--sheen);box-shadow:0 0 0 .500px rgba(10,31,68,.1),0 1px 2px rgba(10,31,68,.06),var(--edge);transition:box-shadow .2s,transform .2s cubic-bezier(.34,1.56,.64,1),filter .2s}
+.btn.soft:hover,.inv-chips .chip:hover,.panel .btn.soft:hover{background:var(--sheen);box-shadow:0 0 0 .500px rgba(10,31,68,.14),0 6px 14px -6px rgba(10,31,68,.22),var(--edge);opacity:1}
+html[data-theme=dark] .btn.soft,html[data-theme=dark] .inv-chips .chip,html[data-theme=dark] .panel .btn.soft{box-shadow:0 0 0 .500px rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.4),var(--edge)}
+.switch input:checked+i{background:var(--navy);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
+.switch i{box-shadow:inset 0 1px 2px rgba(10,31,68,.12)}
+.cb:checked,.cb:indeterminate{background:var(--navy);box-shadow:0 3px 8px -3px color-mix(in srgb,var(--switch) 70%,transparent)}
+.prog i,.track2 i,.split div i{background:var(--navy);box-shadow:0 2px 6px -2px color-mix(in srgb,var(--switch) 70%,transparent)}
+.todo-row.done .tick{background:var(--navy);box-shadow:0 4px 10px -4px color-mix(in srgb,var(--switch) 70%,transparent)}
+/* charts: bars with shade, faint guide lines behind */
+.chart-bars{background:repeating-linear-gradient(0deg,transparent 0,transparent calc(25% - 1px),var(--line) calc(25% - 1px),var(--line) 25%);border-radius:2px}
+.cbar i.on,.bars i.on{background:linear-gradient(180deg,color-mix(in srgb,var(--switch) 62%,#fff) 0%,var(--switch) 100%);box-shadow:0 -1px 0 rgba(255,255,255,.35) inset,0 10px 18px -10px color-mix(in srgb,var(--switch) 80%,transparent)}
+html[data-theme=dark] .cbar i.on,html[data-theme=dark] .bars i.on{background:linear-gradient(180deg,#9db8ee,#5b84d6)}
+.cbar i{background:linear-gradient(180deg,var(--bg3),var(--bg2))}
+/* chrome: glass with a soft drop */
+.ed-top{box-shadow:0 1px 0 var(--line),0 10px 24px -18px rgba(10,31,68,.35);border-bottom:0;position:relative;z-index:6}
+.top{box-shadow:0 10px 24px -20px rgba(10,31,68,.3)}
+.rail{background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--card) 60%,var(--bg2)));box-shadow:1px 0 0 var(--line),8px 0 24px -20px rgba(10,31,68,.3);border-right:0;position:relative;z-index:2}
+html[data-theme=dark] .rail{background:linear-gradient(180deg,#1f1f21,#19191b)}
+.rail button[aria-current],html[data-theme=dark] .rail button[aria-current]{background:var(--sheen);box-shadow:var(--lift-1),var(--edge)}
+.stage-in{box-shadow:0 0 0 .500px rgba(10,31,68,.1),0 2px 6px rgba(10,31,68,.06),0 44px 80px -36px rgba(10,31,68,.5)}
+.sheet{box-shadow:0 0 0 .500px rgba(10,31,68,.1),0 30px 60px -20px rgba(10,31,68,.35),0 60px 120px -30px rgba(0,0,0,.35),var(--edge)}
+.bulk{box-shadow:0 0 0 .500px var(--line2),0 28px 56px -22px rgba(10,31,68,.55),var(--edge)}
+.inv-photo,.imgz{box-shadow:inset 0 1px 3px rgba(10,31,68,.1)}
+.inv-photo[style*=url]{box-shadow:0 0 0 .500px rgba(10,31,68,.12),0 6px 12px -6px rgba(10,31,68,.35)}
+.inv-row:hover{background:linear-gradient(90deg,color-mix(in srgb,var(--switch) 4%,transparent),transparent)}
+.tag{box-shadow:inset 0 0 0 .500px rgba(10,31,68,.08)}
+.ocard.new,html[data-theme=dark] .ocard.new,.k-card.new,html[data-theme=dark] .k-card.new{box-shadow:0 0 0 1.500px var(--switch),0 18px 36px -18px color-mix(in srgb,var(--switch) 70%,transparent)}
+.thumb{box-shadow:0 0 0 .500px rgba(10,31,68,.1),0 10px 24px -14px rgba(10,31,68,.35)}
+.logo img,.one .mark,.l-end img{box-shadow:0 6px 14px -6px rgba(10,31,68,.6),inset 0 1px 0 rgba(255,255,255,.15)}
+/* landing: a hint of light behind the hero, depth on the product shots */
+.l-hero{background:radial-gradient(900px 460px at 50% -8%,rgba(10,31,68,.075),transparent 68%)}
+html[data-theme=dark] .l-hero{background:radial-gradient(900px 460px at 50% -8%,rgba(91,132,214,.16),transparent 68%)}
+.l-sec.tint,html[data-theme=dark] .l-sec.tint{background:var(--ambient)}
+.browser{box-shadow:0 0 0 .500px rgba(10,31,68,.14),0 4px 10px rgba(10,31,68,.06),0 60px 110px -40px rgba(10,31,68,.55)}
+.float{box-shadow:0 0 0 .500px rgba(10,31,68,.12),0 22px 44px -16px rgba(10,31,68,.4),var(--edge)}
+.namer .box{box-shadow:0 0 0 .500px rgba(10,31,68,.14),0 18px 40px -18px rgba(10,31,68,.4),var(--edge);outline:0}
+.pill{box-shadow:0 0 0 .500px rgba(10,31,68,.12),0 6px 14px -8px rgba(10,31,68,.3),var(--edge)}
+.itile{background:linear-gradient(180deg,color-mix(in srgb,var(--switch) 8%,var(--card)),color-mix(in srgb,var(--switch) 16%,var(--card)));color:var(--switch);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 6px 12px -6px color-mix(in srgb,var(--switch) 55%,transparent)}
+html[data-theme=dark] .itile{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.sico{background:linear-gradient(180deg,color-mix(in srgb,var(--switch) 8%,var(--card)),color-mix(in srgb,var(--switch) 16%,var(--card)));color:var(--switch);box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
+html[data-theme=dark] .sico{box-shadow:none}
+@media print{.ed-side,.panel{background:#fff!important}}
