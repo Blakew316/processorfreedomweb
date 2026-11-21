@@ -1545,3 +1545,77 @@ html:not([data-theme=dark]) .daypick button[aria-pressed=true]{background:linear
 html:not([data-theme=dark]) .ins-n{background:var(--tint2);color:var(--brand)}
 html:not([data-theme=dark]) .cbar i.on{background:linear-gradient(180deg,#a9c0f0,#5f84dc);box-shadow:none}
 html:not([data-theme=dark]) .track2 i,html:not([data-theme=dark]) .prog i{background:linear-gradient(90deg,#5f84dc,#a9c0f0)}
+
+/* =====================================================================
+   Navigation, done plainly. A white sidebar with one list. A section
+   with more than one screen opens underneath itself. No tabs up top.
+   Every page starts at the same left edge with the same heading.
+   ===================================================================== */
+.ed-body{grid-template-columns:232px 360px 1fr}
+@media (min-width:901px){.ed-body[data-wide=true]{grid-template-columns:232px minmax(0,1fr)}}
+/* The page area must fill the space and scroll, whatever sits above it. */
+.ed-side{display:flex;flex-direction:column;min-height:0;min-width:0}
+.ed-side>.panel{flex:1 1 auto;min-height:0}
+.nav-ic{display:inline-flex;flex:none}
+
+.rail,html:not([data-theme=dark]) .rail{background:var(--card);padding:14px 10px 10px;gap:2px;box-shadow:1px 0 0 var(--line)}
+.rail-h,html:not([data-theme=dark]) .rail-h{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:4px 12px 10px}
+.rail .nav-row,.rail .nav-row:hover,.rail .nav-row[aria-current],html:not([data-theme=dark]) .rail .nav-row[aria-current],html[data-theme=dark] .rail .nav-row[aria-current]{display:flex;align-items:center;gap:12px;width:100%;padding:9px 12px;border:0;border-radius:10px;background:none;box-shadow:none;text-align:left;white-space:nowrap;color:var(--muted);font-size:15px;transition:background .15s,color .15s}
+.rail .nav-row b{font-weight:500;color:var(--ink);flex:1;min-width:0;letter-spacing:-.005em}
+.rail .nav-row:hover{background:color-mix(in srgb,var(--ink) 4.5%,transparent)}
+.rail .nav-row .nav-ic{color:var(--muted)}
+.rail .nav-row[aria-current],html:not([data-theme=dark]) .rail .nav-row[aria-current],html[data-theme=dark] .rail .nav-row[aria-current]{background:color-mix(in srgb,var(--switch) 9%,transparent)}
+.rail .nav-row[aria-current] b,.rail .nav-row[data-open] b{font-weight:600}
+.rail .nav-row[aria-current] .nav-ic,.rail .nav-row[data-open] .nav-ic:first-child{color:var(--brand)}
+html[data-theme=dark] .rail .nav-row[aria-current] .nav-ic,html[data-theme=dark] .rail .nav-row[data-open] .nav-ic:first-child{color:#fff}
+.rail .nav-row .badge{margin:0;font-style:normal}
+.rail .nav-chev{display:inline-flex;color:var(--faint);transition:transform .2s var(--ease)}
+.rail .nav-row[data-open] .nav-chev{transform:rotate(90deg)}
+.nav-kids{display:grid;gap:1px;margin:2px 0 6px 21px;padding-left:11px;border-left:1.5px solid var(--line);animation:rise .25s var(--ease)}
+.rail .nav-kids button,.rail .nav-kids button:hover,.rail .nav-kids button[aria-current],html:not([data-theme=dark]) .rail .nav-kids button[aria-current],html[data-theme=dark] .rail .nav-kids button[aria-current]{display:block;width:100%;padding:8px 12px;border:0;border-radius:9px;background:none;box-shadow:none;text-align:left;font-size:14px;font-weight:500;color:var(--muted);white-space:nowrap}
+.rail .nav-kids button:hover{background:color-mix(in srgb,var(--ink) 4.5%,transparent);color:var(--ink)}
+.rail .nav-kids button[aria-current],html:not([data-theme=dark]) .rail .nav-kids button[aria-current],html[data-theme=dark] .rail .nav-kids button[aria-current]{background:color-mix(in srgb,var(--switch) 9%,transparent);color:var(--brand);font-weight:600}
+html[data-theme=dark] .rail .nav-kids button[aria-current]{color:#fff}
+.rail>.grow{flex:1;min-height:12px}
+.rail .nav-swap{border-top:1px solid var(--line)!important;border-radius:0!important;padding:14px 12px 6px!important;margin-top:6px}
+.rail .nav-swap:hover{background:none!important}
+.rail .nav-swap:hover b{text-decoration:underline}
+
+/* No tabs above the page on a computer. Phones keep two clear buttons, since there is no sidebar there. */
+.subnav{display:none!important}
+@media (max-width:900px){
+  .subnav:not([hidden]){display:flex!important;margin:12px 14px 2px;padding:4px;border-radius:14px;background:var(--card)!important;box-shadow:0 0 0 1px var(--line2)}
+  .ed-body[data-view=preview] .subnav{display:none!important}
+  .subnav button{flex:1;padding:10px 12px;font-size:15px;font-weight:600;color:var(--muted);border-radius:10px}
+  .subnav button[aria-pressed=true]{background:var(--brand)!important;color:#fff!important;box-shadow:none!important}
+  html[data-theme=dark] .subnav button[aria-pressed=true]{background:#fff!important;color:#000!important}
+}
+
+/* One layout for every back-office page: same left edge, same heading, same top spacing. */
+@media (min-width:901px){
+  .ed-body[data-mode=office] .panel,.ed-body[data-mode=office] .panel.narrow,.ed-body[data-wide=true] .panel{padding:32px 40px 96px;gap:20px}
+  .ed-body[data-mode=office] .panel.narrow>*{max-width:780px;width:100%}
+  .ed-body[data-mode=office] .inv{max-width:1320px}
+}
+.page-head h2{font-size:34px;letter-spacing:-.03em}
+.inv-top h2{font-size:34px;letter-spacing:-.03em}
+.inv-top p{margin-top:6px;font-size:16px;max-width:620px}
+.panel.narrow>div:first-child>h2{font-size:34px;letter-spacing:-.03em}
+.group>h3:empty{display:none}
+
+/* Empty states sit in the middle of their card, icon and words on one centre line. */
+.inv-empty{display:flex!important;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:64px 24px;width:100%}
+.inv-empty>span:first-child,html:not([data-theme=dark]) .inv-empty>span:first-child{display:grid;place-items:center;flex:none;width:60px;height:60px;border-radius:18px;margin-bottom:6px;background:color-mix(in srgb,var(--switch) 8%,transparent);color:var(--brand)}
+html[data-theme=dark] .inv-empty>span:first-child{color:#fff;background:rgba(255,255,255,.1)}
+.inv-empty b{margin:0;font-size:19px;letter-spacing:-.015em}
+.inv-empty p{max-width:420px;margin:0 auto;color:var(--muted)}
+.inv-list:has(>.inv-empty){display:flex;background:var(--card);border-radius:20px;box-shadow:0 0 0 .5px var(--line2)}
+@media (min-width:901px){
+  .ed-body[data-mode=office] .ed-side>.panel,.ed-body[data-mode=office] .ed-side>.subnav+.panel{padding:32px 40px 96px!important}
+}
+.rail .nav-row .nav-ic svg{width:23px;height:23px}
+.inv-top{align-items:flex-end}
+@media (max-width:900px){
+  .subnav button[aria-pressed=true]{background:linear-gradient(180deg,#e3ebfa,#d3dff5)!important;color:var(--brand)!important;box-shadow:inset 0 0 0 .5px rgba(10,31,68,.18)!important}
+  html[data-theme=dark] .subnav button[aria-pressed=true]{background:rgba(255,255,255,.16)!important;color:#fff!important}
+}

@@ -1,6 +1,6 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
@@ -11,23 +11,31 @@ const TABS = [
 ];
 const WIDE = new Set(['items', 'sales', 'customers', 'invoices']);
 const MODES = { office: 'Back office', site: 'Website' };
-// What the sidebar shows: a few plainly named sections, each with a line saying what it is for.
-// A section can hold two related screens, switched with the tabs at the top of the page.
+const NAV_NAMES = new Set(['home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address']);
+// The sidebar: a short list of sections. A section with more than one screen opens to show them underneath it.
 const NAV = {
   office: [
-    { label: 'Home', hint: 'Your to-do list', icon: 'home', tabs: ['start'] },
-    { label: 'Orders', hint: 'Confirm and track orders', icon: 'bag', tabs: ['orders'] },
-    { label: 'Menu', hint: 'Items, prices, photos, stock', icon: 'menu', tabs: ['items', 'menu'], subs: ['Items', 'Categories and order'] },
-    { label: 'Sales', hint: 'What you earned, invoices', icon: 'chart', tabs: ['sales', 'invoices'], subs: ['Sales report', 'Invoices'] },
-    { label: 'Customers', hint: 'Who orders, and messages', icon: 'person', tabs: ['customers', 'inbox'], subs: ['Customers', 'Messages'] },
-    { label: 'Settings', hint: 'Pickup, delivery, hours, tax', icon: 'sliders', tabs: ['ordering', 'team'], subs: ['Ordering', 'Staff logins'] },
+    { label: 'Home', icon: 'home', tabs: ['start'] },
+    { label: 'Orders', icon: 'orders', tabs: ['orders'] },
+    { label: 'Menu', icon: 'menu', tabs: ['items', 'menu'], subs: ['Items', 'Categories'] },
+    { label: 'Sales', icon: 'sales', tabs: ['sales', 'invoices'], subs: ['Sales report', 'Invoices'] },
+    { label: 'Customers', icon: 'customers', tabs: ['customers', 'inbox'], subs: ['Customer list', 'Messages'] },
+    { label: 'Settings', icon: 'settings', tabs: ['ordering', 'team'], subs: ['Ordering', 'Staff logins'] },
   ],
   site: [
-    { label: 'Design', hint: 'Logo, colours and style', icon: 'brush', tabs: ['design', 'history'], subs: ['Design', 'Earlier versions'] },
-    { label: 'Home page', hint: 'What is on your page', icon: 'layers', tabs: ['sections', 'policies'], subs: ['Sections', 'Policies'] },
-    { label: 'Business info', hint: 'Phone, address, hours', icon: 'store', tabs: ['business'] },
-    { label: 'Web address', hint: 'Your link and Google listing', icon: 'globe', tabs: ['domain', 'seo'], subs: ['Web address', 'Google listing'] },
+    { label: 'Design', icon: 'design', tabs: ['design', 'history'], subs: ['Look and feel', 'Earlier versions'] },
+    { label: 'Home page', icon: 'page', tabs: ['sections', 'policies'], subs: ['Sections', 'Policies'] },
+    { label: 'Business info', icon: 'business', tabs: ['business'] },
+    { label: 'Web address', icon: 'address', tabs: ['domain', 'seo'], subs: ['Web address', 'Google listing'] },
   ],
+};
+// What each back-office screen is for, shown as its heading.
+const HEAD = {
+  orders: ['Orders', 'New orders appear here on their own. Confirm each one, then mark it ready.'],
+  menu: ['Categories', 'Group your menu and set the order customers see it in.'],
+  inbox: ['Messages', 'What people send through the contact form on your site.'],
+  ordering: ['Ordering', 'How customers order from you: pickup, delivery, hours, tax and more.'],
+  team: ['Staff logins', 'Give each person their own login, with only what they need.'],
 };
 // On a phone the first four sections of each side sit in the tab bar; the rest is under More.
 const PHONE_COUNT = { office: 4, site: 3 };
@@ -462,7 +470,7 @@ export async function editor(id, mount, title) {
       };
       const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : `${x.stock} in stock`);
       return [
-        group('Menu and inventory', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
+        group('Add items', h('p', { class: 'hint' }, 'Upload your item list and we build your menu. Changes here appear on your live site right away, with no need to publish.'),
           h('button', { class: 'drop', onclick: importCsv }, ic('up2', 24), h('b', {}, menu.length ? 'Upload a new item list' : 'Upload your item list'), h('span', { class: 'small' }, 'Excel or CSV file with item names and prices')),
           state.config.scanEnabled && h('button', { class: 'drop', onclick: scanMenu }, ic('camera', 24), h('b', {}, 'Scan a paper menu'), h('span', { class: 'small' }, 'Take a photo or upload a PDF and we read the items and prices')),
           h('div', { class: 'row', style: 'flex-wrap:wrap' },
@@ -648,7 +656,7 @@ export async function editor(id, mount, title) {
     },
 
     orders() {
-      if (!orders) { loadOrders(); return [group('Orders', skel(3, 'card'))]; }
+      if (!orders) { loadOrders(); return [group('', skel(3, 'card'))]; }
       const active = orders.filter((x) => !['completed', 'cancelled'].includes(x.status));
       const shown = orderFilter === 'active' ? active : orders;
       const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); Object.assign(x, r.order); paintPanel(); } catch (e) { toast(e.message, true); } };
@@ -660,7 +668,7 @@ export async function editor(id, mount, title) {
           const want = e.target.checked;
           try { if (want) { await enablePush(); toast('This device will be notified of new orders'); } else { await disablePush(); } pushIsOn = want; } catch (ex) { e.target.checked = !want; toast(ex.message, true); }
         } }), h('i'));
-      return [group('Orders', alertBox, pushBox, h('a', { class: 'btn soft sm', style: 'justify-self:start', href: `/app/site/${id}/kitchen`, target: '_blank' }, 'Open kitchen screen', ic('out', 14)), seg,
+      return [group('Alerts', alertBox, pushBox, h('a', { class: 'btn soft sm', style: 'justify-self:start', href: `/app/site/${id}/kitchen`, target: '_blank' }, 'Open kitchen screen', ic('out', 14)), seg,
         !shown.length && (orders.length ? emptyState('check', 'All caught up', 'No active orders right now. New ones appear here on their own.')
           : !ordering.enabled ? emptyState('bag', 'No orders yet', 'Turn on online ordering to start taking orders.', ['Open ordering', () => goTab('ordering')])
             : emptyState('bag', 'No orders yet', meta.live ? 'Place a test order from your own site to see exactly what customers see. It arrives here within seconds.' : 'Publish your site, then place a test order to see the whole flow.', meta.live ? ['Open my order page', () => window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener')] : null)),
@@ -748,10 +756,10 @@ export async function editor(id, mount, title) {
     inbox() {
       if (!leads) {
         api('GET', `/api/sites/${id}/leads`).then((r) => { leads = r.leads; if (tab === 'inbox') paintPanel(); });
-        return [group('Inbox', skel(3, 'card'))];
+        return [group('', skel(3, 'card'))];
       }
-      if (!leads.length) return [group('Inbox', emptyState('inbox', 'No messages yet', 'When someone uses the contact form on your site, their message appears here.'))];
-      return [group(`Inbox · ${leads.length}`, leads.map((l) => h('article', { class: 'lead' },
+      if (!leads.length) return [group('', emptyState('inbox', 'No messages yet', 'When someone uses the contact form on your site, their message appears here.'))];
+      return [group(`${leads.length} message${leads.length === 1 ? '' : 's'}`, leads.map((l) => h('article', { class: 'lead' },
         h('header', {}, h('b', {}, l.name), h('span', { class: 'small muted' }, fmtDate(l.createdAt))),
         h('div', { class: 'small' }, h('a', { href: `mailto:${l.email}` }, l.email), l.phone && [' · ', h('a', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}` }, l.phone)]),
         h('p', {}, l.message),
@@ -850,7 +858,7 @@ export async function editor(id, mount, title) {
     team() {
       if (!team) {
         api('GET', `/api/sites/${id}/team`).then((r) => { team = r; if (tab === 'team') paintPanel(); }).catch((e) => { toast(e.message, true); team = { members: [], owner: { email: state.user.email, name: state.user.name } }; if (tab === 'team') paintPanel(); });
-        return [group('Team', skel(3, 'row'))];
+        return [group('', skel(3, 'row'))];
       }
       const ROLES = { kitchen: ['Kitchen', 'Sees and updates orders on the kitchen screen. Nothing else.'], manager: ['Manager', 'Everything except the team and deleting the site.'] };
       const nameIn = h('input', { placeholder: 'Name', 'aria-label': 'Name', maxlength: 80 });
@@ -869,7 +877,7 @@ export async function editor(id, mount, title) {
       };
       const person = (name, email, right) => h('div', { class: 'srow', style: 'padding:12px 12px 12px 16px;gap:10px' }, h('span', { class: 'sico' }, ic('person', 16)), h('div', { class: 'grow', style: 'min-width:0' }, h('b', { style: 'font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis' }, name || email), name && h('span', { class: 'small muted', style: 'display:block;overflow:hidden;text-overflow:ellipsis' }, email)), right);
       return [
-        group('Team', h('p', { class: 'hint' }, 'Give staff their own login instead of sharing yours. Each person only sees what their role allows.'),
+        group('People with access',
           h('div', { class: 'slist' }, person(team.owner.name, team.owner.email, h('span', { class: 'tag' }, 'Owner')),
             team.members.map((m) => person(m.name, m.email, [
               h('select', { 'aria-label': `Role for ${m.email}`, class: 'mini', onchange: async (e) => { try { team.members = (await api('POST', `/api/sites/${id}/team`, { email: m.email, role: e.target.value })).members; toast('Role updated'); } catch (ex) { toast(ex.message, true); } paintPanel(); } }, Object.entries(ROLES).map(([k, [l]]) => h('option', { value: k, selected: m.role === k }, l))),
@@ -1329,18 +1337,23 @@ export async function editor(id, mount, title) {
     const has = (k) => tabs.some(([t]) => t === k);
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
     const group = groups.find((g) => g.tabs.includes(cur[0])) || groups[0];
-    rail.replaceChildren(h('span', { class: 'rail-h' }, mode === 'office' ? 'Run your business' : 'Edit your website'), ...groups.map((g) =>
-      h('button', { 'aria-current': g === group ? 'page' : null, onclick: () => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]) },
-        h('span', { class: 'rail-ic' }, ic(g.icon, 18)), h('span', { class: 'rail-t' }, h('b', {}, g.label), h('small', {}, g.hint)), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh))),
+    const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
+    rail.replaceChildren(h('span', { class: 'rail-h' }, MODES[mode]), ...groups.flatMap((g) => {
+      const open = g === group, many = g.tabs.length > 1;
+      return [
+        h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, onclick: () => pick(g) }, navIcon(g.icon, 23), h('b', {}, g.label), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
+        many && open && h('div', { class: 'nav-kids' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))),
+      ];
+    }).filter(Boolean),
       h('span', { class: 'grow' }),
-      h('button', { class: 'rail-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, h('span', { class: 'rail-ic' }, ic(mode === 'office' ? 'brush' : 'store', 18)), h('span', { class: 'rail-t' }, h('b', {}, mode === 'office' ? 'Edit your website' : 'Back to your business'), h('small', {}, mode === 'office' ? 'Change how your site looks' : 'Orders, menu and sales'))));
+      h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, navIcon('swap', 23), h('b', {}, mode === 'office' ? 'Edit my website' : 'Back to back office')));
     lastIn[group.label] = cur[0];
-    // Related screens share one sidebar entry and are switched here.
-    subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i], k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh))) : []));
+    // Phones have no sidebar, so a section's screens are switched with two clear buttons at the top.
+    subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i])) : []));
     subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
-    panel.replaceChildren(...(cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()).flat(Infinity).filter(Boolean));
+    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     labelTables(panel);
     panel.scrollTop = y;
     const title2 = top.querySelector('.m-title b');
@@ -1355,18 +1368,19 @@ export async function editor(id, mount, title) {
     const has = (k) => tabs.some(([t]) => t === k);
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has) })).filter((g) => g.tabs.length);
     const primary = groups.slice(0, PHONE_COUNT[mode]);
-    const item = (icon, label, on, fn, badge) => h('button', { type: 'button', 'aria-current': on ? 'page' : null, onclick: fn }, h('span', { class: 'tb-ic' }, ic(icon, 23), badge > 0 && h('em', { class: 'badge' }, badge)), h('span', {}, label));
+    const item = (icon, label, on, fn, badge) => h('button', { type: 'button', 'aria-current': on ? 'page' : null, onclick: fn }, h('span', { class: 'tb-ic' }, navIcon(icon, 24), badge > 0 && h('em', { class: 'badge' }, badge)), h('span', {}, label));
     tabbar.replaceChildren(...[
       ...primary.map((g) => item(g.icon, g.label, g.tabs.includes(tab) && !previewing, () => { body.dataset.view = 'edit'; goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]); paintTop(); }, g.label === 'Orders' ? fresh : 0)),
-      mode === 'site' && item('eye', 'Preview', previewing, () => { body.dataset.view = previewing ? 'edit' : 'preview'; paintTop(); requestAnimationFrame(fit); }),
-      item('list', 'More', !previewing && !primary.some((g) => g.tabs.includes(tab)), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
+      mode === 'site' && item('preview', 'Preview', previewing, () => { body.dataset.view = previewing ? 'edit' : 'preview'; paintTop(); requestAnimationFrame(fit); }),
+      item('more', 'More', !previewing && !primary.some((g) => g.tabs.includes(tab)), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
   }
   function moreSheet() {
     sheet((close) => {
       const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
-      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, h('span', { class: 'sico' }, ic(icon, 17)), h('b', {}, label), extra, ic('chev', 15));
+      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, NAV_NAMES.has(icon) ? navIcon(icon, 21) : h('span', { class: 'nav-ic' }, ic(icon, 20)), h('b', {}, label), extra, navIcon('chev', 14));
       const has = (k) => tabs.some(([t]) => t === k);
-      const group = (mode) => h('div', { class: 'more-group' }, h('h3', {}, mode === 'office' ? 'Run your business' : 'Edit your website'), h('div', { class: 'more-list' }, NAV[mode].filter((g) => g.tabs.some(has)).map((g) => row(g.icon, h('span', {}, g.label, h('small', {}, g.hint)), () => { body.dataset.view = 'edit'; goTab(g.tabs.filter(has)[0]); paintTop(); }, [g.tabs.includes(tab) && h('span', { class: 'tag' }, 'Open'), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)]))));
+      const group = (mode) => h('div', { class: 'more-group' }, h('h3', {}, mode === 'office' ? 'Run your business' : 'Edit your website'), h('div', { class: 'more-list' }, NAV[mode].filter((g) => g.tabs.some(has)).flatMap((g) => (g.tabs.filter(has).length > 1 ? g.tabs.filter(has).map((k) => row(g.icon, g.subs[g.tabs.indexOf(k)] === g.label ? g.label : `${g.label}: ${g.subs[g.tabs.indexOf(k)]}`, () => { body.dataset.view = 'edit'; goTab(k); paintTop(); }, [k === tab && h('span', { class: 'tag' }, 'Open')]))
+        : [row(g.icon, g.label, () => { body.dataset.view = 'edit'; goTab(g.tabs.filter(has)[0]); paintTop(); }, [g.tabs.includes(tab) && h('span', { class: 'tag' }, 'Open'), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)])]))));
       return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, meta.name), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         group(modeOf(tab)), group(modeOf(tab) === 'office' ? 'site' : 'office'),
         h('div', { class: 'more-group' }, h('h3', {}, 'More'), h('div', { class: 'more-list' },
@@ -1499,9 +1513,6 @@ export async function editor(id, mount, title) {
 
   mount(h('div', { class: 'ed' }, top, body, tabbar));
   paintTop(); paintPanel(); paint(true);
-  let toured = true;
-  try { toured = !!localStorage.getItem('pf-tour'); } catch { /* private mode */ }
-  if (!toured && !meta.live && !matchMedia('(max-width:900px)').matches) setTimeout(() => { if (top.isConnected && !document.querySelector('.scrim')) tour(); }, 900);
 
   return () => { clearInterval(salesTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }
