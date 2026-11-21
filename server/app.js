@@ -707,7 +707,7 @@ export function createApp(options = {}) {
   };
   function keepContact(siteId, c) {
     const old = c.email ? db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ?', siteId, c.email) : db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ? AND lower(name) = lower(?)', siteId, '', c.name);
-    if (old) db.run('UPDATE contacts SET name = ?, company = ?, phone = ?, address = ? WHERE id = ?', c.name, c.company, c.phone, c.address, old.id);
+    if (old) db.run("UPDATE contacts SET name = COALESCE(NULLIF(?, ''), name), company = COALESCE(NULLIF(?, ''), company), phone = COALESCE(NULLIF(?, ''), phone), address = COALESCE(NULLIF(?, ''), address) WHERE id = ?", c.name, c.company, c.phone, c.address, old.id);   // blank fields never wipe what is saved
     else if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n < 5000) db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, Date.now());
   }
   route('POST', '/api/sites/:id/contacts', async (req, res, p) => {
@@ -924,6 +924,7 @@ export function createApp(options = {}) {
     const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
     db.run('INSERT INTO invoices (id, site_id, number, token, kind, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), raw.kind === 'estimate' ? 'estimate' : 'invoice', '{}', '[]', now, now);
     saveInvoice(id, v);
+    if (raw.paidMethod && raw.kind !== 'estimate') db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = ? WHERE id = ?", now, str(raw.paidMethod, 40).trim(), str(raw.paidNote, 300).trim(), now, id);
     if (raw.walkIn !== true) keepContact(site.id, v.customer);   // a counter sale with no customer picked is not added to Customers
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
   });
@@ -1291,7 +1292,10 @@ export function createApp(options = {}) {
         const rk = l.rev || 'No revenue class'; const rv = revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk); rv.qty += l.qty; rv.sales += l.price * l.qty;
       }
     }
+    const pr = period(url, ordering), mv = moneyMoves(site, pr.lo, pr.hi);
+    const moved = tally({ payments: mv.payments.filter((x) => pr.within(x.at)), refunds: mv.refunds.filter((x) => pr.within(x.at)) });
     json(res, 200, {
+      money: { collected: moved.totals.payments, refunds: moved.totals.refunds, tenders: moved.tenders },
       range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
       totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax, discounts: prev.discounts, refunds: prev.refunds },

@@ -443,11 +443,20 @@ async function render() {
 window.addEventListener('popstate', render);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
 // When a new version goes live, an open tab picks it up the next time it comes back to the screen.
-let build = '';
-const checkBuild = async () => { try { const v = await (await fetch('/version', { cache: 'no-store' })).text(); if (build && v && v !== build) location.reload(); build = v || build; } catch { /* offline */ } };
+let build = '', fresh = false;
+// Only swap in the new version when nothing is in progress: no open window, no field being typed in, nothing waiting to save.
+const busy = () => !!document.querySelector('.sheet, .tb-pop, input:focus, textarea:focus, select:focus') || [...document.querySelectorAll('.vt input')].some((x) => x.value && x.type !== 'checkbox') || /Saving/.test(document.querySelector('.ed-top')?.textContent || '');
+const checkBuild = async () => {
+  try {
+    const r = await fetch('/version', { cache: 'no-store' }); if (!r.ok) return;
+    const v = (await r.text()).trim(); if (!/^[\w.-]{4,40}$/.test(v)) return;
+    if (build && v !== build) fresh = true; else build = v;
+    if (fresh && !busy()) location.reload();
+  } catch { /* offline */ }
+};
 checkBuild();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBuild(); });
-setInterval(() => { if (document.visibilityState === 'visible' && !document.querySelector('.sheet, input:focus, textarea:focus')) checkBuild(); }, 300000);
+setInterval(() => { if (document.visibilityState === 'visible') checkBuild(); }, 300000);
 Promise.all([api('GET', '/api/me'), api('GET', '/api/config')])
   .then(([me, config]) => { state.user = me.user; state.config = config; })
   .catch(() => {})

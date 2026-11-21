@@ -138,6 +138,7 @@ export async function editor(id, mount, title, startTab = '') {
   const lastTab = { office: 'start', site: 'design' };
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
   let team = null;
+  let saleBusy = false, saleCust = false;
   let saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: true, tender: 'cash', customer: null, q: '' };
   let calView = 'day', calDate = '', custFilter = 'all', custSort = 'recent', invCat = '', teamQ = '', teamRole = 'all';
   let pushIsOn = null;
@@ -780,16 +781,9 @@ export async function editor(id, mount, title, startTab = '') {
     sales(V = 'overview') {
       const TITLES = { overview: 'Sales overview', items: 'Item sales', types: 'Order types', taxes: 'Taxes', full: 'Sales report', emp: 'Employee sales', tender: 'Tender types', disc: 'Discounts', removed: 'Removed items', tips: 'Tips' };
       const tableCard = (title, heads, rows, emptyText) => h('div', { class: 'scard' }, h('h3', {}, title), rows.length ? h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, heads.map((x) => h('th', {}, x)))), h('tbody', {}, rows.map((r) => h('tr', {}, r.map((c, i) => h('td', {}, i === 0 ? h('b', {}, c) : c))))))) : h('p', { class: 'muted', style: 'padding:0 22px 20px' }, emptyText));
-      const load = async () => {
-        if (salesBusy) return;
-        salesBusy = true;
-        try { stats = await api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`); }
-        catch (e) { toast(e.message, true); stats = stats || { failed: true }; }
-        salesBusy = false;
-        if (SALES_TABS[tab]) paintPanel();
-      };
+      const load = () => loadStats();
       const pick = (r) => { salesRange = r; paintPanel(); };
-      if (stats && !stats.failed && !salesBusy && salesRange !== 'custom' && stats.range !== salesRange) load();
+      if (stats && !stats.failed && statsFor !== rq().toString()) { stats = null; load(); }
       const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days'], ['custom', 'Custom']];
       const day = (d, o = { month: 'short', day: 'numeric' }) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
       const head = (st) => h('div', { class: 'inv-top' },
@@ -1010,7 +1004,7 @@ export async function editor(id, mount, title, startTab = '') {
     },
     sale() {
       const d = saleDraft;
-      if (!customers) api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => { customers = []; });
+      if (!customers && !saleCust) { saleCust = true; api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => {}).finally(() => { saleCust = false; }); }
       const rate = Number(ordering.taxRate) || 0;
       const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
       const TYPES = [['pay', 'Take payment'], ['preauth', 'Pre-authorization'], ['invoice', 'Invoice'], ['verify', 'Card verification']];
@@ -1018,7 +1012,7 @@ export async function editor(id, mount, title, startTab = '') {
       const totalEl = h('b', {}), taxEl = h('span', {}), bottomTotal = h('b', {});
       const sums = () => { const sub = cents(d.sub), tax = d.taxOn ? Math.round((sub * rate) / 100) : 0, tip = cents(d.tip); return { sub, tax, tip, total: sub + tax + tip }; };
       const done = h('button', { class: 'btn', type: 'button' });
-      const refresh = () => { const t = sums(); taxEl.textContent = `+${money(t.tax)}`; totalEl.textContent = money(t.total); bottomTotal.textContent = money(t.total); const card = d.type === 'pay' && d.tender === 'card'; done.disabled = cardOnly || card || (d.type === 'pay' && !(t.sub > 0)); done.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Needs card processing' : 'Record payment'; };
+      const refresh = () => { const t = sums(); taxEl.textContent = `+${money(t.tax)}`; totalEl.textContent = money(t.total); bottomTotal.textContent = money(t.total); const card = d.type === 'pay' && d.tender === 'card'; done.disabled = saleBusy || cardOnly || card || (d.type === 'pay' && !(t.sub > 0)); done.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Needs card processing' : 'Record payment'; };
       const money$ = (key, label, big) => h('label', { class: `vt-money ${big ? 'big' : ''}` }, h('small', {}, label), h('div', {}, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: '0.00', value: d[key], 'aria-label': label, oninput: (e) => { d[key] = e.target.value; refresh(); } })));
       const who = h('div', { class: 'vt-who' });
       const drawWho = () => {
@@ -1031,17 +1025,19 @@ export async function editor(id, mount, title, startTab = '') {
       drawWho();
       const record = async () => {
         const t = sums();
-        if (d.type === 'invoice') return openInvoice(null, d.customer || null);
-        done.disabled = true;
+        if (d.type === 'invoice') return openInvoice(null, d.customer || null, 'invoice', t.sub > 0 ? [{ name: d.note.trim() || 'Sale', qty: 1, price: t.sub, taxable: d.taxOn }] : null);
+        if (saleBusy) return;
+        saleBusy = true; refresh();
         try {
           const items = [{ name: d.note.trim() || 'Sale', qty: 1, price: t.sub }, t.tax > 0 && { name: `Sales tax (${rate}%)`, qty: 1, price: t.tax }, t.tip > 0 && { name: 'Tip', qty: 1, price: t.tip }].filter(Boolean);
           const c = d.customer || {};
-          const r = await api('POST', `/api/sites/${id}/invoices`, { walkIn: !d.customer, customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '' }, items, taxRate: 0, notes: d.note.trim() });
-          await api('POST', `/api/sites/${id}/invoices/${r.invoice.id}/status`, { status: 'paid', method: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', note: 'Recorded with New sale' });
+          // Saved already paid in one step, so a dropped connection can never leave an unpaid copy behind.
+          const r = await api('POST', `/api/sites/${id}/invoices`, { walkIn: !d.customer, customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '', address: c.address || '' }, items, taxRate: 0, notes: d.note.trim(), paidMethod: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', paidNote: 'Recorded with New sale' });
           bills = null; txData = null; stats = null;
           saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '' };
-          toast(`${money(t.total)} recorded as ${r.invoice.label || 'a sale'}`); paintPanel();
-        } catch (e) { toast(e.message, true); done.disabled = false; }
+          toast(`${money(t.total)} recorded as ${r.invoice.label || 'a sale'}`);
+        } catch (e) { toast(e.message, true); }
+        saleBusy = false; if (tab === 'sale') paintPanel();
       };
       done.onclick = record;
       const tender = h('div', { class: 'seg vt-tender', role: 'group', 'aria-label': 'Paid by' }, [['card', 'Card'], ['cash', 'Cash'], ['check', 'Check'], ['other', 'Other']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l)));
@@ -1402,7 +1398,7 @@ export async function editor(id, mount, title, startTab = '') {
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
   const poll = setInterval(() => { if (document.visibilityState !== 'visible') return; if (ordering.enabled) loadOrders(true); loadNotes(); }, 20000);
-  const salesTick = setInterval(() => { if ((SALES_TABS[tab] || tab === 'start') && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if ((SALES_TABS[tab] || tab === 'start') && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
+  const salesTick = setInterval(() => { if ((SALES_TABS[tab] || tab === 'start') && stats && !stats.failed && stats.to === stats.today && !salesBusy && document.visibilityState === 'visible') { const want = rq().toString(); api('GET', `/api/sites/${id}/stats?${want}`).then((r) => { if ((SALES_TABS[tab] || tab === 'start') && statsFor === want && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); } }, 30000);
   if (ordering.enabled) loadOrders(true);
 
   async function putOrdering() { await sendOrdering(ordering); }
@@ -1576,6 +1572,14 @@ export async function editor(id, mount, title, startTab = '') {
   const chev = (d) => h('span', { class: `chv ${d}`, 'aria-hidden': 'true' });
   const RANGE_NAMES = { today: 'Today', yesterday: 'Yesterday', week: 'This week', month: 'This month', last30: 'Last 30 days' };
   const rangeData = () => (SALES_TABS[tab] || tab === 'start' ? stats : tab === 'tx' ? txData : tab === 'cash' ? cashData : null);
+  let statsFor = '';
+  function loadStats() {
+    const want = rq().toString();
+    if (salesBusy && statsFor === want) return;
+    salesBusy = true; statsFor = want;
+    api('GET', `/api/sites/${id}/stats?${want}`).then((r) => { if (statsFor === want) stats = r; }).catch((e) => { if (statsFor === want) { toast(e.message, true); stats = { failed: true }; } })
+      .finally(() => { if (statsFor !== want) return; salesBusy = false; if (SALES_TABS[tab] || tab === 'start') paintPanel(); });
+  }
   function setRange(k, from = '', to = '') { salesRange = k; salesFrom = from; salesTo = to; stats = null; txData = null; cashData = null; paintPanel(); }
   // A real month to click through: press a day, or a start day then an end day.
   function monthGrid(ym, pick, sel, max) {
@@ -1780,11 +1784,11 @@ export async function editor(id, mount, title, startTab = '') {
     if (!await confirmSheet({ title: `Convert ${v.label} to an invoice?`, text: 'It moves to Invoices as a draft, ready to send for payment.', action: 'Convert' })) return;
     try { setBills(await api('POST', `/api/sites/${id}/invoices/${v.id}/convert`)); toast('Converted. Find it under Invoices.'); goTab('invoices'); } catch (e) { toast(e.message, true); }
   }
-  async function openInvoice(existing, person, kind = existing?.kind || 'invoice') {
+  async function openInvoice(existing, person, kind = existing?.kind || 'invoice', lines = null) {
     const est = kind === 'estimate';
     if (!bills) { try { bills = await api('GET', `/api/sites/${id}/invoices`); } catch (e) { return toast(e.message, true); } }
     if (!customers) { try { customers = (await api('GET', `/api/sites/${id}/customers`)).customers; } catch { customers = []; } }
-    const v = existing ? JSON.parse(JSON.stringify(existing)) : { status: 'draft', customer: { name: person?.name || '', company: person?.company || '', email: person?.email || '', phone: person?.phone || '', address: person?.address || '' }, items: [{ name: '', qty: 1, price: 0, taxable: true }], project: person?.project || '', notes: '', due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), taxRate: ordering.taxRate || 0, discount: 0, payUrl: '' };
+    const v = existing ? JSON.parse(JSON.stringify(existing)) : { status: 'draft', customer: { name: person?.name || '', company: person?.company || '', email: person?.email || '', phone: person?.phone || '', address: person?.address || '' }, items: lines || [{ name: '', qty: 1, price: 0, taxable: true }], project: person?.project || '', notes: '', due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), taxRate: ordering.taxRate || 0, discount: 0, payUrl: '' };
     const locked = v.status === 'paid' || v.status === 'void';
     const copyLink = async (url) => { try { await navigator.clipboard.writeText(url); toast('Invoice link copied'); } catch { toast('Copy the link from the address bar after pressing View', true); } };
     sheet((close) => {
@@ -1983,7 +1987,7 @@ export async function editor(id, mount, title, startTab = '') {
   const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if ((tab === 'invoices' || tab === 'est') && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
   // What each screen loads, so a visit can refresh it quietly instead of clearing the page and drawing it again.
   const FEEDS = {
-    start: [() => `stats?${rq()}`, (v) => { stats = v; }, () => (stats && stats.totals ? stats : null)],
+    start: [() => `stats?${rq()}`, (v) => { stats = v; statsFor = rq().toString(); }, () => (stats && stats.totals ? stats : null)],
     tx: [() => `transactions?${rq()}`, (v) => { txData = v; }, () => txData], cash: [() => `cash?${rq()}`, (v) => { cashData = v; }, () => cashData],
     close: [() => 'closeouts', (v) => { closeData = v; }, () => closeData], insights: [() => 'stats?range=last7', (v) => { insightData = v; }, () => insightData],
     appts: [() => 'appointments', (v) => { apptData = v; }, () => apptData], calendar: [() => 'appointments', (v) => { apptData = v; }, () => apptData],
@@ -2007,13 +2011,13 @@ export async function editor(id, mount, title, startTab = '') {
       [ordering.enabled && openMethods(ordering).length > 0, 'Choose how customers order', ordering.enabled ? `${openMethods(ordering).map((m) => ORDER_METHODS[m].name).join(', ')} ${openMethods(ordering).length === 1 ? 'is' : 'are'} on. Add curbside, delivery, tax and tips here.` : 'Online ordering is off.', ['Open ordering', () => goTab('ordering')]],
       [meta.live && !meta.dirty, meta.live ? 'Publish your changes' : 'Publish your site', meta.live ? (meta.dirty ? 'You have changes that are not live yet.' : `Live at ${meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}`) : 'Nothing is public until you publish. You can keep editing afterwards.', meta.live && !meta.dirty ? ['View live site', () => window.open(meta.url, '_blank', 'noopener')] : [meta.live ? 'Publish changes' : 'Publish', (e) => publish(e)]],
     ];
-    steps.push([!!(orders && orders.length), 'Place a test order', meta.live ? 'Order from your own site to see exactly what customers see, then watch it arrive under Orders.' : 'Once you publish, order from your own site to see the whole flow.', ['Open my order page', () => (meta.live ? window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener') : toast('Publish your site first.', true))]]);
+    if (ordering.enabled) steps.push([!!(orders && orders.length), 'Place a test order', meta.live ? 'Order from your own site to see exactly what customers see, then watch it arrive under Orders.' : 'Once you publish, order from your own site to see the whole flow.', ['Open my order page', () => (meta.live ? window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener') : toast('Publish your site first.', true))]]);
     return steps.filter(([ok]) => !ok).map(([, name, text, main]) => ({ name, text, act: main }));
   }
   let prevStats = null;
   function startPanel() {
     // The same numbers as Reports, for the period picked at the top.
-    if (!stats && !salesBusy) { salesBusy = true; api('GET', `/api/sites/${id}/stats?${rq()}`).then((r) => { stats = r; }).catch(() => { stats = { failed: true }; }).finally(() => { salesBusy = false; if (tab === 'start') paintPanel(); }); }
+    if (!stats || (!stats.failed && statsFor && statsFor !== rq().toString())) { stats = null; loadStats(); }
     const st = stats && !stats.failed ? stats : null;
     if (st && (!prevStats || prevStats.key !== `${st.previous.from}|${st.previous.to}`)) {
       const key = `${st.previous.from}|${st.previous.to}`; prevStats = { key, loading: true };
@@ -2052,25 +2056,25 @@ export async function editor(id, mount, title, startTab = '') {
           h('span'), h('div', { class: 'chart-x' }, ser.map((x, i) => h('span', {}, i % every === 0 ? lab(x) : '')))));
     };
     const pAvg = pv && pv.orders ? Math.round(pv.total / pv.orders) : 0;
-    const delta = (now, was, text) => h('small', { class: 'hm-d' }, h('b', {}, `${pct(now, was) > 0 ? '+' : ''}${pct(now, was)}%`), text ? ` ${text}` : '');
+    const delta = (now, was, text) => h('small', { class: 'hm-d' }, h('b', {}, !was && now ? 'New' : `${pct(now, was) > 0 ? '+' : ''}${pct(now, was)}%`), text ? ` ${text}` : '');
     const salesCard = h('div', { class: 'scard hcard' }, h('h3', { class: 'hc-h' }, 'Sales'),
       h('div', { class: 'hs' },
         h('div', { class: 'hs-l' },
           metric('Net sales', 'sales', t ? money(t.net) : '—', t && delta(t.net, pv.net, `compared to ${prevName}`), true),
-          metric('Paid orders', 'orders', t ? String(t.orders) : '—', t && delta(t.orders, pv.orders)),
+          metric('Orders', 'orders', t ? String(t.orders) : '—', t && delta(t.orders, pv.orders)),
           metric('Average order', 'r-full', t ? money(t.average) : '—', t && delta(t.average, pAvg))),
         lineChart()));
     const openTotal = waiting.reduce((a, x) => a + x.total, 0);
     const summary = h('div', { class: 'scard hcard hsum' },
       metric('Open orders', 'orders', money(openTotal), h('small', { class: 'hm-s' }, `from ${waiting.length} order${waiting.length === 1 ? '' : 's'}`), true),
       metric('Discounts', 'r-disc', t ? money(t.discounts) : '—', null, true),
-      metric('Refunds', 'tx', t ? money(t.refunds || 0) : '—', null, true));
+      metric('Refunds', 'tx', st && st.money ? money(st.money.refunds) : '—', null, true));
     const units = t ? t.units : 0;
     const itemsCard = h('div', { class: 'scard hcard' }, h('button', { type: 'button', class: 'hc-h link', onclick: go2('r-items') }, 'Item sales', h('span', { class: 'chv r', 'aria-hidden': 'true' })),
       h('p', { class: 'hc-sub' }, `${units} item${units === 1 ? '' : 's'} sold ${nowName === 'Today' ? 'today' : nowName.toLowerCase()}`),
       st && st.items.length ? h('div', { class: 'hi-list' }, st.items.slice(0, 6).map((it) => h('div', { class: 'hi' }, h('span', {}, it.name), h('small', {}, `${it.qty} sold`), h('b', {}, money(it.sales))))) : h('p', { class: 'hc-empty' }, menu.length ? 'No items sold yet' : 'No items added'));
     const buckets = { Card: 0, Cash: 0, Other: 0 };
-    for (const x of st ? st.tenders : []) { if (x.name === 'Not paid yet') continue; const k = /card/i.test(x.name) ? 'Card' : /cash/i.test(x.name) ? 'Cash' : 'Other'; buckets[k] += x.total; }
+    for (const x of st && st.money ? st.money.tenders : []) { const k = /card/i.test(x.method) ? 'Card' : /cash/i.test(x.method) ? 'Cash' : 'Other'; buckets[k] += x.amount - (x.refunds || 0); }
     const collected = Object.values(buckets).reduce((a, b) => a + b, 0), bTop = nice(Math.max(1, ...Object.values(buckets)));
     const finCard = h('div', { class: 'scard hcard' }, h('button', { type: 'button', class: 'hc-h link', onclick: go2('tx') }, 'Finances', h('span', { class: 'chv r', 'aria-hidden': 'true' })),
       h('p', { class: 'hc-sub' }, `${money(collected)} collected ${nowName === 'Today' ? 'today' : nowName.toLowerCase()}`),
@@ -2346,7 +2350,10 @@ export async function editor(id, mount, title, startTab = '') {
   let notes = null, popEl = null;
   const lastSeen = () => { try { return Number(localStorage.getItem(seenKey)) || 0; } catch { return 0; } };
   const unread = () => !!notes && notes.some((x) => x.at > lastSeen());
-  async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !(unread() || setupTodos().length); } catch { /* shown as empty */ } }
+  const todoKey = `pf-todo-seen-${id}`;
+  const newTodos = () => { let seen = []; try { seen = JSON.parse(localStorage.getItem(todoKey) || '[]'); } catch { /* private mode */ } return setupTodos().some((x) => !seen.includes(x.name)); };
+  const markTodos = () => { try { localStorage.setItem(todoKey, JSON.stringify(setupTodos().map((x) => x.name))); } catch { /* private mode */ } };
+  async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !(unread() || newTodos()); } catch { /* shown as empty */ } }
   // A small panel that hangs from one of the top-right buttons and closes when you click away.
   function popover(anchor, build, side = 'right') {
     if (popEl) { const same = popEl._for === anchor; popEl._close(); if (same) return; }
@@ -2367,7 +2374,7 @@ export async function editor(id, mount, title, startTab = '') {
       const todoBox = todos.length ? h('div', { class: 'tb-todo' }, h('small', { class: 'tb-sec' }, `To do · ${todos.length}`), todos.map((x) => h('button', { class: 'tb-note new', type: 'button', onclick: () => { close(); x.act[1](); } }, h('span', { class: 'todo-dot', 'aria-hidden': 'true' }), h('span', {}, h('b', {}, x.name), h('small', {}, x.text)), h('em', {}, x.act[0])))) : null;
       const draw = () => list.replaceChildren(...(todoBox ? [todoBox, h('small', { class: 'tb-sec' }, 'Recent')] : []), ...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, navTile({ order: 'orders', message: 'feedback', booking: 'calendar', stock: 'menu' }[x.kind] || 'page', 32), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new. Orders, messages and booking requests show up here.')]));
       const seenAt = lastSeen();
-      loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !setupTodos().length; });
+      loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } markTodos(); const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = true; });
       return [h('div', { class: 'tb-pop-h' }, h('b', {}, 'Notifications'), h('button', { class: 'btn text sm', type: 'button', onclick: () => { close(); goTab('alerts'); } }, 'Alert settings')), list];
     });
   }
@@ -2404,7 +2411,7 @@ export async function editor(id, mount, title, startTab = '') {
     }, 'drawer');
   }
   const topRight = () => {
-    const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !(unread() || setupTodos().length) }));
+    const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !(unread() || newTodos()) }));
     const gear = h('button', { class: 'icon-btn tb-btn tb-gear', type: 'button', title: 'Settings', 'aria-label': 'Settings', onclick: openSettings }, tIcon('gear'));
     const me = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Profile', 'aria-label': 'Profile', 'aria-haspopup': 'dialog', onclick: () => openProfileMenu(me) }, tIcon('user'));
     return h('div', { class: 'tb-right' }, bell, gear, me);

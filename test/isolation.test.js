@@ -312,3 +312,28 @@ test('profile changes and two-step sign-in', async () => {
     assert.equal((await other('GET', `/api/sites/${site.id}/notifications`)).status, 404);
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('counter sales: saved paid in one step, no fake customers, saved details kept, counted as collected', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pfsale-'));
+  const { client, stop } = await boot(dir);
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'owner@sale.test', password: 'long-enough-pw', name: 'Owner' });
+    const site = (await me('POST', '/api/sites', { name: 'Sale Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,3.00' })).data.site;
+    const S = `/api/sites/${site.id}`;
+    await me('POST', `${S}/contacts`, { name: 'Dana Lee', email: 'dana@acme.test', phone: '903-555-0101', address: '1 Main St' });
+    // A walk-in sale: paid straight away, and nobody is added to Customers.
+    let r = await me('POST', `${S}/invoices`, { walkIn: true, customer: { name: 'Walk-in customer' }, items: [{ name: 'Sale', qty: 1, price: 1500 }], paidMethod: 'Cash', paidNote: 'Recorded with New sale' });
+    assert.equal(r.status, 201); assert.equal(r.data.invoice.status, 'paid'); assert.equal(r.data.invoice.paidMethod, 'Cash');
+    assert.ok(!(await me('GET', `${S}/customers`)).text.includes('Walk-in'), 'walk-in not saved as a customer');
+    // A sale for a saved customer sending only some details keeps the address and phone already on file.
+    await me('POST', `${S}/invoices`, { customer: { name: 'Dana Lee', email: 'dana@acme.test' }, items: [{ name: 'Sale', qty: 1, price: 2500 }], paidMethod: 'Check' });
+    const dana = (await me('GET', `${S}/invoices`)).data.contacts.find((c) => c.email === 'dana@acme.test');
+    assert.deepEqual([dana.address, dana.phone], ['1 Main St', '903-555-0101']);
+    // The money shows as collected today alongside orders.
+    const st = (await me('GET', `${S}/stats?range=today`)).data;
+    assert.equal(st.money.collected, 4000);
+    assert.deepEqual(st.money.tenders.map((t) => t.method).sort(), ['Cash', 'Check']);
+    assert.ok(/^[\w.-]{4,40}$/.test((await me('GET', '/version')).text), 'version endpoint');
+  } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});
