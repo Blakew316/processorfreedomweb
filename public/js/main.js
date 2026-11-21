@@ -106,33 +106,17 @@ function landing() {
   };
   const example = (id, name = sampleName(id)) => dress(createSite(name, id, { ...(id === 'order' ? { kind: 'ordering' } : {}), ...(DARK.has(id) ? { mode: 'dark' } : {}) }), id);
   const extraFor = (id) => (id === 'order' ? { menu: DEMO_MENU, ordering: DEMO_ORDERING } : {});
-  const card = (id) => { const t = TEMPLATES.find((x) => x.id === id); return h('button', { class: 'show-card', type: 'button', 'aria-label': `${sampleName(id)}, ${t.name}. Use this style`, onclick: () => pick(id, true) },
+  const card = (id) => { const t = TEMPLATES.find((x) => x.id === id); return h('button', { class: 'show-card', type: 'button', 'aria-label': `${sampleName(id)}, ${t.name}. Use this style`, onclick: () => startWith(id) },
     h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, `${slugify(sampleName(id))}.com`)), thumb(example(id), 'home', extraFor(id), { w: 1280, h: 800 }),
     h('div', { class: 'cap' }, h('b', {}, sampleName(id)), h('span', {}, t.name))); };
   const rowA = ['restaurant', 'fitness', 'salon', 'retail', 'home'], rowB = ['cafe', 'auto', 'order', 'services', 'simple'];
 
-  /* Pick a kind of business and see the site it starts as, on a computer and a phone. */
-  let chosen = 'restaurant';
-  const picks = h('div', { class: 'pick-chips', role: 'tablist', 'aria-label': 'Kind of business' });
-  const pickStage = h('div', { class: 'pick-stage' });
-  const pickCopy = h('div', { class: 'pick-copy' });
-  function pick(id, scroll) {
-    chosen = id; const t = TEMPLATES.find((x) => x.id === id);
-    picks.replaceChildren(...TEMPLATES.map((x) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(x.id === id), onclick: () => pick(x.id) }, x.name)));
-    pickStage.replaceChildren(
-      h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, `${slugify(sampleName(id))}.com`)), thumb(example(id), 'home', extraFor(id), { w: 1280, h: 860 })),
-      h('div', { class: 'phone' }, thumb(example(id), id === 'order' ? 'order' : 'home', extraFor(id), { w: 390, h: 800 })));
-    pickCopy.replaceChildren(h('div', {}, h('h3', {}, `${t.name}: ${t.blurb.toLowerCase()}.`), h('p', {}, 'Written, laid out and ready for your photos. Change any word, colour or section whenever you like.')),
-      h('button', { class: 'btn', type: 'button', onclick: () => { const q = new URLSearchParams({ template: id }); if (input.value.trim()) q.set('name', input.value.trim()); go(`${state.user ? '/app/new' : '/signup'}?${q}`); } }, `Start with ${t.name}`));
-    if (scroll) document.getElementById('styles')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  pick(chosen);
+  const startWith = (id) => { const q = new URLSearchParams({ template: id }); if (input.value.trim()) q.set('name', input.value.trim()); go(`${state.user ? '/app/new' : '/signup'}?${q}`); };
 
   /* One benefit: what it does for the business on one side, a look at it on the other. */
-  const gain = (kicker, headline, body, points, art, flip) => h('div', { class: `gain reveal${flip ? ' flip' : ''}` },
-    h('div', { class: 'gain-copy' }, h('p', { class: 'kicker' }, kicker), h('h3', {}, headline), h('p', {}, body), h('ul', {}, points.map((t) => h('li', {}, h('i', { html: svg(I.check, 14) }), t)))),
-    h('div', { class: 'gain-art' }, art()));
-  const incl = (icon, t, d) => h('div', { class: 'incl-item reveal' }, tile('', icon, 18), h('b', {}, t), h('span', {}, d));
+  const gain = (num, headline, body, art, flip, photo) => h('div', { class: `gain reveal${flip ? ' flip' : ''}` },
+    h('div', { class: 'gain-copy' }, h('span', { class: 'gain-num', 'aria-hidden': 'true' }, num), h('h3', {}, headline), h('p', {}, body)),
+    h('div', { class: 'gain-art', style: `--photo:url(/assets/demo/${photo}.jpg)` }, art()));
   const endInput = h('input', { placeholder: 'Your business name', 'aria-label': 'Business name', maxlength: 80, autocomplete: 'organization' });
   const pill = (t, cls = '') => h('i', { class: `st ${cls}` }, t);
   const mockOrders = () => office;
@@ -140,23 +124,12 @@ function landing() {
     h('div', { class: 'mk-head' }, h('div', {}, h('small', {}, 'Invoice'), h('b', {}, 'INV-1018')), pill('Paid', 'ready')),
     h('div', { class: 'mk-to' }, h('small', {}, 'Bill to'), h('b', {}, 'Acme Co'), h('span', {}, 'Office lunch for 40')),
     [['Taco trays × 4', '$640.00'], ['Drinks × 40', '$120.00'], ['Delivery', '$40.00']].map(([n, v]) => h('div', { class: 'mk-line' }, h('span', {}, n), h('span', {}, v))),
-    h('div', { class: 'mk-line total' }, h('span', {}, 'Total'), h('b', {}, '$864.00')),
+    h('div', { class: 'mk-line total' }, h('span', {}, 'Total'), h('b', { 'data-count': '$864.00' }, '$864.00')),
     h('div', { class: 'mk-foot' }, h('i', { html: svg(I.check, 14) }), 'Opened Tuesday 9:14 AM · Paid Wednesday'));
-  const mockBooking = () => h('div', { class: 'mock book-mock' },
-    h('div', { class: 'mk-head' }, h('div', {}, h('small', {}, 'Friday'), h('b', {}, 'Bookings')), pill('2 new', 'new')),
-    h('div', { class: 'slots' }, [['5:30', 'Open', ''], ['6:00', 'Ruiz · 2', 'on'], ['6:30', 'Open', ''], ['7:00', 'Lee · 6', 'on'], ['7:30', 'Table for 4', 'req'], ['8:00', 'Open', '']].map(([t, w, c]) => h('div', { class: `slot ${c}` }, h('b', {}, t), h('span', {}, w)))),
-    h('div', { class: 'mk-hh' }, h('div', {}, h('b', {}, 'Happy hour'), h('span', {}, 'Mon to Thu · 3 to 5 PM')), h('em', {}, '20% off drinks')));
   const mockLoyalty = () => h('div', { class: 'mock loyal-mock' },
-    h('div', { class: 'gcard' }, h('small', {}, 'Gift card'), h('b', {}, '$50.00'), h('span', {}, 'Harbor & Vine'), h('u', {}, 'HV-7K2M-9QX4')),
+    h('div', { class: 'gcard' }, h('small', {}, 'Gift card'), h('b', { 'data-count': '$50.00' }, '$50.00'), h('span', {}, 'Harbor & Vine'), h('u', {}, 'HV-7K2M-9QX4')),
     h('div', { class: 'stamps-mock' }, h('div', {}, h('b', {}, 'Ana Ruiz'), h('span', {}, '9 orders · favourite: Taco al pastor')), h('div', { class: 'dots' }, Array.from({ length: 10 }, (_, i) => h('i', { class: i < 9 ? 'on' : '' })))),
     h('div', { class: 'mk-foot' }, h('i', { html: svg(I.check, 14) }), 'One more order and the next one is on the house'));
-  const mockNumbers = () => h('div', { class: 'mock num-mock' },
-    h('div', { class: 'mk-head' }, h('div', {}, h('small', {}, 'This week'), h('b', {}, '$8,412.75')), pill('+12%', 'ready')),
-    h('div', { class: 'bo-chart', 'aria-hidden': 'true' }, [44, 58, 49, 72, 63, 92, 80].map((v, i) => h('i', { style: `--h:${v}%;--d:${i * 70}ms` }, h('u', {}, 'SMTWTFS'[i])))),
-    h('div', { class: 'tops' }, [['Taco al pastor', 86], ['Enchiladas verdes', 64], ['Horchata', 41]].map(([n, v]) => h('div', { class: 'top-row' }, h('span', {}, n), h('div', { class: 'bar' }, h('i', { style: `width:${v}%` })), h('b', {}, String(v))))));
-  const mockTeam = () => h('div', { class: 'mock team-mock' },
-    [['You', 'Owner', 'Everything'], ['Dana', 'Manager', 'Orders, menu, reports'], ['Luis', 'Kitchen', 'Orders only']].map(([n, r, w]) => h('div', { class: 'person' }, h('i', {}, n[0]), h('div', {}, h('b', {}, n), h('span', {}, w)), pill(r, r === 'Owner' ? 'ok' : ''))),
-    h('div', { class: 'ticket' }, h('div', {}, h('b', {}, '#1042 · Pickup'), h('span', {}, '2 min ago')), h('p', {}, '2 × Taco al pastor'), h('p', {}, '1 × Horchata'), h('div', { class: 'tk-btn' }, 'Mark ready')));
 
   /* The back office, shown with believable numbers. */
   const stat = (label, value, note) => h('div', { class: 'bo-kpi' }, h('small', {}, label), h('b', { 'data-count': value }, value), h('span', {}, note));
@@ -174,7 +147,7 @@ function landing() {
       h('div', { class: 'bo-chip' }, tile('', I.person, 18), h('div', {}, h('b', {}, '212 customers'), h('span', {}, '38 regulars this month')))));
 
   mount(
-    topbar(h('a', { class: 'opt', href: '#examples' }, 'Examples'), h('a', { class: 'opt', href: '#features' }, 'Features'),
+    topbar(h('a', { class: 'opt', href: '#examples' }, 'Examples'), h('a', { class: 'opt', href: '#features' }, 'Why PF Sites'),
       state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
     h('main', {},
       h('section', { class: 'l-hero' }, h('div', { class: 'glow', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), h('div', { class: 'page' },
@@ -193,41 +166,14 @@ function landing() {
 
       h('section', { class: 'l-sec l-show', id: 'examples' },
         h('div', { class: 'page' }, h('p', { class: 'kicker' }, 'Examples'), h('h2', {}, 'One builder. Any kind of business.'),
-          h('p', { class: 'sub' }, 'Every site below is built with PF Sites. Tap one to start from it.')),
+          h('p', { class: 'sub' }, 'Restaurants, salons, shops, gyms, garages. Tap any site to start from it.')),
         h('div', { class: 'show', 'aria-label': 'Example websites' }, h('div', { class: 'show-row a' }, rowA.map(card)), h('div', { class: 'show-row b' }, rowB.map(card)))),
 
-      h('section', { class: 'l-sec', id: 'styles' }, h('div', { class: 'page' },
-        h('p', { class: 'kicker' }, 'Made for your trade'), h('h2', {}, 'Look established from day one.'),
-        h('p', { class: 'sub' }, 'Customers judge a business by its website. Choose what you do and see the one they will find.'),
-        h('div', { class: 'trade reveal' }, picks, h('div', { class: 'spick' }, pickStage, pickCopy)))),
-
       h('section', { class: 'l-sec l-gains', id: 'features' }, h('div', { class: 'page' },
-        h('p', { class: 'kicker' }, 'What it does for you'), h('h2', {}, 'Built to bring in business, not just look good.'),
-        h('p', { class: 'sub' }, 'Every part of PF Sites is there to do a job: win the order, get you paid, bring the customer back.'),
-        gain('Orders', 'Take orders while your hands are full.', 'Customers order from your own menu, on your own site. No phone tag, no third-party app taking a cut of every ticket.',
-          ['Orders arrive with a chime, on any screen you already own', 'Stock counts itself down, so you never sell what you ran out of', 'Set a limit per time slot and the kitchen never gets buried'], mockOrders),
-        gain('Getting paid', 'Send the bill. Get paid sooner.', 'Catering, bulk orders and big jobs go out as a clean invoice or estimate by email. You see the moment it is opened and what is still owed.',
-          ['Estimates turn into invoices in one tap', 'Recurring customers are billed on schedule without you lifting a finger', 'Late invoices are flagged so nothing slips'], mockInvoice, true),
-        gain('Full tables', 'Fill the quiet hours.', 'Let customers book a time online and bring them in when you need them most, with prices that change by the hour.',
-          ['Online booking with only as many spots as you can serve', 'Happy-hour pricing that switches itself on and off', 'Menus that change for breakfast, lunch and dinner'], mockBooking),
-        gain('Regulars', 'Turn a first visit into a habit.', 'People who feel remembered come back. Rewards, gift cards and promo codes are built in, and you can see who your regulars are.',
-          ['Rewards that customers earn with every order', 'Gift cards sold and redeemed online', 'A customer list that shows who orders, how often and their favourite'], mockLoyalty, true),
-        gain('Clarity', 'Know your numbers before you close the door.', 'Sales, tax, tips and payment types for today or any period, with a closeout that tells you if the drawer is right.',
-          ['See your best sellers and your slow movers', 'A daily summary lands in your inbox', 'Export everything for your bookkeeper'], mockNumbers),
-        gain('Your team', 'Hand over the keys, not the whole building.', 'Give each person their own login. The kitchen sees orders. A manager runs the day. Only you see everything.',
-          ['A kitchen screen made for a tablet on the wall', 'Shifts, clock-in and timesheets in one place', 'Remove someone and their access ends that second'], mockTeam, true))),
-
-      h('section', { class: 'l-sec tint l-incl' }, h('div', { class: 'page' },
-        h('p', { class: 'kicker' }, 'Included'), h('h2', {}, 'The boring parts are already done.'),
-        h('div', { class: 'incl' },
-          incl(I.globe, 'Your own web address', 'A free address on day one, or connect a domain you own.'),
-          incl(ICONS.shield, 'Policies written for you', 'Privacy, terms and store policies, filled in from your details.'),
-          incl(I.search, 'Found on search', 'Clean pages and business details search engines understand.'),
-          incl(I.mail, 'Customers kept in the loop', 'Emails when an order is received, confirmed and ready.'),
-          incl(I.list, 'Menu from a spreadsheet', 'Upload your items and prices and the menu builds itself.'),
-          incl(I.brush, 'Your brand everywhere', 'Logo, colours and typeface carried across every page.'),
-          incl(I.bag, 'Works on every phone', 'Customers can add your shop to their Home Screen like an app.'),
-          incl(I.check, 'Nothing to maintain', 'No plugins, no updates, no hosting bill to think about.')))),
+        h('p', { class: 'kicker' }, 'Why it pays for itself'), h('h2', {}, 'Three things it does for your business.'),
+        gain('01', 'More orders. Fewer phone calls.', 'Customers order straight from your own site, day or night, and you keep the whole ticket.', mockOrders, false, 'restaurant'),
+        gain('02', 'Get paid faster.', 'Send a clean invoice in a minute and see the moment it is opened and paid.', mockInvoice, true, 'services-3'),
+        gain('03', 'Customers who come back.', 'Rewards and gift cards are built in, so a first visit turns into a habit.', mockLoyalty, false, 'cafe-2'))),
 
       h('section', { class: 'page' }, h('div', { class: 'l-close reveal' },
         h('div', { class: 'l-close-copy' },
@@ -235,10 +181,12 @@ function landing() {
           h('h2', {}, 'Open for business online, this afternoon.'),
           h('p', {}, 'Name it, add your menu, publish. Nothing is public until you say so.'),
           h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(endInput.value.trim() || input.value.trim()); } }, h('div', { class: 'box' }, endInput, h('button', { class: 'btn', type: 'submit' }, 'Build my website')))),
-        h('div', { class: 'l-close-art', 'aria-hidden': 'true' }, ['restaurant-2', 'cafe', 'order-2', 'salon-2'].map((n) => h('img', { src: `/assets/demo/${n}.jpg`, alt: '', loading: 'lazy' }))))),
+        h('div', { class: 'l-close-art', 'aria-hidden': 'true' }))),
       h('footer', { class: 'page' }, h('div', { class: 'l-foot' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.')))));
 
-  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+  // Numbers run up to their value the first time they come into view.
+  const countUp = (el) => { const full = el.dataset.count, m = full.match(/^(\D*)([\d,]+)(\.\d+)?(.*)$/); if (!m || matchMedia('(prefers-reduced-motion: reduce)').matches) return; const end = Number((m[2] + (m[3] || '')).replace(/,/g, '')), dec = m[3] ? m[3].length - 1 : 0, t0 = performance.now(); const step = (t) => { const k = Math.min(1, (t - t0) / 1100), v = end * (1 - Math.pow(1 - k, 3)); el.textContent = k === 1 ? full : `${m[1]}${v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })}${m[4]}`; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); };
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); e.target.querySelectorAll('[data-count]').forEach(countUp); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   // The example rows only drift while they are on screen.
   const show = document.querySelector('.show');
