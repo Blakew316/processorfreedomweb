@@ -70,12 +70,12 @@ export const isHex = (c) => /^#[0-9a-f]{6}$/i.test(String(c || ''));
 
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 const toHex = (c) => '#' + c.map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
-const lum = (hex) => {
+export const lum = (hex) => {
   const [r, g, b] = rgb(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 };
 export const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
+export const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
 
 /** Nudges the chosen brand colour until text set in it is readable on the page background. */
 export function readableAccent(accent, bg) {
@@ -109,6 +109,24 @@ export const FONTS = {
 };
 export const RADII = { sharp: { name: 'Crisp', r: 6, btn: 8 }, soft: { name: 'Soft', r: 18, btn: 12 }, round: { name: 'Round', r: 28, btn: 980 } };
 export const HERO_LAYOUTS = { center: 'Centered', split: 'Side by side', cover: 'Full image' };
+export const BACKGROUNDS = [{ name: 'White', value: '#ffffff' }, { name: 'Cream', value: '#faf6ef' }, { name: 'Mist', value: '#f2f4f7' }, { name: 'Charcoal', value: '#1c1c1e' }, { name: 'Black', value: '#000000' }];
+export const SECTION_BACKGROUNDS = { '': 'Plain', soft: 'Soft', brand: 'Brand colour' };
+export const HEADER_LAYOUTS = { left: 'Logo left', center: 'Logo centred', mid: 'Menu centred' };
+export const HEADER_STYLES = { glass: 'Light', brand: 'Brand colour', dark: 'Dark' };
+export const FOOTER_STYLES = { columns: 'Columns', simple: 'Centred' };
+export const FOOTER_COLORS = { soft: 'Soft', plain: 'Plain', brand: 'Brand colour', dark: 'Dark' };
+/** One-click looks. Each sets where the brand colour is used across the site. */
+export const QUICK_STYLES = {
+  clean: { name: 'Clean', blurb: 'White and airy', header: 'glass', footer: 'soft', bg: () => '' },
+  soft: { name: 'Soft', blurb: 'Gentle grey bands', header: 'glass', footer: 'soft', bg: (type, i) => (type === 'hero' || i % 2 === 0 ? 'soft' : '') },
+  bold: { name: 'Bold', blurb: 'Your colour, front and centre', header: 'brand', footer: 'brand', bg: (type) => (type === 'hero' || type === 'cta' ? 'brand' : '') },
+};
+export function applyQuickStyle(site, key) {
+  const q = QUICK_STYLES[key];
+  if (!q) return;
+  site.header.style = q.header; site.footer.color = q.footer;
+  site.sections.forEach((x, i) => { x.bg = q.bg(x.type, i); });
+}
 
 export const SECTION_TYPES = {
   hero: { name: 'Hero', blurb: 'The first thing visitors see' },
@@ -148,11 +166,11 @@ export const ICONS = {
 
 let seq = 0;
 export const uid = (p = 's') => `${p}${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-const sec = (type, nav, data) => ({ id: uid(type.slice(0, 2)), type, enabled: true, nav, data });
+const sec = (type, nav, data) => ({ id: uid(type.slice(0, 2)), type, enabled: true, nav, bg: '', data });
 const link = (label, href) => ({ label, href });
 
 export const SECTION_DEFAULTS = {
-  hero: () => ({ eyebrow: '', title: 'A headline that says what you do', subtitle: 'One or two sentences about who you help and why it matters.', primary: link('Get in touch', '#contact'), secondary: link('', ''), image: '', layout: 'center' }),
+  hero: () => ({ eyebrow: '', title: 'A headline that says what you do', subtitle: 'One or two sentences about who you help and why it matters.', primary: link('Get in touch', '#contact'), secondary: link('', ''), image: '', layout: 'center', showLogo: false }),
   about: () => ({ title: 'About us', body: 'Tell your story here. How you started, what you care about, and what customers can expect when they work with you.', image: '', stats: [] }),
   services: () => ({ title: 'What we offer', subtitle: '', layout: 'cards', items: [{ name: 'First service', desc: 'A short description of what is included.', price: '', image: '' }, { name: 'Second service', desc: 'A short description of what is included.', price: '', image: '' }, { name: 'Third service', desc: 'A short description of what is included.', price: '', image: '' }] }),
   menu: () => ({ title: 'Our menu', subtitle: '', showPhotos: true }),
@@ -369,13 +387,13 @@ export function createSite(name, templateId, o = {}) {
     v: 1,
     template: t.id,
     brand: { name: n, tagline: b.tagline, logo: '', logoMode: 'text' },
-    theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', font: FONTS[o.font] ? o.font : t.font, radius: RADII[o.radius] ? o.radius : t.radius },
+    theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', bg: '', font: FONTS[o.font] ? o.font : t.font, radius: RADII[o.radius] ? o.radius : t.radius },
     business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: b.hours, payUrl: '' },
     social: { instagram: '', facebook: '', tiktok: '', x: '', youtube: '', linkedin: '' },
-    header: { sticky: true, cta: b.cta, showPhone: false },
+    header: { sticky: true, cta: b.cta, showPhone: false, layout: 'left', style: 'glass' },
     announcement: { enabled: false, text: '', href: '' },
     sections: b.sections,
-    footer: { blurb: '', showPayments: true, showCredit: true },
+    footer: { blurb: '', showPayments: true, showCredit: true, style: 'columns', color: 'soft' },
     seo: { title: '', description: '', keywords: '', image: '' },
     legal: {
       effective: today(),
@@ -415,6 +433,11 @@ export function normalizeSite(input) {
   if (!FONTS[out.theme.font]) out.theme.font = base.theme.font;
   if (!RADII[out.theme.radius]) out.theme.radius = base.theme.radius;
   out.theme.mode = out.theme.mode === 'dark' ? 'dark' : 'light';
+  out.theme.bg = isHex(out.theme.bg) ? out.theme.bg : '';
+  if (!HEADER_LAYOUTS[out.header.layout]) out.header.layout = 'left';
+  if (!HEADER_STYLES[out.header.style]) out.header.style = 'glass';
+  if (!FOOTER_STYLES[out.footer.style]) out.footer.style = 'columns';
+  if (!FOOTER_COLORS[out.footer.color]) out.footer.color = 'soft';
   out.business.hours = arr(out.business.hours).map(obj);
   out.header.cta = { label: '', href: '', ...obj(out.header.cta) };
   const L = obj(s.legal);
@@ -426,6 +449,7 @@ export function normalizeSite(input) {
       type: x.type,
       enabled: x.enabled !== false,
       nav: str(x.nav, 30),
+      bg: SECTION_BACKGROUNDS[x.bg] ? x.bg : '',
       data: { ...SECTION_DEFAULTS[x.type](), ...obj(x.data) },
     }));
   }

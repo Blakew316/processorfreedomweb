@@ -9,7 +9,8 @@ an online ordering website, types their business name, picks a template, uploads
 - **One-step setup**: the merchant types a business name (the web address fills in as they type) and lands in the editor on a
   Get started checklist. New sites are online ordering sites; the other templates remain in the code for later.
 - **Nine templates**: restaurant, café, retail, salon, professional services, home services, fitness, auto repair, and a simple start. Each ships with written content.
-- **Editor with live preview**: brand, logo, colour, light or dark, typeface, corners, header, announcement bar, footer. Add, reorder, hide and edit sections. Click any section in the preview to edit it. Desktop, tablet and phone views.
+- **Editor with live preview**: quick styles (Clean, Soft, Bold), brand colour, page background, header layout and colour, a
+  background for any section, footer layout and colour, typeface, corners, announcement bar. The preview shows true phone and tablet frames. Add, reorder, hide and edit sections. Click any section in the preview to edit it. Desktop, tablet and phone views.
 - **Images**: logo, hero, item and gallery uploads, resized in the browser before upload.
 - **Policies written automatically**: privacy policy, terms of service, store policies and accessibility statement, generated from the business details and editable.
 - **SEO**: title, description, keywords, sharing image, sitemap, robots file and business structured data.

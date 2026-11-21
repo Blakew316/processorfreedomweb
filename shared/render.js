@@ -2,7 +2,7 @@
 // in the builder and the published site, so what people see is what goes live.
 
 import { ORDER_CSS, ORDER_JS, menuSection, orderPage, orderStatusPage } from './order.js';
-import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM } from './core.js';
+import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM } from './core.js';
 
 const icon = (name, size = 24) =>
   `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.star}</svg>`;
@@ -26,13 +26,16 @@ export function socialUrl(key, value) {
 
 export function themeVars(site) {
   const t = site.theme || {};
-  const dark = t.mode === 'dark';
-  const bg = dark ? '#000000' : '#ffffff';
+  const bg = isHex(t.bg) ? t.bg.toLowerCase() : t.mode === 'dark' ? '#000000' : '#ffffff';
+  const dark = lum(bg) < 0.35;
+  const ink = dark ? '#f5f5f7' : '#1d1d1f';
   const raw = isHex(t.accent) ? t.accent : '#0071e3';
   const accent = readableAccent(raw, bg);
   const f = FONTS[t.font] || FONTS.sans;
   const r = RADII[t.radius] || RADII.soft;
-  return `:root{color-scheme:${dark ? 'dark' : 'light'};--bg:${bg};--bg2:${dark ? '#151516' : '#f5f5f7'};--ink:${dark ? '#f5f5f7' : '#1d1d1f'};--muted:${dark ? '#a1a1a6' : '#6e6e73'};--line:${dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.1)'};--glass:${dark ? 'rgba(0,0,0,.72)' : 'rgba(255,255,255,.78)'};--accent:${accent};--on-accent:${onColor(accent)};--font:${f.body};--font-head:${f.head};--r:${r.r}px;--r-sm:${Math.min(r.r, 14)}px;--r-btn:${r.btn}px}`;
+  const a = (n) => (dark ? `rgba(255,255,255,${n})` : `rgba(0,0,0,${n})`);
+  const [gr, gg, gb] = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+  return `:root{color-scheme:${dark ? 'dark' : 'light'};--bg:${bg};--bg2:${mix(bg, ink, dark ? 0.09 : 0.045)};--ink:${ink};--muted:${mix(ink, bg, 0.42)};--line:${a(dark ? 0.16 : 0.1)};--glass:rgba(${gr},${gg},${gb},.8);--accent:${accent};--on-accent:${onColor(accent)};--brand:${raw};--on-brand:${onColor(raw)};--font:${f.body};--font-head:${f.head};--r:${r.r}px;--r-sm:${Math.min(r.r, 14)}px;--r-btn:${r.btn}px}`;
 }
 
 export const SITE_CSS = `
@@ -201,6 +204,31 @@ label.f{display:grid;gap:7px;font-size:14px;font-weight:500}
 .legal p+p{margin-top:14px}
 .legal ul{padding-left:22px;display:grid;gap:8px;margin-top:8px}
 .empty{border:1.5px dashed var(--line);border-radius:var(--r);padding:56px 20px;text-align:center;color:var(--muted)}
+.on-brand,.on-dark{--bg:var(--brand);--ink:var(--on-brand);--muted:color-mix(in srgb,var(--on-brand) 76%,transparent);--accent:var(--on-brand);--on-accent:var(--brand);--bg2:color-mix(in srgb,var(--on-brand) 11%,transparent);--line:color-mix(in srgb,var(--on-brand) 22%,transparent);--glass:var(--brand);background:var(--bg);color:var(--ink)}
+.on-dark{--brand:#111113;--on-brand:#f5f5f7}
+section.bg-soft{background:var(--bg2)}
+section.bg-soft .card,section.bg-soft .quote,section.bg-soft form.msg,section.bg-soft .cta .panel,section.bg-soft.cta .panel{background:var(--bg)}
+section.on-brand,section.bg-soft,section.on-brand+section,section.bg-soft+section{border-top-color:transparent}
+section.on-brand.cta .panel{background:var(--bg2)}
+.on-brand .f input,.on-brand .f textarea{background:var(--on-brand);color:var(--brand);border-color:transparent}
+.hdr.on-brand,.hdr.on-dark{border-bottom-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+.hdr.center .wrap{flex-direction:column;gap:6px;padding-top:16px;padding-bottom:12px}
+.hdr.center .brand{margin:0;font-size:24px}
+.hdr.center .brand img{height:44px;max-width:220px}
+.hdr.mid .nav{flex:1}
+.hdr.mid .nav>a:first-child{margin-left:auto}
+.hdr.mid .nav .btn{margin-left:auto}
+.hdr.mid .nav>a:first-child.btn{margin-left:auto}
+.hero .hlogo{height:72px;width:auto;max-width:240px;object-fit:contain;margin:0 0 26px}
+.hero.center .hlogo{margin-left:auto;margin-right:auto}
+.ftr.plain{background:var(--bg)}
+.ftr.on-brand,.ftr.on-dark{border-top-color:transparent}
+.ftr.on-brand h3,.ftr.on-dark h3,.ftr.on-brand a:hover,.ftr.on-dark a:hover{color:var(--ink)}
+.ftr.simple{text-align:center;padding:52px 0 32px}
+.ftr.simple .brand{margin:0 0 8px;justify-content:center;font-size:20px}
+.ftr.simple .links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin:22px 0 0;padding:0;list-style:none}
+.ftr.simple .soc{justify-content:center}
+.ftr.simple .base{justify-content:center;text-align:center;flex-direction:column;align-items:center;margin-top:28px}
 [data-preview] [data-sec]{cursor:pointer;transition:box-shadow .15s}
 [data-preview] [data-sec]:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent)}
 @media (max-width:860px){
@@ -209,6 +237,10 @@ label.f{display:grid;gap:7px;font-size:14px;font-weight:500}
   .hero.split .wrap,.about.has-img .wrap,.contact .cols{grid-template-columns:1fr;gap:40px}
   .hero.split .shot,.about .shot{aspect-ratio:4/3}
   .menu-btn{display:inline-flex}
+  .hdr.center .wrap{flex-direction:row;padding-top:0;padding-bottom:0}
+  .hdr.center .brand{margin-right:auto;font-size:19px}
+  .hdr.center .brand img{height:30px}
+  .hdr.mid .nav>a:first-child,.hdr.mid .nav .btn{margin-left:0}
   .nav{display:none;position:absolute;left:0;right:0;top:100%;flex-direction:column;align-items:stretch;gap:0;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 24px 24px}
   .nav.open{display:flex}
   .nav a:not(.btn){font-size:19px;padding:14px 0;border-bottom:1px solid var(--line);opacity:1}
@@ -306,7 +338,7 @@ export function renderPage(site, page = 'home', opts = {}) {
       const src = safeImg(d.image);
       const layout = ['center', 'split', 'cover'].includes(d.layout) ? d.layout : 'center';
       const H = first ? 'h1' : 'h2';
-      const text = `${d.eyebrow ? `<p class="eyebrow">${esc(d.eyebrow)}</p>` : ''}<${H}${first ? '' : ' style="font-size:clamp(36px,6vw,64px)"'}>${esc(d.title)}</${H}>${d.subtitle ? `<p class="lede">${esc(d.subtitle)}</p>` : ''}<div class="actions">${btn(d.primary)}${btn(d.secondary, 'ghost')}</div>`;
+      const text = `${d.showLogo && safeImg(brand.logo) ? `<img class="hlogo" src="${esc(safeImg(brand.logo))}" alt="${esc(name)}">` : ''}${d.eyebrow ? `<p class="eyebrow">${esc(d.eyebrow)}</p>` : ''}<${H}${first ? '' : ' style="font-size:clamp(36px,6vw,64px)"'}>${esc(d.title)}</${H}>${d.subtitle ? `<p class="lede">${esc(d.subtitle)}</p>` : ''}<div class="actions">${btn(d.primary)}${btn(d.secondary, 'ghost')}</div>`;
       if (layout === 'cover' && src) return `<div class="bgimg">${img(src, '', first)}</div><div class="wrap"><div>${text}</div></div>`;
       const shot = src ? `<div class="shot">${img(src, name, first)}</div>` : layout === 'split' ? `<div class="shot"><div class="ph">${esc(name.slice(0, 1).toUpperCase())}</div></div>` : '';
       return `<div class="wrap"><div>${text}</div>${shot}</div>`;
@@ -369,7 +401,7 @@ export function renderPage(site, page = 'home', opts = {}) {
   const hc = site.header || {};
   const ann = site.announcement || {};
   const header = `<a class="skip" href="#main">Skip to content</a>${ann.enabled && str(ann.text).trim() ? `<div class="bar">${esc(ann.text)}${href(ann.href) ? `<a ${href(ann.href)}>Learn more ›</a>` : ''}</div>` : ''}
-<header class="hdr${hc.sticky === false ? '' : ' sticky'}"><div class="wrap"><a class="brand" ${pageHref('home')}>${brandHtml}</a><nav class="nav" id="nav" aria-label="Main">${navLinks}${hc.showPhone && biz.phone ? `<a ${href(biz.phone)}>${esc(biz.phone)}</a>` : ''}${btn(hc.cta, 'sm')}</nav><button class="menu-btn" aria-label="Menu" aria-controls="nav" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button></div></header>`;
+<header class="hdr${hc.sticky === false ? '' : ' sticky'}${hc.layout === 'center' ? ' center' : hc.layout === 'mid' ? ' mid' : ''}${hc.style === 'brand' ? ' on-brand' : hc.style === 'dark' ? ' on-dark' : ''}"><div class="wrap"><a class="brand" ${pageHref('home')}>${brandHtml}</a><nav class="nav" id="nav" aria-label="Main">${navLinks}${hc.showPhone && biz.phone ? `<a ${href(biz.phone)}>${esc(biz.phone)}</a>` : ''}${btn(hc.cta, 'sm')}</nav><button class="menu-btn" aria-label="Menu" aria-controls="nav" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button></div></header>`;
 
   /* Body */
   let main;
@@ -383,7 +415,7 @@ export function renderPage(site, page = 'home', opts = {}) {
       const inner = fn(d, s, i === 0);
       if (!inner) return '';
       const cls = s.type === 'hero' ? `hero ${d.layout === 'cover' && safeImg(d.image) ? 'cover' : d.layout === 'split' ? 'split' : 'center'}` : s.type === 'about' ? `about${safeImg(d.image) ? ' has-img' : ''}` : s.type;
-      return `<section class="${cls}" id="${esc(anchorFor(s))}" data-sec="${esc(s.id)}">${inner}</section>`;
+      return `<section class="${cls}${s.bg === 'soft' ? ' bg-soft' : s.bg === 'brand' && !cls.includes('cover') ? ' on-brand' : ''}" id="${esc(anchorFor(s))}" data-sec="${esc(s.id)}">${inner}</section>`;
     }).join('\n');
     if (!main && preview) main = `<section><div class="wrap">${emptyBox('Your page is empty. Add a section to get started.')}</div></section>`;
   } else if (page === 'order' && ordering?.enabled) {
@@ -405,12 +437,16 @@ export function renderPage(site, page = 'home', opts = {}) {
   const socials = Object.keys(SOCIAL).map((k) => { const u = socialUrl(k, site.social?.[k]); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="${SOCIAL[k][0]}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SOCIAL[k][2]}</svg></a>` : ''; }).join('');
   const ft = site.footer || {};
   const payUrl = safeUrl(biz.payUrl);
-  const footer = `<footer class="ftr"><div class="wrap"><div class="top">
+  const footCols = `<div class="top">
 <div><a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}</div>
 <div><h3>Explore</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>Order online</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>Pay online</a></li>` : ''}</ul></div>
 <div><h3>Contact</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
 <div><h3>Legal</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${LEGAL_PAGES[k]}</a></li>`).join('')}</ul></div>
-</div><div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. All rights reserved.</span><span>${ft.showPayments !== false ? 'Visa · Mastercard · American Express · Discover accepted' : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `Website by <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
+</div>`;
+  const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>Order online</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${LEGAL_PAGES[k]}</a></li>`)].join('');
+  const footSimple = `<a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}<ul class="links">${footLinks}</ul>`;
+  const footCls = `${ft.style === 'simple' ? ' simple' : ''}${ft.color === 'brand' ? ' on-brand' : ft.color === 'dark' ? ' on-dark' : ft.color === 'plain' ? ' plain' : ''}`;
+  const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. All rights reserved.</span><span>${ft.showPayments !== false ? 'Visa · Mastercard · American Express · Discover accepted' : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `Website by <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}</span></div></div></footer>`;
 
   /* Head */
   const seo = site.seo || {};

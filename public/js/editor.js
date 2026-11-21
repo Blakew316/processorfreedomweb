@@ -1,4 +1,4 @@
-import { ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
 import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES } from './ui.js';
 
@@ -35,6 +35,8 @@ export async function editor(id, mount, title) {
 
   const frame = h('iframe', { title: 'Live preview of your site' });
   const stageIn = h('div', { class: 'stage-in' }, frame);
+  const holder = h('div', { class: 'holder' }, stageIn);
+  const stage = h('div', { class: 'ed-stage' }, holder);
   let painted = '';
   function paint(force) {
     const out = renderPage(draft, page, { preview: true, base: '', menu, ordering, siteKey: id });
@@ -76,7 +78,7 @@ export async function editor(id, mount, title) {
   const toggle = (label, o, k, on = (v) => v !== false, after, fire = notify || changed) => h('label', { class: 'switch' }, h('span', {}, label), h('input', { type: 'checkbox', checked: (on || ((v) => v !== false))(o[k]), onchange: (e) => { o[k] = e.target.checked; fire(); after?.(); } }), h('i'));
   function seg(label, o, k, options, after) {
     const el = h('div', { class: 'seg', role: 'group', 'aria-label': label });
-    const draw = () => el.replaceChildren(...Object.entries(options).map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String(o[k] === v), onclick: () => { o[k] = v; draw(); changed(); after?.(); } }, l.name || l)));
+    const draw = () => el.replaceChildren(...Object.entries(options).map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String((o[k] ?? '') === v), onclick: () => { o[k] = v; draw(); changed(); after?.(); } }, l.name || l)));
     draw();
     return h('div', { class: 'field' }, h('span', {}, label), el);
   }
@@ -154,7 +156,7 @@ export async function editor(id, mount, title) {
 
   const FORMS = {
     hero: (d) => [text('Small label', d, 'eyebrow', { hint: 'Optional. Appears above the headline.' }), area('Headline', d, 'title', { rows: 2 }), area('Supporting text', d, 'subtitle'),
-      linkField('Main button', d, 'primary'), linkField('Second button', d, 'secondary'), seg('Layout', d, 'layout', HERO_LAYOUTS), image('Photo', d, 'image', { hint: d.layout === 'cover' ? 'Full image needs a photo. Wide photos work best.' : 'Optional.' })],
+      linkField('Main button', d, 'primary'), linkField('Second button', d, 'secondary'), seg('Layout', d, 'layout', HERO_LAYOUTS), toggle('Show my logo above the headline', d, 'showLogo', (v) => v === true), image('Photo', d, 'image', { hint: d.layout === 'cover' ? 'Full image needs a photo. Wide photos work best.' : 'Optional.' })],
     about: (d) => [text('Heading', d, 'title'), area('Your story', d, 'body', { rows: 7, hint: 'Leave an empty line between paragraphs.' }), image('Photo', d, 'image', { hint: 'Optional. Portrait photos work best.' }),
       list('Numbers', d, 'stats', { add: 'Add a number', max: 4, make: () => ({ value: '10+', label: 'Years in business' }), name: (x) => `${x.value} ${x.label}`.trim(), fields: (x) => [h('div', { class: 'pair' }, text('Number', x, 'value'), text('Label', x, 'label'))] })],
     services: (d) => [text('Heading', d, 'title'), text('Supporting text', d, 'subtitle'), seg('Item style', d, 'layout', SERVICE_LAYOUTS),
@@ -183,16 +185,31 @@ export async function editor(id, mount, title) {
       const drawSw = () => sw.replaceChildren(...ACCENTS.map((a) => h('button', { type: 'button', class: 'swatch', style: `background:${a.value}`, title: a.name, 'aria-label': a.name, 'aria-pressed': String(t.accent.toLowerCase() === a.value), onclick: () => { t.accent = a.value; drawSw(); changed(); } })),
         h('label', { class: 'swatch custom', title: 'Custom colour', 'aria-pressed': String(!ACCENTS.some((a) => a.value === t.accent.toLowerCase())) }, h('input', { type: 'color', value: t.accent, 'aria-label': 'Custom colour', oninput: (e) => { t.accent = e.target.value; changed(); }, onchange: drawSw })));
       drawSw();
+      const bgSw = h('div', { class: 'swatches' });
+      const curBg = () => (t.bg || (t.mode === 'dark' ? '#000000' : '#ffffff')).toLowerCase();
+      const drawBg = () => bgSw.replaceChildren(...BACKGROUNDS.map((b) => h('button', { type: 'button', class: 'swatch', style: `background:${b.value}`, title: b.name, 'aria-label': b.name, 'aria-pressed': String(curBg() === b.value), onclick: () => { t.bg = b.value; drawBg(); changed(); } })),
+        h('label', { class: 'swatch custom', title: 'Custom background', 'aria-pressed': String(!BACKGROUNDS.some((b) => b.value === curBg())) }, h('input', { type: 'color', value: curBg(), 'aria-label': 'Custom background colour', oninput: (e) => { t.bg = e.target.value; changed(); }, onchange: drawBg })));
+      drawBg();
+      const looks = h('div', { class: 'looks' }, Object.entries(QUICK_STYLES).map(([k, q]) => h('button', { type: 'button', class: `look look-${k}`, onclick: () => { applyQuickStyle(draft, k); changed(); paintPanel(); toast(`${q.name} style applied`); } },
+        h('span', { class: 'lk', style: `--b:${t.accent}` }, h('i'), h('i'), h('i')), h('b', {}, q.name), h('small', {}, q.blurb))));
       return [
+        group('Quick style', h('p', { class: 'hint' }, 'One tap sets where your brand colour appears across the whole site. Fine-tune anything below.'), looks),
         group('Brand', text('Business name', draft.brand, 'name', { maxlength: 80 }), text('Tagline', draft.brand, 'tagline', { hint: 'A short line shown in your footer and search results.' }),
           image('Logo', draft.brand, 'logo', { logo: true, hint: 'PNG or SVG with a transparent background works best.', after: () => { if (draft.brand.logo && draft.brand.logoMode === 'text') draft.brand.logoMode = 'image'; paintPanel(); } }),
           draft.brand.logo && seg('Show in header', draft.brand, 'logoMode', { image: 'Logo', both: 'Logo and name', text: 'Name only' })),
-        group('Colour', h('div', { class: 'field' }, h('span', {}, 'Brand colour'), sw, h('small', {}, 'Used for buttons, links and small accents. We adjust it automatically if it would be hard to read.')), seg('Appearance', t, 'mode', { light: 'Light', dark: 'Dark' })),
+        group('Colours', h('div', { class: 'field' }, h('span', {}, 'Brand colour'), sw, h('small', {}, 'Buttons, links and any part set to “Brand colour”.')),
+          h('div', { class: 'field' }, h('span', {}, 'Page background'), bgSw, h('small', {}, 'Text switches between dark and light automatically so it stays readable.'))),
+        group('Header', seg('Layout', draft.header, 'layout', HEADER_LAYOUTS), seg('Colour', draft.header, 'style', HEADER_STYLES), linkField('Header button', draft.header, 'cta'),
+          toggle('Keep header visible while scrolling', draft.header, 'sticky'), toggle('Show phone number', draft.header, 'showPhone', (v) => v === true)),
+        group('Sections', h('p', { class: 'hint' }, 'Give any part of your home page its own background.'),
+          h('div', { class: 'slist' }, draft.sections.filter((x) => x.enabled).map((x) => h('div', { class: 'srow', style: 'padding:8px 8px 8px 14px;gap:10px' }, h('b', { class: 'grow', style: 'font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, SECTION_TYPES[x.type].name),
+            h('div', { class: 'seg', style: 'flex:none' }, Object.entries(SECTION_BACKGROUNDS).map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String((x.bg || '') === k), onclick: () => { x.bg = k; changed(); paintPanel(); } }, l.split(' ')[0])))))),
+          h('button', { class: 'btn text sm', style: 'justify-self:start', onclick: () => goTab('sections') }, 'Edit, reorder or add sections')),
+        group('Footer', seg('Layout', draft.footer, 'style', FOOTER_STYLES), seg('Colour', draft.footer, 'color', FOOTER_COLORS), area('Footer text', draft.footer, 'blurb', { rows: 2, placeholder: draft.brand.tagline || 'A short line about your business' }),
+          toggle('Show accepted cards', draft.footer, 'showPayments'), toggle('Show “Website by Processor Freedom”', draft.footer, 'showCredit')),
         group('Type and shape', seg('Typeface', t, 'font', FONTS), seg('Corners', t, 'radius', RADII)),
-        group('Header', linkField('Header button', draft.header, 'cta'), toggle('Keep header visible while scrolling', draft.header, 'sticky'), toggle('Show phone number', draft.header, 'showPhone', (v) => v === true)),
         group('Announcement bar', toggle('Show a message above the header', draft.announcement, 'enabled', (v) => v === true, paintPanel),
           draft.announcement.enabled && [text('Message', draft.announcement, 'text', { placeholder: 'Now open Sundays' }), text('Link', draft.announcement, 'href', { placeholder: 'Optional' })]),
-        group('Footer', area('Footer text', draft.footer, 'blurb', { rows: 2, placeholder: draft.brand.tagline || 'A short line about your business' }), toggle('Show accepted cards', draft.footer, 'showPayments'), toggle('Show “Website by Processor Freedom”', draft.footer, 'showCredit')),
       ];
     },
 
@@ -202,6 +219,7 @@ export async function editor(id, mount, title) {
         return [h('button', { class: 'back', onclick: () => { sel = null; paintPanel(); } }, ic('back', 16), 'All sections'),
           h('h2', {}, SECTION_TYPES[s.type].name),
           group('', ...FORMS[s.type](s.data).filter(Boolean)),
+          group('Background', seg('Section background', s, 'bg', SECTION_BACKGROUNDS)),
           group('Menu', text('Menu label', s, 'nav', { maxlength: 24, hint: 'Shown in your site’s navigation. Leave empty to keep this section out of the menu.' })),
           group('', h('button', { class: 'btn danger', style: 'justify-self:start', onclick: async () => {
             if (!await confirmSheet({ title: 'Remove this section?', text: 'Its content will be deleted from your draft.', action: 'Remove', danger: true })) return;
@@ -529,7 +547,7 @@ export async function editor(id, mount, title) {
   const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
   const panel = h('div', { class: 'panel' });
   const top = h('header', { class: 'ed-top' });
-  const body = h('div', { class: 'ed-body', 'data-view': 'edit' }, rail, h('aside', { class: 'ed-side' }, tabsEl, panel), h('div', { class: 'ed-stage' }, stageIn));
+  const body = h('div', { class: 'ed-body', 'data-view': 'edit' }, rail, h('aside', { class: 'ed-side' }, tabsEl, panel), stage);
 
   function paintPanel() {
     const y = panel.scrollTop;
@@ -548,7 +566,22 @@ export async function editor(id, mount, title) {
     if (page !== 'home') return setPage('home');
     frame.contentDocument?.querySelector(`[data-sec="${secId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-  function setDevice(d) { device = d; stageIn.className = `stage-in ${d === 'desktop' ? '' : d}`; paintTop(); }
+  // Each device is drawn at its true size and scaled to fit, centred, like a simulator.
+  const DEVICES = { phone: [390, 844, 14], tablet: [820, 1180, 16] };
+  function fit() {
+    const pad = device === 'desktop' ? 18 : 28;
+    const W = stage.clientWidth - pad * 2, H = stage.clientHeight - pad * 2;
+    if (W <= 0 || H <= 0) return;
+    let w, h2, k, bezel = 0;
+    if (DEVICES[device]) { [w, h2, bezel] = DEVICES[device]; k = Math.min(1, W / (w + bezel * 2), H / (h2 + bezel * 2)); }
+    else { w = Math.max(W, 1240); k = W / w; h2 = H / k; }
+    const fw = w + bezel * 2, fh = h2 + bezel * 2;
+    Object.assign(stageIn.style, { width: `${fw}px`, height: `${fh}px`, transform: `scale(${k})` });
+    Object.assign(holder.style, { width: `${fw * k}px`, height: `${fh * k}px` });
+  }
+  const stageWatch = new ResizeObserver(fit);
+  stageWatch.observe(stage);
+  function setDevice(d) { device = d; stageIn.className = `stage-in ${d === 'desktop' ? '' : d}`; fit(); paintTop(); }
 
   function paintTop() {
     const label = { saved: 'Saved', dirty: 'Saving…', saving: 'Saving…', error: 'Not saved' }[saveState];
@@ -630,5 +663,5 @@ export async function editor(id, mount, title) {
   mount(h('div', { class: 'ed' }, top, body));
   paintTop(); paintPanel(); paint(true);
 
-  return () => { clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
+  return () => { stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }

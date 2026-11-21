@@ -371,3 +371,22 @@ test('staff dashboard and password change', async () => {
   assert.equal((await client()('POST', '/api/auth/login', { email: 'staff@pf.test', password: 'long-enough-pw' })).status, 401);
   assert.equal((await client()('POST', '/api/auth/login', { email: 'staff@pf.test', password: 'another-long-pw' })).status, 200);
 });
+
+test('design options: backgrounds, header and footer styles, quick styles', async () => {
+  const { applyQuickStyle, QUICK_STYLES } = await import('../shared/core.js');
+  const { themeVars } = await import('../shared/render.js');
+  const site = normalizeSite(createSite('Colour Test', 'order', { kind: 'ordering', accent: '#d1372f' }));
+  assert.match(renderPage(site, 'home').html, /class="hdr sticky"/);
+  applyQuickStyle(site, 'bold');
+  site.header.layout = 'center'; site.footer.style = 'simple'; site.theme.bg = '#1c1c1e';
+  const out = renderPage(normalizeSite(site), 'home').html;
+  assert.match(out, /class="hdr sticky center on-brand"/);
+  assert.match(out, /class="hero center on-brand"/);
+  assert.match(out, /class="ftr simple on-brand"/);
+  assert.match(themeVars(site), /color-scheme:dark;--bg:#1c1c1e/);
+  assert.match(themeVars(site), /--brand:#d1372f;--on-brand:#ffffff/);
+  // Unknown values fall back rather than reaching the page
+  const bad = normalizeSite({ ...site, theme: { ...site.theme, bg: 'url(x)' }, header: { ...site.header, layout: '"><x', style: 'nope' }, footer: { ...site.footer, color: 'x', style: 'y' }, sections: site.sections.map((s) => ({ ...s, bg: 'evil"' })) });
+  assert.deepEqual([bad.theme.bg, bad.header.layout, bad.header.style, bad.footer.color, bad.footer.style, bad.sections[0].bg], ['', 'left', 'glass', 'soft', 'columns', '']);
+  for (const k of Object.keys(QUICK_STYLES)) { applyQuickStyle(site, k); assert.equal(renderPage(normalizeSite(site), 'home').status, 200); }
+});
