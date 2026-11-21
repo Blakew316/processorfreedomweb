@@ -156,7 +156,7 @@ function orderClient() {
   function keep(c) { try { localStorage.setItem(key(c), JSON.stringify({ lines: S.lines, method: S.method, f: S.f })); } catch (e) {} }
   function price(it, o) { var p = it.p; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) p += g.c[ci][1]; }); }); return p; }
   function labels(it, o) { var out = []; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) out.push(g.c[ci][0]); }); }); return out.join(', '); }
-  function lines(c) { return S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; }).map(function (l, i) { var it = c.items[l.id]; return { i: i, id: l.id, o: l.o || [], name: it.n, opt: labels(it, l.o), price: price(it, l.o), qty: Math.min(l.q, it.max) }; }); }
+  function lines(c) { return S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; }).map(function (l, i) { var it = c.items[l.id]; return { i: i, id: l.id, o: l.o || [], name: it.n, opt: labels(it, l.o), price: price(it, l.o), qty: Math.min(l.q, it.max), tx: it.t !== 0 }; }); }
   function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it) return; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q = Math.min(hit.q + 1, it.max); else S.lines.push({ id: id, o: o || [], q: 1 }); }
   function field(name, label, type, req, ac) { return '<label class="f">' + h(label) + '<input name="' + name + '" type="' + (type || 'text') + '"' + (req ? ' required' : '') + (ac ? ' autocomplete="' + ac + '"' : '') + ' maxlength="200" value="' + h(S.f[name]) + '"></label>'; }
   function slots(c) { return c.slots[S.method === 'delivery' ? 'delivery' : 'pickup'] || []; }
@@ -171,7 +171,8 @@ function orderClient() {
     var L = lines(c), sub = L.reduce(function (s, l) { return s + l.price * l.qty; }, 0), count = L.reduce(function (s, l) { return s + l.qty; }, 0);
     var disc = !S.promo ? 0 : S.promo.type === 'amount' ? Math.min(sub, S.promo.value) : Math.round(sub * S.promo.value / 100);
     var zone = c.zones && S.method === 'delivery' ? c.zones.filter(function (z) { return z[0].indexOf(((S.f.zip || '').match(/\d{5}/) || [''])[0]) >= 0; })[0] : null;
-    var tax = Math.round((sub - disc) * c.tax / 100), fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
+    var txs = L.reduce(function (s, l) { return s + (l.tx ? l.price * l.qty : 0); }, 0);
+    var tax = sub ? Math.round((txs - disc * txs / sub) * c.tax / 100) : 0, fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
     var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(total) + '</span>'; }
     var out = '<h2>' + h(T.yourOrder) + '</h2>';
     if (!L.length) { el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? T.closedNow : T.paused) + '</p>'; return; }
@@ -288,7 +289,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
   const items = {};
-  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: it.price, max: it.stock == null ? 50 : Math.min(50, it.stock), g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
+  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: it.price, max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, slots, items, methods, names, T,

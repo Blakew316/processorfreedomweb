@@ -614,6 +614,7 @@ const COLS = [
   ['stock', /stock|qty|quantity|inventory|on\s*hand|count/i],
   ['image', /image|photo|picture|img/i],
   ['available', /availab|active|enabled|in\s*stock|visible/i],
+  ['taxable', /tax/i],
 ];
 
 export const MENU_TEMPLATE_CSV = `Category,Item name,Price,Description,Stock,Photo URL
@@ -665,6 +666,7 @@ export function parseMenuCsv(text) {
       category: category || 'Menu', name: name.slice(0, 120), price, desc: get(r, 'desc').slice(0, 500), stock,
       image: /^https:\/\/\S+$/i.test(get(r, 'image')) ? get(r, 'image').slice(0, 500) : '',
       available: !/^(no|n|false|0|off|hidden|unavailable|sold\s*out)$/i.test(avail),
+      taxable: !/^(no|n|false|0|off|exempt|none|non-?taxable)$/i.test(get(r, 'taxable')),
     });
   });
   if (!out.items.length && !out.errors.length) out.errors.push({ row: 0, reason: 'No items were found in the file.' });
@@ -718,7 +720,9 @@ export const findPromo = (o, code) => { const c = str(code, 24).toUpperCase().re
 export function orderTotals(lines, method, ordering, tipPercent = 0, promo = null, zoneFee = null) {
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const discount = !promo ? 0 : promo.type === 'amount' ? Math.min(subtotal, promo.value) : Math.round((subtotal * promo.value) / 100);
-  const tax = Math.round(((subtotal - discount) * (ordering.taxRate || 0)) / 100);
+  // Tax applies only to taxable items; a discount is spread evenly across the order.
+  const taxable = lines.reduce((sum, l) => sum + (l.taxable === false ? 0 : l.price * l.qty), 0);
+  const tax = subtotal ? Math.round(((taxable - (discount * taxable) / subtotal) * (ordering.taxRate || 0)) / 100) : 0;
   const fee = method === 'delivery' ? (zoneFee ?? ordering.deliveryFee ?? 0) : 0;
   const tip = ordering.tips ? Math.round((subtotal * Math.min(100, Math.max(0, Number(tipPercent) || 0))) / 100) : 0;
   return { subtotal, discount, tax, fee, tip, total: subtotal - discount + tax + fee + tip };

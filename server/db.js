@@ -54,6 +54,7 @@ export function openDb(dataDir) {
   const addColumn = (table, column, type) => { if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`); };
   addColumn('sites', 'ordering', 'TEXT');
   addColumn('menu_items', 'options', 'TEXT');
+  addColumn('menu_items', 'taxable', 'INTEGER NOT NULL DEFAULT 1');
   addColumn('orders', 'discount', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('orders', 'promo', "TEXT NOT NULL DEFAULT ''");
   addColumn('orders', 'scheduled', "TEXT NOT NULL DEFAULT ''");

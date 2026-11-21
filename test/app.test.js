@@ -632,3 +632,29 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
     assert.match((await anon('GET', '/sw.js')).data, /showNotification/);
   } finally { base = prevBase; server4.close(); app4.close(); rmSync(dir4, { recursive: true, force: true }); }
 });
+
+test('sales tax can be switched off per item', async () => {
+  const core = await import('../shared/core.js');
+  const o = { taxRate: 10, tips: false };
+  assert.equal(core.orderTotals([{ price: 1000, qty: 1 }, { price: 500, qty: 2, taxable: false }], 'pickup', o).tax, 100);
+  assert.equal(core.orderTotals([{ price: 1000, qty: 1 }, { price: 1000, qty: 1, taxable: false }], 'pickup', o, 0, { type: 'percent', value: 50 }).tax, 50);
+  assert.equal(core.orderTotals([{ price: 1000, qty: 1, taxable: false }], 'pickup', o).tax, 0);
+  assert.deepEqual(core.parseMenuCsv('Item,Price,Taxable\nTaco,3.50,yes\nGift card,25,no\nSoda,2,').items.map((x) => x.taxable), [true, false, true]);
+
+  const me = client(), anon = client();
+  await me('POST', '/api/auth/signup', { email: 'tax@shop.test', password: 'long-enough-pw' });
+  const site = (await me('POST', '/api/sites', { name: 'Tax Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price,Taxable\nTaco,10.00,yes\nGift card,25.00,no' })).data.site;
+  let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+  assert.deepEqual(items.map((x) => x.taxable), [true, false]);
+  items = (await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: 3 })).data.items;
+  assert.deepEqual([items[0].taxable, items[0].stock], [true, 3], 'other fields are kept when one changes');
+  await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8 } });
+  await me('POST', `/api/sites/${site.id}/publish`, {});
+  const r = await anon('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: items[0].id, qty: 1 }, { id: items[1].id, qty: 1 }] }, { host: 'taxcafe.pfsites.test' });
+  assert.equal(r.status, 201);
+  const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+  assert.deepEqual([order.subtotal, order.tax, order.total], [3500, 80, 3580]);
+  assert.equal((await me('GET', `/api/sites/${site.id}/menu`)).data.items[0].stock, 2);
+  await me('PUT', `/api/sites/${site.id}/menu/${items[1].id}`, { taxable: true });
+  assert.match((await anon('GET', '/order', null, { host: 'taxcafe.pfsites.test' })).data, /"t":1/);
+});
