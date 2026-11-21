@@ -46,7 +46,6 @@ function accountMenu() {
       state.user.admin && h('button', { onclick: () => { close(); go('/app/admin'); } }, 'Staff dashboard'),
       h('button', { onclick: () => { close(); changePassword(); } }, 'Change password'),
       h('div', { style: 'padding:8px 12px 10px' }, h('small', { class: 'muted' }, 'Appearance'), h('div', { class: 'seg', style: 'margin-top:6px' }, [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']].map(([k, l]) => h('button', { 'aria-pressed': String(getTheme() === k), onclick: () => { setTheme(k); close(); } }, l)))),
-      canOfferInstall() && h('button', { onclick: () => { close(); installApp(); } }, 'Install app'),
       h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Sign out'),
       h('button', { onclick: async () => { close(); if (!await confirmSheet({ title: 'Sign out everywhere?', text: 'This signs your account out on every phone, tablet and computer, including this one. Use it if a device was lost or shared.', action: 'Sign out everywhere' })) return; await api('POST', '/api/auth/logout-all'); state.user = null; go('/login'); } }, 'Sign out everywhere'));
     wrap.append(menu);
@@ -334,7 +333,7 @@ async function dashboard() {
 function installBanner() {
   let hidden = false;
   try { hidden = !!localStorage.getItem('pf-install-hide'); } catch { /* private mode */ }
-  if (hidden || !canOfferInstall() || !matchMedia('(max-width:900px)').matches) return null;
+  if (true || hidden || !canOfferInstall() || !matchMedia('(max-width:900px)').matches) return null;   // the install prompt is switched off
   const el = h('div', { class: 'ins-banner' }, h('img', { src: '/assets/logo.svg', alt: '', width: 48, height: 48 }),
     h('div', { class: 'grow' }, h('b', {}, 'Get the app'), h('span', {}, 'Add it to your Home Screen for full screen and order alerts.')),
     h('button', { class: 'btn sm', onclick: installApp }, 'Install'),
@@ -443,6 +442,12 @@ async function render() {
 
 window.addEventListener('popstate', render);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+// When a new version goes live, an open tab picks it up the next time it comes back to the screen.
+let build = '';
+const checkBuild = async () => { try { const v = await (await fetch('/version', { cache: 'no-store' })).text(); if (build && v && v !== build) location.reload(); build = v || build; } catch { /* offline */ } };
+checkBuild();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBuild(); });
+setInterval(() => { if (document.visibilityState === 'visible' && !document.querySelector('.sheet, input:focus, textarea:focus')) checkBuild(); }, 300000);
 Promise.all([api('GET', '/api/me'), api('GET', '/api/config')])
   .then(([me, config]) => { state.user = me.user; state.config = config; })
   .catch(() => {})

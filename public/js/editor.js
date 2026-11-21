@@ -2172,7 +2172,6 @@ export async function editor(id, mount, title, startTab = '') {
           mode === 'office' && row('customers', 'Profile and sign-in', open('profile')),
           mode === 'site' && row('home', 'Back office', open(lastTab.office)),
           meta.live && row('out', 'View my live site', () => window.open(meta.url, '_blank', 'noopener')),
-          canOfferInstall() && row('phone', 'Install the app on this device', installApp),
           row('back', 'All my sites', async () => { await flush(); go('/app'); })))];
     }, 'more');
   }

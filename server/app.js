@@ -61,6 +61,7 @@ function sniffImage(buf) {
 
 export function createApp(options = {}) {
   const env = options.env || process.env;
+  const BUILD = String(env.RENDER_GIT_COMMIT || Date.now()).slice(0, 12);
   const dataDir = options.dataDir || env.DATA_DIR || join(ROOT, 'data');
   const db = openDb(dataDir);
   const uploadDir = dataDir === ':memory:' ? options.uploadDir : join(dataDir, 'uploads');
@@ -1648,6 +1649,7 @@ export function createApp(options = {}) {
 
     if (method !== 'GET' && method !== 'HEAD') return send(res, 405, 'Method not allowed');
     if (path === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
+    if (path === '/version') return send(res, 200, BUILD, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
     if (path === '/favicon.ico') return (await sendFile(res, join(ROOT, 'public'), 'icon-32.png', { 'Cache-Control': 'public, max-age=86400' })) || send(res, 404, '');
     if (path === '/sw.js') return (await sendFile(res, join(ROOT, 'public'), 'sw.js', { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' })) || send(res, 404, 'Not found');
     if (path === '/manifest.webmanifest') return (await sendFile(res, join(ROOT, 'public'), 'manifest.webmanifest', { 'Cache-Control': 'no-cache', 'Content-Type': 'application/manifest+json' })) || send(res, 404, 'Not found');
