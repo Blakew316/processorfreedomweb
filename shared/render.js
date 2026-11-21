@@ -446,7 +446,7 @@ export function renderPage(site, page = 'home', opts = {}) {
     main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty });
   } else if (page === 'book' && ordering?.booking?.enabled && ordering.booking.services.length) {
     pageTitle = ordering.booking.title || 'Book online';
-    main = bookingPage({ ordering, base, done: opts.booked, today: str(opts.today, 10) || new Date().toISOString().slice(0, 10) });
+    main = bookingPage({ lang, ordering, base, done: opts.booked, today: str(opts.today, 10) || new Date().toISOString().slice(0, 10) });
   } else if (page === 'invoice' && opts.invoice) {
     pageTitle = `${opts.invoice.kind === 'estimate' ? T.estimate : T.invoice} ${opts.invoice.label}`;
     main = invoicePage({ invoice: opts.invoice, business: { name: site.brand?.name || '', address: [biz.address1, biz.city, biz.state, biz.zip].filter(Boolean).join(', '), phone: str(biz.phone) }, payUrl: safeUrl(opts.invoice.payUrl) || safeUrl(biz.payUrl), lang });

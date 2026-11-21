@@ -16,7 +16,7 @@ export function createMailer(env) {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: fromName ? `${fromName.replace(/[<>"]/g, '')} <${address}>` : from, to: [to], subject, html, text, reply_to: replyTo || undefined }),
+        body: JSON.stringify({ from: fromName ? `${fromName.replace(/[<>"\r\n]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70)} <${address}>` : from, to: [to], subject, html, text, reply_to: replyTo || undefined }),
       });
       if (!res.ok) throw new Error(`Email provider answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
       return { sent: true };

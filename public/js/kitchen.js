@@ -10,7 +10,7 @@ export async function kitchen(id, mount, title) {
   const grid = h('div', { class: 'k-grid' });
   const clock = h('span', { class: 'muted' });
   const NEXT = { new: 'confirmed', confirmed: 'ready', ready: 'completed' };
-  const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'just now' : `${m} min ago`; };
+  const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'just now' : m < 90 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`; };
 
   function draw() {
     clock.textContent = new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });

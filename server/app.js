@@ -1527,6 +1527,7 @@ export function createApp(options = {}) {
 
     if (method !== 'GET' && method !== 'HEAD') return send(res, 405, 'Method not allowed');
     if (path === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
+    if (path === '/favicon.ico') return (await sendFile(res, join(ROOT, 'public'), 'icon-32.png', { 'Cache-Control': 'public, max-age=86400' })) || send(res, 404, '');
     if (path === '/sw.js') return (await sendFile(res, join(ROOT, 'public'), 'sw.js', { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' })) || send(res, 404, 'Not found');
     if (path === '/manifest.webmanifest') return (await sendFile(res, join(ROOT, 'public'), 'manifest.webmanifest', { 'Cache-Control': 'no-cache', 'Content-Type': 'application/manifest+json' })) || send(res, 404, 'Not found');
     const cache = { 'Cache-Control': 'no-cache' };
