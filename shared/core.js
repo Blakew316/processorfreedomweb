@@ -7,7 +7,8 @@ export const PLATFORM = 'Processor Freedom';
 export const esc = (v) =>
   String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export const str = (v, max = 5000) => (typeof v === 'string' ? v : v == null ? '' : String(v)).slice(0, max);
+// Text only: a number becomes its digits, anything else that is not text (a list, an object) becomes nothing.
+export const str = (v, max = 5000) => (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : '').slice(0, max);
 export const arr = (v) => (Array.isArray(v) ? v : []);
 
 /* ---------- Names → web addresses ---------- */
@@ -742,10 +743,21 @@ export function orderTotals(lines, method, ordering, tipPercent = 0, promo = nul
 }
 
 /* Opening hours work on "wall clock" time in the business's time zone. */
+const WALL_FORMAT = new Map(), WALL_SHIFT = new Map();
 export function wallNow(ordering, nowMs = Date.now()) {
-  const f = new Intl.DateTimeFormat('en-US', { timeZone: ordering.timezone || 'America/Chicago', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
-  const p = Object.fromEntries(f.formatToParts(new Date(nowMs)).map((x) => [x.type, Number(x.value)]));
-  return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute);
+  // The clock difference only changes on the hour at most, so it is worked out once per hour and reused: reports call this for every order.
+  const zone = ordering.timezone || 'America/Chicago', hour = Math.floor(nowMs / 3600000), key = `${zone}|${hour}`;
+  let shift = WALL_SHIFT.get(key);
+  if (shift === undefined) {
+    let f = WALL_FORMAT.get(zone);
+    if (!f) WALL_FORMAT.set(zone, f = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }));
+    const at = hour * 3600000;
+    const p = Object.fromEntries(f.formatToParts(new Date(at)).map((x) => [x.type, Number(x.value)]));
+    shift = Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute) - at;
+    if (WALL_SHIFT.size > 50000) WALL_SHIFT.clear();
+    WALL_SHIFT.set(key, shift);
+  }
+  return Math.floor(nowMs / 60000) * 60000 + shift;
 }
 export function openAtWall(ordering, wall) {
   if (!ordering.useHours) return true;

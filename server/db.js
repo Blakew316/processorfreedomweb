@@ -115,6 +115,11 @@ export function openDb(dataDir) {
   `);
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
+  // Reports look orders up by when they were paid or refunded, and customers by email.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS orders_paid ON orders(site_id, paid_at);
+    CREATE INDEX IF NOT EXISTS orders_refunded ON orders(site_id, refunded_at);
+  `);
   return {
     raw: db,
     get: (sql, ...a) => q(sql).get(...a),

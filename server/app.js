@@ -117,11 +117,12 @@ export function createApp(options = {}) {
     return new Promise((ok, fail) => {
       const chunks = [];
       let size = 0;
+      // Anything over the limit is read and thrown away, so the person gets a clear answer instead of a dropped connection.
       req.on('data', (c) => {
         size += c.length;
-        if (size > max) { fail(new HttpError(413, 'That is too large to upload.')); req.destroy(); } else chunks.push(c);
+        if (size > max) { chunks.length = 0; if (size > max * 8 + 4_000_000) { fail(new HttpError(413, 'That is too large to upload.')); req.destroy(); } } else chunks.push(c);
       });
-      req.on('end', () => ok(Buffer.concat(chunks)));
+      req.on('end', () => (size > max ? fail(new HttpError(413, 'That is too large to upload.')) : ok(Buffer.concat(chunks))));
       req.on('error', fail);
     });
   }
@@ -584,9 +585,10 @@ export function createApp(options = {}) {
       for (const l of JSON.parse(o.items)) c.items.set(l.name, (c.items.get(l.name) || 0) + l.qty);
     }
     const customers = [...people.values()].map((c) => ({ ...c, items: undefined, favourite: [...c.items].sort((a, b) => b[1] - a[1])[0]?.[0] || '' }));
+    const byEmail = new Map(customers.map((c) => [c.email, c]));
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
-      const hit = k.email && customers.find((c) => c.email === k.email.toLowerCase());
+      const hit = k.email && byEmail.get(k.email.toLowerCase());
       if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address });
       else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: 0, last: null, first: k.createdAt, favourite: '', contactId: k.id });
     }
@@ -679,7 +681,7 @@ export function createApp(options = {}) {
     if (db.get('SELECT COUNT(*) AS n FROM plans WHERE site_id = ?', site.id).n >= 200) bad(400, 'A site can have up to 200 recurring payments.');
     const name = str(b.name, 120).trim() || bad(400, 'Give the plan a name, such as Weekly lunch order.');
     const amount = Math.round(Number(b.amount));
-    if (!(amount > 0)) bad(400, 'Enter an amount above zero.');
+    if (!(amount > 0) || amount > 100_000_000) bad(400, 'Enter an amount above zero, up to $1,000,000.');
     if (!EVERY[b.every]) bad(400, 'Choose how often to bill.');
     const start = /^\d{4}-\d{2}-\d{2}$/.test(String(b.start)) ? b.start : new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
     const rate = Number(b.taxRate);
