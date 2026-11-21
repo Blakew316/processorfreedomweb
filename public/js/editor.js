@@ -1068,12 +1068,12 @@ export async function editor(id, mount, title, startTab = '') {
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
       const ICON = { Setup: 'settings', Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Ecommerce: 'address', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
-      const card = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, navTile(ICON[title] || 'page', 32), title), ...kids);
+      // On a computer every card is open; on a phone each one folds open with its arrow.
+      const card = (title, ...kids) => { const el = h('div', { class: 'set-card' }); const head = h('button', { type: 'button', class: 'set-head', 'aria-expanded': 'false', onclick: () => { const now = head.getAttribute('aria-expanded') !== 'true'; head.setAttribute('aria-expanded', String(now)); el.toggleAttribute('data-open', now); } }, navTile(ICON[title] || 'page', 32), h('span', {}, title), h('i', { class: 'fold-chev', 'aria-hidden': 'true' })); el.append(h('h3', {}, head), h('div', { class: 'set-body' }, h('div', {}, ...kids))); return el; };
       const u = state.user;
       return [h('div', { class: 'set-grid' },
         card('Setup', ...links(...SETUP.tabs.map((k, i) => [SETUP.subs[i], k]))),
         card('Profile', h('p', {}, h('b', {}, u.name || 'No name yet'), `, ${roleName}`), h('p', { class: 'muted' }, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-step sign-in is ', h('b', {}, u.twoFactor ? 'on' : 'off')), ...links(['Edit your profile', 'profile'])),
-        card('About your business', ...links(['Business information', 'bizinfo'], ['Business hours', 'hours'], ['Appearance', 'appearance'])),
         card('Business operations', ...links(['Taxes and additional charges', 'ordering'], ['Tips', 'tips'], ['Closeout', 'close'], ['Devices and printers', 'devices'], ['Alerts and emails', 'alerts'], ['Inventory', 'items']), h('a', { href: '#', onclick: (e) => { e.preventDefault(); quickbooks(); } }, 'Accounting sync (QuickBooks)')),
         card('Employees', ...links(['Team and logins', 'team'], ['Scheduling', 'schedule'], ['Timesheets', 'timesheets'])),
         card('Transactions', ...links(['New sale', 'sale'], ['Orders', 'orders'], ['Order types', 'r-types'], ['Payments', 'tx'], ['Cash log', 'cash'], ['Invoices and estimates', 'invoices'], ['Recurring payments', 'plans'])),
@@ -2152,17 +2152,25 @@ export async function editor(id, mount, title, startTab = '') {
       const has = (k) => tabs.some(([t]) => t === k);
       const open = (k) => () => { body.dataset.view = 'edit'; goTab(k); paintTop(); };
       const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, icon && navTile(NAV_NAMES.has(icon) ? icon : { out: 'address', phone: 'page' }[icon] || 'page', 29), h('b', {}, label), extra, navIcon('chev', 14));
-      // One card per section, its pages listed underneath: the same shape as the Settings app on an iPhone.
-      const section = (g) => { const ks = g.tabs.filter(has); return h('div', { class: 'more-group' }, h('h3', {}, g.label), h('div', { class: 'more-list' }, ks.map((k) => row(g.icon, ks.length > 1 ? g.subs[g.tabs.indexOf(k)] : g.label, open(k), [k === tab && h('span', { class: 'tag' }, 'Here'), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)])))); };
+      // One list of sections. A section with several pages opens with its arrow; a single page goes straight there.
       const mode = modeOf(tab), other = mode === 'office' ? 'site' : 'office';
-      const singles = NAV[mode].filter((g) => g.tabs.filter(has).length === 1), multi = NAV[mode].filter((g) => g.tabs.filter(has).length > 1);
+      const fold = (g) => {
+        const ks = g.tabs.filter(has);
+        if (!ks.length) return null;
+        const here = g.tabs.includes(tab), badge = g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh);
+        if (ks.length === 1) return h('button', { type: 'button', class: 'more-row', 'aria-current': here ? 'page' : null, onclick: () => { close(); open(ks[0])(); } }, navTile(g.icon, 29), h('b', {}, g.label), badge, navIcon('chev', 14));
+        const kids = h('div', { class: 'more-kids', 'data-shut': here ? null : '1' }, h('div', {}, ks.map((k) => h('button', { type: 'button', 'aria-current': k === tab ? 'page' : null, onclick: () => { close(); open(k)(); } }, g.subs[g.tabs.indexOf(k)], k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)))));
+        const head = h('button', { type: 'button', class: 'more-row more-fold', 'aria-expanded': String(here), onclick: () => { const now = head.getAttribute('aria-expanded') !== 'true'; head.setAttribute('aria-expanded', String(now)); if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; } }, navTile(g.icon, 29), h('b', {}, g.label), badge, h('span', { class: 'fold-chev', 'aria-hidden': 'true' }));
+        return [head, kids];
+      };
       return [h('div', { class: 'more-grab', 'aria-hidden': 'true' }), h('div', { class: 'row more-head' }, h('div', { class: 'grow' }, h('small', {}, mode === 'office' ? 'Back office' : 'Website'), h('h2', {}, meta.name)), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
-        singles.length > 0 && h('div', { class: 'more-group' }, h('div', { class: 'more-list' }, singles.map((g) => row(g.icon, g.label, open(g.tabs.filter(has)[0]), [g.tabs.includes(tab) && h('span', { class: 'tag' }, 'Here')])))),
-        ...multi.map(section),
-        h('div', { class: 'more-group' }, h('h3', {}, 'Account'), h('div', { class: 'more-list' },
-          mode === 'office' && row('settings', 'All settings', open('settings')),
+        h('div', { class: 'more-group' }, h('div', { class: 'more-list' }, NAV[mode].map(fold))),
+        h('div', { class: 'more-group' }, h('div', { class: 'more-list' },
+          mode === 'office' && row('address', 'Website', open(lastTab.site)),
+          mode === 'office' && has('booking') && row('calendar', 'Booking tools', open('booking')),
+          mode === 'office' && row('settings', 'Settings', open('settings')),
           mode === 'office' && row('customers', 'Profile and sign-in', open('profile')),
-          row(other === 'site' ? 'design' : 'home', other === 'site' ? 'Edit my website' : 'Back office', open(lastTab[other])),
+          mode === 'site' && row('home', 'Back office', open(lastTab.office)),
           meta.live && row('out', 'View my live site', () => window.open(meta.url, '_blank', 'noopener')),
           canOfferInstall() && row('phone', 'Install the app on this device', installApp),
           row('back', 'All my sites', async () => { await flush(); go('/app'); })))];

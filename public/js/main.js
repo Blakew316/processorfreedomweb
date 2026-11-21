@@ -173,7 +173,7 @@ function landing() {
       h('section', { class: 'l-hero has-video' }, heroVideo(), h('div', { class: 'page' },
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
         h('div', { class: 'ticks' }, tick('No code'), tick('Live in minutes'), tick('Pickup, curbside and delivery'), tick('Your own domain')),
-        h('div', { class: 'hero-cta' }, h('button', { class: 'btn lg', type: 'button', onclick: () => start() }, 'Build my site', h('i', { 'aria-hidden': 'true' }, '→')), h('a', { class: 'hero-sec', href: '#examples' }, 'See what others built')),
+        h('div', { class: 'hero-cta' }, h('button', { class: 'btn lg', type: 'button', onclick: () => start() }, 'Build my site', h('i', { 'aria-hidden': 'true' }, '→'))),
         h('div', { class: 'stage' },
           h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), barUrl), desk),
           h('div', { class: 'phone' }, phone),
