@@ -5,7 +5,7 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
   ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
-  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'],
+  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'], ['settings', 'Settings', 'settings', 'office'], ['profile', 'Profile', 'person', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
@@ -58,6 +58,8 @@ const HEAD = {
   booking: ['Online booking', 'Let customers ask for a table, a class or any other booking from your website. You confirm each request.'],
   devices: ['Devices', 'Phones, tablets and computers that get a notification for every new order.'],
   appearance: ['Appearance', 'Light or dark. This is remembered on this device only.'],
+  settings: ['Settings', 'Everything you can set up for your business, in one place.'],
+  profile: ['Profile', 'Your own sign-in details. These follow you across every site you can open.'],
   team: ['Employees', 'Give each person their own login, with only what they need.'],
 };
 // On a phone the first four sections of each side sit in the tab bar; the rest is under More.
@@ -979,6 +981,49 @@ export async function editor(id, mount, title, startTab = '') {
             h('td', { style: 'white-space:nowrap' }, c.balance > 0 && h('button', { class: 'btn soft sm', onclick: () => change(c, -1) }, 'Redeem'), ' ', h('button', { class: 'btn text sm', onclick: () => change(c, 1) }, 'Top up'))))))))
           : h('div', { class: 'inv-list' }, emptyState('tag', 'Grow your business with gift cards', 'Issue a card for any amount. The balance goes down each time it is used.', ['Issue gift card', issue])))];
     },
+    settings() {
+      const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
+      const card = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, title), ...kids);
+      const u = state.user;
+      return [h('div', { class: 'set-grid' },
+        card('Profile', h('p', {}, h('b', {}, u.name || 'No name yet'), `, ${roleName}`), h('p', { class: 'muted' }, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-step sign-in is ', h('b', {}, u.twoFactor ? 'on' : 'off')), ...links(['Edit your profile', 'profile'])),
+        card('About your business', ...links(['Business information', 'bizinfo'], ['Business hours', 'hours'], ['Closeout', 'close'])),
+        card('Employees', ...links(['Team and logins', 'team'], ['Scheduling', 'schedule'], ['Timesheets', 'timesheets'])),
+        card('Business operations', ...links(['Online ordering', 'ordering'], ['Online booking', 'booking'], ['Alerts and emails', 'alerts'], ['Devices', 'devices'], ['Tips', 'tips'], ['Taxes', 'r-taxes'], ['Appearance', 'appearance'])),
+        card('Transactions', ...links(['Orders', 'orders'], ['Transactions', 'tx'], ['Cash log', 'cash'], ['Invoices', 'invoices'], ['Estimates', 'est'], ['Recurring payments', 'plans'])),
+        card('Inventory', ...links(['Items', 'items'], ['Categories', 'menu'], ['Modifier groups', 'mods'], ['Menus', 'menus'], ['Printer labels', 'labels'], ['Revenue classes', 'revs'], ['Discounts', 'discs'])),
+        card('Customers and promotions', ...links(['Customers', 'customers'], ['Promo codes', 'promos'], ['Happy hour', 'deals'], ['Rewards', 'rewards'], ['Gift cards', 'gift'])),
+        card('Website', ...links(['Look and feel', 'design'], ['Home page', 'sections'], ['Business info on the site', 'business'], ['Web address', 'domain'], ['Policies', 'policies'], ['Search listing', 'seo'])))];
+    },
+    profile() {
+      const u = state.user;
+      const refresh = (user) => { state.user = { ...state.user, ...user }; paintPanel(); };
+      const ask = (title, fields, send, note) => sheet((close) => {
+        const err = h('p', { class: 'error', role: 'alert' });
+        const form = h('form', { class: 'stack', onsubmit: async (e) => { e.preventDefault(); err.textContent = ''; try { await send(Object.fromEntries(new FormData(form))); close(); toast('Saved'); } catch (ex) { err.textContent = ex.message; } } },
+          fields.map(([label, attrs]) => h('label', { class: 'field' }, h('span', {}, label), h('input', attrs))), note && h('p', { class: 'hint' }, note), err,
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Save')));
+        return [h('h2', {}, title), form];
+      });
+      const card = (title, value, action, onclick, note) => h('div', { class: 'prof-card' }, h('div', {}, h('h3', {}, title), value && h('p', {}, value), note && h('small', {}, note)), h('button', { class: 'btn soft sm', type: 'button', onclick }, action));
+      const twoStep = () => sheet((close) => {
+        const err = h('p', { class: 'error', role: 'alert' }), qr = h('div', { class: 'qr-box' }, skel(1)), key = h('code', { class: 'totp-key' }, '…');
+        api('POST', '/api/me/2fa/setup').then((r) => { key.textContent = r.secret.replace(/(.{4})/g, '$1 ').trim(); qrCanvas(r.uri).then((c) => qr.replaceChildren(c)).catch(() => qr.replaceChildren(h('p', { class: 'hint' }, 'Type the key below into your authenticator app instead.'))); }).catch((ex) => { err.textContent = ex.message; });
+        const form = h('form', { class: 'stack', onsubmit: async (e) => { e.preventDefault(); err.textContent = ''; try { refresh((await api('POST', '/api/me/2fa/enable', Object.fromEntries(new FormData(form)))).user); close(); toast('Two-step sign-in is on'); } catch (ex) { err.textContent = ex.message; } } },
+          h('ol', { class: 'steps-list' }, h('li', {}, 'Open an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or 1Password.'), h('li', {}, 'Scan this code, or type the key underneath it.'), h('li', {}, 'Enter the 6-digit code the app shows.')),
+          qr, h('p', { class: 'center' }, key),
+          h('label', { class: 'field' }, h('span', {}, '6-digit code'), h('input', { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' })), err,
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Turn on')));
+        return [h('h2', {}, 'Turn on two-step sign-in'), h('p', { class: 'muted' }, 'After this, signing in needs your password and a code from your phone. Other devices will be signed out.'), form];
+      });
+      return [h('div', { class: 'prof' },
+        card('Full name', u.name || 'Not added yet', u.name ? 'Edit' : 'Add', () => ask('Your name', [['Full name', { name: 'name', value: u.name || '', maxlength: 80, autocomplete: 'name', required: true, autofocus: true }]], async (d) => refresh((await api('PUT', '/api/me', d)).user))),
+        card('Email address', u.email, 'Edit', () => ask('Change your email address', [['New email address', { name: 'email', type: 'email', value: u.email, required: true, autocomplete: 'email' }], ['Your password, to confirm', { name: 'password', type: 'password', required: true, autocomplete: 'current-password' }]], async (d) => refresh((await api('POST', '/api/me/email', d)).user), 'You will sign in with the new address from now on.'), 'This is what you sign in with.'),
+        card('Mobile number', u.phone || '', u.phone ? 'Edit' : 'Add', () => ask('Your mobile number', [['Mobile number', { name: 'phone', type: 'tel', value: u.phone || '', autocomplete: 'tel', maxlength: 40 }]], async (d) => refresh((await api('PUT', '/api/me', d)).user)), 'So Processor Freedom can reach you about your account.'),
+        card('Password', '••••••••••', 'Edit', () => ask('Change your password', [['Current password', { name: 'current', type: 'password', required: true, autocomplete: 'current-password' }], ['New password', { name: 'next', type: 'password', required: true, minlength: 8, autocomplete: 'new-password' }]], (d) => api('POST', '/api/auth/password', d), 'At least 8 characters. Other devices are signed out.')),
+        card('Two-step sign-in', u.twoFactor ? 'On' : 'Off', u.twoFactor ? 'Turn off' : 'Turn on', u.twoFactor ? () => ask('Turn off two-step sign-in', [['Your password, to confirm', { name: 'password', type: 'password', required: true, autocomplete: 'current-password' }]], async (d) => refresh((await api('POST', '/api/me/2fa/disable', d)).user), 'Signing in will need only your password again.') : twoStep, u.twoFactor ? 'Signing in needs your password and a code from your authenticator app.' : 'Add a second step when you sign in: a code from an app on your phone.'),
+        card('Signed in elsewhere?', '', 'Sign out everywhere', async () => { if (!await confirmSheet({ title: 'Sign out everywhere?', text: 'This signs your account out on every phone, tablet and computer, including this one.', action: 'Sign out everywhere' })) return; await api('POST', '/api/auth/logout-all'); state.user = null; go('/login'); }, 'Use this if a phone or computer was lost or shared.'))];
+    },
     appearance() {
       const now = getTheme();
       const choice = (k, label, note) => h('button', { class: 'look-opt', type: 'button', 'aria-pressed': String(now === k), onclick: () => { setTheme(k); paintPanel(); } }, h('span', { class: `look-prev ${k}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), h('b', {}, label), h('small', {}, note));
@@ -1213,7 +1258,7 @@ export async function editor(id, mount, title, startTab = '') {
       if (changed && (tab === 'orders' || tab === 'start')) paintPanel(); else if (changed) paintPanel();
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
-  const poll = setInterval(() => { if (ordering.enabled && document.visibilityState === 'visible') loadOrders(true); }, 20000);
+  const poll = setInterval(() => { if (document.visibilityState !== 'visible') return; if (ordering.enabled) loadOrders(true); loadNotes(); }, 20000);
   const salesTick = setInterval(() => { if (SALES_TABS[tab] && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if (SALES_TABS[tab] && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
   if (ordering.enabled) loadOrders(true);
 
@@ -1813,7 +1858,7 @@ export async function editor(id, mount, title, startTab = '') {
     panel.classList.toggle('narrow', mode === 'office' && !WIDE.has(cur[0]));
     const has = (k) => tabs.some(([t]) => t === k);
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
-    const group = groups.find((g) => g.tabs.includes(cur[0])) || groups[0];
+    const group = groups.find((g) => g.tabs.includes(cur[0])) || { label: cur[1], icon: cur[2], tabs: [cur[0]], subs: [cur[1]] };   // Settings and Profile are reached from the top right, not the sidebar
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
     // A section with several pages only opens or closes when pressed; choosing a page underneath is what takes you there.
     if (navFor !== cur[0]) { navFor = cur[0]; openNav.add(group.label); }
@@ -1906,6 +1951,73 @@ export async function editor(id, mount, title, startTab = '') {
   stageWatch.observe(stage);
   function setDevice(d) { device = d; fit(); paintTop(); }
 
+  /* ---------- top right: notifications, settings, profile ---------- */
+  const TI = {
+    bell: '<path d="M6.500 10a5.500 5.500 0 0111 0c0 4 1.500 5.500 2 6.500H4.500c.500-1 2-2.500 2-6.500z"/><path d="M10 19.500a2.200 2.200 0 004 0"/>',
+    gear: '<circle cx="12" cy="12" r="2.800"/><path d="M12 3.200l1.300 2.300 2.600-.500.900 2.500 2.500.900-.500 2.600 2.300 1.300-2.300 1.300.500 2.600-2.500.900-.900 2.500-2.600-.500L12 20.800l-1.300-2.300-2.600.500-.900-2.500-2.500-.900.500-2.600L3.200 12l2.300-1.300-.500-2.600 2.500-.900.900-2.500 2.600.500z"/>',
+    x: '<path d="M6.500 6.500l11 11M17.500 6.500l-11 11"/>',
+    user: '<circle cx="12" cy="12" r="8.700"/><circle cx="12" cy="10" r="2.800"/><path d="M6.700 18.300a6 6 0 0110.600 0"/>',
+  };
+  const tIcon = (k, n = 21) => h('i', { class: 'tb-ic', 'aria-hidden': 'true', html: svg(TI[k], n) });
+  const roleName = { owner: 'Owner', manager: 'Manager', kitchen: 'Kitchen' }[loaded.role] || 'Owner';
+  const seenKey = `pf-seen-${id}`;
+  let notes = null, popEl = null;
+  const lastSeen = () => { try { return Number(localStorage.getItem(seenKey)) || 0; } catch { return 0; } };
+  const unread = () => !!notes && notes.some((x) => x.at > lastSeen());
+  async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !unread(); } catch { /* shown as empty */ } }
+  // A small panel that hangs from one of the top-right buttons and closes when you click away.
+  function popover(anchor, build) {
+    if (popEl) { const same = popEl._for === anchor; popEl._close(); if (same) return; }
+    const el = h('div', { class: 'tb-pop', role: 'dialog' }); el._for = anchor;
+    const close = () => { el.remove(); popEl = null; document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); anchor.setAttribute('aria-expanded', 'false'); };
+    const away = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) close(); };
+    const esc = (e) => { if (e.key === 'Escape') close(); };
+    el._close = close; el.append(...[build(close)].flat(Infinity).filter(Boolean));
+    document.body.append(el); popEl = el; anchor.setAttribute('aria-expanded', 'true');
+    const r = anchor.getBoundingClientRect(); el.style.top = `${Math.round(r.bottom + 10)}px`; el.style.right = `${Math.max(12, Math.round(window.innerWidth - r.right))}px`;
+    setTimeout(() => { document.addEventListener('mousedown', away); document.addEventListener('keydown', esc); });
+  }
+  const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'Just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`; };
+  function openNotes(btn) {
+    popover(btn, (close) => {
+      const list = h('div', { class: 'tb-notes' }, skel(3));
+      const draw = () => list.replaceChildren(...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, h('span', { class: `tb-kind ${x.kind}` }), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new. Orders, messages and booking requests show up here.')]));
+      const seenAt = lastSeen();
+      loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = true; });
+      return [h('div', { class: 'tb-pop-h' }, h('b', {}, 'Notifications'), h('button', { class: 'btn text sm', type: 'button', onclick: () => { close(); goTab('alerts'); } }, 'Alert settings')), list];
+    });
+  }
+  function openProfileMenu(btn) {
+    popover(btn, (close) => [
+      h('button', { class: 'tb-who', type: 'button', onclick: () => { close(); goTab('profile'); } }, tIcon('user', 22), h('span', {}, h('b', {}, state.user.name || state.user.email), h('small', {}, roleName))),
+      h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('profile'); } }, 'Profile and sign-in'),
+      h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); go('/app'); } }, 'All my sites'),
+      h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Log out'),
+    ]);
+  }
+  // The settings drawer: the handful of settings people open most, and a way to all of them.
+  function openSettings() {
+    sheet((close) => {
+      const row = (t, d, k) => h('button', { class: 'set-row', type: 'button', onclick: () => { close(); goTab(k); } }, h('b', {}, t), h('small', {}, d));
+      return [h('div', { class: 'drawer-h' }, h('h2', {}, tIcon('gear', 22), 'Settings'), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: close }, tIcon('x', 18))),
+        h('p', { class: 'drawer-k' }, 'Frequently used'),
+        row('Business information', 'Your business name, address, phone number and logo.', 'bizinfo'),
+        row('Business hours', 'When you are open, and when online orders are taken.', 'hours'),
+        row('Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', 'ordering'),
+        row('Online booking', 'What customers can book, how long it takes and how many at once.', 'booking'),
+        row('Alerts and emails', 'How you hear about new orders and what customers are sent.', 'alerts'),
+        row('Profile and sign-in', 'Your name, email, password and two-step sign-in.', 'profile'),
+        h('div', { class: 'drawer-f' }, h('button', { class: 'btn', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'View all settings'))];
+    }, 'drawer');
+  }
+  const topRight = () => {
+    const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !unread() }));
+    const gear = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Settings', 'aria-label': 'Settings', onclick: openSettings }, tIcon('gear'));
+    const me = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Profile', 'aria-label': 'Profile', 'aria-haspopup': 'dialog', onclick: () => openProfileMenu(me) }, tIcon('user'));
+    return h('div', { class: 'tb-right' }, bell, gear, me);
+  };
+  loadNotes();
+
   /* Where am I: Dashboard › Sales activity › Orders. Each step is a link back up. */
   function crumbs() {
     if (tab === 'start' || modeOf(tab) === 'site') return null;
@@ -1932,13 +2044,14 @@ export async function editor(id, mount, title, startTab = '') {
       h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo.svg', alt: 'PF Sites', width: 42, height: 42 })),
       h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
-      modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
+      modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label)],
       modeOf(tab) === 'site' && h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
       h('span', { class: 'grow' }),
       modeOf(tab) === 'office' && meta.live && h('a', { class: 'btn soft view-site', href: meta.url, target: '_blank', rel: 'noopener' }, h('span', {}, 'View site'), ic('out', 15)),
-      h('div', { class: 'mid' },
+      modeOf(tab) === 'office' && topRight(),
+      modeOf(tab) === 'site' && h('div', { class: 'mid' },
         h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
-        h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l))))],
+        h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l)))),
       modeOf(tab) === 'site' && h('button', { class: 'btn soft open-draft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
       pub].flat(Infinity).filter(Boolean));
   }

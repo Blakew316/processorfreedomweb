@@ -248,7 +248,12 @@ function auth(mode) {
       const data = Object.fromEntries(new FormData(form));
       state.user = (await api('POST', `/api/auth/${signup ? 'signup' : 'login'}`, data)).user;
       next();
-    } catch (ex) { err.textContent = ex.message; button.disabled = false; }
+    } catch (ex) {
+      button.disabled = false;
+      // Two-step sign-in: the password was right, now the six-digit code is asked for.
+      if (ex.data?.twoFactor && !form.querySelector('[name=code]')) { const box = f('6-digit code from your authenticator app', { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' }); err.before(box); box.querySelector('input').focus(); err.textContent = ''; button.textContent = 'Verify and sign in'; return; }
+      err.textContent = ex.message;
+    }
   } },
     h('h1', {}, signup ? 'Create your account' : 'Welcome back'),
     h('p', { class: 'sub' }, signup ? 'Then name your business and start building.' : 'Sign in to manage your site and orders.'),

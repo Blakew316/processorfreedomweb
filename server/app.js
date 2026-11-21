@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gzipSync } from 'node:zlib';
 import { promises as fs, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
@@ -24,6 +24,17 @@ class HttpError extends Error {
 }
 const bad = (status, message) => { throw new HttpError(status, message); };
 const sha = (s) => createHash('sha256').update(s).digest('hex');
+
+/* Two-step sign-in: the six-digit codes an authenticator app shows (the standard 30-second kind). */
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const toB32 = (buf) => { let bits = '', out = ''; for (const x of buf) bits += x.toString(2).padStart(8, '0'); for (let i = 0; i < bits.length; i += 5) out += B32[parseInt(bits.slice(i, i + 5).padEnd(5, '0'), 2)]; return out; };
+const fromB32 = (s) => { let bits = ''; for (const c of String(s).toUpperCase()) { const v = B32.indexOf(c); if (v >= 0) bits += v.toString(2).padStart(5, '0'); } const bytes = []; for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2)); return Buffer.from(bytes); };
+export function totpCode(secret, at = Date.now(), shift = 0) {
+  const buf = Buffer.alloc(8); buf.writeBigUInt64BE(BigInt(Math.floor(at / 30000) + shift));
+  const h = createHmac('sha1', fromB32(secret)).update(buf).digest(), o = h[19] & 15;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
+const totpOk = (secret, code) => /^\d{6}$/.test(String(code)) && !!secret && [-1, 0, 1].some((sft) => timingSafeEqual(Buffer.from(totpCode(secret, Date.now(), sft)), Buffer.from(String(code))));
 
 async function hashPassword(pw) {
   const salt = randomBytes(16);
@@ -153,8 +164,8 @@ export function createApp(options = {}) {
   function currentUser(req) {
     const token = cookie(req, 'pf_session');
     if (!token) return null;
-    const u = db.get('SELECT u.id, u.email, u.name, u.verified FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', sha(token), Date.now());
-    return u ? { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } : null;
+    const u = db.get('SELECT u.id, u.email, u.name, u.verified, u.phone, u.totp_on FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', sha(token), Date.now());
+    return u ? { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone, twoFactor: !!u.totp_on } : null;
   }
   const requireUser = (req) => currentUser(req) || bad(401, 'Please sign in to continue.');
 
@@ -354,8 +365,15 @@ export function createApp(options = {}) {
     const u = db.get('SELECT * FROM users WHERE email = ?', email);
     const ok = await checkPassword(str(b.password, 200), u ? u.pass_hash : '00:00');
     if (!u || !ok) bad(401, 'That email and password do not match.');
+    // With two-step sign-in on, the password alone is not enough: the code from the authenticator app is needed too.
+    if (u.totp_on) {
+      const code = str(b.code, 12).replace(/\s/g, '');
+      if (!code) return json(res, 401, { error: 'Enter the 6-digit code from your authenticator app.', twoFactor: true });
+      limit(`2fa:${u.id}`, 8, 15 * 60000);
+      if (!totpOk(u.totp_secret, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one.', twoFactor: true });
+    }
     startSession(req, res, u.id);
-    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } });
+    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
   });
 
   // Signs this account out on every phone, tablet and computer at once.
@@ -372,6 +390,59 @@ export function createApp(options = {}) {
     if (token) db.run('DELETE FROM sessions WHERE token_hash = ?', sha(token));
     res.setHeader('Set-Cookie', 'pf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
     json(res, 200, { ok: true });
+  });
+
+  /* The signed-in person's own details. */
+  route('PUT', '/api/me', async (req, res) => {
+    const user = requireUser(req);
+    const b = await readJson(req);
+    const name = b.name === undefined ? user.name : str(b.name, 80).trim();
+    const phone = b.phone === undefined ? user.phone : str(b.phone, 40).trim();
+    if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
+    db.run('UPDATE users SET name = ?, phone = ? WHERE id = ?', name, phone, user.id);
+    json(res, 200, { user: { ...user, name, phone } });
+  });
+  // Changing the sign-in email needs the password, and the new address has to be confirmed again before it carries staff powers.
+  route('POST', '/api/me/email', async (req, res) => {
+    const user = requireUser(req);
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    const b = await readJson(req);
+    const email = str(b.email, 200).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'Enter a valid email address.');
+    const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
+    if (!await checkPassword(str(b.password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
+    if (email !== user.email) {
+      if (db.get('SELECT 1 FROM users WHERE email = ?', email)) bad(409, 'Another account already uses that email address.');
+      db.run('UPDATE users SET email = ?, verified = 0 WHERE id = ?', email, user.id);
+    }
+    json(res, 200, { user: { ...user, email, admin: email === user.email ? user.admin : false } });
+  });
+  // Two-step sign-in. Step one hands out a secret for the authenticator app; it only takes effect once a code from the app proves it was set up.
+  route('POST', '/api/me/2fa/setup', (req, res) => {
+    const user = requireUser(req);
+    if (user.twoFactor) bad(409, 'Two-step sign-in is already on.');
+    const secret = toB32(randomBytes(20));
+    db.run('UPDATE users SET totp_secret = ?, totp_on = 0 WHERE id = ?', secret, user.id);
+    json(res, 200, { secret, uri: `otpauth://totp/${encodeURIComponent(`PF Sites:${user.email}`)}?secret=${secret}&issuer=${encodeURIComponent('PF Sites')}&digits=6&period=30` });
+  });
+  route('POST', '/api/me/2fa/enable', async (req, res) => {
+    const user = requireUser(req);
+    limit(`2fa:${user.id}`, 8, 15 * 60000);
+    const row = db.get('SELECT totp_secret FROM users WHERE id = ?', user.id);
+    if (!row.totp_secret) bad(400, 'Start again: the setup code has expired.');
+    if (!totpOk(row.totp_secret, str((await readJson(req)).code, 12).replace(/\s/g, ''))) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
+    db.run('UPDATE users SET totp_on = 1 WHERE id = ?', user.id);
+    // Every other device has to sign in again, now with a code.
+    db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
+    json(res, 200, { user: { ...user, twoFactor: true } });
+  });
+  route('POST', '/api/me/2fa/disable', async (req, res) => {
+    const user = requireUser(req);
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
+    if (!await checkPassword(str((await readJson(req)).password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
+    db.run("UPDATE users SET totp_on = 0, totp_secret = '' WHERE id = ?", user.id);
+    json(res, 200, { user: { ...user, twoFactor: false } });
   });
 
   route('POST', '/api/auth/password', async (req, res) => {
@@ -412,8 +483,8 @@ export function createApp(options = {}) {
     db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
     db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
     startSession(req, res, row.user_id);
-    const u = db.get('SELECT id, email, name, verified FROM users WHERE id = ?', row.user_id);
-    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } });
+    const u = db.get('SELECT id, email, name, verified, phone, totp_on FROM users WHERE id = ?', row.user_id);
+    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
   });
 
   route('GET', '/api/address', (req, res, p, url) => {
@@ -539,6 +610,18 @@ export function createApp(options = {}) {
   route('GET', '/api/sites/:id/domain-request', (req, res, p) => {
     const { site } = ownSite(req, p.id);
     json(res, 200, { request: db.get('SELECT desired, note, status, created_at AS createdAt FROM domain_requests WHERE site_id = ? ORDER BY created_at DESC LIMIT 1', site.id) || null });
+  });
+
+  /* What has happened lately at this shop: new orders, messages, booking requests and items running low. */
+  route('GET', '/api/sites/:id/notifications', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const o = orderingOf(site), out = [];
+    for (const r of db.all('SELECT number, name, method, total, status, created_at FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 15', site.id)) out.push({ kind: 'order', at: r.created_at, title: `Order #${r.number}${r.status === 'new' ? ' is waiting' : ''}`, text: `${r.name} · ${(ORDER_METHODS[r.method] || {}).name || r.method} · ${money(r.total)}`, tab: 'orders', open: r.status === 'new' });
+    for (const r of db.all('SELECT name, message, created_at FROM leads WHERE site_id = ? ORDER BY created_at DESC LIMIT 8', site.id)) out.push({ kind: 'message', at: r.created_at, title: `Message from ${r.name}`, text: str(r.message, 90), tab: 'inbox' });
+    for (const r of db.all("SELECT name, service, at, created_at FROM appointments WHERE site_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 8", site.id)) out.push({ kind: 'booking', at: r.created_at, title: 'Booking request', text: `${r.name} · ${r.service} · ${apptWhen(r.at)}`, tab: 'appts', open: true });
+    out.sort((a, b) => b.at - a.at);
+    const low = o.enabled ? db.all('SELECT name, stock FROM menu_items WHERE site_id = ? AND available = 1 AND stock <= ? ORDER BY stock, name LIMIT 6', site.id, o.lowStockAt).map((r) => ({ kind: 'stock', at: 0, title: r.stock <= 0 ? `${r.name} is sold out` : `${r.name} is running low`, text: r.stock <= 0 ? 'Add more to keep selling it.' : `${r.stock} left`, tab: 'items', open: true })) : [];
+    json(res, 200, { notifications: [...low, ...out].slice(0, 30) });
   });
 
   route('GET', '/api/sites/:id/leads', (req, res, p) => {

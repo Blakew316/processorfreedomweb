@@ -252,3 +252,63 @@ test('two devices cannot silently overwrite each other, and the other safety rul
     copy.close();
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('profile changes and two-step sign-in', async () => {
+  const { totpCode } = await import('../server/app.js');
+  const dir = mkdtempSync(join(tmpdir(), 'pfme-'));
+  const { client, stop } = await boot(dir);
+  try {
+    const a = client(), other = client();
+    await a('POST', '/api/auth/signup', { email: 'me@shop.test', password: 'long-enough-pw', name: 'Mel' });
+    await other('POST', '/api/auth/signup', { email: 'taken@shop.test', password: 'long-enough-pw' });
+    assert.equal((await client()('PUT', '/api/me', { name: 'X' })).status, 401, 'signed out cannot change a profile');
+
+    // Name and phone.
+    let r = await a('PUT', '/api/me', { name: 'Melanie Ruiz', phone: '+1 (903) 555-0100' });
+    assert.deepEqual([r.status, r.data.user.name, r.data.user.phone], [200, 'Melanie Ruiz', '+1 (903) 555-0100']);
+    assert.equal((await a('PUT', '/api/me', { phone: 'call me maybe' })).status, 400);
+    assert.equal((await a('GET', '/api/me')).data.user.phone, '+1 (903) 555-0100');
+    assert.equal((await other('GET', '/api/me')).data.user.name, '', 'someone else is untouched');
+
+    // Email: needs the password, cannot take someone else's address, and the new one is what signs in.
+    assert.equal((await a('POST', '/api/me/email', { email: 'new@shop.test', password: 'wrong-password' })).status, 401);
+    assert.equal((await a('POST', '/api/me/email', { email: 'taken@shop.test', password: 'long-enough-pw' })).status, 409);
+    assert.equal((await a('POST', '/api/me/email', { email: 'New@Shop.test', password: 'long-enough-pw' })).data.user.email, 'new@shop.test');
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'me@shop.test', password: 'long-enough-pw' })).status, 401);
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' })).status, 200);
+
+    // Two-step sign-in: off until a real code proves the app is set up.
+    const { secret, uri } = (await a('POST', '/api/me/2fa/setup', {})).data;
+    assert.match(uri, /^otpauth:\/\/totp\/.*secret=[A-Z2-7]{32}/);
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: '000000' })).status, 400);
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' })).status, 200, 'still password only until it is switched on');
+    const stay = client(); await stay('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' });
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
+    assert.equal((await stay('GET', '/api/sites')).status, 401, 'other devices are signed out when it is switched on');
+    assert.equal((await a('GET', '/api/me')).data.user.twoFactor, true);
+
+    // Now the password alone is refused, a wrong code is refused, the right one works.
+    const dev = client();
+    r = await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' });
+    assert.deepEqual([r.status, r.data.twoFactor], [401, true]);
+    assert.equal((await dev('GET', '/api/sites')).status, 401);
+    assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw', code: '123456' })).status, 401);
+    assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'wrong-password', code: totpCode(secret) })).status, 401, 'a right code does not rescue a wrong password');
+    assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw', code: ` ${totpCode(secret).slice(0, 3)} ${totpCode(secret).slice(3)} ` })).status, 200);
+    assert.equal((await dev('GET', '/api/sites')).status, 200);
+
+    // Turning it off needs the password.
+    assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'nope-nope-nope' })).status, 401);
+    assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' })).status, 200);
+
+    // Notifications belong to the shop: its owner reads them, a stranger does not.
+    const site = (await a('POST', '/api/sites', { name: 'Bell Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
+    await a('POST', `/api/sites/${site.id}/publish`, {});
+    const [item] = (await a('GET', `/api/sites/${site.id}/menu`)).data.items;
+    await client()('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: item.id, qty: 1 }] }, { host: 'bellcafe.pfsites.test' });
+    const notes = (await a('GET', `/api/sites/${site.id}/notifications`)).data.notifications;
+    assert.ok(notes.some((n) => n.kind === 'order' && n.open && /Ana/.test(n.text)));
+    assert.equal((await other('GET', `/api/sites/${site.id}/notifications`)).status, 404);
+  } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});

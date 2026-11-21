@@ -65,7 +65,7 @@ export async function api(method, path, body) {
     if (!res) throw new Error('We could not reach the server. Check your connection and try again.');
     if (restarting) throw new Error('We are updating right now. Give it a moment and try again.');
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { const e = new Error(data.error || 'Something went wrong. Please try again.'); e.status = res.status; throw e; }
+    if (!res.ok) { const e = new Error(data.error || 'Something went wrong. Please try again.'); e.status = res.status; e.data = data; throw e; }
     return data;
   }
 }

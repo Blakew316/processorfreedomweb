@@ -54,6 +54,9 @@ export function openDb(dataDir) {
   const addColumn = (table, column, type) => { if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`); };
   // Accounts that existed before email confirmation was tracked are trusted as they are.
   if (!db.prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = 'verified'").get()) { db.exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'); db.exec('UPDATE users SET verified = 1'); }
+  addColumn('users', 'phone', "TEXT NOT NULL DEFAULT ''");
+  addColumn('users', 'totp_secret', "TEXT NOT NULL DEFAULT ''");
+  addColumn('users', 'totp_on', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('sites', 'ordering', 'TEXT');
   addColumn('menu_items', 'options', 'TEXT');
   addColumn('menu_items', 'taxable', 'INTEGER NOT NULL DEFAULT 1');
