@@ -144,6 +144,15 @@ test('one account cannot read or change another account’s shop', async () => {
     const kept = b.cookie();
     await b('POST', '/api/auth/logout', {});
     assert.equal((await client(kept)('GET', '/api/sites')).status, 401);
+    // "Sign out everywhere" ends every session the account has, on every device.
+    const d1 = client(), d2 = client();
+    for (const d of [d1, d2]) assert.equal((await d('POST', '/api/auth/login', { email: 'a@shop.test', password: 'long-enough-pw' })).status, 200);
+    assert.equal((await d1('POST', '/api/auth/logout-all', {})).status, 200);
+    for (const d of [d1, d2, a]) assert.equal((await d('GET', '/api/sites')).status, 401);
+    // The app page tells the browser what it may load, and refuses to be framed elsewhere.
+    const shell = await fetch(`${a.base}/app`, { headers: { 'X-Forwarded-Host': 'app.pfsites.test' } });
+    assert.match(shell.headers.get('content-security-policy'), /frame-ancestors 'self'/);
+    assert.match(shell.headers.get('content-security-policy'), /connect-src 'self'/);
     // A made-up cookie is nobody.
     assert.equal((await client('pf_session=' + 'A'.repeat(43))('GET', '/api/sites')).status, 401);
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }

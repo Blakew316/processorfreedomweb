@@ -7,6 +7,8 @@ export function wizard(mount, title) {
   title('New site');
   const q = new URLSearchParams(location.search);
   const d = { name: q.get('name') || '', slug: '', edited: false };
+  // A style chosen on the home page carries through.
+  const style = /^[a-z]{2,20}$/.test(q.get('template') || '') ? q.get('template') : '';
   let found = { slug: '', available: false, problem: '', suggestions: [] };
 
   const line = h('div', { 'aria-live': 'polite', style: 'min-height:52px' });
@@ -39,7 +41,7 @@ export function wizard(mount, title) {
     document.body.append(veil);
     steps.forEach((li, i) => setTimeout(() => li.classList.add('on'), 150 + i * 380));
     try {
-      const [{ site }] = await Promise.all([api('POST', '/api/sites', { name: d.name, slug: cleanSlug(d.slug), template: 'order', kind: 'ordering' }), new Promise((r) => setTimeout(r, 1900))]);
+      const [{ site }] = await Promise.all([api('POST', '/api/sites', { name: d.name, slug: cleanSlug(d.slug), ...(style && style !== 'order' ? { template: style } : { template: 'order', kind: 'ordering' }) }), new Promise((r) => setTimeout(r, 1900))]);
       go(`/app/site/${site.id}`);
       setTimeout(() => veil.remove(), 250);
     } catch (ex) { veil.remove(); toast(ex.message, true); button.disabled = false; }

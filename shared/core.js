@@ -64,7 +64,7 @@ export function safeUrl(u) {
 
 export function safeImg(u) {
   const s = String(u ?? '').trim();
-  return /^\/u\/[\w.-]+$/.test(s) || /^https:\/\/[^\s"'<>]+$/i.test(s) ? s : '';
+  return /^\/u\/[\w.-]+$/.test(s) || /^\/assets\/demo\/[\w-]+\.jpg$/.test(s) || /^https:\/\/[^\s"'<>]+$/i.test(s) ? s : '';
 }
 
 export const isHex = (c) => /^#[0-9a-f]{6}$/i.test(String(c || ''));

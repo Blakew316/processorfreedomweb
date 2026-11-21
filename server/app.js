@@ -83,6 +83,9 @@ export function createApp(options = {}) {
 
   const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
 
+  // What the app itself may load and talk to: its own files, the two libraries it uses, and nothing else. It cannot be framed by another site or post a form elsewhere.
+  const APP_CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob: https:", "font-src 'self' data:", "connect-src 'self'", "frame-src 'self' https:", "worker-src 'self'", "manifest-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'"].join('; ');
+
   /* ---------- small helpers ---------- */
 
   const hits = new Map();
@@ -349,6 +352,15 @@ export function createApp(options = {}) {
     if (!u || !ok) bad(401, 'That email and password do not match.');
     startSession(req, res, u.id);
     json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } });
+  });
+
+  // Signs this account out on every phone, tablet and computer at once.
+  route('POST', '/api/auth/logout-all', (req, res) => {
+    const user = requireUser(req);
+    db.run('DELETE FROM sessions WHERE user_id = ?', user.id);
+    db.run('DELETE FROM push_subs WHERE user_id = ?', user.id);
+    res.setHeader('Set-Cookie', 'pf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    json(res, 200, { ok: true });
   });
 
   route('POST', '/api/auth/logout', (req, res) => {
@@ -1537,7 +1549,7 @@ export function createApp(options = {}) {
     if (path === '/' || /^\/(login|signup|forgot|reset|app(\/.*)?)$/.test(path)) {
       // Link previews need absolute image addresses, so the shell is filled in per request.
       shell ??= await fs.readFile(join(ROOT, 'public', 'index.html'), 'utf8');
-      return html(res, 200, shell.replaceAll('__ORIGIN__', esc(appOrigin(req))), cache);
+      return html(res, 200, shell.replaceAll('__ORIGIN__', esc(appOrigin(req))), { ...cache, 'Content-Security-Policy': APP_CSP, 'Permissions-Policy': 'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)' });
     }
     return html(res, 404, simplePage('Page not found', `This page does not exist on ${PLATFORM} Sites.`));
   }

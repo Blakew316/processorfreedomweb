@@ -8,8 +8,11 @@ const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0,
 const title = () => { document.title = 'Processor Freedom'; };
 
 export function topbar(...right) {
-  return h('header', { class: 'top' }, h('div', { class: 'in' },
-    link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
+  // Inside the app the brand sits in the middle, the same as in the back office.
+  const inApp = location.pathname.startsWith('/app');
+  return h('header', { class: `top${inApp ? ' app' : ''}` }, h('div', { class: 'in' },
+    inApp ? link('/app', { class: 'logo mid' }, h('img', { src: '/assets/icon-192.png', alt: '', width: 30, height: 30 }), h('span', {}, 'PF Sites'))
+      : link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
     h('nav', {}, ...right, themeButton())));
 }
 
@@ -39,7 +42,8 @@ function accountMenu() {
       h('button', { onclick: () => { close(); changePassword(); } }, 'Change password'),
       h('div', { style: 'padding:8px 12px 10px' }, h('small', { class: 'muted' }, 'Appearance'), h('div', { class: 'seg', style: 'margin-top:6px' }, [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']].map(([k, l]) => h('button', { 'aria-pressed': String(getTheme() === k), onclick: () => { setTheme(k); close(); } }, l)))),
       canOfferInstall() && h('button', { onclick: () => { close(); installApp(); } }, 'Install app'),
-      h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Sign out'));
+      h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Sign out'),
+      h('button', { onclick: async () => { close(); if (!await confirmSheet({ title: 'Sign out everywhere?', text: 'This signs your account out on every phone, tablet and computer, including this one. Use it if a device was lost or shared.', action: 'Sign out everywhere' })) return; await api('POST', '/api/auth/logout-all'); state.user = null; go('/login'); } }, 'Sign out everywhere'));
     wrap.append(menu);
     setTimeout(() => document.addEventListener('click', away));
   } }, state.user.name || 'Account'));
@@ -60,8 +64,12 @@ function landing() {
     if (!input.value.trim()) return;
     addr.replaceChildren(h('b', {}, r.address), r.available ? ' is available' : ` is taken${r.suggestions[0] ? `. Try ${showAddress(r.suggestions[0])}` : ''}`);
   });
+  // The preview below becomes the visitor's own business as they type.
+  let liveT = 0;
+  const showName = (name) => { clearTimeout(liveT); liveT = setTimeout(() => { const made = heroSite(name || 'Harbor & Vine'); desk.paint(made); phone.paint(made); barUrl.textContent = `${slugify(name || 'Harbor & Vine') || 'yourbusiness'}.com`; }, 220); };
   const input = h('input', { placeholder: 'Your business name', 'aria-label': 'Business name', maxlength: 80, autocomplete: 'organization', oninput: () => {
     const name = input.value.trim();
+    showName(name);
     if (!name) return addr.replaceChildren('Your web address appears as you type.');
     addr.replaceChildren(h('b', {}, showAddress(slugify(name) || '…')));
     check({ name });
@@ -72,18 +80,75 @@ function landing() {
     go(`${state.user ? '/app/new' : '/signup'}${q.size ? `?${q}` : ''}`);
   };
 
-  const demoSite = createSite('Harbor & Vine', 'order', { kind: 'ordering', accent: '#0a1f44' });
+  const heroSite = (name) => { const made = createSite(name, 'order', { kind: 'ordering', accent: '#0a1f44' }); for (const sec of made.sections) if (sec.type === 'hero') { sec.data.image = '/assets/demo/restaurant-3.jpg'; sec.data.layout = 'split'; } return made; };
+  const demoSite = heroSite('Harbor & Vine');
   const desk = thumb(demoSite, 'home', { menu: DEMO_MENU, ordering: DEMO_ORDERING });
   const phone = thumb(demoSite, 'order', { menu: DEMO_MENU, ordering: DEMO_ORDERING }, { w: 390, h: 800 });
   const chip = (cls, ...kids) => h('div', { class: `float ${cls}` }, ...kids);
   const bento = (cls, color, icon, t, d, extra) => h('div', { class: `bento ${cls} reveal` }, tile(color, icon), h('h3', {}, t), h('p', {}, d), extra);
   const tick = (t) => h('span', {}, h('i', { html: svg(I.check, 14) }), t);
+  const barUrl = h('span', {}, 'harborandvine.com');
+
+  /* Real sites, drawn live from the same templates people start with. */
+  // Each example is dressed the way a real owner would: a photo up top, more through the page.
+  const PHOTOS = { restaurant: 3, cafe: 3, retail: 2, salon: 3, services: 3, home: 3, fitness: 2, auto: 2, order: 2, simple: 1 };
+  const LAYOUT = { restaurant: 'cover', cafe: 'split', retail: 'cover', salon: 'split', services: 'split', home: 'cover', fitness: 'cover', auto: 'split', order: 'cover', simple: 'cover' };
+  const DARK = new Set(['fitness', 'auto']);
+  const dress = (site, id) => {
+    const pic = (n) => `/assets/demo/${id}${n > 1 ? `-${n}` : ''}.jpg`, count = PHOTOS[id] || 0;
+    if (!count) return site;
+    for (const sec of site.sections) {
+      if (sec.type === 'hero') { sec.data.image = pic(1); sec.data.layout = LAYOUT[id] || 'cover'; }
+      if (sec.type === 'about' && count > 1) sec.data.image = pic(2);
+      if (sec.type === 'gallery' && count > 1) { sec.enabled = true; sec.data.images = Array.from({ length: count }, (_, i) => ({ src: pic(count - i), alt: '' })); }
+    }
+    return site;
+  };
+  const example = (id, name = sampleName(id)) => dress(createSite(name, id, { ...(id === 'order' ? { kind: 'ordering' } : {}), ...(DARK.has(id) ? { mode: 'dark' } : {}) }), id);
+  const extraFor = (id) => (id === 'order' ? { menu: DEMO_MENU, ordering: DEMO_ORDERING } : {});
+  const card = (id) => { const t = TEMPLATES.find((x) => x.id === id); return h('button', { class: 'show-card', type: 'button', 'aria-label': `${sampleName(id)}, ${t.name}. Use this style`, onclick: () => pick(id, true) },
+    h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, `${slugify(sampleName(id))}.com`)), thumb(example(id), 'home', extraFor(id), { w: 1280, h: 800 }),
+    h('div', { class: 'cap' }, h('b', {}, sampleName(id)), h('span', {}, t.name))); };
+  const rowA = ['restaurant', 'fitness', 'salon', 'retail', 'home'], rowB = ['cafe', 'auto', 'order', 'services', 'simple'];
+
+  /* Pick a kind of business and see the site it starts as, on a computer and a phone. */
+  let chosen = 'restaurant';
+  const picks = h('div', { class: 'pick-chips', role: 'tablist', 'aria-label': 'Kind of business' });
+  const pickStage = h('div', { class: 'pick-stage' });
+  const pickCopy = h('div', { class: 'pick-copy' });
+  function pick(id, scroll) {
+    chosen = id; const t = TEMPLATES.find((x) => x.id === id);
+    picks.replaceChildren(...TEMPLATES.map((x) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(x.id === id), onclick: () => pick(x.id) }, x.name)));
+    pickStage.replaceChildren(
+      h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, `${slugify(sampleName(id))}.com`)), thumb(example(id), 'home', extraFor(id), { w: 1280, h: 860 })),
+      h('div', { class: 'phone' }, thumb(example(id), id === 'order' ? 'order' : 'home', extraFor(id), { w: 390, h: 800 })));
+    pickCopy.replaceChildren(h('h3', {}, t.name), h('p', {}, `${t.blurb}. Everything on the page is yours to change: words, photos, colours and sections.`),
+      h('button', { class: 'btn', type: 'button', onclick: () => { const q = new URLSearchParams({ template: id }); if (input.value.trim()) q.set('name', input.value.trim()); go(`${state.user ? '/app/new' : '/signup'}?${q}`); } }, `Start with ${t.name}`));
+    if (scroll) document.getElementById('styles')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  pick(chosen);
+
+  /* The back office, shown with believable numbers. */
+  const stat = (label, value, note) => h('div', { class: 'bo-kpi' }, h('small', {}, label), h('b', { 'data-count': value }, value), h('span', {}, note));
+  const orderRow = (n, who, what, state) => h('div', { class: 'bo-row' }, h('b', {}, `#${n}`), h('span', {}, who), h('em', {}, what), h('i', { class: `st ${state[1]}` }, state[0]));
+  const office = h('div', { class: 'bo reveal' },
+    h('div', { class: 'bo-main' },
+      h('div', { class: 'bo-head' }, h('b', {}, 'Today'), h('span', {}, 'Harbor & Vine')),
+      h('div', { class: 'bo-kpis' }, stat('Sales', '$1,284.50', '+12% on last week'), stat('Orders', '37', '5 waiting'), stat('Average order', '$34.72', 'pickup and delivery')),
+      h('div', { class: 'bo-chart', 'aria-hidden': 'true' }, [34, 52, 41, 68, 59, 86, 74].map((v, i) => h('i', { style: `--h:${v}%;--d:${i * 70}ms` }, h('u', {}, 'SMTWTFS'[i])))),
+      h('div', { class: 'bo-list' }, orderRow(1042, 'Ana Ruiz', 'Pickup · 3 items', ['New', 'new']), orderRow(1041, 'James T.', 'Delivery · 5 items', ['Confirmed', 'ok']), orderRow(1040, 'Maria S.', 'Curbside · 2 items', ['Ready', 'ready']))),
+    h('div', { class: 'bo-side' },
+      h('div', { class: 'bo-chip' }, tile('', I.mail, 18), h('div', {}, h('b', {}, 'Invoice INV-1018 paid'), h('span', {}, 'Acme Co · $864.00'))),
+      h('div', { class: 'bo-chip' }, tile('', ION.clock || I.list, 18), h('div', {}, h('b', {}, 'Table for 4 · 7:30 PM'), h('span', {}, 'Booking request'))),
+      h('div', { class: 'bo-chip' }, tile('', I.cash, 18), h('div', {}, h('b', {}, 'Gift card · $50.00'), h('span', {}, 'Sent to gia@example.com'))),
+      h('div', { class: 'bo-chip' }, tile('', I.person, 18), h('div', {}, h('b', {}, '212 customers'), h('span', {}, '38 regulars this month')))));
+  const can = (icon, t, d) => h('div', { class: 'can reveal' }, tile('', icon, 18), h('div', {}, h('b', {}, t), h('span', {}, d)));
 
   mount(
-    topbar(h('a', { class: 'opt', href: '#how' }, 'How it works'), h('a', { class: 'opt', href: '#features' }, 'Features'),
+    topbar(h('a', { class: 'opt', href: '#examples' }, 'Examples'), h('a', { class: 'opt', href: '#how' }, 'How it works'), h('a', { class: 'opt', href: '#features' }, 'Features'),
       state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
     h('main', {},
-      h('section', { class: 'l-hero' }, h('div', { class: 'page' },
+      h('section', { class: 'l-hero' }, h('div', { class: 'glow', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), h('div', { class: 'page' },
         h('p', { class: 'pill' }, h('i'), 'Websites and online ordering by Processor Freedom'),
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
         h('p', { class: 'lede' }, 'Type your business name. Upload your menu. A complete website with online ordering, live in minutes.'),
@@ -91,11 +156,21 @@ function landing() {
           h('div', { class: 'box' }, input, h('button', { class: 'btn', type: 'submit' }, 'Start building')), addr),
         h('div', { class: 'ticks' }, tick('No code'), tick('Live in minutes'), tick('Pickup, curbside and delivery'), tick('Your own domain')),
         h('div', { class: 'stage' },
-          h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), h('span', {}, 'harborandvine.com')), desk),
+          h('div', { class: 'browser' }, h('div', { class: 'bar' }, h('i'), h('i'), h('i'), barUrl), desk),
           h('div', { class: 'phone' }, phone),
           chip('f1', tile('', I.bag, 18), h('div', {}, h('b', {}, 'New order #1042'), h('span', {}, 'Pickup · 3 items · $27.03'))),
           chip('f2', h('i', { class: 'live' }), h('div', {}, h('b', {}, 'You’re live'), h('span', {}, 'Published just now'))),
           chip('f3', tile('', I.list, 18), h('div', {}, h('b', {}, '48 items imported'), h('span', {}, 'menu.csv')))))),
+
+      h('section', { class: 'l-sec l-show', id: 'examples' },
+        h('div', { class: 'page' }, h('p', { class: 'kicker' }, 'Examples'), h('h2', {}, 'One builder. Any kind of business.'),
+          h('p', { class: 'sub' }, 'Every site below is built with PF Sites. Tap one to start from it.')),
+        h('div', { class: 'show', 'aria-label': 'Example websites' }, h('div', { class: 'show-row a' }, rowA.map(card)), h('div', { class: 'show-row b' }, rowB.map(card)))),
+
+      h('section', { class: 'l-sec', id: 'styles' }, h('div', { class: 'page' },
+        h('p', { class: 'kicker' }, 'Pick your starting point'), h('h2', {}, 'See yours before you sign up.'),
+        h('p', { class: 'sub' }, 'Choose what you do. This is the site you begin with, on a computer and on a phone.'),
+        picks, h('div', { class: 'spick reveal' }, pickStage, pickCopy))),
 
       h('section', { class: 'l-sec tint', id: 'how' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'How it works'), h('h2', {}, 'Live in three steps.'),
@@ -106,6 +181,18 @@ function landing() {
             h('div', { class: 'mini dots' }, ['#0a1f44', '#1d1d1f', '#3a4a66', '#6e6e73', '#a1a1a6', '#d2d2d7'].map((c) => h('i', { style: `background:${c}` })))),
           h('div', { class: 'step reveal' }, h('span', { class: 'num' }, '3'), h('h3', {}, 'Go live'), h('p', {}, 'One click publishes your site and starts taking orders for pickup, curbside or delivery.'),
             h('div', { class: 'mini' }, h('span', { class: 'fakebtn' }, 'Publish'), h('span', { class: 'status ok' }, 'Live')))))),
+
+      h('section', { class: 'l-sec l-office', id: 'office' }, h('div', { class: 'page' },
+        h('p', { class: 'kicker' }, 'Back office'), h('h2', {}, 'Run the whole business from one place.'),
+        h('p', { class: 'sub' }, 'The website is the front door. Behind it: orders, invoices, bookings, reports and your team.'),
+        office,
+        h('div', { class: 'cans' },
+          can(I.bag, 'Orders and kitchen screen', 'New orders chime in. Confirm, mark ready, print.'),
+          can(I.mail, 'Invoices and estimates', 'Send a bill by email with a link to view it.'),
+          can(ION.clock || I.list, 'Bookings and scheduling', 'Customers request a time. You confirm it.'),
+          can(I.cash, 'Sales reports and closeout', 'Sales, tax, tips and tenders for any period.'),
+          can(I.items, 'Inventory that counts itself', 'Stock goes down with every order and refills daily.'),
+          can(I.person, 'Customers and team logins', 'Know your regulars. Give staff their own access.')))),
 
       h('section', { class: 'l-sec', id: 'features' }, h('div', { class: 'page' },
         h('p', { class: 'kicker' }, 'Features'), h('h2', {}, 'Everything a business needs online.'),
@@ -128,9 +215,12 @@ function landing() {
 
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  // The example rows only drift while they are on screen.
+  const show = document.querySelector('.show');
+  if (show) new IntersectionObserver((es) => es.forEach((e) => show.classList.toggle('run', e.isIntersecting)), { rootMargin: '200px' }).observe(show);
 }
 
-const SAMPLE = { restaurant: 'Harbor & Vine', cafe: 'Morning Ritual', retail: 'Field & Thread', salon: 'Studio Lumen', services: 'Northbridge Advisors', home: 'Summit Home Pros', fitness: 'Form Studio', auto: 'Main Street Auto', simple: 'Your Business' };
+const SAMPLE = { order: 'Corner Taqueria', restaurant: 'Harbor & Vine', cafe: 'Morning Ritual', retail: 'Field & Thread', salon: 'Studio Lumen', services: 'Northbridge Advisors', home: 'Summit Home Pros', fitness: 'Form Studio', auto: 'Main Street Auto', simple: 'Oak & Ember' };
 export const sampleName = (id) => SAMPLE[id] || 'Your Business';
 
 /* ---------- Sign in / sign up ---------- */
