@@ -229,6 +229,8 @@ section.on-brand.cta .panel{background:var(--bg2)}
 .ftr.simple .links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px;margin:22px 0 0;padding:0;list-style:none}
 .ftr.simple .soc{justify-content:center}
 .ftr.simple .base{justify-content:center;text-align:center;flex-direction:column;align-items:center;margin-top:28px}
+[data-preview] .pf-flash{animation:pfflash 1.4s ease-out}
+@keyframes pfflash{0%,35%{box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--accent) 70%,transparent)}100%{box-shadow:inset 0 0 0 3px transparent}}
 [data-preview] [data-sec]{cursor:pointer;transition:box-shadow .15s}
 [data-preview] [data-sec]:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent)}
 @media (max-width:860px){
