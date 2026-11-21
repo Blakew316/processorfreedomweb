@@ -941,3 +941,41 @@ test('invoices: create, total, send, view, remind, mark paid, contacts', async (
     base = saved; srv.close(); app3.close(); rmSync(d3, { recursive: true, force: true });
   }
 });
+
+test('inventory: modifier groups, menus, printer labels, revenue classes', async () => {
+  const core = await import('../shared/core.js');
+  const o = core.normalizeOrdering({ modGroups: [{ id: 'g1', name: 'Size', required: true, choices: [{ name: 'Small', price: 0 }, { name: 'Large', price: 150 }] }, { id: 'bad', name: '' }],
+    menus: [{ id: 'm1', name: 'Breakfast', cats: ['Eggs'], from: '06:00', to: '11:00' }], labels: ['Kitchen', 'Kitchen', ' Bar '], revClasses: ['Food'], discounts: [{ name: 'Staff', type: 'percent', value: 20 }] });
+  assert.deepEqual([o.modGroups.length, o.labels, o.discounts[0].value], [1, ['Kitchen', 'Bar'], 20]);
+  const items = [{ id: 'a', name: 'Coffee', category: 'Drinks', options: [], mods: ['g1', 'gone'] }, { id: 'b', name: 'Omelette', category: 'Eggs', options: [], mods: [] }];
+  assert.deepEqual(core.applyMods(items, o)[0].options.map((g) => g.name), ['Size']);
+  const at = (hhmm) => Date.parse(`2026-11-16T${hhmm}:00Z`) + 6 * 3600000; // Central is UTC-6 in November
+  assert.deepEqual(core.visibleMenu(items, o, at('08:00')).map((x) => x.name), ['Coffee', 'Omelette']);
+  assert.deepEqual(core.visibleMenu(items, o, at('14:00')).map((x) => x.name), ['Coffee'], 'breakfast is over; categories in no menu stay');
+
+  const d4 = mkdtempSync(join(tmpdir(), 'pfsites4-'));
+  const app4 = createApp({ dataDir: d4, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app4);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+  const me = client(), anon = client(), host = { host: 'modcafe.pfsites.test' };
+  await me('POST', '/api/auth/signup', { email: 'mods@shop.test', password: 'long-enough-pw' });
+  const site = (await me('POST', '/api/sites', { name: 'Mod Cafe', template: 'order', kind: 'ordering', csv: 'Category,Item,Price\nDrinks,Coffee,3.00\nDrinks,Tea,2.00' })).data.site;
+  let menu = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+  await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, modGroups: o.modGroups, labels: ['Bar'], revClasses: ['Drinks rev'] } });
+  menu = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [menu[0].id], set: { addMod: 'g1', label: 'Bar', revclass: 'Drinks rev' } })).data.items;
+  assert.deepEqual([menu[0].mods, menu[0].label, menu[0].revclass, menu[1].mods], [['g1'], 'Bar', 'Drinks rev', []]);
+  await me('POST', `/api/sites/${site.id}/publish`, {});
+  assert.match((await anon('GET', '/order', null, host)).data, /"Large",150/);
+  const who = { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
+  assert.equal((await anon('POST', '/_order', { ...who, items: [{ id: menu[0].id, qty: 1 }] }, host)).status, 400, 'a required shared choice must be made');
+  assert.equal((await anon('POST', '/_order', { ...who, items: [{ id: menu[0].id, qty: 2, opts: [[1]] }] }, host)).status, 201);
+  const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+  assert.deepEqual([order.subtotal, order.items[0].opts, order.items[0].label, order.items[0].rev], [900, ['Large'], 'Bar', 'Drinks rev']);
+  const st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+  assert.deepEqual(st.revenue, [{ name: 'Drinks rev', qty: 2, sales: 900 }]);
+  menu = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [menu[0].id], set: { removeMod: 'g1', label: '' } })).data.items;
+  assert.deepEqual([menu[0].mods, menu[0].label], [[], '']);
+  } finally { base = saved; srv.close(); app4.close(); rmSync(d4, { recursive: true, force: true }); }
+});

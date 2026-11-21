@@ -1,20 +1,20 @@
-import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
 import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
   ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'],
-  ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'],
+  ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
-  ['promos', 'Promo codes', 'tag', 'office'], ['deals', 'Discounts', 'tag', 'office'], ['rewards', 'Rewards', 'tag', 'office'],
+  ['promos', 'Promo codes', 'tag', 'office'], ['deals', 'Happy hour', 'tag', 'office'], ['rewards', 'Rewards', 'tag', 'office'],
   ['inbox', 'Feedback', 'inbox', 'office'], ['team', 'Employees', 'f_users', 'office'],
   ['ordering', 'Online ordering', 'sliders', 'office'], ['hours', 'Business hours', 'clock', 'office'], ['alerts', 'Alerts and emails', 'bell', 'office'],
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
+const WIDE = new Set(['mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes' };
 // Which settings cards belong on which screen.
 const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Alerts and reports', 'Order emails'] };
@@ -25,11 +25,11 @@ const NAV = {
   office: [
     { label: 'Dashboard', icon: 'home', tabs: ['start'] },
     { label: 'Orders', icon: 'orders', tabs: ['orders'] },
-    { label: 'Inventory', icon: 'menu', tabs: ['items', 'menu'], subs: ['Items', 'Categories'] },
+    { label: 'Inventory', icon: 'menu', tabs: ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs'], subs: ['Items', 'Categories', 'Modifier groups', 'Menus', 'Printer labels', 'Revenue classes', 'Discounts'] },
     { label: 'Reporting', icon: 'sales', tabs: ['sales', 'r-items', 'r-types', 'r-taxes'], subs: ['Sales overview', 'Item sales', 'Order types', 'Taxes'] },
     { label: 'Customers', icon: 'customers', tabs: ['customers'] },
     { label: 'Invoices', icon: 'invoice', tabs: ['invoices'] },
-    { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards'], subs: ['Promo codes', 'Discounts', 'Rewards'] },
+    { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards'], subs: ['Promo codes', 'Happy hour', 'Rewards'] },
     { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
     { label: 'Employees', icon: 'team', tabs: ['team'] },
     { label: 'Setup', icon: 'settings', tabs: ['ordering', 'hours', 'alerts'], subs: ['Online ordering', 'Business hours', 'Alerts and emails'] },
@@ -50,7 +50,7 @@ const HEAD = {
   hours: ['Business hours', 'When you take orders, ordering ahead, and how many orders the kitchen can handle.'],
   alerts: ['Alerts and emails', 'What you are told about, and where order emails go.'],
   promos: ['Promo codes', 'Codes customers type at checkout for money off.'],
-  deals: ['Discounts', 'Lower prices automatically at set times, such as happy hour.'],
+  deals: ['Happy hour', 'Lower prices automatically at set times.'],
   rewards: ['Rewards', 'Thank regulars with a reward after a set number of orders.'],
   team: ['Employees', 'Give each person their own login, with only what they need.'],
 };
@@ -108,7 +108,7 @@ export async function editor(id, mount, title) {
   const stage = h('div', { class: 'ed-stage' }, holder);
   let painted = '';
   function paint(force) {
-    const out = renderPage(draft, page, { preview: true, base: '', menu: pricedMenu(menu, ordering), ordering, siteKey: id });
+    const out = renderPage(draft, page, { preview: true, base: '', menu: applyMods(pricedMenu(menu, ordering), ordering), ordering, siteKey: id });
     const doc = frame.contentDocument;
     const vars = doc?.getElementById('pf-vars');
     if (!force && vars && painted === page && doc.body) {
@@ -766,6 +766,7 @@ export async function editor(id, mount, title) {
           h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['', 'Item', 'Category', 'Sold', 'Sales', 'Share of sales'].map((x) => h('th', {}, x)))),
             h('tbody', {}, st.items.map((it, i) => h('tr', {}, h('td', { class: 'muted' }, i + 1), h('td', {}, h('b', {}, it.name), i === 0 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Most popular')), h('td', { class: 'muted' }, it.category), h('td', {}, it.qty), h('td', {}, money(it.sales)),
               h('td', {}, h('div', { class: 'share' }, h('div', { class: 'track2' }, h('i', { style: `width:${(it.sales / topSales) * 100}%` })), h('span', { class: 'small muted' }, `${t.gross ? Math.round((it.sales / t.gross) * 100) : 0}%`))))))))),
+        !none && V === 'items' && (st.revenue || []).some((r) => r.name !== 'No revenue class') && h('div', { class: 'scard' }, h('h3', {}, 'Sales by revenue class'), st.revenue.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
         !none && V === 'items' && st.categories.length > 1 && h('div', { class: 'scard' }, h('h3', {}, 'Sales by category'), st.categories.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
         V === 'overview' && st.orders.length > 0 && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders in this period'), h('span', { class: 'small muted' }, `${st.orders.length} order${st.orders.length === 1 ? '' : 's'}`)),
           h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Order', 'When', 'Type', 'Customer', 'Items', 'Tax', 'Total', 'Status'].map((x) => h('th', {}, x)))),
@@ -859,6 +860,29 @@ export async function editor(id, mount, title) {
             h('td', { style: 'text-align:right;white-space:nowrap' }, v.status === 'sent' && h('button', { class: 'btn soft sm', onclick: () => markPaid(v) }, 'Mark paid'), ' ', h('button', { class: 'btn soft sm', onclick: () => openInvoice(v) }, v.status === 'draft' ? 'Edit' : 'Open'))))
             : [h('tr', {}, h('td', { colspan: 7, class: 'muted', style: 'text-align:center;padding:28px' }, 'No invoices match.'))])))),
         h('p', { class: 'hint' }, 'Invoices are tracked here on their own and are not added to the Sales screen, which covers orders placed on your site.'))];
+    },
+
+    /* Inventory lists kept with the ordering settings: modifier groups, menus, printer labels, revenue classes, discounts. */
+    mods() {
+      return listPage({ title: 'Modifier groups', hint: 'Modifier groups are used for add-ons, options or other customisations, such as sizes or toppings. Make one once and use it on as many items as you like.', add: 'Add modifier group', heads: ['Modifier group name', 'Choices', 'Used on'], rows: ordering.modGroups,
+        cells: (g) => [h('b', {}, g.name), g.choices.map((c) => (c.price ? `${c.name} +${money(c.price)}` : c.name)).join(', '), `${menu.filter((x) => (x.mods || []).includes(g.id)).length} items`],
+        empty: ['You do not have any modifier groups', 'Add one for sizes, toppings or sides, then tick the items it applies to.'], edit: editModGroup, remove: async (g) => { const ids = menu.filter((x) => (x.mods || []).includes(g.id)).map((x) => x.id); if (ids.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids, set: { removeMod: g.id } })).items; ordering.modGroups = ordering.modGroups.filter((x) => x.id !== g.id); } });
+    },
+    menus() {
+      const when = (m2) => `${m2.days.every(Boolean) ? 'Every day' : DAYS.filter((_, i) => m2.days[i]).map((d) => d.slice(0, 3)).join(', ')}${m2.from && m2.to ? ` · ${m2.from} to ${m2.to}` : ' · all day'}`;
+      return listPage({ title: 'Menus', hint: 'A menu is a set of categories shown at certain times, such as Breakfast or Lunch. Categories that are not in any menu are always shown.', add: 'Add menu', heads: ['Menu name', 'Categories', 'When', 'Status'], rows: ordering.menus,
+        cells: (m2) => [h('b', {}, m2.name), m2.cats.join(', ') || 'None yet', when(m2), h('span', { class: `status ${m2.active ? 'ok' : ''}` }, m2.active ? 'Published' : 'Off')],
+        empty: ['You do not have any menus', 'Without menus, your whole item list is shown all day.'], edit: editMenuSet, remove: (m2) => { ordering.menus = ordering.menus.filter((x) => x.id !== m2.id); } });
+    },
+    labels() { return namePage('labels', 'label', { title: 'Printer labels', hint: 'Printer labels sort items by where they are made, such as Kitchen or Bar. The kitchen screen can show one label at a time, so each station sees only its own items.', add: 'Add label', head: 'Label name', empty: ['You do not have any printer labels', 'Add labels like Kitchen, Bar or Bakery, then choose a label on each item.'] }); },
+    revs() { return namePage('revClasses', 'revclass', { title: 'Revenue classes', hint: 'Revenue classes let you track and compare revenue streams, such as Food, Drinks and Merchandise. They appear in Reporting › Item sales.', add: 'Add revenue class', head: 'Revenue class name', empty: ['You do not have any revenue classes', 'Add classes like Food and Drinks, then choose one on each item.'] }); },
+    discs() {
+      return listPage({ title: 'Discounts', hint: 'Saved discounts you can apply with one tap when you write an invoice. For codes customers type at checkout, use Promotions › Promo codes.', add: 'Add discount', heads: ['Discount name', 'Discount value'], rows: ordering.discounts,
+        cells: (x) => [h('b', {}, x.name), x.type === 'amount' ? `${money(x.value)} off` : `${x.value}% off`], empty: ['No discounts found', 'Add discounts such as Staff 20% or $5 off.'],
+        edit: (x) => formSheet(x ? 'Edit discount' : 'Add discount', [['name', 'Discount name', { maxlength: 60 }], ['type', 'Type', { options: { percent: 'Percent off', amount: 'Dollars off' } }], ['value', 'Amount', { inputmode: 'decimal', hint: 'A percent such as 10, or dollars such as 5.00.' }]],
+          x ? { name: x.name, type: x.type, value: x.type === 'amount' ? (x.value / 100).toFixed(2) : String(x.value) } : { name: '', type: 'percent', value: '10' },
+          (v) => { if (!v.name.trim()) throw new Error('Give the discount a name.'); const value = v.type === 'amount' ? parsePrice(v.value || '0') : Math.round(Number(v.value)); if (value === null || !(value > 0)) throw new Error('Enter an amount above zero.'); const row = { id: x?.id || uid('d'), name: v.name.trim(), type: v.type, value }; ordering.discounts = x ? ordering.discounts.map((y) => (y.id === x.id ? row : y)) : [...ordering.discounts, row]; }),
+        remove: (x) => { ordering.discounts = ordering.discounts.filter((y) => y.id !== x.id); } });
     },
 
     history() {
@@ -1020,6 +1044,10 @@ export async function editor(id, mount, title) {
           h('div', { class: 'field' }, h('span', {}, 'In stock'), h('div', { class: 'inv-qty' }, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), qtyIn, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)))),
           toggle('Charge sales tax', it, 'taxable', (v) => v !== false), toggle('Available to order', it, 'available', (v) => v !== false)),
         wrap('Refill every morning to', h('input', { type: 'number', min: 0, max: 999999, value: it.restock ?? '', placeholder: 'Off', style: 'max-width:160px', oninput: (e) => { it.restock = e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value)) || 0); save(); } }), 'For things you make fresh each day. The quantity goes back to this number every morning. Leave empty to keep counting down.'),
+        (ordering.labels.length > 0 || ordering.revClasses.length > 0) && h('div', { class: 'pair' },
+          ordering.labels.length > 0 && wrap('Printer label', h('select', { onchange: (e) => { it.label = e.target.value; save(); } }, h('option', { value: '' }, 'None'), ordering.labels.map((l) => h('option', { value: l, selected: it.label === l }, l)))),
+          ordering.revClasses.length > 0 && wrap('Revenue class', h('select', { onchange: (e) => { it.revclass = e.target.value; save(); } }, h('option', { value: '' }, 'None'), ordering.revClasses.map((l) => h('option', { value: l, selected: it.revclass === l }, l))))),
+        ordering.modGroups.length > 0 && h('div', { class: 'field' }, h('span', {}, 'Modifier groups'), h('div', { class: 'checks' }, ordering.modGroups.map((g) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: (it.mods || []).includes(g.id), onchange: (e) => { it.mods = (it.mods || []).filter((x) => x !== g.id); if (e.target.checked) it.mods.push(g.id); save(); } }), h('span', {}, g.name, h('small', {}, ` ${g.choices.length} choice${g.choices.length === 1 ? '' : 's'}`))))), h('small', {}, 'Shared sets of choices, managed under Inventory › Modifier groups.')),
         h('div', { class: 'field' }, h('span', {}, 'Options'), optBox),
         h('div', { class: 'acts', style: 'justify-content:space-between' },
           h('button', { class: 'btn danger', onclick: async () => {
@@ -1080,6 +1108,77 @@ export async function editor(id, mount, title) {
           p.items.length > 0 && menu.length > 0 && h('button', { class: 'btn soft', onclick: (e) => run(false, e.currentTarget) }, 'Add to my menu'),
           p.items.length > 0 && h('button', { class: 'btn', onclick: (e) => run(menu.length > 0, e.currentTarget) }, menu.length ? 'Replace my menu' : 'Build my menu'))];
     });
+  }
+
+  /* ---------- simple lists: a table, an Add button, and a pop-up to edit one row ---------- */
+  const saveLists = async () => { await putOrdering(); paintPanel(); paint(true); };
+  function listPage({ title, hint, add, heads, rows, cells, empty, edit, remove }) {
+    return [h('div', { class: 'inv' },
+      h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, title), h('p', { class: 'muted' }, hint)), h('button', { class: 'btn', onclick: () => edit(null) }, ic('plus', 16), add)),
+      rows.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable bills' }, h('thead', {}, h('tr', {}, [...heads, 'Action'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, rows.map((r) => h('tr', { onclick: (e) => { if (!e.target.closest('button')) edit(r); } }, cells(r).map((c) => h('td', {}, c)),
+          h('td', { style: 'white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: () => edit(r) }, 'Edit'), ' ', h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: `Delete ${r.name || r}?`, text: 'It is removed straight away.', action: 'Delete', danger: true })) return; try { await remove(r); await saveLists(); toast('Deleted'); } catch (e) { toast(e.message, true); } } }, 'Delete'))))))))
+        : h('div', { class: 'inv-list' }, emptyState('cube', empty[0], empty[1], [add, () => edit(null)])))];
+  }
+  /* A pop-up form built from a list of fields. `apply` changes the data and may throw a message to show. */
+  function formSheet(title, fields, values, apply, extra) {
+    const v = { ...values };
+    sheet((close) => {
+      const err = h('p', { class: 'error', role: 'alert' });
+      const control = ([k, label, a = {}]) => {
+        const { options, hint, area: isArea, ...attrs } = a;
+        const el = options ? h('select', { onchange: (e) => { v[k] = e.target.value; } }, Object.entries(options).map(([val, l]) => h('option', { value: val, selected: v[k] === val }, l)))
+          : isArea ? h('textarea', { rows: 4, value: v[k], oninput: (e) => { v[k] = e.target.value; }, ...attrs })
+            : attrs.type === 'checkbox' ? null : h('input', { value: v[k], oninput: (e) => { v[k] = e.target.value; }, ...attrs });
+        if (attrs.type === 'checkbox') return h('label', { class: 'switch' }, h('span', {}, label), h('input', { type: 'checkbox', checked: !!v[k], onchange: (e) => { v[k] = e.target.checked; } }), h('i'));
+        return h('label', { class: 'field' }, h('span', {}, label), el, hint && h('small', {}, hint));
+      };
+      return [h('h2', {}, title), h('form', { class: 'stack', onsubmit: async (e) => { e.preventDefault(); err.textContent = ''; try { await apply(v); await saveLists(); close(); toast('Saved'); } catch (ex) { err.textContent = ex.message; } } },
+        fields.map(control), extra && extra(v), err,
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Save')))];
+    }, 'wide');
+  }
+  const pickList = (label, all, chosen, hint) => h('div', { class: 'field' }, h('span', {}, label), all.length ? h('div', { class: 'checks' }, all.map(([val, text2]) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: chosen.has(val), onchange: (e) => { e.target.checked ? chosen.add(val) : chosen.delete(val); } }), h('span', {}, text2)))) : h('small', {}, 'Nothing to choose from yet.'), hint && h('small', {}, hint));
+  function editModGroup(g) {
+    const on = new Set(menu.filter((x) => g && (x.mods || []).includes(g.id)).map((x) => x.id)); const before = new Set(on);
+    formSheet(g ? 'Edit modifier group' : 'Add modifier group', [['name', 'Modifier group name', { maxlength: 60, placeholder: 'e.g. Size' }], ['choices', 'Choices, one per line', { area: true, placeholder: 'Small\nLarge +1.50', hint: 'Add a plus sign and a price for choices that cost extra.' }], ['required', 'Customer must choose', { type: 'checkbox' }], ['multi', 'Customer can pick several', { type: 'checkbox' }]],
+      g ? { name: g.name, choices: choicesText(g.choices), required: g.required, multi: g.multi } : { name: '', choices: '', required: false, multi: false },
+      async (v) => {
+        const choices = parseChoices(v.choices);
+        if (!v.name.trim()) throw new Error('Give the group a name.');
+        if (!choices.length) throw new Error('Add at least one choice.');
+        const row = { id: g?.id || uid('g'), name: v.name.trim(), required: !!v.required, multi: !!v.multi, choices };
+        ordering.modGroups = g ? ordering.modGroups.map((y) => (y.id === g.id ? row : y)) : [...ordering.modGroups, row];
+        const addTo = [...on].filter((x) => !before.has(x)), dropFrom = [...before].filter((x) => !on.has(x));
+        if (addTo.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: addTo, set: { addMod: row.id } })).items;
+        if (dropFrom.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: dropFrom, set: { removeMod: row.id } })).items;
+      }, () => pickList('Use on these items', menu.map((x) => [x.id, `${x.name} · ${x.category}`]), on));
+  }
+  function editMenuSet(m2) {
+    const cats = new Set(m2 ? m2.cats : []); const days = m2 ? [...m2.days] : DAYS.map(() => true);
+    formSheet(m2 ? 'Edit menu' : 'Add menu', [['name', 'Menu name', { maxlength: 60, placeholder: 'e.g. Breakfast' }], ['from', 'Shown from', { type: 'time' }], ['to', 'Until', { type: 'time', hint: 'Leave both times empty to show it all day.' }], ['active', 'Published', { type: 'checkbox' }]],
+      m2 ? { name: m2.name, from: m2.from, to: m2.to, active: m2.active } : { name: '', from: '', to: '', active: true },
+      (v) => { if (!v.name.trim()) throw new Error('Give the menu a name.'); if (!cats.size) throw new Error('Choose at least one category for this menu.'); const row = { id: m2?.id || uid('m'), name: v.name.trim(), cats: [...cats], from: v.from && v.to ? v.from : '', to: v.from && v.to ? v.to : '', days, active: !!v.active }; ordering.menus = m2 ? ordering.menus.map((y) => (y.id === m2.id ? row : y)) : [...ordering.menus, row]; },
+      () => [h('div', { class: 'field' }, h('span', {}, 'Days'), h('div', { class: 'daypick', role: 'group' }, DAYS.map((day, di) => h('button', { type: 'button', title: day, 'aria-pressed': String(days[di]), onclick: (e) => { days[di] = !days[di]; e.currentTarget.setAttribute('aria-pressed', String(days[di])); } }, day.slice(0, 2))))),
+        pickList('Categories in this menu', [...new Set(menu.map((x) => x.category))].map((c) => [c, c]), cats)]);
+  }
+  /* Printer labels and revenue classes are plain names, each chosen on items. */
+  function namePage(listKey, itemKey, { title, hint, add, head, empty }) {
+    const count = (n) => menu.filter((x) => x[itemKey] === n).length;
+    const edit = (old) => {
+      const on = new Set(menu.filter((x) => old && x[itemKey] === old).map((x) => x.id)); const before = new Set(on);
+      formSheet(old ? `Edit ${old}` : add, [['name', head, { maxlength: 40 }]], { name: old || '' }, async (v) => {
+        const name = v.name.trim();
+        if (!name) throw new Error('Enter a name.');
+        if (name !== old && ordering[listKey].includes(name)) throw new Error('That name is already in use.');
+        ordering[listKey] = old ? ordering[listKey].map((y) => (y === old ? name : y)) : [...ordering[listKey], name];
+        const setTo = [...on], clear = [...before].filter((x) => !on.has(x));
+        if (setTo.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: setTo, set: { [itemKey]: name } })).items;
+        if (clear.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: clear, set: { [itemKey]: '' } })).items;
+      }, () => pickList('Use on these items', menu.map((x) => [x.id, `${x.name}${x[itemKey] && x[itemKey] !== old ? ` (now ${x[itemKey]})` : ''}`]), on));
+    };
+    return listPage({ title, hint, add, heads: [head, 'Used on'], rows: ordering[listKey].map((n) => ({ name: n })), cells: (r) => [h('b', {}, r.name), `${count(r.name)} items`], empty, edit: (r) => edit(r ? r.name : null),
+      remove: async (r) => { const ids = menu.filter((x) => x[itemKey] === r.name).map((x) => x.id); if (ids.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids, set: { [itemKey]: '' } })).items; ordering[listKey] = ordering[listKey].filter((y) => y !== r.name); } });
   }
 
   /* ---------- invoices ---------- */
@@ -1169,7 +1268,7 @@ export async function editor(id, mount, title) {
         h('div', { class: 'bill-grid' },
           h('div', { class: 'stack' },
             h('div', { class: 'pair' }, h('label', { class: 'field' }, h('span', {}, 'Due date'), h('input', { type: 'date', value: v.due, onchange: (e) => { v.due = e.target.value; } })), h('label', { class: 'field' }, h('span', {}, 'Sales tax (%)'), h('input', { type: 'number', min: 0, max: 30, step: '0.001', value: v.taxRate, oninput: (e) => { v.taxRate = Number(e.target.value) || 0; drawTotals(); } }))),
-            h('label', { class: 'field' }, h('span', {}, 'Discount ($)'), discIn),
+            h('label', { class: 'field' }, h('span', {}, 'Discount ($)'), discIn, ordering.discounts.length > 0 && h('select', { 'aria-label': 'Use a saved discount', style: 'margin-top:8px', onchange: (e) => { const dd = ordering.discounts.find((x) => x.id === e.target.value); if (!dd) return; const sub = invoiceTotals(v.items.filter((l) => l.name.trim()), 0, 0).subtotal; v.discount = dd.type === 'amount' ? Math.min(sub, dd.value) : Math.round((sub * dd.value) / 100); discIn.value = (v.discount / 100).toFixed(2); drawTotals(); } }, h('option', { value: '' }, 'Use a saved discount…'), ordering.discounts.map((dd) => h('option', { value: dd.id }, `${dd.name} (${dd.type === 'amount' ? money(dd.value) : `${dd.value}%`})`)))),
             h('label', { class: 'field' }, h('span', {}, 'Note to customer'), h('textarea', { rows: 2, maxlength: 2000, value: v.notes, placeholder: 'Delivery details, thanks, payment terms…', oninput: (e) => { v.notes = e.target.value; } })),
             h('label', { class: 'field' }, h('span', {}, 'Pay link'), h('input', { value: v.payUrl, placeholder: bills.payUrl || 'https://', oninput: (e) => { v.payUrl = e.target.value; } }), h('small', {}, bills.payUrl ? 'Leave empty to use your Processor Freedom payment link from Business info. The invoice shows a Pay now button that opens it.' : 'Paste your Processor Freedom payment link and the invoice shows a Pay now button. Add it once under Website → Business info to use it on every invoice.'))),
           totalsBox),

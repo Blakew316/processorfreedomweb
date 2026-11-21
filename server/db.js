@@ -69,6 +69,9 @@ export function openDb(dataDir) {
     CREATE TABLE IF NOT EXISTS rewards (code TEXT NOT NULL, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, email TEXT NOT NULL, type TEXT NOT NULL, value INTEGER NOT NULL, earned_order TEXT NOT NULL, used_order TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (site_id, code));
   `);
   addColumn('menu_items', 'restock', 'INTEGER');
+  addColumn('menu_items', 'mods', 'TEXT');
+  addColumn('menu_items', 'label', "TEXT NOT NULL DEFAULT ''");
+  addColumn('menu_items', 'revclass', "TEXT NOT NULL DEFAULT ''");
   addColumn('sites', 'day', 'TEXT');
   db.exec(`
     CREATE TABLE IF NOT EXISTS members (site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, role TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (site_id, user_id));

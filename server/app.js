@@ -5,7 +5,7 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu, invoiceTotals, safeUrl } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu, invoiceTotals, safeUrl, applyMods } from '../shared/core.js';
 import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
@@ -169,7 +169,7 @@ export function createApp(options = {}) {
     return out;
   }
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
-  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
   const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at });
   function cleanItem(b, prev = {}) {
@@ -180,7 +180,7 @@ export function createApp(options = {}) {
     const stock = b.stock === undefined || b.stock === null || b.stock === '' ? prev.stock ?? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
     const restock = b.restock === undefined ? prev.restock ?? null : b.restock === null || b.restock === '' ? null : Math.max(0, Math.min(999999, Math.round(Number(b.restock)) || 0));
     const sale = b.sale === undefined ? prev.sale || 0 : Math.max(0, Math.min(90, Math.round(Number(b.sale)) || 0));
-    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, restock, sale, options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
+    return { category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, restock, sale, mods: JSON.stringify(Array.isArray(b.mods) ? b.mods.slice(0, 30).map((x) => str(x, 24)) : prev.mods ? JSON.parse(prev.mods) : []), label: str(b.label ?? prev.label, 40).trim(), revclass: str(b.revclass ?? prev.revclass, 40).trim(), options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
   }
   function insertItems(siteId, items, startStock = DEFAULT_STOCK) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
@@ -697,7 +697,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const prev = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id) || bad(404, 'That item no longer exists.');
     const it = cleanItem(await readJson(req), prev);
-    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, prev.id);
+    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ?, mods = ?, label = ?, revclass = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, it.mods, it.label, it.revclass, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
 
@@ -764,6 +764,9 @@ export function createApp(options = {}) {
         if (set.stock !== undefined) db.run('UPDATE menu_items SET stock = ? WHERE id = ?', num(set.stock, 0, 999999), row.id);
         if (set.addStock !== undefined) db.run('UPDATE menu_items SET stock = MAX(0, MIN(999999, stock + ?)) WHERE id = ?', num(set.addStock, -999999, 999999), row.id);
         if (set.restock !== undefined) db.run('UPDATE menu_items SET restock = ? WHERE id = ?', set.restock === null || set.restock === '' ? null : num(set.restock, 0, 999999), row.id);
+        if (typeof set.label === 'string') db.run('UPDATE menu_items SET label = ? WHERE id = ?', str(set.label, 40).trim(), row.id);
+        if (typeof set.revclass === 'string') db.run('UPDATE menu_items SET revclass = ? WHERE id = ?', str(set.revclass, 40).trim(), row.id);
+        if (typeof set.addMod === 'string' || typeof set.removeMod === 'string') { const cur = (row.mods ? JSON.parse(row.mods) : []).filter((x) => x !== set.removeMod && x !== set.addMod); if (typeof set.addMod === 'string') cur.push(str(set.addMod, 24)); db.run('UPDATE menu_items SET mods = ? WHERE id = ?', JSON.stringify(cur.slice(0, 30)), row.id); }
         if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
         if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', str(set.category, 60).trim(), row.id);
         if (set.pricePercent !== undefined) db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + num(set.pricePercent, -90, 500))) / 100))), row.id);
@@ -821,7 +824,7 @@ export function createApp(options = {}) {
     if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0 });
     else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0 }); }
     const methods = Object.fromEntries(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
-    const items = new Map(), cats = new Map(), list = [];
+    const items = new Map(), cats = new Map(), revs = new Map(), list = [];
     let cancelled = 0;
     for (const o of rows) {
       const day = dayOf(o.createdAt);
@@ -841,6 +844,7 @@ export function createApp(options = {}) {
         it.qty += l.qty; it.sales += l.price * l.qty;
         const c = cats.get(category) || cats.set(category, { name: category, qty: 0, sales: 0 }).get(category);
         c.qty += l.qty; c.sales += l.price * l.qty;
+        const rk = l.rev || 'No revenue class'; const rv = revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk); rv.qty += l.qty; rv.sales += l.price * l.qty;
       }
     }
     json(res, 200, {
@@ -848,7 +852,7 @@ export function createApp(options = {}) {
       totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax },
       methods: Object.values(methods), series: [...series.values()],
-      items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales),
+      items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales), revenue: [...revs.values()].sort((a, b) => b.sales - a.sales),
       orders: list.reverse().slice(0, 2000),
     });
   });
@@ -1014,13 +1018,13 @@ export function createApp(options = {}) {
         for (const w of wanted) {
           const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', w.id, site.id);
           if (!row || !row.available || row.stock === 0 || !visibleMenu([toItem(row)], ordering).length) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
-          const it = pricedMenu([toItem(row)], ordering)[0];
+          const it = applyMods(pricedMenu([toItem(row)], ordering), ordering)[0];
           before.set(it.id, { name: it.name, stock: it.stock });
           const picked = resolveOptions(it, w.picks);
           if (picked.error) bad(400, picked.error);
           need.set(it.id, (need.get(it.id) || 0) + w.qty);
           if (it.stock != null && it.stock < need.get(it.id)) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
-          lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks, taxable: it.taxable });
+          lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks, taxable: it.taxable, label: it.label, rev: it.revclass });
         }
         const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo, zone ? zone.fee : null);
         if (method === 'delivery' && t.subtotal < ordering.deliveryMin) bad(400, 'Your order is below the delivery minimum.');
@@ -1054,7 +1058,7 @@ export function createApp(options = {}) {
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
 
-    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering) };
+    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? applyMods(pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering) };
     const tracked = path.match(/^\/order\/([\w-]{10,40})$/);
     if (tracked) {
       const row = db.get('SELECT * FROM orders WHERE token = ? AND site_id = ?', tracked[1], site.id);

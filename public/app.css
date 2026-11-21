@@ -1826,3 +1826,11 @@ html[data-theme=dark] .ed-top .btn.soft{background:rgba(255,255,255,.12)}
 .sheet .btn:not(.soft):not(.text):not(.danger):not(.line){background:var(--brand);box-shadow:none;border-radius:980px}
 .sheet .btn.soft,html:not([data-theme=dark]) .sheet .btn.soft{background:#e7eaf1;box-shadow:none;border-radius:980px}
 html[data-theme=dark] .sheet .btn.soft{background:rgba(255,255,255,.12)}
+
+/* Tick lists inside forms */
+.checks{display:grid;gap:2px;max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:6px;background:var(--card)}
+.check{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:15px}
+.check:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.check input{width:18px;height:18px;flex:none;accent-color:var(--brand)}
+.check small{color:var(--muted);font-size:13px}
+.k-station{font:inherit;font-size:15px;color:var(--ink);background:var(--bg2);border:0;border-radius:980px;padding:9px 14px}

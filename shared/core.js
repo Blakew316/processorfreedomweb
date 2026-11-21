@@ -689,6 +689,7 @@ export function defaultOrdering() {
     hours: DAYS.map(() => ({ closed: false, open: '11:00', close: '21:00' })),
     promos: [], cats: [], zones: [], loyalty: { enabled: false, every: 10, type: 'amount', value: 500 },
     slotLimit: 0, deals: [], dailySummary: true, lowStockAt: 5,
+    modGroups: [], menus: [], labels: [], revClasses: [], discounts: [],
   };
 }
 const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
@@ -714,6 +715,12 @@ export function normalizeOrdering(input) {
     slotLimit: int(o.slotLimit, 0, 500, 0),
     deals: arr(o.deals).slice(0, 20).map((x) => ({ name: str(x?.name, 40).trim() || 'Happy hour', percent: int(x?.percent, 1, 90, 10), from: hhmm(x?.from, '15:00'), to: hhmm(x?.to, '18:00'), days: DAYS.map((_, i) => arr(x?.days)[i] !== false), category: str(x?.category, 60).trim(), active: x?.active !== false })),
     dailySummary: o.dailySummary !== false, lowStockAt: int(o.lowStockAt, 0, 9999, 5),
+    // Inventory lists: reusable modifier groups, menus, printer labels, revenue classes and named discounts.
+    modGroups: arr(o.modGroups).slice(0, 100).map((g, i) => ({ id: str(g?.id, 24) || `g${i}`, ...(cleanOptions([g])[0] || { name: '', required: false, multi: false, choices: [] }) })).filter((g) => g.name),
+    menus: arr(o.menus).slice(0, 30).map((m2, i) => ({ id: str(m2?.id, 24) || `m${i}`, name: str(m2?.name, 60).trim(), cats: [...new Set(arr(m2?.cats).map((c) => str(c, 60).trim()).filter(Boolean))].slice(0, 100), from: hhmm(m2?.from, ''), to: hhmm(m2?.to, ''), days: DAYS.map((_, d) => arr(m2?.days)[d] !== false), active: m2?.active !== false })).filter((m2) => m2.name),
+    labels: [...new Set(arr(o.labels).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
+    revClasses: [...new Set(arr(o.revClasses).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
+    discounts: arr(o.discounts).slice(0, 60).map((x, i) => ({ id: str(x?.id, 24) || `d${i}`, name: str(x?.name, 60).trim(), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_000_00, 0) : int(x?.value, 0, 100, 10) })).filter((x) => x.name),
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
@@ -798,12 +805,22 @@ export const rewardText = (l) => (l.type === 'percent' ? `${l.value}%` : money(l
 
 /** Items customers can see right now: hidden categories and categories outside their hours are left out. */
 export function visibleMenu(menu, ordering, nowMs = Date.now()) {
-  const metas = arr(ordering?.cats);
-  if (!metas.length) return arr(menu);
+  const metas = arr(ordering?.cats), menus = arr(ordering?.menus).filter((x) => x.cats.length);
+  if (!metas.length && !menus.length) return arr(menu);
   const d = new Date(wallNow(ordering, nowMs));
   const m = d.getUTCHours() * 60 + d.getUTCMinutes();
-  const off = new Set(metas.filter((c) => c.hidden || (c.from && c.to && (mins(c.from) <= mins(c.to) ? m < mins(c.from) || m >= mins(c.to) : m < mins(c.from) && m >= mins(c.to)))).map((c) => c.name));
-  return arr(menu).filter((x) => !off.has(x.category));
+  const inWindow = (from, to) => !from || !to || (mins(from) <= mins(to) ? m >= mins(from) && m < mins(to) : m >= mins(from) || m < mins(to));
+  const off = new Set(metas.filter((c) => c.hidden || !inWindow(c.from, c.to)).map((c) => c.name));
+  // A category placed in one or more menus shows only while one of those menus is on.
+  const listed = new Set(menus.flatMap((x) => x.cats));
+  const on = new Set(menus.filter((x) => x.active && x.days[d.getUTCDay()] !== false && inWindow(x.from, x.to)).flatMap((x) => x.cats));
+  return arr(menu).filter((x) => !off.has(x.category) && (!listed.has(x.category) || on.has(x.category)));
+}
+/** Adds the choices of any modifier groups an item is linked to, after the item's own options. */
+export function applyMods(menu, ordering) {
+  const groups = arr(ordering?.modGroups);
+  if (!groups.length) return arr(menu);
+  return arr(menu).map((it) => { const extra = arr(it.mods).map((id) => groups.find((g) => g.id === id)).filter(Boolean); return extra.length ? { ...it, options: [...arr(it.options), ...extra.map((g) => ({ name: g.name, required: g.required, multi: g.multi, choices: g.choices }))] } : it; });
 }
 
 /** What an item costs right now, after any sale discount. */
