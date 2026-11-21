@@ -390,3 +390,22 @@ test('design options: backgrounds, header and footer styles, quick styles', asyn
   assert.deepEqual([bad.theme.bg, bad.header.layout, bad.header.style, bad.footer.color, bad.footer.style, bad.sections[0].bg], ['', 'left', 'glass', 'soft', 'columns', '']);
   for (const k of Object.keys(QUICK_STYLES)) { applyQuickStyle(site, k); assert.equal(renderPage(normalizeSite(site), 'home').status, 200); }
 });
+
+test('staff can delete accounts, with their sites', async () => {
+  const staff = client(), anon = client(), victim = client();
+  await staff('POST', '/api/auth/login', { email: 'staff@pf.test', password: 'another-long-pw' });
+  await victim('POST', '/api/auth/signup', { email: 'gone@shop.test', password: 'long-enough-pw' });
+  const site = (await victim('POST', '/api/sites', { name: 'Gone Soon', template: 'order', kind: 'ordering' })).data.site;
+  await victim('POST', `/api/sites/${site.id}/publish`, {});
+  assert.equal((await anon('GET', '/', null, { host: 'gonesoon.pfsites.test' })).status, 200);
+  const users = (await staff('GET', '/api/admin')).data.users;
+  const target = users.find((u) => u.email === 'gone@shop.test');
+  const self = users.find((u) => u.email === 'staff@pf.test');
+  assert.equal((await victim('DELETE', `/api/admin/users/${target.id}`)).status, 403);
+  assert.equal((await staff('DELETE', `/api/admin/users/${self.id}`)).status, 400);
+  assert.equal((await staff('DELETE', '/api/admin/users/nope')).status, 404);
+  assert.equal((await staff('DELETE', `/api/admin/users/${target.id}`)).status, 200);
+  assert.equal((await anon('GET', '/', null, { host: 'gonesoon.pfsites.test' })).status, 404);
+  assert.equal((await victim('GET', '/api/sites')).status, 401);
+  assert.ok(!(await staff('GET', '/api/admin')).data.users.some((u) => u.email === 'gone@shop.test'));
+});

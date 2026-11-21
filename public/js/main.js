@@ -233,7 +233,11 @@ async function admin() {
     table(['Site', 'Owner', 'Address', 'Status', 'Ordering', 'Orders', 'Messages', ''], data.sites.map((s) => h('tr', {}, h('td', {}, h('b', {}, s.name)), h('td', {}, s.owner), h('td', {}, h('a', { href: s.url, target: '_blank', rel: 'noopener' }, s.customDomain && s.domainVerified ? s.customDomain : s.address)),
       h('td', {}, h('span', { class: `status ${s.live ? 'ok' : ''}` }, s.live ? 'Live' : 'Draft')), h('td', {}, s.ordering.enabled ? (s.ordering.accepting ? 'On' : 'Paused') : 'Off'), h('td', {}, s.orders), h('td', {}, s.leads), h('td', {}, link(`/app/site/${s.id}`, { class: 'btn soft sm' }, 'Open')))), 'No sites yet.'),
     h('h2', { class: 'h2' }, 'Accounts'),
-    table(['Name', 'Email', 'Sites', 'Joined'], data.users.map((u) => h('tr', {}, h('td', {}, u.name || '—'), h('td', {}, u.email), h('td', {}, u.sites), h('td', {}, fmtDate(u.createdAt)))), 'No accounts yet.')));
+    table(['Name', 'Email', 'Sites', 'Joined', ''], data.users.map((u) => h('tr', {}, h('td', {}, u.name || '—'), h('td', {}, u.email), h('td', {}, u.sites), h('td', {}, fmtDate(u.createdAt)),
+      h('td', { style: 'text-align:right' }, u.id !== state.user.id && h('button', { class: 'btn danger sm', onclick: async () => {
+        if (!await confirmSheet({ title: `Delete ${u.email}?`, text: u.sites ? `This removes the account and its ${u.sites} site${u.sites === 1 ? '' : 's'}, including menus, orders and messages. Any published site goes offline. This cannot be undone.` : 'This removes the account. This cannot be undone.', action: 'Delete account', danger: true })) return;
+        try { await api('DELETE', `/api/admin/users/${u.id}`); toast('Account deleted'); admin(); } catch (ex) { toast(ex.message, true); }
+      } }, 'Delete')))), 'No accounts yet.')));
 }
 
 /* ---------- Router ---------- */

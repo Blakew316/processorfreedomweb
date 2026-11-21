@@ -496,9 +496,19 @@ export function createApp(options = {}) {
       },
       sites: sites.map((s) => ({ ...present(req, s), owner: s.owner, leads: s.leads, orders: s.orders })),
       orders: db.all('SELECT o.number, o.name, o.method, o.status, o.total, o.created_at AS createdAt, s.name AS siteName FROM orders o JOIN sites s ON s.id = o.site_id ORDER BY o.created_at DESC LIMIT 50'),
-      users: db.all('SELECT u.name, u.email, u.created_at AS createdAt, (SELECT COUNT(*) FROM sites s WHERE s.user_id = u.id) AS sites FROM users u ORDER BY u.created_at DESC LIMIT 500'),
+      users: db.all('SELECT u.id, u.name, u.email, u.created_at AS createdAt, (SELECT COUNT(*) FROM sites s WHERE s.user_id = u.id) AS sites FROM users u ORDER BY u.created_at DESC LIMIT 500'),
       requests,
     });
+  });
+
+  // Removes an account and everything it owns: sites, menus, orders and messages.
+  route('DELETE', '/api/admin/users/:id', (req, res, p) => {
+    const me = requireAdmin(req);
+    const target = db.get('SELECT id, email FROM users WHERE id = ?', p.id) || bad(404, 'That account no longer exists.');
+    if (target.id === me.id) bad(400, 'You cannot delete the account you are signed in with.');
+    if (ADMINS.has(target.email)) bad(400, 'Staff accounts cannot be deleted here.');
+    db.run('DELETE FROM users WHERE id = ?', target.id);
+    json(res, 200, { ok: true });
   });
 
   // Staff register a domain for the customer, then attach it here. It goes live immediately.
