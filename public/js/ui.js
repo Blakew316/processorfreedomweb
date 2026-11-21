@@ -54,11 +54,19 @@ export async function api(method, path, body) {
   const opts = { method, headers: {}, credentials: 'same-origin' };
   if (body instanceof Blob) { opts.body = body; opts.headers['Content-Type'] = body.type || 'application/octet-stream'; }
   else if (body !== undefined) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
-  let res;
-  try { res = await fetch(path, opts); } catch { throw new Error('You appear to be offline. Check your connection and try again.'); }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error(data.error || 'Something went wrong. Please try again.'); e.status = res.status; throw e; }
-  return data;
+  // The service restarts for a few seconds when it is updated. Wait that out quietly rather than showing an error.
+  const waits = method === 'GET' ? [600, 1500, 3000, 5000, 8000] : [1000, 2500, 5000];
+  for (let attempt = 0; ; attempt++) {
+    let res = null;
+    try { res = await fetch(path, opts); } catch { /* network hiccup or mid-restart */ }
+    const restarting = !res || [502, 503, 504].includes(res.status);
+    if (restarting && attempt < waits.length) { await new Promise((r) => setTimeout(r, waits[attempt])); continue; }
+    if (!res) throw new Error('We could not reach the server. Check your connection and try again.');
+    if (restarting) throw new Error('We are updating right now. Give it a moment and try again.');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const e = new Error(data.error || 'Something went wrong. Please try again.'); e.status = res.status; throw e; }
+    return data;
+  }
 }
 
 export function go(path) { history.pushState(null, '', path); window.dispatchEvent(new Event('popstate')); }

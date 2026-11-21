@@ -988,3 +988,60 @@ button.inv-name small{font-size:13px;color:var(--muted)}
 .isheet .inv-qty .inv-in{text-align:center}
 
 @media (max-width:900px){.inv-row>[data-l]::before{white-space:nowrap}.inv-price .inv-in{width:70px}.inv-row .inv-qty .inv-in{width:52px}}
+
+/* ---------- Sales dashboard ---------- */
+.sales .inv-kpis .kpi.big{padding:20px 22px;gap:4px}
+.sales .kpi.big b{font-size:34px;letter-spacing:-.035em;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.delta{font-size:13px;font-weight:600;letter-spacing:0;border-radius:980px;padding:2px 9px}
+.delta.up{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+.delta.down{background:color-mix(in srgb,var(--red) 13%,transparent);color:var(--red)}
+.sales .scard{background:var(--card);border-radius:20px;padding:22px 24px;box-shadow:0 0 0 .500px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.03);display:grid;gap:12px;align-content:start;grid-template-columns:minmax(0,1fr);transform:none!important}
+.sales .scard:hover{box-shadow:0 0 0 .500px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.03)}
+.sales .scard h3{font-size:17px;font-weight:600;letter-spacing:-.015em}
+.sgrid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.rline{display:flex;justify-content:space-between;gap:16px;font-size:15px;padding:7px 0;border-bottom:1px solid var(--line)}
+.rline span{color:var(--muted)}
+.rline b{font-weight:500;font-variant-numeric:tabular-nums}
+.rline.strong b,.rline.strong span{font-weight:600;color:var(--ink)}
+.rline.total{border-bottom:0;padding-top:12px;font-size:17px}
+.rline.total span{color:var(--ink);font-weight:600}
+.rline.total b{font-weight:600;font-size:20px;letter-spacing:-.02em}
+.chart{display:grid;gap:8px}
+.chart-bars{display:flex;align-items:flex-end;gap:4px;height:210px;padding-top:22px;border-bottom:1px solid var(--line)}
+.cbar{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
+.cbar i{display:block;width:100%;max-width:44px;border-radius:6px 6px 0 0;background:var(--bg3);transition:height .6s var(--ease)}
+.cbar i.on{background:var(--switch)}
+.cbar em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chart-bars:has(.cbar:nth-child(13)) .cbar em{display:none}
+.cbar:hover i.on{filter:brightness(1.25)}
+.chart-x{display:flex;gap:4px}
+.chart-x span{flex:1;min-width:0;text-align:center;font-size:11px;color:var(--muted);white-space:nowrap}
+.mrow2{display:grid;gap:6px;padding:6px 0;font-size:14px}
+.mrow2 b{font-weight:600}
+.track2{height:8px;border-radius:8px;background:var(--bg2);overflow:hidden}
+.track2 i{display:block;height:100%;border-radius:8px;background:var(--switch);min-width:2px;transition:width .6s var(--ease)}
+.stable th,.stable td{white-space:nowrap}
+.stable td:nth-child(4),.stable td:nth-child(5),.stable th:nth-child(4),.stable th:nth-child(5){font-variant-numeric:tabular-nums}
+.share{display:grid;grid-template-columns:minmax(80px,1fr) 38px;gap:10px;align-items:center;min-width:150px}
+.stable tr.void td{opacity:.5;text-decoration:line-through}
+.stable tr.void td:last-child{text-decoration:none;opacity:1}
+.dates{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dates input{border:0;background:var(--card);border-radius:10px;padding:8px 10px;font-size:14px;color:var(--ink);box-shadow:0 0 0 .500px rgba(0,0,0,.1)}
+html[data-theme=dark] .dates input{color-scheme:dark;box-shadow:0 0 0 .500px rgba(255,255,255,.14)}
+html[data-theme=dark] .sales .scard{box-shadow:0 0 0 .500px rgba(255,255,255,.1)}
+@media (max-width:1100px){.sgrid3{grid-template-columns:1fr}}
+@media (max-width:900px){
+  .sales .inv-kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .sales .inv-kpis .kpi.big{padding:14px}
+  .sales .kpi.big b{font-size:24px}
+  .sales .inv-kpis .kpi span{white-space:normal}
+  .sales .scard{padding:18px 16px}
+  .chart-bars{height:160px}
+  .cbar em{display:none}
+}
+@media print{
+  .ed-top,.rail,.toasts,.inv-bar,.inv-top .row{display:none!important}
+  .ed,.ed-body,.ed-side,.panel{display:block!important;height:auto!important;overflow:visible!important;background:#fff!important}
+  .sales .scard,.inv-kpis .kpi{box-shadow:0 0 0 1px #ddd!important;break-inside:avoid}
+  .inv{gap:12px}
+}

@@ -31,7 +31,10 @@ an online ordering website, types their business name, picks a template, uploads
 - **Promo codes**: percent or dollar-off codes applied at checkout.
 - **Orders**: new orders appear in the builder and refresh on their own, with a chime and browser notification. Confirm, mark ready,
   complete or cancel, print a kitchen ticket, or open the large-type kitchen screen at `/app/site/<id>/kitchen`.
-- **Sales**: 30-day sales, order count, average order, best sellers and pickup/curbside/delivery split.
+- **Sales**: a full-width report for today, yesterday, this week, this month, the last 30 days or custom dates, in the business's
+  time zone. Net sales, orders, average order, sales tax collected (taxable and non-taxable sales), delivery fees, tips, total
+  collected, sales by hour or day, pickup/curbside/delivery split, item and category sales, and the orders behind the numbers.
+  Exports to CSV and prints. Cancelled orders are listed but not counted.
 - **Spanish**: a site language switch that translates the built-in words on merchant sites.
 - **Editor extras**: undo and redo, drag to reorder menu items.
 - **Menu categories**: rename, reorder, hide, or limit a category to certain hours (breakfast until 11).
@@ -58,6 +61,9 @@ npm test
 ```
 
 Data (a SQLite database and uploaded images) is stored in `DATA_DIR`, `./data` by default.
+
+The builder rides out restarts: requests retry for a few seconds, and page loads during an update show a short waiting page
+instead of an error.
 
 ## Deploy
 

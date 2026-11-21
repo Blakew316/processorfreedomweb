@@ -5,7 +5,7 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow } from '../shared/core.js';
 import { createMailer, orderEmail, resetEmail } from './mail.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -568,21 +568,76 @@ export function createApp(options = {}) {
     json(res, 200, { items: menuOf(site.id) });
   });
 
-  route('GET', '/api/sites/:id/stats', (req, res, p) => {
+  // The sales report. Dates are days in the business's own time zone.
+  route('GET', '/api/sites/:id/stats', (req, res, p, url) => {
     const { site } = ownSite(req, p.id);
-    const since = Date.now() - 30 * DAY;
-    const rows = db.all("SELECT * FROM orders WHERE site_id = ? AND status != 'cancelled' AND created_at > ? ORDER BY created_at", site.id, since).map(toOrder);
-    const tz = orderingOf(site).timezone;
-    const dayOf = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
-    const days = {}; const items = {}; const methods = {};
-    for (let i = 29; i >= 0; i--) days[dayOf(Date.now() - i * DAY)] = { orders: 0, sales: 0 };
-    for (const o of rows) {
-      const d = days[dayOf(o.createdAt)]; if (d) { d.orders++; d.sales += o.total; }
-      methods[o.method] = (methods[o.method] || 0) + 1;
-      for (const l of o.items) { items[l.name] ||= { name: l.name, qty: 0, sales: 0 }; items[l.name].qty += l.qty; items[l.name].sales += l.price * l.qty; }
+    const ordering = orderingOf(site);
+    const wall = (ms) => wallNow(ordering, ms);
+    const dayOf = (ms) => new Date(wall(ms)).toISOString().slice(0, 10);
+    const shift = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
+    const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v)) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+    const today = dayOf(Date.now());
+    const range = str(url.searchParams.get('range'), 20) || 'today';
+    let from = today, to = today;
+    if (range === 'yesterday') from = to = shift(today, -1);
+    else if (range === 'week') from = shift(today, -new Date(`${today}T00:00:00Z`).getUTCDay());
+    else if (range === 'last7') from = shift(today, -6);
+    else if (range === 'month') from = `${today.slice(0, 8)}01`;
+    else if (range === 'last30') from = shift(today, -29);
+    else if (range === 'custom') {
+      const f = url.searchParams.get('from'), t = url.searchParams.get('to');
+      if (!isDay(f) || !isDay(t)) bad(400, 'Choose a start and end date.');
+      [from, to] = f <= t ? [f, t] : [t, f];
+      if ((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY > 731) bad(400, 'Choose a range of two years or less.');
     }
-    const sales = rows.reduce((a, o) => a + o.total, 0);
-    json(res, 200, { orders: rows.length, sales, average: rows.length ? Math.round(sales / rows.length) : 0, tips: rows.reduce((a, o) => a + o.tip, 0), days: Object.entries(days).map(([date, v]) => ({ date, ...v })), top: Object.values(items).sort((a, b) => b.qty - a.qty).slice(0, 8), methods });
+    const days = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY) + 1;
+    const prevTo = shift(from, -1), prevFrom = shift(from, -days);
+    // Fetch a little wider than needed, then keep exactly the days asked for.
+    const rows = db.all('SELECT * FROM orders WHERE site_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at', site.id, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY).map(toOrder);
+    const catOf = Object.fromEntries(db.all('SELECT id, category FROM menu_items WHERE site_id = ?', site.id).map((r) => [r.id, r.category]));
+    const blank = () => ({ orders: 0, gross: 0, discounts: 0, net: 0, tax: 0, fees: 0, tips: 0, total: 0, taxable: 0, nontaxable: 0, units: 0 });
+    const add = (t, o) => {
+      const taxableLines = o.items.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0);
+      const taxable = o.subtotal ? Math.round(taxableLines - (o.discount * taxableLines) / o.subtotal) : 0;
+      t.orders++; t.gross += o.subtotal; t.discounts += o.discount; t.net += o.subtotal - o.discount; t.tax += o.tax; t.fees += o.fee; t.tips += o.tip; t.total += o.total;
+      t.taxable += taxable; t.nontaxable += o.subtotal - o.discount - taxable; t.units += o.items.reduce((a, l) => a + l.qty, 0);
+    };
+    const totals = blank(), prev = blank();
+    const byHour = days === 1;
+    const series = new Map();
+    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0 });
+    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0 }); }
+    const methods = Object.fromEntries(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
+    const items = new Map(), cats = new Map(), list = [];
+    let cancelled = 0;
+    for (const o of rows) {
+      const day = dayOf(o.createdAt);
+      if (day >= prevFrom && day <= prevTo && o.status !== 'cancelled') add(prev, o);
+      if (day < from || day > to) continue;
+      const w = new Date(wall(o.createdAt));
+      list.push({ number: o.number, date: day, time: `${String(w.getUTCHours()).padStart(2, '0')}:${String(w.getUTCMinutes()).padStart(2, '0')}`, method: o.method, name: o.name, status: o.status, subtotal: o.subtotal, discount: o.discount, promo: o.promo, tax: o.tax, fee: o.fee, tip: o.tip, total: o.total });
+      if (o.status === 'cancelled') { cancelled++; continue; }
+      add(totals, o);
+      const s1 = series.get(byHour ? String(w.getUTCHours()).padStart(2, '0') : day);
+      if (s1) { s1.orders++; s1.net += o.subtotal - o.discount; s1.tax += o.tax; }
+      const m = methods[o.method] || (methods[o.method] = { method: o.method, orders: 0, net: 0, total: 0 });
+      m.orders++; m.net += o.subtotal - o.discount; m.total += o.total;
+      for (const l of o.items) {
+        const category = catOf[l.id] || 'No longer on the menu';
+        const it = items.get(l.name) || items.set(l.name, { name: l.name, category, qty: 0, sales: 0 }).get(l.name);
+        it.qty += l.qty; it.sales += l.price * l.qty;
+        const c = cats.get(category) || cats.set(category, { name: category, qty: 0, sales: 0 }).get(category);
+        c.qty += l.qty; c.sales += l.price * l.qty;
+      }
+    }
+    json(res, 200, {
+      range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
+      totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
+      previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax },
+      methods: Object.values(methods), series: [...series.values()],
+      items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales),
+      orders: list.reverse().slice(0, 2000),
+    });
   });
 
   route('PUT', '/api/sites/:id/ordering', async (req, res, p) => {

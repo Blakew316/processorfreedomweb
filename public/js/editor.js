@@ -30,6 +30,7 @@ export async function editor(id, mount, title) {
   let editItem = null;       // menu item being edited
   let orderFilter = 'active';
   let stats = null;
+  let salesRange = 'today', salesFrom = '', salesTo = '', salesBusy = false;
   let invQ = '', invFilter = 'all';
   const invSel = new Set();
   const itemSavers = new Map();
@@ -621,28 +622,72 @@ export async function editor(id, mount, title) {
     },
 
     sales() {
-      if (!stats) { api('GET', `/api/sites/${id}/stats`).then((r) => { stats = r; if (tab === 'sales') paintPanel(); }).catch((e) => toast(e.message, true)); return [h('div', { class: 'loading', style: 'min-height:200px' }, h('div', { class: 'spinner' }))]; }
-      const st = stats;
-      const peak = Math.max(1, ...st.days.map((d) => d.sales));
-      const card = (label, value) => h('div', { class: 'kpi' }, h('span', { class: 'small muted' }, label), h('b', {}, value));
-      const totalMethods = Object.values(st.methods).reduce((a, b) => a + b, 0) || 1;
-      return [group('Last 30 days', h('div', { class: 'kpis' }, card('Sales', money(st.sales)), card('Orders', st.orders), card('Average order', money(st.average)), card('Tips', money(st.tips))),
-        h('div', { class: 'bars', role: 'img', 'aria-label': 'Sales per day for the last 30 days' }, st.days.map((d) => h('i', { title: `${d.date}: ${money(d.sales)} · ${d.orders} order${d.orders === 1 ? '' : 's'}`, style: `height:${Math.max(2, (d.sales / peak) * 100)}%`, class: d.sales ? 'on' : '' }))),
-        h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', {}, st.days[0].date.slice(5)), h('span', {}, 'Today'))),
-        group('Best sellers', st.top.length ? h('table', { class: 'ptable' }, h('tbody', {}, st.top.map((t) => h('tr', {}, h('td', {}, t.name), h('td', { class: 'muted' }, `${t.qty} sold`), h('td', {}, money(t.sales)))))) : note('No sales yet. Your best-selling items appear here once orders come in.')),
-        group('How customers order', Object.keys(ORDER_METHODS).filter((m) => st.methods[m]).map((m) => h('div', { class: 'split' }, h('span', {}, ORDER_METHODS[m].name), h('div', {}, h('i', { style: `width:${(st.methods[m] / totalMethods) * 100}%` })), h('b', {}, st.methods[m]))), !Object.keys(st.methods).length && note('Nothing to show yet.')),
-        h('button', { class: 'btn soft sm', style: 'justify-self:start', onclick: () => { stats = null; paintPanel(); } }, 'Refresh')];
-    },
+      const load = async () => {
+        if (salesBusy) return;
+        salesBusy = true;
+        try { stats = await api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`); }
+        catch (e) { toast(e.message, true); stats = stats || { failed: true }; }
+        salesBusy = false;
+        if (tab === 'sales') paintPanel();
+      };
+      const pick = (r) => { salesRange = r; stats = null; paintPanel(); };
+      const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days'], ['custom', 'Custom']];
+      const day = (d, o = { month: 'short', day: 'numeric' }) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
+      const head = (st) => h('div', { class: 'inv-top' },
+        h('div', {}, h('h2', {}, 'Sales'), h('p', { class: 'muted' }, st && st.from ? (st.from === st.to ? day(st.from, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : `${day(st.from, { month: 'long', day: 'numeric' })} to ${day(st.to, { month: 'long', day: 'numeric', year: 'numeric' })}`) : 'Your sales, tax and best sellers.')),
+        h('div', { class: 'row', style: 'flex-wrap:wrap' },
+          st && st.orders && st.orders.length > 0 && h('button', { class: 'btn soft', onclick: () => exportCsv(st) }, ic('dl', 16), 'Export'),
+          h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'),
+          h('button', { class: 'btn soft', onclick: () => { stats = null; paintPanel(); } }, 'Refresh')));
+      const fromIn = h('input', { type: 'date', value: salesFrom, 'aria-label': 'From', onchange: (e) => { salesFrom = e.target.value; } });
+      const toIn = h('input', { type: 'date', value: salesTo, 'aria-label': 'To', onchange: (e) => { salesTo = e.target.value; } });
+      const filter = h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, RANGES.map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(salesRange === k), onclick: () => { if (k === 'custom') { salesRange = 'custom'; paintPanel(); } else pick(k); } }, l))),
+        salesRange === 'custom' && h('form', { class: 'dates', onsubmit: (e) => { e.preventDefault(); if (!salesFrom || !salesTo) return toast('Choose a start and end date.', true); stats = null; paintPanel(); } }, fromIn, h('span', { class: 'muted' }, 'to'), toIn, h('button', { class: 'btn sm' }, 'Show')));
+      if (salesRange === 'custom' && (!salesFrom || !salesTo) && !stats) return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, 'Choose your dates'), h('p', {}, 'Pick a start and end date above, then press Show.'))))];
+      if (!stats) { load(); return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'loading', style: 'min-height:260px' }, h('div', { class: 'spinner' })))]; }
+      if (stats.failed) return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('alert', 30), h('b', {}, 'We could not load your sales'), h('p', {}, 'Nothing is lost. Press Refresh to try again.'))))];
 
-    history() {
-      if (!versions) { api('GET', `/api/sites/${id}/versions`).then((r) => { versions = r.versions; if (tab === 'history') paintPanel(); }).catch((e) => toast(e.message, true)); return [h('div', { class: 'loading', style: 'min-height:200px' }, h('div', { class: 'spinner' }))]; }
-      const when = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      return [group('Published versions', h('p', { class: 'hint' }, 'Every time you publish, we keep a copy. Restore one to bring your design and text back to how they were. Your menu, orders and settings are not affected.'),
-        versions.length ? h('div', { class: 'slist' }, versions.map((v, i) => h('div', { class: 'srow', style: 'padding:10px 10px 10px 14px' }, h('div', { class: 't', style: 'display:grid' }, h('b', {}, when(v.createdAt)), h('span', {}, i === 0 ? 'Latest published version' : `${versions.length - i} of ${versions.length}`)),
-          h('button', { class: 'btn soft sm', onclick: async () => {
-            if (!await confirmSheet({ title: 'Restore this version?', text: 'Your current draft is replaced. You can undo it, and nothing goes live until you publish.', action: 'Restore' })) return;
-            try { const r = await api('GET', `/api/sites/${id}/versions/${v.id}`); for (const k of Object.keys(draft)) delete draft[k]; Object.assign(draft, r.draft); changed(); toast('Version restored. Publish to make it live.'); goTab('design'); } catch (e) { toast(e.message, true); }
-          } }, 'Restore')))) : note('Nothing published yet. Versions appear here each time you publish.'))];
+      const st = stats, t = st.totals;
+      const change = (now, was) => { if (!was) return now ? h('span', { class: 'delta up' }, 'New') : null; const pct = Math.round(((now - was) / was) * 100); return h('span', { class: `delta ${pct >= 0 ? 'up' : 'down'}`, title: `Compared with ${day(st.previous.from)}${st.previous.from === st.previous.to ? '' : ` to ${day(st.previous.to)}`}` }, `${pct >= 0 ? '+' : ''}${pct}%`); };
+      const kpi = (label, value, extra, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value, extra), sub && h('span', { class: 'small muted' }, sub));
+      const peak = Math.max(1, ...st.series.map((x) => x.net));
+      const hour = (k) => { const n = Number(k); return `${n % 12 || 12}${n < 12 ? 'a' : 'p'}`; };
+      const busy = st.series.filter((x) => x.orders);
+      const shownSeries = st.unit === 'hour' ? st.series.slice(Math.max(0, Math.min(6, busy.length ? Number(busy[0].key) : 6)), Math.min(24, Math.max(23, busy.length ? Number(busy.at(-1).key) + 1 : 23))) : st.series;
+      const every = Math.ceil(shownSeries.length / 12);
+      const chart = h('div', { class: 'chart' }, h('div', { class: 'chart-bars', role: 'img', 'aria-label': `Sales by ${st.unit}` }, shownSeries.map((x) => h('div', { class: 'cbar', title: `${st.unit === 'hour' ? `${hour(x.key)}m` : day(x.key, { weekday: 'short', month: 'short', day: 'numeric' })}: ${money(x.net)} · ${x.orders} order${x.orders === 1 ? '' : 's'}` }, x.net > 0 && h('em', {}, money(x.net).replace(/\.00$/, '')), h('i', { class: x.net ? 'on' : '', style: `height:${Math.max(x.net ? 4 : 1.5, (x.net / peak) * 100)}%` })))),
+        h('div', { class: 'chart-x' }, shownSeries.map((x, i) => h('span', {}, i % every === 0 ? (st.unit === 'hour' ? hour(x.key) : day(x.key)) : ''))));
+      const line = (label, value, cls = '') => h('div', { class: `rline ${cls}` }, h('span', {}, label), h('b', {}, value));
+      const mTotal = st.methods.reduce((a, m) => a + m.orders, 0) || 1;
+      const topSales = Math.max(1, ...st.items.map((i) => i.sales));
+      const none = !t.orders;
+      return [h('div', { class: 'inv sales' }, head(st), filter,
+        h('div', { class: 'inv-kpis' },
+          kpi('Net sales', money(t.net), change(t.net, st.previous.net), `${money(t.gross)} in items${t.discounts ? `, ${money(t.discounts)} discounts` : ''}`),
+          kpi('Orders', t.orders, change(t.orders, st.previous.orders), t.cancelled ? `${t.cancelled} cancelled, not counted` : `${t.units} item${t.units === 1 ? '' : 's'} sold`),
+          kpi('Average order', money(t.average), null, 'Including tax, fees and tips'),
+          kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set')),
+        none && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
+        !none && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
+        !none && h('div', { class: 'sgrid3' },
+          h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
+            line('Item sales', money(t.gross)), t.discounts > 0 && line('Discounts and promo codes', `−${money(t.discounts)}`), line('Net sales', money(t.net), 'strong'),
+            line('Sales tax', money(t.tax)), line('Delivery fees', money(t.fees)), line('Tips', money(t.tips)), line('Total collected', money(t.total), 'total')),
+          h('div', { class: 'scard' }, h('h3', {}, 'Sales tax'),
+            line('Taxable sales', money(t.taxable)), line('Non-taxable sales', money(t.nontaxable)), line('Tax collected', money(t.tax), 'total'),
+            h('p', { class: 'hint' }, st.taxRate ? `Your rate is ${st.taxRate}%. Taxable sales are after discounts. Items with tax switched off are counted as non-taxable.` : 'You have no sales tax rate set. Add one under Ordering.')),
+          h('div', { class: 'scard' }, h('h3', {}, 'How customers ordered'),
+            st.methods.map((m) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, ORDER_METHODS[m.method]?.name || m.method), h('span', {}, `${m.orders} order${m.orders === 1 ? '' : 's'} · ${money(m.net)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${(m.orders / mTotal) * 100}%` })), h('span', { class: 'small muted' }, `${Math.round((m.orders / mTotal) * 100)}% of orders`))))),
+        !none && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Item sales'), h('span', { class: 'small muted' }, `${st.items.length} item${st.items.length === 1 ? '' : 's'} · ${t.units} sold`)),
+          h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['', 'Item', 'Category', 'Sold', 'Sales', 'Share of sales'].map((x) => h('th', {}, x)))),
+            h('tbody', {}, st.items.map((it, i) => h('tr', {}, h('td', { class: 'muted' }, i + 1), h('td', {}, h('b', {}, it.name), i === 0 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Most popular')), h('td', { class: 'muted' }, it.category), h('td', {}, it.qty), h('td', {}, money(it.sales)),
+              h('td', {}, h('div', { class: 'share' }, h('div', { class: 'track2' }, h('i', { style: `width:${(it.sales / topSales) * 100}%` })), h('span', { class: 'small muted' }, `${t.gross ? Math.round((it.sales / t.gross) * 100) : 0}%`))))))))),
+        !none && st.categories.length > 1 && h('div', { class: 'scard' }, h('h3', {}, 'Sales by category'), st.categories.map((c) => h('div', { class: 'mrow2' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, c.name), h('span', {}, `${c.qty} sold · ${money(c.sales)}`)), h('div', { class: 'track2' }, h('i', { style: `width:${t.gross ? (c.sales / t.gross) * 100 : 0}%` }))))),
+        st.orders.length > 0 && h('div', { class: 'scard' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Orders in this period'), h('span', { class: 'small muted' }, `${st.orders.length} order${st.orders.length === 1 ? '' : 's'}`)),
+          h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Order', 'When', 'Type', 'Customer', 'Items', 'Tax', 'Total', 'Status'].map((x) => h('th', {}, x)))),
+            h('tbody', {}, st.orders.slice(0, 200).map((o) => h('tr', { class: o.status === 'cancelled' ? 'void' : '' }, h('td', {}, h('b', {}, `#${o.number}`)), h('td', { class: 'muted' }, `${st.from === st.to ? '' : `${day(o.date)} `}${o.time}`), h('td', {}, ORDER_METHODS[o.method]?.name || o.method), h('td', {}, o.name), h('td', {}, money(o.subtotal - o.discount)), h('td', {}, money(o.tax)), h('td', {}, h('b', {}, money(o.total))),
+              h('td', {}, h('span', { class: `status ${o.status === 'cancelled' ? 'bad' : o.status === 'new' ? 'warn' : 'ok'}` }, ORDER_STATUSES[o.status] || o.status))))))),
+          st.orders.length > 200 && h('p', { class: 'hint' }, `Showing the latest 200. Export to see all ${st.orders.length}.`)))];
     },
 
     inbox() {
@@ -672,6 +717,7 @@ export async function editor(id, mount, title) {
     } catch (e) { if (!quiet) toast(e.message, true); }
   }
   const poll = setInterval(() => { if (ordering.enabled && document.visibilityState === 'visible') loadOrders(true); }, 20000);
+  const salesTick = setInterval(() => { if (tab === 'sales' && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if (tab === 'sales' && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
   if (ordering.enabled) loadOrders(true);
 
   async function putOrdering() { ordering = (await api('PUT', `/api/sites/${id}/ordering`, { ordering })).ordering; }
@@ -788,6 +834,18 @@ export async function editor(id, mount, title) {
     }, '', () => { if (!answered) done(null); });
   });
 
+  function exportCsv(st) {
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const cash = (c) => (c / 100).toFixed(2);
+    const rows = [['Order', 'Date', 'Time', 'Type', 'Customer', 'Status', 'Item sales', 'Discount', 'Promo code', 'Net sales', 'Sales tax', 'Delivery fee', 'Tip', 'Total'],
+      ...st.orders.map((o) => [o.number, o.date, o.time, ORDER_METHODS[o.method]?.name || o.method, o.name, ORDER_STATUSES[o.status] || o.status, cash(o.subtotal), cash(o.discount), o.promo, cash(o.subtotal - o.discount), cash(o.tax), cash(o.fee), cash(o.tip), cash(o.total)]),
+      [], ['Totals (cancelled orders left out)'], ['Orders', st.totals.orders], ['Item sales', cash(st.totals.gross)], ['Discounts', cash(st.totals.discounts)], ['Net sales', cash(st.totals.net)], ['Taxable sales', cash(st.totals.taxable)], ['Non-taxable sales', cash(st.totals.nontaxable)], ['Sales tax collected', cash(st.totals.tax)], ['Delivery fees', cash(st.totals.fees)], ['Tips', cash(st.totals.tips)], ['Total collected', cash(st.totals.total)],
+      [], ['Item', 'Category', 'Sold', 'Sales'], ...st.items.map((i) => [i.name, i.category, i.qty, cash(i.sales)])];
+    const url = URL.createObjectURL(new Blob([`﻿${rows.map((r) => r.map(q).join(',')).join('\r\n')}`], { type: 'text/csv' }));
+    h('a', { href: url, download: `${meta.slug}-sales-${st.from}${st.from === st.to ? '' : `-to-${st.to}`}.csv` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   async function importCsv() {
     const [file] = await pickFiles(false, SHEET_TYPES);
     if (!file) return;
@@ -870,7 +928,7 @@ export async function editor(id, mount, title) {
       DIVIDE_AFTER.has(k) && h('hr'),
     ]).filter(Boolean));
     tabsEl.replaceChildren(h('b', {}, cur[1]));
-    body.dataset.wide = String(cur[0] === 'items');
+    body.dataset.wide = String(cur[0] === 'items' || cur[0] === 'sales');
     panel.replaceChildren(...(cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()).flat(Infinity).filter(Boolean));
     panel.scrollTop = y;
   }
@@ -988,5 +1046,5 @@ export async function editor(id, mount, title) {
   mount(h('div', { class: 'ed' }, top, body));
   paintTop(); paintPanel(); paint(true);
 
-  return () => { window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
+  return () => { clearInterval(salesTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }

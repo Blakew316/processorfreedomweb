@@ -477,10 +477,10 @@ test('item options, promo codes, opening hours, scheduling, reset links, stats, 
     assert.match((await anon('GET', '/order', null, host)).data, /"slots":\{"pickup":\[\["20/);
 
     // Sales summary
-    r = await me('GET', `/api/sites/${site.id}/stats`);
-    assert.equal(r.data.orders, 2);
-    assert.equal(r.data.days.length, 30);
-    assert.equal(r.data.top[0].name, 'Burrito');
+    r = await me('GET', `/api/sites/${site.id}/stats?range=last30`);
+    assert.equal(r.data.totals.orders, 2);
+    assert.equal(r.data.series.length, 30);
+    assert.equal(r.data.items[0].name, 'Burrito');
     assert.equal((await client()('GET', `/api/sites/${site.id}/stats`)).status, 401);
 
     // Spanish
@@ -694,4 +694,58 @@ test('every item has a quantity; sale prices and bulk edits', async () => {
   assert.deepEqual([order.subtotal, order.tax, order.total], [1500, 0, 1500], 'sale price charged, no tax on a non-taxable item');
   items = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [taco.id, burrito.id], delete: true })).data.items;
   assert.ok(!items.some((x) => x.id === taco.id || x.id === burrito.id));
+});
+
+test('sales report: periods, tax, order types, items, cancelled orders', async () => {
+  const me = client(), anon = client();
+  await me('POST', '/api/auth/signup', { email: 'sales@shop.test', password: 'long-enough-pw' });
+  const site = (await me('POST', '/api/sites', { name: 'Sales Cafe', template: 'order', kind: 'ordering', methods: { pickup: true, curbside: true, delivery: true }, csv: 'Category,Item,Price,Taxable\nTacos,Taco,10.00,yes\nGifts,Gift card,25.00,no\nDrinks,Soda,2.00,yes' })).data.site;
+  const [taco, gift, soda] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+  await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, methods: { pickup: true, curbside: true, delivery: true }, taxRate: 10, deliveryFee: 300, promos: [{ code: 'TEN', type: 'percent', value: 10 }] } });
+  await me('POST', `/api/sites/${site.id}/publish`, {});
+  const host = { host: 'salescafe.pfsites.test' };
+  const who = { name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
+  const place = async (b) => assert.equal((await anon('POST', '/_order', { ...who, ...b }, host)).status, 201);
+  await place({ method: 'pickup', items: [{ id: taco.id, qty: 2 }, { id: gift.id, qty: 1 }] });                    // 4500, tax 200
+  await place({ method: 'delivery', address: '1 Main', tip: 10, items: [{ id: taco.id, qty: 1 }, { id: soda.id, qty: 5 }] }); // 2000, tax 200, fee 300, tip 200
+  await place({ method: 'curbside', vehicle: 'Blue truck', promo: 'TEN', items: [{ id: taco.id, qty: 1 }] });        // 1000 - 100, tax 90
+  await place({ method: 'pickup', items: [{ id: soda.id, qty: 1 }] });                                              // cancelled below
+  const all = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+  await me('POST', `/api/sites/${site.id}/orders/${all[0].id}`, { status: 'cancelled' });
+
+  let r = await me('GET', `/api/sites/${site.id}/stats?range=today`);
+  assert.equal(r.status, 200);
+  const t = r.data.totals;
+  assert.deepEqual([t.orders, t.cancelled, t.gross, t.discounts, t.net, t.tax, t.fees, t.tips, t.total], [3, 1, 7500, 100, 7400, 490, 300, 200, 8390]);
+  assert.deepEqual([t.taxable, t.nontaxable, t.units, t.average], [4900, 2500, 10, 2797]);
+  assert.equal(t.net + t.tax + t.fees + t.tips, t.total, 'the breakdown adds up to what was collected');
+  assert.equal(r.data.unit, 'hour');
+  assert.equal(r.data.series.length, 24);
+  assert.equal(r.data.series.reduce((a, x) => a + x.net, 0), 7400);
+  assert.deepEqual(r.data.methods.map((m) => [m.method, m.orders, m.net]), [['pickup', 1, 4500], ['curbside', 1, 900], ['delivery', 1, 2000]]);
+  assert.deepEqual(r.data.items.map((i) => [i.name, i.category, i.qty, i.sales]), [['Soda', 'Drinks', 5, 1000], ['Taco', 'Tacos', 4, 4000], ['Gift card', 'Gifts', 1, 2500]]);
+  assert.deepEqual(r.data.categories.map((c) => c.name), ['Tacos', 'Gifts', 'Drinks']);
+  assert.equal(r.data.orders.length, 4);
+  assert.equal(r.data.orders[0].status, 'cancelled');
+
+  // Other periods
+  r = await me('GET', `/api/sites/${site.id}/stats?range=yesterday`);
+  assert.deepEqual([r.data.totals.orders, r.data.totals.total, r.data.days], [0, 0, 1]);
+  r = await me('GET', `/api/sites/${site.id}/stats?range=month`);
+  assert.equal(r.data.totals.orders, 3);
+  assert.equal(r.data.unit, 'day');
+  assert.ok(r.data.from.endsWith('-01'));
+  const today = r.data.today;
+  const earlier = new Date(Date.parse(`${today}T00:00:00Z`) - 40 * 86400000).toISOString().slice(0, 10);
+  r = await me('GET', `/api/sites/${site.id}/stats?range=custom&from=${today}&to=${earlier}`);
+  assert.deepEqual([r.data.from, r.data.to, r.data.totals.orders, r.data.days], [earlier, today, 3, 41], 'dates given backwards are put in order');
+  assert.equal((await me('GET', `/api/sites/${site.id}/stats?range=custom&from=nope&to=${today}`)).status, 400);
+  assert.equal((await me('GET', `/api/sites/${site.id}/stats?range=custom&from=2000-01-01&to=${today}`)).status, 400);
+  r = await me('GET', `/api/sites/${site.id}/stats?range=last7`);
+  assert.deepEqual([r.data.days, r.data.series.length, r.data.previous.orders], [7, 7, 0]);
+  assert.equal((await client()('GET', `/api/sites/${site.id}/stats`)).status, 401);
+  // A deleted item still counts in past sales
+  await me('DELETE', `/api/sites/${site.id}/menu/${gift.id}`);
+  r = await me('GET', `/api/sites/${site.id}/stats?range=today`);
+  assert.equal(r.data.items.find((i) => i.name === 'Gift card').category, 'No longer on the menu');
 });
