@@ -87,6 +87,15 @@ function landing() {
   const chip = (cls, ...kids) => h('div', { class: `float ${cls}` }, ...kids);
   const bento = (cls, color, icon, t, d, extra) => h('div', { class: `bento ${cls} reveal` }, tile(color, icon), h('h3', {}, t), h('p', {}, d), extra);
   const tick = (t) => h('span', {}, h('i', { html: svg(I.check, 14) }), t);
+  /* The banner film: silent, looping, behind the headline. A still shows first, and stays for anyone who prefers no motion or is saving data. */
+  const heroVideo = () => {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches || navigator.connection?.saveData;
+    const film = !still && h('video', { class: 'hero-film', poster: '/assets/demo/hero.jpg', muted: true, loop: true, autoplay: true, playsinline: true, preload: 'metadata', 'aria-hidden': 'true', tabindex: '-1', disablepictureinpicture: true },
+      h('source', { src: '/assets/demo/hero-720.mp4', type: 'video/mp4', media: '(max-width: 900px)' }), h('source', { src: '/assets/demo/hero-1080.mp4', type: 'video/mp4' }));
+    if (film) { film.muted = true; film.defaultMuted = true; film.loop = true; film.setAttribute('muted', ''); film.setAttribute('playsinline', ''); film.setAttribute('webkit-playsinline', '');
+      const go = () => film.play().catch(() => {}); film.addEventListener('canplay', go, { once: true }); film.addEventListener('ended', () => { film.currentTime = 0; go(); }); document.addEventListener('visibilitychange', () => { if (!document.hidden && film.isConnected) go(); }); }
+    return h('div', { class: 'hero-bg', 'aria-hidden': 'true' }, film || h('img', { class: 'hero-film', src: '/assets/demo/hero.jpg', alt: '' }), h('i'));
+  };
   const barUrl = h('span', {}, 'harborandvine.com');
 
   /* Real sites, drawn live from the same templates people start with. */
@@ -149,8 +158,8 @@ function landing() {
   mount(
     topbar(h('a', { class: 'opt', href: '#examples' }, 'Examples'), h('a', { class: 'opt', href: '#features' }, 'Why PF Sites'),
       state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]),
-    h('main', {},
-      h('section', { class: 'l-hero' }, h('div', { class: 'glow', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), h('div', { class: 'page' },
+    h('main', { class: 'film-main' },
+      h('section', { class: 'l-hero has-video' }, heroVideo(), h('div', { class: 'page' },
         h('p', { class: 'pill' }, h('i'), 'Websites and online ordering by Processor Freedom'),
         h('h1', {}, 'Your business, ', h('span', { class: 'grad' }, 'beautifully online.')),
         h('p', { class: 'lede' }, 'Type your business name. Upload your menu. A complete website with online ordering, live in minutes.'),
@@ -190,6 +199,9 @@ function landing() {
   const countUp = (el) => { const full = el.dataset.count, m = full.match(/^(\D*)([\d,]+)(\.\d+)?(.*)$/); if (!m || matchMedia('(prefers-reduced-motion: reduce)').matches) return; const end = Number((m[2] + (m[3] || '')).replace(/,/g, '')), dec = m[3] ? m[3].length - 1 : 0, t0 = performance.now(); const step = (t) => { const k = Math.min(1, (t - t0) / 1100), v = end * (1 - Math.pow(1 - k, 3)); el.textContent = k === 1 ? full : `${m[1]}${v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })}${m[4]}`; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); };
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); e.target.querySelectorAll('[data-count]').forEach(countUp); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  // Over the film the top bar is clear glass; once the page scrolls past it, it turns solid.
+  const bar = document.querySelector('header.top'); const onScroll = () => bar?.classList.toggle('over-film', window.scrollY < 420 && location.pathname === '/');
+  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
   // The example rows only drift while they are on screen.
   const show = document.querySelector('.show');
   if (show) new IntersectionObserver((es) => es.forEach((e) => show.classList.toggle('run', e.isIntersecting)), { rootMargin: '200px' }).observe(show);

@@ -13,7 +13,7 @@ import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
 const ROOT = resolvePath(fileURLToPath(new URL('..', import.meta.url)));
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.mp4': 'video/mp4', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json' };
 const DAY = 86400000;
 const SESSION_DAYS = 30;
 const MAX_SITES = 25;
@@ -1484,7 +1484,17 @@ export function createApp(options = {}) {
     if (!full.startsWith(resolvePath(dir) + sep)) return false;
     try {
       const buf = await fs.readFile(full);
-      send(res, 200, buf, { 'Content-Type': MIME[extname(full).toLowerCase()] || 'application/octet-stream', ...headers });
+      const type = MIME[extname(full).toLowerCase()] || 'application/octet-stream';
+      // Phones ask for video a piece at a time; answer with just the piece they asked for.
+      const range = /^bytes=(\d*)-(\d*)$/.exec(String(res.req.headers.range || ''));
+      if (range && (range[1] || range[2])) {
+        const start = range[1] ? Number(range[1]) : Math.max(0, buf.length - Number(range[2]));
+        const end = range[1] && range[2] ? Math.min(Number(range[2]), buf.length - 1) : buf.length - 1;
+        if (!(start <= end) || start >= buf.length) { send(res, 416, '', { 'Content-Range': `bytes */${buf.length}` }); return true; }
+        send(res, 206, buf.subarray(start, end + 1), { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${buf.length}`, ...headers });
+        return true;
+      }
+      send(res, 200, buf, { 'Content-Type': type, 'Accept-Ranges': 'bytes', ...headers });
       return true;
     } catch { return false; }
   }
@@ -1543,6 +1553,7 @@ export function createApp(options = {}) {
     if (path === '/sw.js') return (await sendFile(res, join(ROOT, 'public'), 'sw.js', { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' })) || send(res, 404, 'Not found');
     if (path === '/manifest.webmanifest') return (await sendFile(res, join(ROOT, 'public'), 'manifest.webmanifest', { 'Cache-Control': 'no-cache', 'Content-Type': 'application/manifest+json' })) || send(res, 404, 'Not found');
     const cache = { 'Cache-Control': 'no-cache' };
+    if (path.startsWith('/assets/demo/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), { 'Cache-Control': 'public, max-age=604800' })) || send(res, 404, 'Not found');
     if (path.startsWith('/assets/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path.startsWith('/shared/')) return (await sendFile(res, join(ROOT, 'shared'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\n', { 'Content-Type': 'text/plain' });
