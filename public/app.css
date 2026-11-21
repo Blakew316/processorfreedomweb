@@ -2559,3 +2559,8 @@ header.top.brand-only:not(.glass-bar) .in{max-width:none;padding-left:20px}
 .ft-col a:hover{transform:translateX(2px)}
 ::selection{background:color-mix(in srgb,var(--brand) 22%,transparent)}
 @media (prefers-reduced-motion:reduce){.dock-in{animation:none}.gain-art,.gain-art>*{transition:none}}
+/* Sidebar sections open and close on their own; the one you are in stays marked even when closed. */
+.nav-kids[hidden]{display:none!important}
+.rail .nav-row[data-here] b{font-weight:600}
+.rail .nav-row[data-here] .nav-ic:first-child{color:var(--brand)}
+html[data-theme=dark] .rail .nav-row[data-here] .nav-ic:first-child{color:#fff}
