@@ -85,6 +85,31 @@ export async function editor(id, mount, title) {
   let request;               // latest "get me a domain" request
   const openItems = new Set();
   let ordering = loaded.ordering;
+  /* Someone else saved since this screen loaded: say so and load their version, rather than overwrite it. */
+  let staleSeen = false, draftRev = loaded.draftRev, orderingRev = loaded.orderingRev;
+  function stale() { if (staleSeen) return; staleSeen = true; setTimeout(() => location.reload(), 1600); }
+  /* Settings are sent one at a time and in order, so two quick changes can never cross on the way to the server. */
+  let ordSeq = 0, ordQueue = Promise.resolve();
+  function sendOrdering(o) {
+    const seq = ++ordSeq;
+    const run = ordQueue.then(async () => {
+      const r = await api('PUT', `/api/sites/${id}/ordering`, { ordering: o, rev: orderingRev });
+      orderingRev = r.rev;
+      if (seq === ordSeq) { for (const k of Object.keys(o)) if (!(k in r.ordering)) delete o[k]; Object.assign(o, r.ordering); }
+      return o;
+    });
+    ordQueue = run.catch(() => {});
+    return run.catch((e) => { if (e.status === 412) stale(); throw e; });
+  }
+  // Coming back to this tab after a change was made somewhere else loads that change, unless something here is still unsaved.
+  const onVisible = async () => {
+    if (document.hidden || staleSeen || saveState !== 'saved' || !location.pathname.includes(`/site/${id}`)) return;
+    try {
+      const now = (await api('GET', `/api/sites/${id}`)).site;
+      if (saveState === 'saved' && (now.draftRev !== draftRev || now.orderingRev !== orderingRev)) stale();
+    } catch { /* offline or signed out: the next action will say so */ }
+  };
+  document.addEventListener('visibilitychange', onVisible);
   let menu = (await api('GET', `/api/sites/${id}/menu`)).items;
   let orders = null;
   let editItem = null;       // menu item being edited
@@ -136,11 +161,11 @@ export async function editor(id, mount, title) {
     saveState = 'saving'; paintTop();
     try {
       const body = JSON.stringify(draft);
-      const r = await api('PUT', `/api/sites/${id}`, { draft: JSON.parse(body) });
-      meta = { ...meta, ...r.site };
+      const r = await api('PUT', `/api/sites/${id}`, { draft: JSON.parse(body), rev: draftRev });
+      meta = { ...meta, ...r.site }; draftRev = r.site.draftRev;
       if (saveState === 'saving') saveState = 'saved';
       title(meta.name);
-    } catch (e) { saveState = 'error'; toast(e.message, true); }
+    } catch (e) { saveState = 'error'; toast(e.message, true); if (e.status === 412) stale(); }
     paintTop();
   }, 800);
   const draftChanged = () => changed();
@@ -607,7 +632,7 @@ export async function editor(id, mount, title) {
     ordering(view = 'ordering') {
       const o = ordering;
       const saveOrdering = debounce(async () => {
-        try { ordering = (await api('PUT', `/api/sites/${id}/ordering`, { ordering: o })).ordering; Object.assign(o, ordering); ordering = o; if (page === 'order' && !o.enabled) page = 'home'; paint(true); paintTop(); }
+        try { await sendOrdering(o); ordering = o; if (page === 'order' && !o.enabled) page = 'home'; paint(true); paintTop(); }
         catch (e) { toast(e.message, true); }
       }, 450);
       notify = saveOrdering;
@@ -1182,7 +1207,7 @@ export async function editor(id, mount, title) {
   const salesTick = setInterval(() => { if (SALES_TABS[tab] && stats && !stats.failed && stats.to === stats.today && document.visibilityState === 'visible') api('GET', `/api/sites/${id}/stats?${new URLSearchParams(salesRange === 'custom' ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange })}`).then((r) => { if (SALES_TABS[tab] && JSON.stringify(r) !== JSON.stringify(stats)) { stats = r; paintPanel(); } }).catch(() => {}); }, 30000);
   if (ordering.enabled) loadOrders(true);
 
-  async function putOrdering() { ordering = (await api('PUT', `/api/sites/${id}/ordering`, { ordering })).ordering; }
+  async function putOrdering() { await sendOrdering(ordering); }
   function editCategory(c, cats) {
     const cur = ordering.cats.find((x) => x.name === c) || { name: c, hidden: false, from: '', to: '' };
     const d = { ...cur, name: c };
@@ -1205,7 +1230,7 @@ export async function editor(id, mount, title) {
           e.currentTarget.disabled = true;
           try {
             const name = nameIn.value.trim() || c;
-            if (name !== c) { const r = await api('POST', `/api/sites/${id}/menu/category`, { from: c, to: name }); menu = r.items; ordering = r.ordering; }
+            if (name !== c) { const r = await api('POST', `/api/sites/${id}/menu/category`, { from: c, to: name }); menu = r.items; for (const k of Object.keys(ordering)) if (!(k in r.ordering)) delete ordering[k]; Object.assign(ordering, r.ordering); orderingRev = r.orderingRev; }
             const both = fromIn.value && toIn.value;
             ordering.cats = [...ordering.cats.filter((x) => x.name !== name), { name, hidden: hide.checked, from: both ? fromIn.value : '', to: both ? toIn.value : '' }];
             await putOrdering();
@@ -1903,7 +1928,7 @@ export async function editor(id, mount, title) {
     btn.disabled = true; btn.textContent = 'Publishing…';
     try {
       const r = await api('POST', `/api/sites/${id}/publish`, { draft: JSON.parse(JSON.stringify(draft)) });
-      meta = { ...meta, ...r.site }; saveState = 'saved'; versions = null; paintTop(); if (tab === 'start' || tab === 'history') paintPanel();
+      meta = { ...meta, ...r.site }; draftRev = r.site.draftRev; saveState = 'saved'; versions = null; paintTop(); if (tab === 'start' || tab === 'history') paintPanel();
       return true;
     } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Publish'; return false; }
   }
@@ -1957,12 +1982,12 @@ export async function editor(id, mount, title) {
   };
   const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); return quickFind(); } if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
   window.addEventListener('keydown', onKey);
-  const onLeave = (e) => { if (saveState !== 'saved') { save.flush(); e.preventDefault(); e.returnValue = ''; } };
+  const onLeave = (e) => { if (saveState !== 'saved' && !staleSeen) { save.flush(); e.preventDefault(); e.returnValue = ''; } };
   window.addEventListener('message', onMessage);
   window.addEventListener('beforeunload', onLeave);
 
   mount(h('div', { class: 'ed' }, top, body, tabbar));
   paintTop(); paintPanel(); paint(true);
 
-  return () => { clearInterval(salesTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
+  return () => { staleSeen = true; document.removeEventListener('visibilitychange', onVisible); clearInterval(salesTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
 }

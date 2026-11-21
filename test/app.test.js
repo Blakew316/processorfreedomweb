@@ -63,12 +63,19 @@ test('brand colours stay readable in light and dark mode', () => {
 /* ---------- full flow against a running server ---------- */
 
 let server, base, dir, app;
+const mainSent = [];
+// Staff powers only switch on once the address is confirmed by opening a link sent to it.
+async function confirmEmail(c, email, password, box) {
+  await c('POST', '/api/auth/forgot', { email });
+  const token = box.filter((m) => m.to === email).at(-1).text.match(/token=([\w-]+)/)[1];
+  assert.equal((await c('POST', '/api/auth/reset', { token, password })).status, 200);
+}
 const dnsAnswers = { cname: {}, a: {} };
 const dns = { resolveCname: async (n) => dnsAnswers.cname[n] || Promise.reject(new Error('ENOTFOUND')), resolve4: async (n) => dnsAnswers.a[n] || Promise.reject(new Error('ENOTFOUND')) };
 
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), 'pfsites-'));
-  app = createApp({ dataDir: dir, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', ADMIN_EMAILS: 'staff@pf.test' } });
+  app = createApp({ dataDir: dir, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', ADMIN_EMAILS: 'staff@pf.test' }, mailer: { enabled: false, send: async (m) => { mainSent.push(m); } } });
   server = createServer(app);
   await new Promise((r) => server.listen(0, r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -181,7 +188,10 @@ test('sign up, build, publish, serve, collect a message, connect a domain', asyn
   const second = r.data.site;
   assert.equal((await me('POST', `/api/sites/${second.id}/domain-request`, { desired: 'secondshop.com' })).status, 201);
   const staff = client();
-  await staff('POST', '/api/auth/signup', { email: 'staff@pf.test', password: 'long-enough-pw' });
+  r = await staff('POST', '/api/auth/signup', { email: 'staff@pf.test', password: 'long-enough-pw' });
+  assert.equal(r.data.user.admin, false, 'signing up with a staff address is not enough');
+  assert.equal((await staff('GET', '/api/admin')).status, 403);
+  await confirmEmail(staff, 'staff@pf.test', 'long-enough-pw', mainSent);
   r = await staff('GET', '/api/admin');
   assert.equal(r.data.requests[0].desired, 'secondshop.com');
   assert.equal((await staff('POST', `/api/admin/sites/${second.id}/domain`, { domain: 'joespizza.com' })).status, 409);
@@ -507,6 +517,7 @@ test('item options, promo codes, opening hours, scheduling, reset links, stats, 
     assert.equal((await client()('POST', '/api/auth/login', { email: 'opt@shop.test', password: 'brand-new-pw' })).status, 200);
     const boss = client();
     await boss('POST', '/api/auth/signup', { email: 'boss@pf.test', password: 'long-enough-pw' });
+    await confirmEmail(boss, 'boss@pf.test', 'long-enough-pw', sent);
     const target = (await boss('GET', '/api/admin')).data.users.find((u) => u.email === 'opt@shop.test');
     r = await boss('POST', `/api/admin/users/${target.id}/reset-link`);
     assert.match(r.data.link, /^http:\/\/app\.pfsites\.test\/reset\?token=/);
@@ -559,8 +570,8 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
 
     // Push subscriptions
     assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'http://insecure', keys: { p256dh: 'a', auth: 'b' } } })).status, 400);
-    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://push.example.com/live', keys: { p256dh: 'a', auth: 'b' } } })).status, 201);
-    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://push.example.com/dead', keys: { p256dh: 'a', auth: 'b' } } })).status, 201);
+    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/live', keys: { p256dh: 'a', auth: 'b' } } })).status, 201);
+    assert.equal((await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/dead', keys: { p256dh: 'a', auth: 'b' } } })).status, 201);
     assert.equal((await client()('POST', '/api/push/subscribe', { subscription: {} })).status, 401);
 
     const settings = { ...site.ordering, methods: { pickup: true, delivery: true }, deliveryFee: 999, zones: [{ zips: '75751 75752', fee: 300 }, { zips: '75758', fee: 500 }], loyalty: { enabled: true, every: 2, type: 'amount', value: 400 }, cats: [{ name: 'Secret', hidden: true }] };
@@ -785,7 +796,7 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [sodaId], set: { restock: 12, stock: 9 } });
     await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, slotLimit: 2, lowStockAt: 5, notifyEmail: 'boss@refill.test' } });
     await me('POST', `/api/sites/${site.id}/publish`, {});
-    await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://push.example/x', keys: { p256dh: 'k', auth: 'a' } } });
+    await me('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/x', keys: { p256dh: 'k', auth: 'a' } } });
 
     const who = { method: 'pickup', name: 'Ana Diaz', phone: '903-555-0100', email: 'Ana@Example.com' };
     const place = (b) => anon('POST', '/_order', { ...who, ...b }, host);

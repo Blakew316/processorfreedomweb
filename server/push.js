@@ -41,6 +41,7 @@ export async function sendPush(sub, message, keys, fetcher = fetch) {
     method: 'POST',
     headers: { Authorization: vapidHeader(sub.endpoint, keys), 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', TTL: '3600', Urgency: 'high' },
     body: encryptPush(JSON.stringify(message), sub.p256dh, sub.auth),
+    signal: AbortSignal.timeout(10000),
   });
   if (res.status === 404 || res.status === 410) return 'gone';
   if (!res.ok) throw new Error(`Push service answered ${res.status}`);

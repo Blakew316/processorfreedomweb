@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { promises as fs, mkdirSync } from 'node:fs';
+import { promises as fs, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,6 +76,12 @@ export function createApp(options = {}) {
   const APP_URL = String(env.APP_URL || '').replace(/\/$/, '');
   const APP_HOST = APP_URL.replace(/^https?:\/\//, '').toLowerCase();
   const ADMINS = new Set(String(env.ADMIN_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean));
+  // Staff powers need more than the right email: the address must be confirmed, by opening a link that was sent to it.
+  const isAdmin = (u) => !!u && ADMINS.has(u.email) && !!u.verified;
+  // Links that go out by email always point at our own address, never at whatever address the request claimed.
+  const FIXED_ORIGIN = APP_URL || String(env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+
+  const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
 
   /* ---------- small helpers ---------- */
 
@@ -83,13 +89,16 @@ export function createApp(options = {}) {
   function limit(key, max, windowMs) {
     const now = Date.now();
     const rec = hits.get(key);
-    if (!rec || rec.until < now) { hits.set(key, { n: 1, until: now + windowMs }); return; }
+    if (!rec || rec.until < now) {
+      if (hits.size > 50000) for (const [k, v] of hits) if (v.until < now) hits.delete(k);
+      hits.set(key, { n: 1, until: now + windowMs }); return;
+    }
     if (++rec.n > max) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
   }
   const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ?', now); }, 10 * 60000);
   sweep.unref();
 
-  const ipOf = (req) => String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+  const ipOf = (req) => String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
   const protoOf = (req) => (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' ? 'https' : 'http');
   const hostOf = (req) => String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim().toLowerCase();
   const appOrigin = (req) => APP_URL || `${protoOf(req)}://${hostOf(req)}`;
@@ -97,7 +106,7 @@ export function createApp(options = {}) {
 
   function send(res, status, body, headers = {}) {
     const buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body ?? ''));
-    res.writeHead(status, { 'Content-Length': buf.length, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'X-Frame-Options': 'SAMEORIGIN', ...headers });
+    res.writeHead(status, { 'Content-Length': buf.length, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'X-Frame-Options': 'SAMEORIGIN', ...(protoOf(res.req) === 'https' ? { 'Strict-Transport-Security': 'max-age=31536000' } : {}), ...headers });
     res.end(res.req.method === 'HEAD' ? undefined : buf);
   }
   const json = (res, status, data, headers) => send(res, status, JSON.stringify(data), { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
@@ -136,8 +145,8 @@ export function createApp(options = {}) {
   function currentUser(req) {
     const token = cookie(req, 'pf_session');
     if (!token) return null;
-    const u = db.get('SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', sha(token), Date.now());
-    return u ? { ...u, admin: ADMINS.has(u.email) } : null;
+    const u = db.get('SELECT u.id, u.email, u.name, u.verified FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', sha(token), Date.now());
+    return u ? { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } : null;
   }
   const requireUser = (req) => currentUser(req) || bad(401, 'Please sign in to continue.');
 
@@ -157,6 +166,9 @@ export function createApp(options = {}) {
     return `${appOrigin(req)}/s/${site.slug}/`;
   }
   const addressFor = (req, slug) => (SITES_DOMAIN ? `${slug}.${SITES_DOMAIN}` : `${hostOf(req)}/s/${slug}`);
+  // A short fingerprint of what is saved. A device sends back the one it last saw; if someone else saved since, it is told instead of overwriting them.
+  const revOf = (text) => sha(text || '').slice(0, 16);
+  const STALE = 'This was changed on another device or in another tab. Loading the latest version.';
   function present(req, s, full = false) {
     const out = {
       id: s.id, slug: s.slug, name: s.name, url: siteUrl(req, s), address: addressFor(req, s.slug),
@@ -165,6 +177,7 @@ export function createApp(options = {}) {
       customDomain: s.custom_domain || '', domainVerified: !!s.domain_verified,
     };
     out.ordering = orderingOf(s);
+    out.orderingRev = revOf(s.ordering); out.draftRev = revOf(s.draft);
     if (full) out.draft = JSON.parse(s.draft);
     return out;
   }
@@ -256,7 +269,17 @@ export function createApp(options = {}) {
   function tick(nowMs = Date.now()) {
     for (const site of db.all('SELECT * FROM sites')) { try { closeDay(site, nowMs); if (recurring) recurring(site, new Date(wallNow(orderingOf(site), nowMs)).toISOString().slice(0, 10)); } catch (e) { console.error('Daily wrap-up failed for', site.id, e.message); } }
   }
-  const daily = setInterval(tick, 5 * 60000);
+  /* A full copy of the database is written beside it once a day, and the last seven are kept. */
+  function backup(nowMs = Date.now()) {
+    if (dataDir === ':memory:') return '';
+    const folder = join(dataDir, 'backups'), file = join(folder, `sites-${new Date(nowMs).toISOString().slice(0, 10)}.db`);
+    mkdirSync(folder, { recursive: true });
+    if (existsSync(file)) return file;
+    db.run(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    for (const old of readdirSync(folder).filter((f) => /^sites-\d{4}-\d\d-\d\d\.db$/.test(f)).sort().slice(0, -7)) rmSync(join(folder, old), { force: true });
+    return file;
+  }
+  const daily = setInterval(() => { tick(); try { backup(); } catch (e) { console.error('Backup failed:', e.message); } }, 5 * 60000);
   daily.unref();
   setTimeout(tick, 4000).unref();
   function packDraft(input) {
@@ -300,6 +323,7 @@ export function createApp(options = {}) {
 
   route('POST', '/api/auth/signup', async (req, res) => {
     limit(`signup:${ipOf(req)}`, 10, 3600000);
+    limit('signup:all', 400, 3600000);
     const b = await readJson(req);
     const email = str(b.email, 200).trim().toLowerCase();
     const name = str(b.name, 80).trim();
@@ -310,18 +334,20 @@ export function createApp(options = {}) {
     const id = newId();
     db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', id, email, name, await hashPassword(password), Date.now());
     startSession(req, res, id);
-    json(res, 201, { user: { id, email, name, admin: ADMINS.has(email) } });
+    json(res, 201, { user: { id, email, name, admin: false } });
   });
 
   route('POST', '/api/auth/login', async (req, res) => {
     limit(`login:${ipOf(req)}`, 12, 15 * 60000);
     const b = await readJson(req);
     const email = str(b.email, 200).trim().toLowerCase();
+    // Counted per account as well, so guessing one person's password cannot be spread across many addresses.
+    limit(`login-as:${email}`, 10, 15 * 60000);
     const u = db.get('SELECT * FROM users WHERE email = ?', email);
     const ok = await checkPassword(str(b.password, 200), u ? u.pass_hash : '00:00');
     if (!u || !ok) bad(401, 'That email and password do not match.');
     startSession(req, res, u.id);
-    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: ADMINS.has(u.email) } });
+    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } });
   });
 
   route('POST', '/api/auth/logout', (req, res) => {
@@ -348,11 +374,12 @@ export function createApp(options = {}) {
     const token = randomBytes(32).toString('base64url');
     db.run('DELETE FROM resets WHERE user_id = ?', userId);
     db.run('INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + hours * 3600000);
-    return `${appOrigin(req)}/reset?token=${token}`;
+    return `${FIXED_ORIGIN || appOrigin(req)}/reset?token=${token}`;
   }
   route('POST', '/api/auth/forgot', async (req, res) => {
     limit(`forgot:${ipOf(req)}`, 6, 3600000);
     const email = str((await readJson(req)).email, 200).trim().toLowerCase();
+    limit(`forgot-for:${email}`, 4, 3600000);
     const u = db.get('SELECT id, name, email FROM users WHERE email = ?', email);
     if (u) { const msg = resetEmail({ name: u.name, link: resetLinkFor(req, u.id) }); mailer.send({ to: u.email, ...msg }).catch((e) => console.error('Reset email failed:', e.message)); }
     // The same answer either way, so this cannot be used to find out who has an account.
@@ -364,12 +391,12 @@ export function createApp(options = {}) {
     const row = db.get('SELECT * FROM resets WHERE token_hash = ? AND expires_at > ?', sha(str(b.token, 200)), Date.now());
     if (!row) bad(400, 'This reset link has expired or was already used. Ask for a new one.');
     if (str(b.password, 200).length < 8) bad(400, 'Use at least 8 characters for your password.');
-    db.run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassword(str(b.password, 200)), row.user_id);
+    db.run('UPDATE users SET pass_hash = ?, verified = 1 WHERE id = ?', await hashPassword(str(b.password, 200)), row.user_id);
     db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
     db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
     startSession(req, res, row.user_id);
-    const u = db.get('SELECT id, email, name FROM users WHERE id = ?', row.user_id);
-    json(res, 200, { user: { ...u, admin: ADMINS.has(u.email) } });
+    const u = db.get('SELECT id, email, name, verified FROM users WHERE id = ?', row.user_id);
+    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) } });
   });
 
   route('GET', '/api/address', (req, res, p, url) => {
@@ -412,6 +439,7 @@ export function createApp(options = {}) {
   route('PUT', '/api/sites/:id', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const b = await readJson(req);
+    if (b.rev && b.rev !== revOf(site.draft)) bad(412, STALE);
     const draft = packDraft(b.draft);
     db.run('UPDATE sites SET draft = ?, name = ?, updated_at = ? WHERE id = ?', draft, JSON.parse(draft).brand.name, Date.now(), site.id);
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
@@ -456,7 +484,9 @@ export function createApp(options = {}) {
     const domain = cleanDomain((await readJson(req)).domain).replace(/^www\./, '');
     if (!domain) bad(400, 'Enter a domain like yourbusiness.com.');
     if (SITES_DOMAIN && (domain === SITES_DOMAIN || domain.endsWith(`.${SITES_DOMAIN}`))) bad(400, 'That address belongs to us. Change your free address above instead.');
-    if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ?', domain, site.id)) bad(409, 'That domain is already connected to another site.');
+    if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ? AND domain_verified = 1', domain, site.id)) bad(409, 'That domain is already connected to another site.');
+    // A claim nobody proved does not hold the domain: whoever can actually point it here gets it.
+    db.run('UPDATE sites SET custom_domain = NULL WHERE custom_domain = ? AND id != ? AND domain_verified = 0', domain, site.id);
     db.run('UPDATE sites SET custom_domain = ?, domain_verified = 0, updated_at = ? WHERE id = ?', domain, Date.now(), site.id);
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
   });
@@ -646,6 +676,7 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const customer = cleanContact(b.customer);
     if (!customer.email) bad(400, 'Add the customer’s email address, so each invoice can be sent.');
+    if (db.get('SELECT COUNT(*) AS n FROM plans WHERE site_id = ?', site.id).n >= 200) bad(400, 'A site can have up to 200 recurring payments.');
     const name = str(b.name, 120).trim() || bad(400, 'Give the plan a name, such as Weekly lunch order.');
     const amount = Math.round(Number(b.amount));
     if (!(amount > 0)) bad(400, 'Enter an amount above zero.');
@@ -849,10 +880,12 @@ export function createApp(options = {}) {
       if (!(amount > 0) || amount > row.total - row.refunded) bad(400, `Enter an amount up to ${money(row.total - row.refunded)}.`);
       db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, str(b.note, 300).trim(), now, now, row.id);
     } else if (b.clear === true) {
+      if (role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
       if (row.refunded) bad(400, 'This payment has a refund against it and cannot be removed.');
       db.run("UPDATE orders SET paid_at = NULL, paid_method = '', updated_at = ? WHERE id = ?", now, row.id);
     } else {
       const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
+      if (role === 'kitchen' && row.paid_at && method !== row.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
       db.run('UPDATE orders SET paid_at = COALESCE(paid_at, ?), paid_method = ?, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, user.name || user.email, now, row.id);
     }
     json(res, 200, { order: toOrder(db.get('SELECT * FROM orders WHERE id = ?', row.id)) });
@@ -1027,14 +1060,17 @@ export function createApp(options = {}) {
     const o = orderingOf(site);
     o.cats = o.cats.filter((c) => c.name !== to).map((c) => (c.name === from ? { ...c, name: to } : c));
     db.run('UPDATE sites SET ordering = ? WHERE id = ?', JSON.stringify(normalizeOrdering(o)), site.id);
-    json(res, 200, { items: menuOf(site.id), ordering: orderingOf(db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
+    const saved = db.get('SELECT * FROM sites WHERE id = ?', site.id);
+    json(res, 200, { items: menuOf(site.id), ordering: orderingOf(saved), orderingRev: revOf(saved.ordering) });
   });
 
   route('POST', '/api/push/subscribe', async (req, res) => {
     const user = requireUser(req);
     const sub = (await readJson(req)).subscription || {};
     const endpoint = str(sub.endpoint, 1000), p256dh = str(sub.keys?.p256dh, 200), auth = str(sub.keys?.auth, 100);
-    if (!/^https:\/\//.test(endpoint) || !p256dh || !auth) bad(400, 'This device could not be set up for notifications.');
+    // Only the notification services browsers really use, so this can never be pointed at some other server.
+    let pushHost = ''; try { pushHost = new URL(endpoint).hostname; } catch { /* not an address */ }
+    if (!/^https:\/\//.test(endpoint) || !PUSH_HOSTS.test(pushHost) || !p256dh || !auth) bad(400, 'This device could not be set up for notifications.');
     db.run('INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth', endpoint, user.id, p256dh, auth, Date.now());
     json(res, 201, { ok: true });
   });
@@ -1161,10 +1197,12 @@ export function createApp(options = {}) {
 
   route('PUT', '/api/sites/:id/ordering', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
-    const o = normalizeOrdering((await readJson(req)).ordering);
+    const body = await readJson(req);
+    if (body.rev && body.rev !== revOf(site.ordering)) bad(412, STALE);
+    const o = normalizeOrdering(body.ordering);
     if (o.enabled && !openMethods(o).length) bad(400, 'Turn on at least one way to order: pickup, curbside or delivery.');
     db.run('UPDATE sites SET ordering = ?, updated_at = ? WHERE id = ?', JSON.stringify(o), Date.now(), site.id);
-    json(res, 200, { ordering: o });
+    json(res, 200, { ordering: o, rev: revOf(JSON.stringify(o)) });
   });
 
   route('GET', '/api/sites/:id/orders', (req, res, p) => {
@@ -1178,6 +1216,7 @@ export function createApp(options = {}) {
     const status = str((await readJson(req)).status, 20);
     if (!ORDER_STATUSES[status]) bad(400, 'Unknown status.');
     if (status !== row.status) {
+      if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
       const who = requireUser(req);
       db.run('UPDATE orders SET status = ?, handled_by = ?, updated_at = ? WHERE id = ?', status, who.name || who.email, Date.now(), row.id);
       if (status === 'cancelled') for (const l of JSON.parse(row.items)) db.run('UPDATE menu_items SET stock = stock + ? WHERE id = ? AND stock IS NOT NULL', l.qty, l.id);
@@ -1274,7 +1313,7 @@ export function createApp(options = {}) {
     const home = `${origin}${base}/`;
 
     if (path === '/_forms/contact' && req.method === 'POST' && !draft) {
-      limit(`form:${site.id}:${ipOf(req)}`, 6, 10 * 60000);
+      limit(`form:${site.id}:${ipOf(req)}`, 6, 10 * 60000); limit(`form:${site.id}`, 60, 10 * 60000);
       const raw = await readBody(req, 20_000);
       const isJson = String(req.headers['content-type'] || '').includes('json');
       let b = {};
@@ -1289,7 +1328,7 @@ export function createApp(options = {}) {
     }
     const ordering = orderingOf(site);
     if (path === '/_book' && req.method === 'POST' && !draft) {
-      limit(`book:${site.id}:${ipOf(req)}`, 8, 10 * 60000);
+      limit(`book:${site.id}:${ipOf(req)}`, 8, 10 * 60000); limit(`book:${site.id}`, 80, 10 * 60000);
       if (!ordering.booking.enabled) bad(409, 'Online booking is not available right now. Please call us.');
       const appt = makeAppt(site, ordering, await readJson(req, 20_000), true);
       const business = businessOf(site), owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
@@ -1299,12 +1338,12 @@ export function createApp(options = {}) {
       return json(res, 201, { ok: true });
     }
     if (path === '/_promo' && req.method === 'GET' && !draft) {
-      limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000);
+      limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000); limit(`promo:${site.id}`, 300, 10 * 60000);
       const promo = ordering.enabled && promoFor(site, ordering, new URL(req.url, 'http://x').searchParams.get('code'));
       return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
     }
     if (path === '/_order' && req.method === 'POST' && !draft) {
-      limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000);
+      limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000); limit(`order:${site.id}`, 200, 10 * 60000);
       const b = await readJson(req, 50_000);
       if (!ordering.enabled || !ordering.accepting) bad(409, 'Online ordering is paused right now. Please call us to order.');
       const method = str(b.method, 20);
@@ -1513,6 +1552,7 @@ export function createApp(options = {}) {
   };
   handler.db = db;
   handler.tick = tick;
+  handler.backup = backup;
   handler.close = () => { clearInterval(sweep); clearInterval(daily); db.close(); };
   return handler;
 }
