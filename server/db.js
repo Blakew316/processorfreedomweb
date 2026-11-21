@@ -103,6 +103,14 @@ export function openDb(dataDir) {
     CREATE TABLE IF NOT EXISTS gift_cards (code TEXT NOT NULL, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, initial INTEGER NOT NULL, balance INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, PRIMARY KEY (site_id, code));
     CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL, customer TEXT NOT NULL, amount INTEGER NOT NULL, tax_rate REAL NOT NULL DEFAULT 0, every TEXT NOT NULL, next_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', billed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS appointments (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, service TEXT NOT NULL, minutes INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', party INTEGER NOT NULL DEFAULT 1, notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS appts_site ON appointments(site_id, at);
+    CREATE TABLE IF NOT EXISTS shifts (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL, day TEXT NOT NULL, start TEXT NOT NULL, finish TEXT NOT NULL, note TEXT NOT NULL DEFAULT '');
+    CREATE INDEX IF NOT EXISTS shifts_site ON shifts(site_id, day);
+    CREATE TABLE IF NOT EXISTS timeclock (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL, name TEXT NOT NULL, in_at INTEGER NOT NULL, out_at INTEGER);
+    CREATE INDEX IF NOT EXISTS timeclock_site ON timeclock(site_id, in_at);
+  `);
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
   return {

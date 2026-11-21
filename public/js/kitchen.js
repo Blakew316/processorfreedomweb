@@ -36,11 +36,15 @@ export async function kitchen(id, mount, title) {
     } catch { /* keep showing the last list; the next refresh retries */ }
     draw();
   }
+  // Staff can clock in and out from the kitchen screen.
+  let onClock = null;
+  const punch = h('button', { class: 'btn soft', onclick: async () => { try { onClock = (await api('POST', `/api/sites/${id}/timeclock`, { action: onClock ? 'out' : 'in' })).mine; toast(onClock ? 'Clocked in' : 'Clocked out'); punch.lastChild.textContent = onClock ? 'Clock out' : 'Clock in'; } catch (e) { toast(e.message, true); } } }, ic('clock', 16), 'Clock in');
+  api('GET', `/api/sites/${id}/timeclock`).then((r) => { onClock = r.mine; punch.lastChild.textContent = onClock ? 'Clock out' : 'Clock in'; }).catch(() => {});
   let station = '';
   const labels = site.ordering.labels || [];
   const stations = labels.length ? h('select', { class: 'k-station', 'aria-label': 'Station', onchange: (e) => { station = e.target.value; draw(); } }, h('option', { value: '' }, 'All stations'), labels.map((l) => h('option', { value: l }, l))) : null;
   const sound = h('button', { class: 'btn soft', onclick: () => { setAlerts(!alertsOn()); sound.replaceChildren(ic('bell', 16), alertsOn() ? 'Sound on' : 'Sound off'); } }, ic('bell', 16), alertsOn() ? 'Sound on' : 'Sound off');
-  mount(h('div', { class: 'k' }, h('header', { class: 'k-top' }, h('button', { class: 'icon-btn', 'aria-label': 'Back to editor', onclick: () => go(site.role === 'kitchen' ? '/app' : `/app/site/${id}?tab=orders`) }, ic('back')), h('b', {}, site.name), clock, h('span', { class: 'grow' }), stations, themeButton(), sound), grid));
+  mount(h('div', { class: 'k' }, h('header', { class: 'k-top' }, h('button', { class: 'icon-btn', 'aria-label': 'Back to editor', onclick: () => go(site.role === 'kitchen' ? '/app' : `/app/site/${id}?tab=orders`) }, ic('back')), h('b', {}, site.name), clock, h('span', { class: 'grow' }), stations, punch, themeButton(), sound), grid));
   load();
   const timer = setInterval(load, 10000);
   return () => clearInterval(timer);

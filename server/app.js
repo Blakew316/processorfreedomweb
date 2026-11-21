@@ -5,8 +5,8 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu, invoiceTotals, safeUrl, applyMods } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail } from './mail.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods } from '../shared/core.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -686,6 +686,84 @@ export function createApp(options = {}) {
   }
   recurring = billPlans;
 
+  /* Appointments: customers ask for a time on the booking page; the business confirms or declines. */
+  const toAppt = (r) => ({ id: r.id, service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
+  const apptWhen = (at) => new Date(`${at}:00Z`).toLocaleString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  function makeAppt(site, ordering, b, viaPublic) {
+    const svc = ordering.booking.services.find((x) => x.id === b.service) || (viaPublic ? bad(400, 'Choose what you would like to book.') : { name: str(b.serviceName, 80).trim() || 'Booking', minutes: 0 });
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) ? b.date : bad(400, 'Choose a date.');
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(b.time)) ? b.time : bad(400, 'Choose a time.');
+    const at = `${day}T${time}`, wall = Date.parse(`${at}:00Z`);
+    const name = str(b.name, 120).trim(), email = str(b.email, 200).trim().toLowerCase(), phone = str(b.phone, 40).trim();
+    if (!name) bad(400, 'Please add your name.');
+    if (viaPublic) {
+      if (phone.replace(/\D/g, '').length < 7 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'Please add your phone number and a valid email address.');
+      const now = wallNow(ordering);
+      if (!(wall > now)) bad(400, 'Please choose a time in the future.');
+      if (wall > now + 90 * DAY) bad(400, 'Please choose a date in the next three months.');
+      if (!openAtWall(ordering, wall)) bad(409, 'We are closed at that time. Please choose another.');
+      if (db.get("SELECT COUNT(*) AS n FROM appointments WHERE site_id = ? AND at = ? AND status IN ('pending','confirmed')", site.id, at).n >= ordering.booking.perSlot) bad(409, 'That time is fully booked. Please choose another.');
+    }
+    const id = newId();
+    db.run('INSERT INTO appointments (id, site_id, service, minutes, at, name, email, phone, party, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, svc.name, svc.minutes, at, name, email, phone, Math.max(1, Math.min(100, Math.round(Number(b.party)) || 1)), str(b.notes, 500).trim(), viaPublic ? 'pending' : 'confirmed', Date.now());
+    return toAppt(db.get('SELECT * FROM appointments WHERE id = ?', id));
+  }
+  route('GET', '/api/sites/:id/appointments', (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'kitchen');
+    const ordering = orderingOf(site);
+    const today = new Date(wallNow(ordering)).toISOString().slice(0, 10);
+    json(res, 200, { today, appointments: db.all('SELECT * FROM appointments WHERE site_id = ? AND at >= ? ORDER BY at LIMIT 2000', site.id, new Date(Date.parse(`${today}T00:00:00Z`) - 30 * DAY).toISOString().slice(0, 10)).map(toAppt) });
+  });
+  route('POST', '/api/sites/:id/appointments', async (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'kitchen');
+    json(res, 201, { appointment: makeAppt(site, orderingOf(site), await readJson(req), false) });
+  });
+  route('POST', '/api/sites/:id/appointments/:appt', async (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'kitchen');
+    const row = db.get('SELECT * FROM appointments WHERE id = ? AND site_id = ?', p.appt, site.id) || bad(404, 'We could not find that appointment.');
+    const status = str((await readJson(req)).status, 20);
+    if (!['pending', 'confirmed', 'completed', 'cancelled', 'noshow'].includes(status)) bad(400, 'Unknown status.');
+    db.run('UPDATE appointments SET status = ? WHERE id = ?', status, row.id);
+    if (status !== row.status && ['confirmed', 'cancelled'].includes(status) && row.email) { const business = businessOf(site); Promise.resolve().then(() => mailer.send({ to: row.email, ...bookingEmail(status, { business, appt: toAppt(row), when: apptWhen(row.at) }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Booking email failed:', e.message)); }
+    json(res, 200, { appointment: toAppt(db.get('SELECT * FROM appointments WHERE id = ?', row.id)) });
+  });
+
+  /* Staff schedule and time clock. */
+  route('GET', '/api/sites/:id/shifts', (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'kitchen');
+    const today = new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
+    const people = [db.get('SELECT name, email FROM users WHERE id = ?', site.user_id), ...teamOf(site)].map((u) => u.name || u.email);
+    json(res, 200, { today, people, shifts: db.all('SELECT id, name, day, start, finish, note FROM shifts WHERE site_id = ? AND day >= ? ORDER BY day, start LIMIT 2000', site.id, new Date(Date.parse(`${today}T00:00:00Z`) - 7 * DAY).toISOString().slice(0, 10)) });
+  });
+  route('POST', '/api/sites/:id/shifts', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const ok = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t));
+    if (!str(b.name, 80).trim()) bad(400, 'Choose who is working.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.day)) || !ok(b.start) || !ok(b.finish)) bad(400, 'Choose a day, a start time and an end time.');
+    db.run('INSERT INTO shifts (id, site_id, name, day, start, finish, note) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, str(b.name, 80).trim(), b.day, b.start, b.finish, str(b.note, 120).trim());
+    json(res, 201, { ok: true });
+  });
+  route('DELETE', '/api/sites/:id/shifts/:shift', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    db.run('DELETE FROM shifts WHERE id = ? AND site_id = ?', p.shift, site.id);
+    json(res, 200, { ok: true });
+  });
+  const clockOf = (site, user) => ({ entries: db.all('SELECT id, user_id AS userId, name, in_at AS inAt, out_at AS outAt FROM timeclock WHERE site_id = ? AND in_at > ? ORDER BY in_at DESC LIMIT 2000', site.id, Date.now() - 45 * DAY), mine: db.get('SELECT id, in_at AS inAt FROM timeclock WHERE site_id = ? AND user_id = ? AND out_at IS NULL', site.id, user.id) || null });
+  route('GET', '/api/sites/:id/timeclock', (req, res, p) => { const { site, user } = ownSite(req, p.id, 'kitchen'); json(res, 200, clockOf(site, user)); });
+  route('POST', '/api/sites/:id/timeclock', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id, 'kitchen');
+    const open = db.get('SELECT id FROM timeclock WHERE site_id = ? AND user_id = ? AND out_at IS NULL', site.id, user.id);
+    if ((await readJson(req)).action === 'out') { if (!open) bad(400, 'You are not clocked in.'); db.run('UPDATE timeclock SET out_at = ? WHERE id = ?', Date.now(), open.id); }
+    else { if (open) bad(400, 'You are already clocked in.'); db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at) VALUES (?, ?, ?, ?, ?)', newId(), site.id, user.id, user.name || user.email, Date.now()); }
+    json(res, 200, clockOf(site, user));
+  });
+  route('DELETE', '/api/sites/:id/timeclock/:entry', (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    db.run('DELETE FROM timeclock WHERE id = ? AND site_id = ?', p.entry, site.id);
+    json(res, 200, clockOf(site, user));
+  });
+
   /* Devices that get new-order notifications for this site. */
   route('GET', '/api/sites/:id/devices', (req, res, p) => {
     const { site } = ownSite(req, p.id, 'owner');
@@ -1210,6 +1288,16 @@ export function createApp(options = {}) {
       return isJson ? json(res, 200, { ok: true }) : redirect(res, `${base}/?sent=1#contact`, 303);
     }
     const ordering = orderingOf(site);
+    if (path === '/_book' && req.method === 'POST' && !draft) {
+      limit(`book:${site.id}:${ipOf(req)}`, 8, 10 * 60000);
+      if (!ordering.booking.enabled) bad(409, 'Online booking is not available right now. Please call us.');
+      const appt = makeAppt(site, ordering, await readJson(req, 20_000), true);
+      const business = businessOf(site), owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
+      const send = (to, kind) => Promise.resolve().then(() => mailer.send({ to, ...bookingEmail(kind, { business, appt, when: apptWhen(appt.at), manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=appts` }), fromName: business.name, replyTo: kind === 'merchant' ? appt.email : business.email })).catch((e) => console.error('Booking email failed:', e.message));
+      send(appt.email, 'request'); send(ordering.notifyEmail || business.email || owner?.email, 'merchant');
+      notifySite(site, { title: 'New booking request', body: `${site.name} · ${appt.name} · ${apptWhen(appt.at)}`, url: `/app/site/${site.id}?tab=appts`, tag: `appt-${appt.id}` });
+      return json(res, 201, { ok: true });
+    }
     if (path === '/_promo' && req.method === 'GET' && !draft) {
       limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000);
       const promo = ordering.enabled && promoFor(site, ordering, new URL(req.url, 'http://x').searchParams.get('code'));
@@ -1307,7 +1395,7 @@ export function createApp(options = {}) {
       return html(res, out.status, out.html, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
     }
 
-    const pages = ['', ...(ordering.enabled ? ['order'] : []), ...Object.keys(LEGAL_PAGES).filter((k) => config.legal?.[k]?.enabled !== false)];
+    const pages = ['', ...(ordering.enabled ? ['order'] : []), ...(ordering.booking.enabled && ordering.booking.services.length ? ['book'] : []), ...Object.keys(LEGAL_PAGES).filter((k) => config.legal?.[k]?.enabled !== false)];
     // Lets customers add the shop to their Home Screen under its own name.
     if (path === '/manifest.webmanifest') {
       const name = str(config.brand?.name || site.name, 60), logo = str(config.brand?.logo);
@@ -1321,7 +1409,7 @@ export function createApp(options = {}) {
     }
     const page = path === '/' ? 'home' : path.slice(1);
     const sent = new URL(req.url, 'http://x').searchParams.get('sent') === '1';
-    const out = renderPage(config, page, { ...shared, url: page === 'home' ? home : `${home}${page}`, sent });
+    const out = renderPage(config, page, { ...shared, url: page === 'home' ? home : `${home}${page}`, sent, booked: new URL(req.url, 'http://x').searchParams.get('done') === '1', today: new Date(wallNow(ordering)).toISOString().slice(0, 10) });
     return html(res, out.status, out.html, { 'Cache-Control': draft || shared.menu.length ? 'no-store' : 'public, max-age=60', ...(draft ? { 'X-Robots-Tag': 'noindex' } : {}) });
   }
 

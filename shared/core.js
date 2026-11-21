@@ -690,6 +690,7 @@ export function defaultOrdering() {
     promos: [], cats: [], zones: [], loyalty: { enabled: false, every: 10, type: 'amount', value: 500 },
     slotLimit: 0, deals: [], dailySummary: true, lowStockAt: 5,
     modGroups: [], menus: [], labels: [], revClasses: [], discounts: [],
+    booking: { enabled: false, title: 'Book online', note: '', perSlot: 2, services: [] },
   };
 }
 const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
@@ -721,6 +722,7 @@ export function normalizeOrdering(input) {
     labels: [...new Set(arr(o.labels).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     revClasses: [...new Set(arr(o.revClasses).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     discounts: arr(o.discounts).slice(0, 60).map((x, i) => ({ id: str(x?.id, 24) || `d${i}`, name: str(x?.name, 60).trim(), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_000_00, 0) : int(x?.value, 0, 100, 10) })).filter((x) => x.name),
+    booking: { enabled: o.booking?.enabled === true, title: str(o.booking?.title ?? 'Book online', 60).trim() || 'Book online', note: str(o.booking?.note, 300), perSlot: int(o.booking?.perSlot, 1, 200, 2), services: arr(o.booking?.services).slice(0, 40).map((x, i2) => ({ id: str(x?.id, 24) || `s${i2}`, name: str(x?.name, 80).trim(), minutes: int(x?.minutes, 0, 600, 60), price: int(x?.price, 0, 1_000_000_00, 0) })).filter((x) => x.name) },
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
@@ -910,3 +912,5 @@ export function invoiceTotals(lines, taxRate = 0, discount = 0) {
   return { subtotal, discount: d, tax, total: subtotal - d + tax };
 }
 export const invoiceLate = (inv, today = new Date().toISOString().slice(0, 10)) => inv.status === 'sent' && !!inv.due && inv.due < today;
+
+export const APPT_STATUSES = { pending: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', noshow: 'No-show' };

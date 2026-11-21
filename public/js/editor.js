@@ -5,7 +5,7 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
   ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
-  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'],
+  ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
@@ -15,25 +15,26 @@ const TABS = [
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
+const WIDE = new Set(['appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
 const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Alerts and reports', 'Order emails'] };
 const MODES = { office: 'Back office', site: 'Website' };
-const NAV_NAMES = new Set(['insights', 'home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address', 'invoice', 'promo', 'feedback', 'team']);
+const NAV_NAMES = new Set(['calendar', 'insights', 'home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address', 'invoice', 'promo', 'feedback', 'team']);
 // The sidebar: a short list of sections. A section with more than one screen opens to show them underneath it.
 const NAV = {
   office: [
     { label: 'Dashboard', icon: 'home', tabs: ['start'] },
     { label: 'Insights', icon: 'insights', tabs: ['insights'] },
+    { label: 'Appointments', icon: 'calendar', tabs: ['appts', 'calendar'], subs: ['Overview', 'Calendar'] },
     { label: 'Sales activity', short: 'Sales', icon: 'orders', tabs: ['orders', 'tx', 'cash', 'close', 'invoices', 'est', 'projects', 'plans', 'tips'], subs: ['Orders', 'Transactions', 'Cash log', 'Closeout', 'Invoices', 'Estimates', 'Projects', 'Recurring payments', 'Tips'] },
     { label: 'Reports', icon: 'sales', tabs: ['sales', 'r-full', 'r-items', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-types', 'r-taxes', 'r-exports'], subs: ['Sales overview', 'Sales report', 'Item sales', 'Employee sales', 'Tender types', 'Discounts', 'Removed items', 'Order types', 'Taxes', 'Exports'] },
     { label: 'Inventory', short: 'Items', icon: 'menu', tabs: ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs'], subs: ['Items', 'Categories', 'Modifier groups', 'Menus', 'Printer labels', 'Revenue classes', 'Discounts'] },
-    { label: 'Employees', icon: 'team', tabs: ['team'] },
+    { label: 'Employees', icon: 'team', tabs: ['team', 'schedule', 'timesheets'], subs: ['Employees', 'Scheduling', 'Timesheets'] },
     { label: 'Customers', icon: 'customers', tabs: ['customers'] },
     { label: 'Promotions', icon: 'promo', tabs: ['promos', 'deals', 'rewards', 'gift'], subs: ['Promo codes', 'Happy hour', 'Rewards', 'Gift cards'] },
     { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
-    { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'alerts', 'devices'], subs: ['Business information', 'Business hours', 'Online ordering', 'Alerts and emails', 'Devices'] },
+    { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'booking', 'alerts', 'devices'], subs: ['Business information', 'Business hours', 'Online ordering', 'Online booking', 'Alerts and emails', 'Devices'] },
   ],
   site: [
     { label: 'Design', icon: 'design', tabs: ['design', 'history'], subs: ['Look and feel', 'Earlier versions'] },
@@ -54,6 +55,7 @@ const HEAD = {
   deals: ['Happy hour', 'Lower prices automatically at set times.'],
   rewards: ['Rewards', 'Thank regulars with a reward after a set number of orders.'],
   bizinfo: ['Business information', 'Your phone, address and hours as customers see them on your website and receipts. Publish your site after changing these.'],
+  booking: ['Online booking', 'Let customers ask for a table, a class or any other booking from your website. You confirm each request.'],
   devices: ['Devices', 'Phones, tablets and computers that get a notification for every new order.'],
   team: ['Employees', 'Give each person their own login, with only what they need.'],
 };
@@ -97,6 +99,7 @@ export async function editor(id, mount, title) {
   let dash = null;
   let txData = null, txFilter = 'all', cashData = null, closeData = null;
   let insightData = null, planData = null, giftData = null, deviceData = null;
+  let apptData = null, shiftData = null, clockData = null;
   let bills = null, billFilter = 'all', billQ = '';
   const lastTab = { office: 'start', site: 'design' };
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
@@ -953,6 +956,86 @@ export async function editor(id, mount, title) {
         : emptyState('phone', 'No devices yet', 'Turn on notifications on the phone, tablet or computer you keep at the counter.'), pushIsOn !== true && here,
         h('small', { class: 'hint' }, 'On iPhone and iPad, add PF Sites to your Home Screen first, then turn notifications on from there.'))];
     },
+    appts(asCalendar = false) {
+      const tabNow = asCalendar ? 'calendar' : 'appts';
+      const b = ordering.booking;
+      const add = () => formSheet('Add appointment', [['serviceName', 'What for', { maxlength: 80, placeholder: b.services[0]?.name || 'e.g. Table for dinner' }], ['date', 'Date', { type: 'date' }], ['time', 'Time', { type: 'time' }], ['name', 'Customer name', { maxlength: 120 }], ['phone', 'Phone', { type: 'tel' }], ['party', 'Number of people', { type: 'number', min: 1 }], ['notes', 'Notes', { maxlength: 500 }]],
+        { serviceName: b.services[0]?.name || '', date: apptData?.today || new Date().toISOString().slice(0, 10), time: '18:00', name: '', phone: '', party: '2', notes: '' }, async (v) => { await api('POST', `/api/sites/${id}/appointments`, v); apptData = null; });
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, asCalendar ? 'Calendar' : 'Appointments'), h('p', { class: 'muted' }, asCalendar ? 'Every booking for the next two weeks, day by day.' : 'Booking requests from your website, and appointments you add yourself.')),
+        h('div', { class: 'row' }, !b.enabled && h('button', { class: 'btn soft', onclick: () => goTab('booking') }, 'Set up online booking'), h('button', { class: 'btn', onclick: add }, ic('plus', 16), 'Add appointment')));
+      if (!apptData) { api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; if (tab === tabNow) paintPanel(); }).catch((e) => { toast(e.message, true); apptData = { today: '', appointments: [] }; if (tab === tabNow) paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
+      const all = apptData.appointments, today = apptData.today;
+      const setStatus = async (a, status) => { try { Object.assign(a, (await api('POST', `/api/sites/${id}/appointments/${a.id}`, { status })).appointment); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const NAME = { pending: ['Pending', 'warn'], confirmed: ['Confirmed', 'ok'], completed: ['Completed', ''], cancelled: ['Cancelled', 'bad'], noshow: ['No-show', 'bad'] };
+      const clock = (at) => { const [hh, mm] = at.slice(11).split(':').map(Number); return `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+      const dayName = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' });
+      const acts = (a) => h('div', { class: 'row', style: 'flex-wrap:wrap;justify-content:flex-end' }, a.status === 'pending' && h('button', { class: 'btn sm', onclick: () => setStatus(a, 'confirmed') }, 'Confirm'), a.status === 'pending' && h('button', { class: 'btn soft sm', onclick: () => setStatus(a, 'cancelled') }, 'Decline'),
+        a.status === 'confirmed' && h('button', { class: 'btn soft sm', onclick: () => setStatus(a, 'completed') }, 'Complete'), a.status === 'confirmed' && h('button', { class: 'btn text sm', onclick: () => setStatus(a, 'noshow') }, 'No-show'), a.status === 'confirmed' && h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: () => setStatus(a, 'cancelled') }, 'Cancel'));
+      const row = (a, withDay) => h('div', { class: 'appt' }, h('div', { class: 'appt-t' }, h('b', {}, clock(a.at)), withDay && h('small', {}, dayName(a.at.slice(0, 10)))), h('div', { class: 'grow', style: 'min-width:0' }, h('b', {}, `${a.name} · ${a.party} ${a.party === 1 ? 'person' : 'people'}`), h('div', { class: 'small muted' }, [a.service, a.phone, a.notes].filter(Boolean).join(' · '))), h('span', { class: `status ${NAME[a.status][1]}` }, NAME[a.status][0]), acts(a));
+      const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      const upcoming = all.filter((a) => a.at.slice(0, 10) >= today), n = (st2) => all.filter((a) => a.status === st2).length;
+      if (asCalendar) {
+        const days = Array.from({ length: 14 }, (_, i) => new Date(Date.parse(`${today}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10));
+        return [h('div', { class: 'inv' }, head, days.map((d) => { const list = all.filter((a) => a.at.slice(0, 10) === d && a.status !== 'cancelled'); return h('div', { class: 'scard', style: 'padding:18px 24px' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, d === today ? `Today · ${dayName(d)}` : dayName(d)), h('span', { class: 'small muted' }, `${list.length} booking${list.length === 1 ? '' : 's'}`)), list.length ? list.map((a) => row(a)) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'Nothing booked.')); }))];
+      }
+      const pending = all.filter((a) => a.status === 'pending'), todays = all.filter((a) => a.at.slice(0, 10) === today && a.status !== 'cancelled');
+      return [h('div', { class: 'inv' }, head,
+        h('div', { class: 'inv-kpis' }, kpi('Today', todays.length, 'appointments'), kpi('Pending', pending.length, pending.length ? 'need a reply' : 'all answered'), kpi('Confirmed', upcoming.filter((a) => a.status === 'confirmed').length, 'coming up'), kpi('Completed', n('completed'), `${n('noshow')} no-show · ${n('cancelled')} cancelled`)),
+        h('div', { class: 'scard', style: 'padding:18px 24px' }, h('h3', {}, 'Pending requests'), pending.length ? pending.map((a) => row(a, true)) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'Pending appointments need to be confirmed or declined. There are none right now.')),
+        h('div', { class: 'scard', style: 'padding:18px 24px' }, h('h3', {}, "Today's appointments"), todays.length ? todays.map((a) => row(a)) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'There are no appointments scheduled for today.')),
+        h('div', { class: 'scard', style: 'padding:18px 24px' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Coming up'), h('button', { class: 'btn text sm', onclick: () => goTab('calendar') }, 'Open calendar')), upcoming.filter((a) => a.at.slice(0, 10) > today && a.status === 'confirmed').slice(0, 12).map((a) => row(a, true)), !upcoming.some((a) => a.at.slice(0, 10) > today && a.status === 'confirmed') && h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'No confirmed bookings after today.')))];
+    },
+    booking() {
+      const b = ordering.booking;
+      const sv = debounce(async () => { try { await putOrdering(); } catch (e) { toast(e.message, true); } }, 450);
+      const inp = (label, value, on, a = {}, hint) => h('label', { class: 'field' }, h('span', {}, label), h('input', { value, oninput: (e) => { on(e.target.value); sv(); }, ...a }), hint && h('small', {}, hint));
+      const url = `${meta.url.replace(/\/$/, '')}/book`;
+      return [
+        group('Booking page', h('label', { class: 'switch' }, h('span', {}, 'Take booking requests on my website'), h('input', { type: 'checkbox', checked: b.enabled, onchange: async (e) => { b.enabled = e.target.checked; try { await putOrdering(); } catch (ex) { toast(ex.message, true); } paintPanel(); } }), h('i')),
+          b.enabled && !b.services.length && note(h('b', {}, 'Add at least one thing to book below. '), 'The page appears once there is something to choose.'),
+          b.enabled && b.services.length > 0 && h('div', { class: 'note', style: 'overflow-wrap:anywhere' }, h('b', {}, 'Your booking page: '), meta.live ? h('a', { href: url, target: '_blank', rel: 'noopener' }, url.replace(/^https?:\/\//, '')) : 'publish your site to make it public.', h('div', { class: 'small', style: 'margin-top:6px' }, 'To link to it from your site, set any button’s link to /book under Website.')),
+          inp('Page heading', b.title, (v) => { b.title = v; }, { maxlength: 60 }), inp('Short message', b.note, (v) => { b.note = v; }, { maxlength: 300, placeholder: 'e.g. We hold tables for 15 minutes.' }),
+          inp('Bookings allowed at the same time', b.perSlot, (v) => { b.perSlot = Math.max(1, Math.round(Number(v)) || 1); }, { type: 'number', min: 1, max: 200, style: 'max-width:160px' }, 'Once a time has this many bookings, customers are asked to choose another.')),
+        group('What customers can book', h('div', { class: 'stack' }, b.services.map((x, i) => h('div', { class: 'zrow svc' }, h('input', { value: x.name, placeholder: 'e.g. Table for dinner', 'aria-label': 'Name', maxlength: 80, oninput: (e) => { x.name = e.target.value; sv(); } }), h('input', { type: 'number', min: 0, value: x.minutes, 'aria-label': 'Minutes', title: 'Minutes', oninput: (e) => { x.minutes = Math.max(0, Math.round(Number(e.target.value)) || 0); sv(); } }), h('input', { value: (x.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Price', title: 'Price (0 for free)', oninput: (e) => { const c = parsePrice(e.target.value || '0'); if (c !== null) { x.price = c; sv(); } } }),
+          h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove', onclick: async () => { b.services.splice(i, 1); try { await putOrdering(); } catch (ex) { toast(ex.message, true); } paintPanel(); } }, ic('trash', 16))))),
+          h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { b.services.push({ id: uid('s'), name: b.services.length ? '' : 'Table booking', minutes: 60, price: 0 }); sv(); paintPanel(); } }, ic('plus', 14), 'Add something to book'),
+          h('small', { class: 'hint' }, 'Name, length in minutes, and price (0 if it is free). Times offered follow your business hours.')),
+      ];
+    },
+    schedule() {
+      const add = () => formSheet('Add a shift', [['name', 'Who', { list: 'pf-people', maxlength: 80 }], ['day', 'Day', { type: 'date' }], ['start', 'Starts', { type: 'time' }], ['finish', 'Ends', { type: 'time' }], ['note', 'Note', { maxlength: 120, placeholder: 'Optional, e.g. Opening' }]],
+        { name: shiftData?.people[0] || '', day: shiftData?.today || '', start: '09:00', finish: '17:00', note: '' }, async (v) => { await api('POST', `/api/sites/${id}/shifts`, v); shiftData = null; }, () => h('datalist', { id: 'pf-people' }, (shiftData?.people || []).map((x) => h('option', { value: x }))));
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Scheduling'), h('p', { class: 'muted' }, 'Plan who is working and when, for the week ahead.')), h('button', { class: 'btn', onclick: add }, ic('plus', 16), 'Add shift'));
+      if (!shiftData) { api('GET', `/api/sites/${id}/shifts`).then((r) => { shiftData = r; if (tab === 'schedule') paintPanel(); }).catch((e) => { toast(e.message, true); shiftData = { today: new Date().toISOString().slice(0, 10), people: [], shifts: [] }; if (tab === 'schedule') paintPanel(); }); return [h('div', { class: 'inv' }, head, skel(5, 'row'))]; }
+      const { today, shifts } = shiftData;
+      const t12 = (t) => { const [hh, mm] = t.split(':').map(Number); return `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+      const hours = (x) => { const m = (Number(x.finish.slice(0, 2)) * 60 + Number(x.finish.slice(3))) - (Number(x.start.slice(0, 2)) * 60 + Number(x.start.slice(3))); return ((m <= 0 ? m + 1440 : m) / 60); };
+      const days = Array.from({ length: 7 }, (_, i) => new Date(Date.parse(`${today}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10));
+      const week = shifts.filter((x) => days.includes(x.day));
+      const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      return [h('div', { class: 'inv' }, head,
+        h('div', { class: 'inv-kpis' }, kpi('Shifts this week', week.length, 'next 7 days'), kpi('Hours scheduled', week.reduce((a, x) => a + hours(x), 0).toFixed(1), 'next 7 days'), kpi('People scheduled', new Set(week.map((x) => x.name)).size, 'this week'), kpi('Today', shifts.filter((x) => x.day === today).length, 'shifts')),
+        days.map((d) => { const list = shifts.filter((x) => x.day === d); return h('div', { class: 'scard', style: 'padding:18px 24px' }, h('h3', {}, `${d === today ? 'Today · ' : ''}${new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })}`),
+          list.length ? list.map((x) => h('div', { class: 'appt' }, h('div', { class: 'appt-t' }, h('b', {}, t12(x.start)), h('small', {}, `to ${t12(x.finish)}`)), h('div', { class: 'grow' }, h('b', {}, x.name), h('div', { class: 'small muted' }, [`${hours(x).toFixed(1)} hours`, x.note].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { try { await api('DELETE', `/api/sites/${id}/shifts/${x.id}`); shiftData = null; paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Remove'))) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'Nobody scheduled.')); }))];
+    },
+    timesheets() {
+      const head = (btn) => h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Timesheets'), h('p', { class: 'muted' }, 'Clock in when you start and out when you finish. Hours add up here for payroll.')), btn);
+      if (!clockData) { api('GET', `/api/sites/${id}/timeclock`).then((r) => { clockData = r; if (tab === 'timesheets') paintPanel(); }).catch((e) => { toast(e.message, true); clockData = { entries: [], mine: null }; if (tab === 'timesheets') paintPanel(); }); return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
+      const { entries, mine } = clockData;
+      const punch = h('button', { class: `btn ${mine ? 'soft' : ''}`, onclick: async () => { try { clockData = await api('POST', `/api/sites/${id}/timeclock`, { action: mine ? 'out' : 'in' }); toast(mine ? 'Clocked out' : 'Clocked in'); paintPanel(); } catch (e) { toast(e.message, true); } } }, ic('clock', 16), mine ? 'Clock out' : 'Clock in');
+      const hrs = (x) => ((x.outAt || Date.now()) - x.inAt) / 3600000;
+      const weekAgo = Date.now() - 7 * 86400000;
+      const week = entries.filter((x) => x.inAt > weekAgo);
+      const per = new Map(); for (const x of week) per.set(x.name, (per.get(x.name) || 0) + hrs(x));
+      const when = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      return [h('div', { class: 'inv' }, head(punch),
+        h('div', { class: 'inv-kpis' }, kpi('On the clock now', entries.filter((x) => !x.outAt).length, mine ? `you clocked in ${when(mine.inAt)}` : 'you are clocked out'), kpi('Hours, last 7 days', week.reduce((a, x) => a + hrs(x), 0).toFixed(1), 'everyone'), kpi('People', per.size, 'worked this week'), kpi('Shifts', week.length, 'last 7 days')),
+        per.size > 0 && h('div', { class: 'scard', style: 'padding:18px 24px' }, h('h3', {}, 'Hours by person, last 7 days'), [...per].sort((a, b) => b[1] - a[1]).map(([name, v]) => h('div', { class: 'rline' }, h('span', { style: 'color:var(--ink)' }, name), h('b', {}, `${v.toFixed(2)} hours`)))),
+        entries.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Name', 'Clocked in', 'Clocked out', 'Hours', 'Action'].map((x) => h('th', {}, x)))),
+          h('tbody', {}, entries.slice(0, 200).map((x) => h('tr', {}, h('td', {}, h('b', {}, x.name)), h('td', {}, when(x.inAt)), h('td', {}, x.outAt ? when(x.outAt) : h('span', { class: 'status ok' }, 'Working now')), h('td', {}, hrs(x).toFixed(2)), h('td', {}, h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Delete this entry?', text: 'It is removed from the timesheet.', action: 'Delete', danger: true })) return; try { clockData = await api('DELETE', `/api/sites/${id}/timeclock/${x.id}`); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Delete'))))))))
+          : h('div', { class: 'inv-list' }, emptyState('clock', 'No time recorded yet', 'Press Clock in when your shift starts. Staff with their own login can do the same.')))];
+    },
     tx() {
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Transactions'), h('p', { class: 'muted' }, 'Every payment and refund you have recorded, from orders and invoices.')), h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'), h('button', { class: 'btn soft', onclick: () => { txData = null; paintPanel(); } }, 'Refresh')));
       if (!txData) { api('GET', `/api/sites/${id}/transactions?${rq()}`).then((r) => { txData = r; if (tab === 'tx') paintPanel(); }).catch((e) => { toast(e.message, true); txData = { payments: [], refunds: [], tenders: [], totals: { payments: 0, count: 0, refunds: 0, refundCount: 0, net: 0 } }; if (tab === 'tx') paintPanel(); }); return [h('div', { class: 'inv' }, head, rangeBar(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(5, 'row'))]; }
@@ -1598,7 +1681,7 @@ export async function editor(id, mount, title) {
 
   // Invoices change without the merchant doing anything (a customer opens one), so the list is refreshed on each visit.
   const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if ((tab === 'invoices' || tab === 'est') && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
-  const goTab = (k) => { if (k === 'invoices' || k === 'est') refreshBills(); if (k === 'start') dash = null; if (k === 'tx') txData = null; if (k === 'cash') cashData = null; if (k === 'close') closeData = null; if (k === 'insights') insightData = null; if (k === 'projects') refreshBills(); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
+  const goTab = (k) => { if (k === 'invoices' || k === 'est') refreshBills(); if (k === 'start') dash = null; if (k === 'tx') txData = null; if (k === 'cash') cashData = null; if (k === 'close') closeData = null; if (k === 'insights') insightData = null; if (k === 'appts' || k === 'calendar') apptData = null; if (k === 'schedule') shiftData = null; if (k === 'timesheets') clockData = null; if (k === 'projects') refreshBills(); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
   function startPanel() {
     const b = draft.business;
     const steps = [
@@ -1697,7 +1780,7 @@ export async function editor(id, mount, title) {
     subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
-    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
+    panel.replaceChildren(...[HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
     labelTables(panel);
     panel.scrollTop = y;

@@ -1090,3 +1090,46 @@ test('gift cards, recurring payments, customer import, projects', async () => {
     assert.equal(inv.project, 'Smith wedding');
   } finally { base = saved; srv.close(); app6.close(); rmSync(d6, { recursive: true, force: true }); }
 });
+
+test('online booking, appointments, shifts and the time clock', async () => {
+  const d7 = mkdtempSync(join(tmpdir(), 'pfsites7-'));
+  const sent = [];
+  const app7 = createApp({ dataDir: d7, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const srv = createServer(app7);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'bookcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'book@shop.test', password: 'long-enough-pw', name: 'Bea' });
+    const site = (await me('POST', '/api/sites', { name: 'Book Cafe', template: 'order', kind: 'ordering' })).data.site;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    assert.equal((await anon('GET', '/book', null, host)).status, 404, 'no booking page until it is switched on');
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, booking: { enabled: true, perSlot: 1, services: [{ id: 's1', name: 'Table for dinner', minutes: 90 }] } } });
+    assert.match((await anon('GET', '/book', null, host)).data, /Table for dinner · 90 min/);
+    const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+    const ask = { service: 's1', date: day, time: '18:30', name: 'Ana Ruiz', phone: '903-555-0100', email: 'ana@example.com', party: 4 };
+    assert.equal((await anon('POST', '/_book', { ...ask, date: '2020-01-01' }, host)).status, 400, 'not in the past');
+    assert.equal((await anon('POST', '/_book', { ...ask, email: 'nope' }, host)).status, 400);
+    assert.equal((await anon('POST', '/_book', ask, host)).status, 201);
+    assert.equal((await anon('POST', '/_book', ask, host)).status, 409, 'that time is now full');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(sent.some((m) => m.to === 'ana@example.com' && /booking request/.test(m.subject)) && sent.some((m) => /New booking request/.test(m.subject)));
+    let list = (await me('GET', `/api/sites/${site.id}/appointments`)).data.appointments;
+    assert.deepEqual([list.length, list[0].status, list[0].party, list[0].service], [1, 'pending', 4, 'Table for dinner']);
+    sent.length = 0;
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments/${list[0].id}`, { status: 'confirmed' })).data.appointment.status, 'confirmed');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(sent.some((m) => m.to === 'ana@example.com' && /confirmed/.test(m.subject)));
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments`, { serviceName: 'Walk-in', date: day, time: '18:30', name: 'Bo' })).data.appointment.status, 'confirmed', 'staff can add one even when the slot is full');
+
+    assert.equal((await me('POST', `/api/sites/${site.id}/shifts`, { name: 'Bea', day, start: '9', finish: '17:00' })).status, 400);
+    await me('POST', `/api/sites/${site.id}/shifts`, { name: 'Bea', day, start: '09:00', finish: '17:00' });
+    const sh = (await me('GET', `/api/sites/${site.id}/shifts`)).data;
+    assert.deepEqual([sh.shifts.length, sh.people], [1, ['Bea']]);
+    let clock = (await me('POST', `/api/sites/${site.id}/timeclock`, { action: 'in' })).data;
+    assert.ok(clock.mine);
+    assert.equal((await me('POST', `/api/sites/${site.id}/timeclock`, { action: 'in' })).status, 400, 'cannot clock in twice');
+    clock = (await me('POST', `/api/sites/${site.id}/timeclock`, { action: 'out' })).data;
+    assert.deepEqual([clock.mine, clock.entries.length, clock.entries[0].outAt > 0], [null, 1, true]);
+  } finally { base = saved; srv.close(); app7.close(); rmSync(d7, { recursive: true, force: true }); }
+});

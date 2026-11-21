@@ -134,3 +134,10 @@ export function giftEmail({ business, code, amount, name, url }) {
     html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business)} · Gift card</p><h1 style="margin:0 0 10px;font-size:34px;letter-spacing:-.025em;font-weight:600">${money(amount)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(name ? `Hi ${name.split(' ')[0]}, here` : 'Here')} is your gift card. Enter the code in the promo code box when you order online, or show it at the counter.</p><p style="margin:0;font-size:26px;font-weight:600;letter-spacing:.08em;background:#f5f5f7;border-radius:14px;padding:18px;text-align:center">${esc(code)}</p>${button(url, 'Order online')}`),
   };
 }
+
+export function bookingEmail(kind, { business, appt, when, manageUrl }) {
+  const head = { request: [`We have your booking request`, `Thanks, ${appt.name.split(' ')[0]}. ${business.name} will confirm your booking shortly.`], confirmed: ['Your booking is confirmed', `See you then. If your plans change, please let ${business.name} know.`], cancelled: ['Your booking was cancelled', `Please contact ${business.name} if you have any questions.`], merchant: ['New booking request', `${appt.name} asked for ${appt.service}.`] }[kind];
+  const rows = [['What', appt.service], ['When', when], ['People', String(appt.party)], ...(kind === 'merchant' ? [['Customer', `${appt.name} · ${appt.phone} · ${appt.email}`]] : []), ...(appt.notes ? [['Notes', appt.notes]] : [])];
+  return { subject: `${head[0]} · ${business.name}`, text: [head[0], head[1], '', ...rows.map(([k, v]) => `${k}: ${v}`), '', kind === 'merchant' ? manageUrl || '' : [business.name, business.phone].filter(Boolean).join(' · ')].join('\n'),
+    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)}</p><h1 style="margin:0 0 10px;font-size:26px;letter-spacing:-.02em;font-weight:600">${esc(head[0])}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(head[1])}</p>${rowsHtml(rows)}${kind === 'merchant' ? button(manageUrl, 'Open appointments') : ''}`) };
+}
