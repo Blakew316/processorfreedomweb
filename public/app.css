@@ -3290,3 +3290,16 @@ html[data-theme=dark] .more-kids button[aria-current=page]{color:#9cc0ff}
   .set-body p{margin:0;padding:8px 16px 0 60px}.set-body>div>:last-child{margin-bottom:10px}.set-body>div>a:last-child{margin-bottom:0}
 }
 .set-head>span{flex:1 1 auto}.set-head>.tile-ic{flex:none!important}
+/* Phone menu header: who you are and which business, always in view */
+.more-head{position:sticky;top:-14px;z-index:2;background:var(--bg2);margin:-14px -16px 8px!important;padding:14px 16px 12px;gap:12px}
+.more-head h2{font-size:22px!important;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-head small{font-size:14px!important;color:var(--muted)}
+.more-me{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:linear-gradient(180deg,#fff,#eef1f6);box-shadow:inset 0 0 0 .5px rgba(16,24,40,.16);color:#1b2232;font-weight:600;font-size:16px;letter-spacing:.02em;cursor:pointer}
+html[data-theme=dark] .more-me{background:linear-gradient(180deg,#3a3a3c,#2c2c2e);color:#f2f2f7}
+.more-grab{display:none}
+/* In the Safari browser the address bar floats over the top of the page: keep sheets clear of it */
+@media (max-width:900px) and (display-mode:browser){
+  .sheet,.sheet.wide,.sheet.bill,.sheet.isheet,.sheet.live,.sheet.more{max-height:calc(100dvh - 120px - env(safe-area-inset-top))!important}
+}
+.m-biz{display:none}
+@media (max-width:900px){.m-title{display:grid!important;justify-items:center;line-height:1.15}.m-biz{display:block;font-size:12px;font-weight:500;color:var(--muted);max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
