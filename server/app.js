@@ -6,7 +6,7 @@ import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
 import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu, invoiceTotals, safeUrl, applyMods } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail } from './mail.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -192,7 +192,10 @@ export function createApp(options = {}) {
     if (mine) return mine;
     const c = str(code, 24).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const r = c && db.get('SELECT code, type, value FROM rewards WHERE site_id = ? AND code = ? AND used_order IS NULL', site.id, c);
-    return r ? { ...r, reward: true } : null;
+    if (r) return { ...r, reward: true };
+    // A gift card works like money off, up to what is left on it.
+    const g = c && db.get('SELECT code, balance FROM gift_cards WHERE site_id = ? AND code = ? AND balance > 0', site.id, c);
+    return g ? { code: g.code, type: 'amount', value: g.balance, gift: true } : null;
   }
   function businessOf(site) {
     const c = JSON.parse(site.published || site.draft);
@@ -249,8 +252,9 @@ export function createApp(options = {}) {
     }
     db.run('UPDATE sites SET day = ? WHERE id = ?', today, site.id);
   }
+  let recurring = null;
   function tick(nowMs = Date.now()) {
-    for (const site of db.all('SELECT * FROM sites')) { try { closeDay(site, nowMs); } catch (e) { console.error('Daily wrap-up failed for', site.id, e.message); } }
+    for (const site of db.all('SELECT * FROM sites')) { try { closeDay(site, nowMs); if (recurring) recurring(site, new Date(wallNow(orderingOf(site), nowMs)).toISOString().slice(0, 10)); } catch (e) { console.error('Daily wrap-up failed for', site.id, e.message); } }
   }
   const daily = setInterval(tick, 5 * 60000);
   daily.unref();
@@ -586,7 +590,7 @@ export function createApp(options = {}) {
 
   const invoiceUrl = (req, site, token) => `${siteUrl(req, site).replace(/\/$/, '')}/invoice/${token}`;
   const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
-    payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
+    project: r.project || '', payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
   const invoicesOf = (req, site) => db.all('SELECT * FROM invoices WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id).map((r) => toInvoice(r, req, site));
   function cleanInvoice(b) {
     const customer = cleanContact(b.customer);
@@ -594,10 +598,104 @@ export function createApp(options = {}) {
     const rate = Number(b.taxRate);
     const taxRate = Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0;
     const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due)) && !Number.isNaN(Date.parse(`${b.due}T00:00:00Z`)) ? b.due : '';
-    return { customer, items, notes: str(b.notes, 2000).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...invoiceTotals(items, taxRate, b.discount) };
+    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...invoiceTotals(items, taxRate, b.discount) };
   }
   const ownInvoice = (site, invId) => db.get('SELECT * FROM invoices WHERE id = ? AND site_id = ?', invId, site.id) || bad(404, 'We could not find that invoice.');
-  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.subtotal, v.tax, v.total, v.payUrl, Date.now(), rowId);
+  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, project = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.subtotal, v.tax, v.total, v.payUrl, v.project || '', Date.now(), rowId);
+
+  route('POST', '/api/sites/:id/contacts/import', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const rows = (await readJson(req, 1_500_000)).rows;
+    let added = 0, skipped = 0;
+    for (const r of Array.isArray(rows) ? rows.slice(0, 5000) : []) { try { keepContact(site.id, cleanContact(r)); added++; } catch { skipped++; } }
+    json(res, 200, { added, skipped, contacts: contactsOf(site.id) });
+  });
+
+  /* Gift cards: a code with a balance, spent like money off at checkout or at the counter. */
+  const giftsOf = (site) => db.all('SELECT code, initial, balance, name, email, note, created_at AS createdAt FROM gift_cards WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id);
+  route('GET', '/api/sites/:id/gift-cards', (req, res, p) => json(res, 200, { cards: giftsOf(ownSite(req, p.id).site) }));
+  route('POST', '/api/sites/:id/gift-cards', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const amount = Math.round(Number(b.amount));
+    if (!(amount >= 100) || amount > 100_000_00) bad(400, 'Enter an amount of at least $1.00.');
+    const email = str(b.email, 200).trim().toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'That email address does not look right.');
+    const code = `GC${randomBytes(5).toString('hex').toUpperCase()}`;
+    db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, str(b.name, 120).trim(), email, str(b.note, 200).trim(), Date.now());
+    if (email) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: `${siteUrl(req, site).replace(/\/$/, '')}/order` }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
+    json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site) });
+  });
+  // Spend from a card at the counter, or top it up.
+  route('POST', '/api/sites/:id/gift-cards/:code', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const card = db.get('SELECT * FROM gift_cards WHERE site_id = ? AND code = ?', site.id, str(p.code, 24).toUpperCase()) || bad(404, 'We could not find that gift card.');
+    const change = Math.round(Number((await readJson(req)).change));
+    if (!change || card.balance + change < 0) bad(400, `This card has ${money(card.balance)} left.`);
+    db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', change, site.id, card.code);
+    json(res, 200, { cards: giftsOf(site) });
+  });
+
+  /* Recurring payments: a plan sends the customer a fresh invoice on a schedule. */
+  const EVERY = { weekly: 7, biweekly: 14, monthly: 'm1', quarterly: 'm3', yearly: 'm12' };
+  const plansOf = (site) => db.all('SELECT * FROM plans WHERE site_id = ? ORDER BY created_at DESC', site.id).map((r) => ({ id: r.id, name: r.name, customer: JSON.parse(r.customer), amount: r.amount, taxRate: r.tax_rate, every: r.every, nextDate: r.next_date, status: r.status, billed: r.billed }));
+  const stepDate = (day, every) => { const d = new Date(`${day}T12:00:00Z`); const e = EVERY[every]; if (typeof e === 'number') d.setUTCDate(d.getUTCDate() + e); else d.setUTCMonth(d.getUTCMonth() + Number(e.slice(1))); return d.toISOString().slice(0, 10); };
+  route('GET', '/api/sites/:id/plans', (req, res, p) => json(res, 200, { plans: plansOf(ownSite(req, p.id).site) }));
+  route('POST', '/api/sites/:id/plans', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const customer = cleanContact(b.customer);
+    if (!customer.email) bad(400, 'Add the customer’s email address, so each invoice can be sent.');
+    const name = str(b.name, 120).trim() || bad(400, 'Give the plan a name, such as Weekly lunch order.');
+    const amount = Math.round(Number(b.amount));
+    if (!(amount > 0)) bad(400, 'Enter an amount above zero.');
+    if (!EVERY[b.every]) bad(400, 'Choose how often to bill.');
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(String(b.start)) ? b.start : new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
+    const rate = Number(b.taxRate);
+    db.run('INSERT INTO plans (id, site_id, name, customer, amount, tax_rate, every, next_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, name, JSON.stringify(customer), amount, Number.isFinite(rate) ? Math.min(30, Math.max(0, rate)) : 0, b.every, start, Date.now());
+    keepContact(site.id, customer);
+    json(res, 201, { plans: plansOf(site) });
+  });
+  route('POST', '/api/sites/:id/plans/:plan', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const status = (await readJson(req)).status === 'paused' ? 'paused' : 'active';
+    db.run('UPDATE plans SET status = ? WHERE id = ? AND site_id = ?', status, p.plan, site.id);
+    json(res, 200, { plans: plansOf(site) });
+  });
+  route('DELETE', '/api/sites/:id/plans/:plan', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    db.run('DELETE FROM plans WHERE id = ? AND site_id = ?', p.plan, site.id);
+    json(res, 200, { plans: plansOf(site) });
+  });
+  // Run with the daily wrap-up: any plan that is due gets its invoice made and sent.
+  function billPlans(site, today) {
+    const fake = { headers: { host: APP_HOST || 'localhost' }, socket: {} };
+    for (const plan of db.all("SELECT * FROM plans WHERE site_id = ? AND status = 'active' AND next_date <= ?", site.id, today)) {
+      const customer = JSON.parse(plan.customer);
+      const v = { customer, items: [{ name: plan.name, qty: 1, price: plan.amount, taxable: true }], notes: '', project: '', due: stepDate(today, 'weekly'), taxRate: plan.tax_rate, payUrl: '' };
+      Object.assign(v, invoiceTotals(v.items, v.taxRate, 0));
+      const invId = newId(), now = Date.now();
+      const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
+      db.run("INSERT INTO invoices (id, site_id, number, token, kind, status, customer, items, created_at, updated_at, sent_at) VALUES (?, ?, ?, ?, 'invoice', 'sent', ?, ?, ?, ?, ?)", invId, site.id, number, newId(18), '{}', '[]', now, now, now);
+      saveInvoice(invId, v);
+      let next = stepDate(plan.next_date, plan.every); while (next <= today) next = stepDate(next, plan.every);
+      db.run('UPDATE plans SET next_date = ?, billed = billed + ? WHERE id = ?', next, v.total, plan.id);
+      const inv = toInvoice(ownInvoice(site, invId), fake, site), business = businessOf(site);
+      Promise.resolve().then(() => mailer.send({ to: customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Plan invoice email failed:', e.message));
+    }
+  }
+  recurring = billPlans;
+
+  /* Devices that get new-order notifications for this site. */
+  route('GET', '/api/sites/:id/devices', (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'owner');
+    json(res, 200, { devices: db.all('SELECT s.endpoint, s.created_at AS createdAt, u.name, u.email FROM push_subs s JOIN users u ON u.id = s.user_id WHERE s.user_id = ? OR s.user_id IN (SELECT user_id FROM members WHERE site_id = ?) ORDER BY s.created_at DESC', site.user_id, site.id).map((d) => ({ id: sha(d.endpoint).slice(0, 16), service: new URL(d.endpoint).hostname.replace(/^.*?([^.]+\.[^.]+)$/, '$1'), createdAt: d.createdAt, name: d.name, email: d.email })) });
+  });
+  route('DELETE', '/api/sites/:id/devices/:device', (req, res, p) => {
+    const { site } = ownSite(req, p.id, 'owner');
+    for (const d of db.all('SELECT endpoint FROM push_subs WHERE user_id = ? OR user_id IN (SELECT user_id FROM members WHERE site_id = ?)', site.user_id, site.id)) if (sha(d.endpoint).slice(0, 16) === p.device) db.run('DELETE FROM push_subs WHERE endpoint = ?', d.endpoint);
+    json(res, 200, { ok: true });
+  });
 
   route('GET', '/api/sites/:id/invoices', (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -1160,6 +1258,7 @@ export function createApp(options = {}) {
         const oid = newId(); const now = Date.now();
         db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, now, now);
+        if (promo?.gift) db.run('UPDATE gift_cards SET balance = MAX(0, balance - ?) WHERE site_id = ? AND code = ?', t.discount, site.id, promo.code);
         if (promo?.reward) db.run('UPDATE rewards SET used_order = ? WHERE site_id = ? AND code = ? AND used_order IS NULL', oid, site.id, promo.code);
         // Every Nth order earns a one-time reward code for next time.
         const L = ordering.loyalty;

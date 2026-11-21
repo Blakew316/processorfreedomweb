@@ -98,6 +98,11 @@ export function openDb(dataDir) {
     CREATE TABLE IF NOT EXISTS closeouts (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, number INTEGER NOT NULL, from_at INTEGER NOT NULL, created_at INTEGER NOT NULL, by_name TEXT NOT NULL DEFAULT '', totals TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS closeouts_site ON closeouts(site_id, created_at);
   `);
+  addColumn('invoices', 'project', "TEXT NOT NULL DEFAULT ''");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gift_cards (code TEXT NOT NULL, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, initial INTEGER NOT NULL, balance INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, PRIMARY KEY (site_id, code));
+    CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL, customer TEXT NOT NULL, amount INTEGER NOT NULL, tax_rate REAL NOT NULL DEFAULT 0, every TEXT NOT NULL, next_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', billed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
+  `);
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
   return {

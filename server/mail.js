@@ -126,3 +126,11 @@ export function invoiceEmail({ business, invoice, url, reminder, estimate }) {
     html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)} · ${Word} ${esc(invoice.label)}</p><h1 style="margin:0 0 10px;font-size:34px;line-height:1.1;letter-spacing:-.025em;font-weight:600">${money(invoice.total)}</h1><p style="margin:0 0 22px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p>${rowsHtml(rows)}${invoice.notes ? `<p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#1d1d1f;white-space:pre-wrap">${esc(invoice.notes)}</p>` : ''}${button(url, estimate ? 'View estimate' : 'View and pay invoice')}<p style="margin:26px 0 0;font-size:13px;line-height:1.5;color:#86868b">${esc([business.name, business.address, business.phone].filter(Boolean).join(' · '))}</p>`),
   };
 }
+
+export function giftEmail({ business, code, amount, name, url }) {
+  return {
+    subject: `Your ${money(amount)} gift card for ${business}`,
+    text: `${name ? `Hi ${name.split(' ')[0]}, here` : 'Here'} is your ${money(amount)} gift card for ${business}.\n\nCode: ${code}\n\nEnter it in the promo code box when you order online, or show it at the counter.\n\n${url || ''}`,
+    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business)} · Gift card</p><h1 style="margin:0 0 10px;font-size:34px;letter-spacing:-.025em;font-weight:600">${money(amount)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(name ? `Hi ${name.split(' ')[0]}, here` : 'Here')} is your gift card. Enter the code in the promo code box when you order online, or show it at the counter.</p><p style="margin:0;font-size:26px;font-weight:600;letter-spacing:.08em;background:#f5f5f7;border-radius:14px;padding:18px;text-align:center">${esc(code)}</p>${button(url, 'Order online')}`),
+  };
+}

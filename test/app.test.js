@@ -1037,3 +1037,56 @@ test('sales activity: payments, refunds, transactions, cash log, closeout, estim
     assert.equal((await me('POST', `/api/sites/${site.id}/invoices/${est.id}/convert`)).status, 400);
   } finally { base = saved; srv.close(); app5.close(); rmSync(d5, { recursive: true, force: true }); }
 });
+
+test('gift cards, recurring payments, customer import, projects', async () => {
+  const d6 = mkdtempSync(join(tmpdir(), 'pfsites6-'));
+  const sent = [];
+  const app6 = createApp({ dataDir: d6, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const srv = createServer(app6);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'giftcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'gift@shop.test', password: 'long-enough-pw' });
+    const site = (await me('POST', '/api/sites', { name: 'Gift Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
+    const [taco] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    // A $15 gift card pays for a $10 order and keeps $5.
+    assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 50 })).status, 400);
+    const made = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 1500, name: 'Ana', email: 'ana@example.com' })).data;
+    assert.match(made.code, /^GC[0-9A-F]{10}$/);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(sent.some((m) => m.to === 'ana@example.com' && m.html.includes(made.code)));
+    assert.deepEqual((await anon('GET', `/_promo?code=${made.code}`, null, host)).data, { code: made.code, type: 'amount', value: 1500 });
+    const who = { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
+    assert.equal((await anon('POST', '/_order', { ...who, promo: made.code, items: [{ id: taco.id, qty: 1 }] }, host)).status, 201);
+    let cards = (await me('GET', `/api/sites/${site.id}/gift-cards`)).data.cards;
+    assert.deepEqual([cards[0].balance, (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0].total], [500, 0]);
+    assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards/${made.code}`, { change: -900 })).status, 400, 'cannot spend more than is left');
+    cards = (await me('POST', `/api/sites/${site.id}/gift-cards/${made.code}`, { change: -500 })).data.cards;
+    assert.equal(cards[0].balance, 0);
+    assert.equal((await anon('GET', `/_promo?code=${made.code}`, null, host)).status, 404, 'an empty card no longer works');
+
+    // A weekly plan makes and sends an invoice when it is due, then moves on a week.
+    assert.equal((await me('POST', `/api/sites/${site.id}/plans`, { name: 'Lunch', customer: { name: 'Dana' }, amount: 5000, every: 'weekly' })).status, 400, 'needs an email');
+    let plans = (await me('POST', `/api/sites/${site.id}/plans`, { name: 'Office lunch', customer: { name: 'Dana', email: 'dana@acme.test' }, amount: 5000, every: 'weekly', start: '2020-01-01', taxRate: 10 })).data.plans;
+    assert.equal(plans[0].status, 'active');
+    sent.length = 0;
+    app6.tick(Date.now());
+    await new Promise((r) => setTimeout(r, 20));
+    const invs = (await me('GET', `/api/sites/${site.id}/invoices`)).data.invoices;
+    assert.deepEqual([invs.length, invs[0].status, invs[0].total, invs[0].items[0].name], [1, 'sent', 5500, 'Office lunch']);
+    assert.ok(sent.some((m) => m.to === 'dana@acme.test' && /Invoice INV-1001/.test(m.subject)));
+    plans = (await me('GET', `/api/sites/${site.id}/plans`)).data.plans;
+    assert.ok(plans[0].nextDate > new Date().toISOString().slice(0, 10) && plans[0].billed === 5500);
+    app6.tick(Date.now());
+    assert.equal((await me('GET', `/api/sites/${site.id}/invoices`)).data.invoices.length, 1, 'not billed twice');
+    plans = (await me('POST', `/api/sites/${site.id}/plans/${plans[0].id}`, { status: 'paused' })).data.plans;
+    assert.equal(plans[0].status, 'paused');
+
+    const imp = (await me('POST', `/api/sites/${site.id}/contacts/import`, { rows: [{ name: 'Bo', email: 'bo@x.test' }, { name: '', company: '' }, { name: 'Cy', email: 'not-an-email' }] })).data;
+    assert.deepEqual([imp.added, imp.skipped], [1, 2]);
+    const inv = (await me('POST', `/api/sites/${site.id}/invoices`, { project: 'Smith wedding', customer: { name: 'Sam' }, items: [{ name: 'Catering', qty: 1, price: 1000 }] })).data.invoice;
+    assert.equal(inv.project, 'Smith wedding');
+  } finally { base = saved; srv.close(); app6.close(); rmSync(d6, { recursive: true, force: true }); }
+});
