@@ -1,5 +1,5 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
-import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme } from './ui.js';
+import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
 
 const root = document.getElementById('app');
 let cleanup = null;
@@ -37,6 +37,7 @@ function accountMenu() {
       state.user.admin && h('button', { onclick: () => { close(); go('/app/admin'); } }, 'Staff dashboard'),
       h('button', { onclick: () => { close(); changePassword(); } }, 'Change password'),
       h('div', { style: 'padding:8px 12px 10px' }, h('small', { class: 'muted' }, 'Appearance'), h('div', { class: 'seg', style: 'margin-top:6px' }, [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']].map(([k, l]) => h('button', { 'aria-pressed': String(getTheme() === k), onclick: () => { setTheme(k); close(); } }, l)))),
+      canOfferInstall() && h('button', { onclick: () => { close(); installApp(); } }, 'Install app'),
       h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Sign out'));
     wrap.append(menu);
     setTimeout(() => document.addEventListener('click', away));
@@ -218,9 +219,22 @@ async function dashboard() {
       } }, ic('trash'))));
   mount(topbar(state.user.admin && link('/app/admin', {}, 'Staff dashboard'), accountMenu()), h('main', { class: 'page dash' },
     h('div', { class: 'dash-head' }, h('h1', {}, 'My sites'), sites.length > 0 && link('/app/new', { class: 'btn' }, ic('plus', 16), 'New site')),
+    installBanner(),
     sites.length
       ? h('div', { class: 'sgrid' }, sites.map(card), h('div', {}, h('button', { class: 'newcard', onclick: () => go('/app/new') }, 'Create another site')))
       : h('div', { class: 'empty' }, h('h2', {}, 'Let’s build your website.'), h('p', {}, 'It takes about two minutes, and you can change everything later.'), link('/app/new', { class: 'btn lg' }, 'Create your site'))));
+}
+
+/* Offered once on phones and tablets, until installed or dismissed. */
+function installBanner() {
+  let hidden = false;
+  try { hidden = !!localStorage.getItem('pf-install-hide'); } catch { /* private mode */ }
+  if (hidden || !canOfferInstall() || !matchMedia('(max-width:900px)').matches) return null;
+  const el = h('div', { class: 'ins-banner' }, h('img', { src: '/assets/icon-192.png', alt: '', width: 48, height: 48 }),
+    h('div', { class: 'grow' }, h('b', {}, 'Get the app'), h('span', {}, 'Add it to your Home Screen for full screen and order alerts.')),
+    h('button', { class: 'btn sm', onclick: installApp }, 'Install'),
+    h('button', { class: 'icon-btn', 'aria-label': 'Not now', onclick: () => { try { localStorage.setItem('pf-install-hide', '1'); } catch { /* fine */ } el.remove(); } }, ic('x', 16)));
+  return el;
 }
 
 /* ---------- Staff dashboard ---------- */
@@ -252,6 +266,7 @@ async function admin() {
   const drawSites = () => {
     chips.replaceChildren(...[['all', 'All'], ['stalled', 'Never published'], ['quiet', 'Live, no orders yet'], ['selling', 'Taking orders'], ['new', 'Just started']].filter(([k]) => k === 'all' || counts[k]).map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(siteFilter === k), onclick: () => { siteFilter = k; drawSites(); } }, `${l} · ${counts[k] || 0}`)));
     const rows = data.sites.filter((s2) => siteFilter === 'all' || health(s2) === siteFilter);
+    queueMicrotask(labelTables);
     sitesBody.replaceChildren(...rows.map((s2) => h('tr', {}, h('td', {}, h('b', {}, s2.name), h('div', { class: 'small muted' }, `Created ${fmtDate(s2.createdAt)}`)), h('td', {}, s2.owner), h('td', {}, h('a', { href: s2.url, target: '_blank', rel: 'noopener' }, s2.customDomain && s2.domainVerified ? s2.customDomain : s2.address)),
       h('td', {}, h('span', { class: `status ${HEALTH[health(s2)][1]}` }, HEALTH[health(s2)][0])), h('td', {}, s2.ordering.enabled ? (s2.ordering.accepting ? 'On' : 'Paused') : 'Off'), h('td', {}, s2.items), h('td', {}, s2.orders), h('td', {}, h('b', {}, money(s2.sales30))), h('td', { class: 'muted' }, s2.lastOrderAt ? when(s2.lastOrderAt) : '—'),
       h('td', {}, link(`/app/site/${s2.id}`, { class: 'btn soft sm', title: 'Open this site exactly as the merchant sees it' }, 'View as merchant')))));
@@ -287,6 +302,7 @@ async function admin() {
         if (!await confirmSheet({ title: `Delete ${u.email}?`, text: u.sites ? `This removes the account and its ${u.sites} site${u.sites === 1 ? '' : 's'}, including menus, orders and messages. Any published site goes offline. This cannot be undone.` : 'This removes the account. This cannot be undone.', action: 'Delete account', danger: true })) return;
         try { await api('DELETE', `/api/admin/users/${u.id}`); toast('Account deleted'); admin(); } catch (ex) { toast(ex.message, true); }
       } }, 'Delete')))), 'No accounts yet.')));
+  labelTables();
 }
 
 /* ---------- Router ---------- */

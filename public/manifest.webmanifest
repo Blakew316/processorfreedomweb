@@ -1,11 +1,18 @@
 {
+  "id": "/app",
   "name": "Processor Freedom Sites",
   "short_name": "PF Sites",
-  "description": "Build your website and manage online orders.",
+  "description": "Run your online ordering, menu, sales and website from your phone.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "icons": [{ "src": "/assets/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+  "categories": ["business", "food", "productivity"],
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }

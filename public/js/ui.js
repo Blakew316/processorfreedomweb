@@ -42,6 +42,7 @@ export const getTheme = () => { try { return localStorage.getItem('pf-theme') ||
 export function setTheme(t) {
   try { localStorage.setItem('pf-theme', t); } catch { /* ignore */ }
   document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#000000' : '#ffffff');
   document.querySelectorAll('.theme-btn').forEach((b) => b.replaceChildren(ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18)));
 }
 export const themeButton = () => h('button', { class: 'icon-btn theme-btn', title: 'Switch between light and dark', 'aria-label': 'Switch between light and dark', onclick: () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark') }, ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18));
@@ -220,7 +221,7 @@ export function setAlerts(on) { try { localStorage.setItem('pf-alerts', on ? 'on
 export function announceOrders(list, siteName) {
   if (!list.length || !alertsOn()) return;
   chime();
-  try { if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') new Notification(list.length === 1 ? `New order #${list[0].number}` : `${list.length} new orders`, { body: `${siteName} · ${list.map((o) => o.name).join(', ')}`, icon: '/assets/logo.png' }); } catch { /* ignore */ }
+  try { if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') new Notification(list.length === 1 ? `New order #${list[0].number}` : `${list.length} new orders`, { body: `${siteName} · ${list.map((o) => o.name).join(', ')}`, icon: '/assets/icon-192.png' }); } catch { /* ignore */ }
 }
 export function printTicket(o, siteName, extra) {
   const e = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -250,4 +251,38 @@ export async function disablePush() {
   const reg = await navigator.serviceWorker.getRegistration('/');
   const sub = reg && await reg.pushManager.getSubscription();
   if (sub) { await api('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+}
+
+/* ---------- Phone layout helpers ---------- */
+
+/** Copies each column heading onto its cells, so on a phone a table can be shown as a stack of labelled cards. */
+export function labelTables(root = document) {
+  root.querySelectorAll('table.table').forEach((t) => {
+    const heads = [...t.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    t.querySelectorAll('tbody tr').forEach((tr) => [...tr.children].forEach((td, i) => { if (td.colSpan > 1) td.dataset.l = ''; else td.dataset.l = heads[i] || ''; if (!td.textContent.trim() && !td.querySelector('button,a,input,select')) td.dataset.empty = '1'; }));
+  });
+}
+
+/* ---------- Install on the Home Screen ---------- */
+
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvent = e; document.documentElement.dataset.installable = '1'; });
+window.addEventListener('appinstalled', () => { installEvent = null; delete document.documentElement.dataset.installable; toast('Installed. Find it on your Home Screen.'); });
+export const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+export const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+/** Whether offering to install makes sense here: not already installed, and on a phone, tablet or a browser that supports it. */
+export const canOfferInstall = () => !isStandalone() && (!!installEvent || isIOS() || matchMedia('(max-width:900px)').matches);
+export async function installApp() {
+  if (installEvent) { const ev = installEvent; installEvent = null; ev.prompt(); try { await ev.userChoice; } catch { /* dismissed */ } return; }
+  const share = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3.500M8 7l4-4 4 4M6.500 11H6a1.500 1.500 0 00-1.500 1.500v7A1.500 1.500 0 006 21h12a1.500 1.500 0 001.500-1.500v-7A1.500 1.500 0 0018 11h-.500"/></svg>';
+  const plus = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4.500"/><path d="M12 8.500v7M8.500 12h7"/></svg>';
+  const step = (n, icon, title, text) => h('div', { class: 'ins-step' }, h('span', { class: 'ins-n' }, n), h('div', {}, h('b', {}, title, icon && h('i', { class: 'ins-ic', html: icon })), h('p', {}, text)));
+  const ios = isIOS();
+  sheet((close) => [h('img', { class: 'ins-icon', src: '/assets/icon-192.png', alt: '', width: 84, height: 84 }), h('h2', { style: 'text-align:center' }, 'Add to your Home Screen'),
+    h('p', { class: 'muted', style: 'text-align:center' }, 'Open Processor Freedom Sites like an app: full screen, one tap from your Home Screen, with new-order notifications.'),
+    h('div', { class: 'ins-steps' }, ...(ios
+      ? [step(1, share, 'Tap Share', 'The square with an arrow, in the bar at the bottom of Safari (or the top on iPad).'), step(2, plus, 'Choose “Add to Home Screen”', 'Scroll down the list if you do not see it straight away.'), step(3, '', 'Tap Add', 'The Processor Freedom icon appears on your Home Screen.')]
+      : [step(1, '', 'Open your browser menu', 'The three dots at the top or bottom of the screen.'), step(2, plus, 'Choose “Install app” or “Add to Home screen”', 'The wording depends on your browser.'), step(3, '', 'Confirm', 'The Processor Freedom icon appears with your other apps.')])),
+    ios && !/safari/i.test(navigator.userAgent.replace(/crios|fxios|edgios/i, '')) && h('p', { class: 'hint', style: 'text-align:center' }, 'If you do not see Share, open this page in Safari first.'),
+    h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: close }, 'Got it'))], 'ins');
 }

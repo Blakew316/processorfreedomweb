@@ -1,6 +1,6 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
@@ -12,6 +12,8 @@ const TABS = [
 const DIVIDE_AFTER = new Set(['start', 'inbox', 'items', 'business', 'seo']);
 const WIDE = new Set(['items', 'sales', 'customers', 'invoices']);
 const MODES = { office: 'Back office', site: 'Website' };
+// On a phone the main screens of each side sit in a tab bar at the bottom; everything else is under More.
+const PHONE_TABS = { office: [['orders', 'Orders', 'bag'], ['sales', 'Sales', 'chart'], ['items', 'Items', 'tag'], ['invoices', 'Invoices', 'doc']], site: [['design', 'Look', 'brush'], ['sections', 'Home page', 'home'], ['business', 'Info', 'store']] };
 
 // Item photos are trimmed to one shape so every tile on the menu lines up.
 const ITEM_PHOTO = { ratio: 4 / 3, max: 1400 };
@@ -1312,8 +1314,41 @@ export async function editor(id, mount, title) {
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...(cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()).flat(Infinity).filter(Boolean));
+    labelTables(panel);
     panel.scrollTop = y;
+    const title2 = top.querySelector('.m-title b');
+    if (title2 && title2.textContent !== cur[1]) paintTop(); else paintTabbar();
   }
+  /* ---------- phone navigation ---------- */
+  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main screens' });
+  function paintTabbar() {
+    const mode = modeOf(tab);
+    const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
+    const previewing = mode === 'site' && body.dataset.view === 'preview';
+    const primary = PHONE_TABS[mode];
+    const item = (icon, label, on, fn, badge) => h('button', { type: 'button', 'aria-current': on ? 'page' : null, onclick: fn }, h('span', { class: 'tb-ic' }, ic(icon, 23), badge > 0 && h('em', { class: 'badge' }, badge)), h('span', {}, label));
+    tabbar.replaceChildren(...[
+      ...primary.map(([k, label, icon]) => item(icon, label, tab === k && !previewing, () => { body.dataset.view = 'edit'; goTab(k); paintTop(); }, k === 'orders' ? fresh : 0)),
+      mode === 'site' && item('eye', 'Preview', previewing, () => { body.dataset.view = previewing ? 'edit' : 'preview'; paintTop(); requestAnimationFrame(fit); }),
+      item('list', 'More', !previewing && !primary.some(([k]) => k === tab), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
+  }
+  function moreSheet() {
+    sheet((close) => {
+      const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
+      const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, h('span', { class: 'sico' }, ic(icon, 17)), h('b', {}, label), extra, ic('chev', 15));
+      const group = (mode) => h('div', { class: 'more-group' }, h('h3', {}, MODES[mode]), h('div', { class: 'more-list' }, tabs.filter((t) => t[3] === mode).map(([k, label, icon]) => row(icon, label, () => { body.dataset.view = 'edit'; goTab(k); paintTop(); }, [k === tab && h('span', { class: 'tag' }, 'Open'), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)]))));
+      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, meta.name), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        group(modeOf(tab)), group(modeOf(tab) === 'office' ? 'site' : 'office'),
+        h('div', { class: 'more-group' }, h('h3', {}, 'More'), h('div', { class: 'more-list' },
+          meta.live && row('out', 'View my live site', () => window.open(meta.url, '_blank', 'noopener')),
+          row('bell', 'Kitchen screen', () => go(`/app/site/${id}/kitchen`)),
+          row('search', 'Find a setting, item or order', quickFind),
+          row(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', document.documentElement.dataset.theme === 'dark' ? 'Switch to light' : 'Switch to dark', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')),
+          canOfferInstall() && row('phone', 'Install the app on this device', installApp),
+          row('back', 'All my sites', async () => { await flush(); go('/app'); })))];
+    }, 'more');
+  }
+
   function setPage(p) { page = p; paint(true); paintTop(); if (body.dataset.view === 'edit' && matchMedia('(max-width:900px)').matches) body.dataset.view = 'preview'; }
   function scrollPreview(secId) {
     if (page !== 'home') return setPage('home');
@@ -1347,22 +1382,24 @@ export async function editor(id, mount, title) {
     const label = { saved: 'Saved', dirty: 'Saving…', saving: 'Saving…', error: 'Not saved' }[saveState];
     const pub = !meta.live ? h('button', { class: 'btn', onclick: publish }, 'Publish')
       : meta.dirty ? h('button', { class: 'btn', onclick: publish }, 'Publish changes')
-        : h('button', { class: 'btn soft', onclick: () => liveSheet(false) }, ic('check', 15), 'Published');
-    top.dataset.mode = modeOf(tab);
+        : h('button', { class: 'btn soft pub-btn', onclick: () => liveSheet(false) }, ic('check', 15), h('span', {}, 'Published'));
+    top.dataset.mode = modeOf(tab); top.dataset.view = body.dataset.view;
+    paintTabbar();
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
       h('span', { class: 'name' }, meta.name),
+      h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || tabs[0])[1])),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'office' && h('span', { class: 'grow' }),
       modeOf(tab) === 'office' && meta.live && h('a', { class: 'btn soft view-site', href: meta.url, target: '_blank', rel: 'noopener' }, h('span', {}, 'View site'), ic('out', 15)),
-      modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
+      modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label),
       h('div', { class: 'mid' },
         h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
         h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
         h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l))))],
       h('button', { class: 'icon-btn qf-btn', title: 'Find anything (Ctrl or ⌘ K)', 'aria-label': 'Find anything', onclick: quickFind }, ic('search', 18)),
       themeButton(),
-      modeOf(tab) === 'site' && h('button', { class: 'btn soft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
+      modeOf(tab) === 'site' && h('button', { class: 'btn soft open-draft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
       pub].flat(Infinity).filter(Boolean));
   }
 
@@ -1430,7 +1467,7 @@ export async function editor(id, mount, title) {
   window.addEventListener('message', onMessage);
   window.addEventListener('beforeunload', onLeave);
 
-  mount(h('div', { class: 'ed' }, top, body));
+  mount(h('div', { class: 'ed' }, top, body, tabbar));
   paintTop(); paintPanel(); paint(true);
   let toured = true;
   try { toured = !!localStorage.getItem('pf-tour'); } catch { /* private mode */ }
