@@ -429,6 +429,13 @@ export async function editor(id, mount, title) {
             area('Description', it, 'desc', { rows: 3, maxlength: 500 }), image('Photo', it, 'image', { hint: 'Shown beside the item on your menu and order page.' })),
           group('Options', h('p', { class: 'hint' }, 'Sizes, add-ons and choices. Put one choice per line, with an extra charge if there is one, like “Large +1.50”.'), optBox),
           group('Availability', toggle('Available to order', it, 'available', (v) => v !== false), stockBox),
+          group('Position', h('div', { class: 'row' }, ...[[-1, 'up', 'Move up'], [1, 'down', 'Move down']].map(([by, icon, label]) => h('button', { class: 'btn soft sm', disabled: !menu[menu.indexOf(it) + by], onclick: async () => {
+            const i = menu.indexOf(it), j = i + by; saveItem.flush();
+            [menu[i], menu[j]] = [menu[j], menu[i]];
+            if (menu[i].category !== it.category) { it.category = menu[i].category; await api('PUT', `/api/sites/${id}/menu/${it.id}`, it).catch(() => {}); }
+            try { menu = (await api('PUT', `/api/sites/${id}/menu-order`, { ids: menu.map((x) => x.id) })).items; } catch (e) { toast(e.message, true); }
+            paintPanel(); paint(true);
+          } }, ic(icon, 14), label)))),
           group('', h('button', { class: 'btn danger', style: 'justify-self:start', onclick: async () => { menu = (await api('DELETE', `/api/sites/${id}/menu/${it.id}`)).items; editItem = null; paintPanel(); paint(true); } }, 'Delete item'))];
         notify = null;
         return out;
@@ -670,11 +677,15 @@ export async function editor(id, mount, title) {
   // Each device is drawn at its true size and scaled to fit, centred, like a simulator.
   const DEVICES = { phone: [390, 844, 14], tablet: [820, 1180, 16] };
   function fit() {
-    const pad = device === 'desktop' ? 18 : 28;
+    // On a phone or small tablet the preview simply fills the screen: the device is the frame.
+    const small = matchMedia('(max-width:900px)').matches;
+    stageIn.className = `stage-in ${small || device === 'desktop' ? (small ? 'bare' : '') : device}`;
+    const pad = small ? 0 : device === 'desktop' ? 18 : 28;
     const W = stage.clientWidth - pad * 2, H = stage.clientHeight - pad * 2;
     if (W <= 0 || H <= 0) return;
     let w, h2, k, bezel = 0;
-    if (DEVICES[device]) { [w, h2, bezel] = DEVICES[device]; k = Math.min(1, W / (w + bezel * 2), H / (h2 + bezel * 2)); }
+    if (small) { w = W; h2 = H; k = 1; }
+    else if (DEVICES[device]) { [w, h2, bezel] = DEVICES[device]; k = Math.min(1, W / (w + bezel * 2), H / (h2 + bezel * 2)); }
     else { w = Math.max(W, 1240); k = W / w; h2 = H / k; }
     const fw = w + bezel * 2, fh = h2 + bezel * 2;
     Object.assign(stageIn.style, { width: `${fw}px`, height: `${fh}px`, transform: `scale(${k})` });
@@ -682,7 +693,7 @@ export async function editor(id, mount, title) {
   }
   const stageWatch = new ResizeObserver(fit);
   stageWatch.observe(stage);
-  function setDevice(d) { device = d; stageIn.className = `stage-in ${d === 'desktop' ? '' : d}`; fit(); paintTop(); }
+  function setDevice(d) { device = d; fit(); paintTop(); }
 
   function paintTop() {
     const label = { saved: 'Saved', dirty: 'Saving…', saving: 'Saving…', error: 'Not saved' }[saveState];
@@ -696,7 +707,7 @@ export async function editor(id, mount, title) {
       h('div', { class: 'mid' },
         h('div', { class: 'seg dev-seg', role: 'group', 'aria-label': 'Preview size' }, [['desktop', 'Desktop'], ['tablet', 'Tablet'], ['phone', 'Phone']].map(([k, l]) => h('button', { 'aria-pressed': String(device === k), onclick: () => setDevice(k) }, l))),
         h('select', { 'aria-label': 'Page', onchange: (e) => setPage(e.target.value) }, [['home', 'Home'], ...(ordering.enabled ? [['order', 'Order online']] : []), ...Object.entries(LEGAL_PAGES).filter(([k]) => draft.legal[k]?.enabled !== false)].map(([k, l]) => h('option', { value: k, selected: page === k }, l))),
-        h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); } }, l)))),
+        h('div', { class: 'seg mob-toggle', role: 'group', 'aria-label': 'View' }, [['edit', 'Edit'], ['preview', 'Preview']].map(([k, l]) => h('button', { 'aria-pressed': String(body.dataset.view === k), onclick: () => { body.dataset.view = k; paintTop(); requestAnimationFrame(fit); } }, l)))),
       h('button', { class: 'btn soft', title: 'Open your draft in a new tab', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), h('span', { class: 'dev-seg' }, 'Preview')),
       pub);
   }
