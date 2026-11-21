@@ -17,6 +17,7 @@ export function h(tag, attrs, ...kids) {
 }
 
 const P = {
+  calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   back: '<path d="M15 5l-7 7 7 7"/>', up: '<path d="M6 14l6-6 6 6"/>', down: '<path d="M6 10l6 6 6-6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', trash: '<path d="M5 7h14M10 7V4.500h4V7M7 7l1 12.500h8L17 7"/>', check: '<path d="M5 12.500l4.500 4.500L19 7.500"/>',
   eye: '<path d="M2.500 12S6 5.500 12 5.500 21.500 12 21.500 12 18 18.500 12 18.500 2.500 12 2.500 12z"/><circle cx="12" cy="12" r="2.800"/>',
@@ -202,13 +203,13 @@ export async function readSheetFile(file) {
 
 const loadSheetLib = () => (sheetLib ||= new Promise((ok, fail) => document.head.append(h('script', { src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', onload: ok, onerror: () => { sheetLib = null; fail(new Error('We could not make an Excel file right now. Try CSV instead.')); } }))));
 /** Saves rows (the first row is the headings) as a spreadsheet the person downloads: .xlsx for Excel, or .csv. */
-export async function saveSheetFile(name, rows, kind = 'csv') {
+export async function saveSheetFile(name, rows, kind = 'csv', sheetName = 'Customers') {
   let blob;
   if (kind === 'xlsx') {
     await loadSheetLib();
     const X = window.XLSX, ws = X.utils.aoa_to_sheet(rows);
-    ws['!cols'] = rows[0].map((_, i) => ({ wch: Math.min(40, Math.max(10, ...rows.slice(0, 200).map((r) => String(r[i] ?? '').length + 2))) }));
-    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Customers');
+    ws['!cols'] = Array.from({ length: Math.max(...rows.map((r) => r.length)) }, (_, i) => i).map((i) => ({ wch: Math.min(40, Math.max(10, ...rows.slice(0, 200).map((r) => String(r[i] ?? '').length + 2))) }));
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, String(sheetName).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Sheet1');
     blob = new Blob([X.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   } else {
     const q = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;

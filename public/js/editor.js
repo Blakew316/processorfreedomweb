@@ -4,7 +4,7 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
+  ['sale', 'New sale', 'cash', 'office'], ['start', 'Dashboard', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
   ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'], ['settings', 'Settings', 'settings', 'office'], ['profile', 'Profile', 'person', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
@@ -15,7 +15,7 @@ const TABS = [
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
+const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
 const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Alerts and reports', 'Order emails'] };
@@ -61,6 +61,7 @@ const HEAD = {
   appearance: ['Appearance', 'Light or dark. This is remembered on this device only.'],
   settings: ['Settings', 'Everything you can set up for your business, in one place.'],
   profile: ['Profile', 'Your own sign-in details. These follow you across every site you can open.'],
+  sale: ['New sale', 'Take a payment, record cash or a check, or send an invoice.'],
   team: ['Employees', 'Give each person their own login, with only what they need.'],
 };
 // On a phone the first four sections of each side sit in the tab bar; the rest is under More.
@@ -123,7 +124,7 @@ export async function editor(id, mount, title, startTab = '') {
   let editItem = null;       // menu item being edited
   let orderFilter = 'active';
   let stats = null;
-  let salesRange = 'today', salesFrom = '', salesTo = '', salesBusy = false;
+  let salesRange = (() => { try { return localStorage.getItem(`pf-range-${id}`) || 'today'; } catch { return 'today'; } })(), salesFrom = '', salesTo = '', salesBusy = false;
   let invQ = '', invFilter = 'all';
   const invSel = new Set();
   const itemSavers = new Map();
@@ -137,6 +138,8 @@ export async function editor(id, mount, title, startTab = '') {
   const lastTab = { office: 'start', site: 'design' };
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
   let team = null;
+  let saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: true, tender: 'cash', customer: null, q: '' };
+  let calView = 'day', calDate = '', custFilter = 'all', custSort = 'recent', invCat = '', teamQ = '', teamRole = 'all';
   let pushIsOn = null;
   pushOn().then((v) => { pushIsOn = v; }).catch(() => { pushIsOn = false; });
   let notify = null;         // set while building a form whose changes are not part of the site draft
@@ -584,7 +587,7 @@ export async function editor(id, mount, title, startTab = '') {
       const saveOf = (it) => { if (!itemSavers.has(it.id)) itemSavers.set(it.id, debounce(async () => { try { await api('PUT', `/api/sites/${id}/menu/${it.id}`, it); } catch (e) { toast(e.message, true); } }, 450)); return itemSavers.get(it.id); };
       const stateOf = (it) => (it.available === false ? 'hidden' : it.stock === 0 ? 'out' : it.stock <= 5 ? 'low' : 'ok');
       const LABEL = { hidden: 'Hidden', out: 'Sold out', low: 'Low stock' };
-      const shown = () => menu.filter((it) => (!invQ || `${it.name} ${it.category}`.toLowerCase().includes(invQ)) && (invFilter === 'all' || (invFilter === 'sale' ? it.sale > 0 : stateOf(it) === invFilter)));
+      const shown = () => menu.filter((it) => (!invCat || it.category === invCat) && (!invQ || `${it.name} ${it.category}`.toLowerCase().includes(invQ)) && (invFilter === 'all' || (invFilter === 'sale' ? it.sale > 0 : stateOf(it) === invFilter)));
       const list = h('div', { class: 'inv-list' });
       const chips = h('div', { class: 'inv-chips' });
       const kpis = h('div', { class: 'inv-kpis' });
@@ -661,9 +664,9 @@ export async function editor(id, mount, title, startTab = '') {
       };
       return [h('div', { class: 'inv' },
         h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Items'), h('p', { class: 'muted' }, 'Click an item to edit it, or tick several to change them together. Quantities go down on their own as orders come in.')),
-          h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCsv }, ic('up2', 16), 'Upload list'), state.config.scanEnabled && h('button', { class: 'btn soft', onclick: scanMenu }, ic('camera', 16), 'Scan menu'), menu.length > 0 && h('button', { class: 'btn soft', onclick: bulkPhotos }, ic('images', 16), 'Add photos'), h('button', { class: 'btn', onclick: addItem }, ic('plus', 16), 'Add item'))),
+          h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCsv }, ic('up2', 16), 'Upload list'), state.config.scanEnabled && h('button', { class: 'btn soft', onclick: scanMenu }, ic('camera', 16), 'Scan menu'), menu.length > 0 && h('button', { class: 'btn soft', onclick: bulkPhotos }, ic('images', 16), 'Add photos'))),
         kpis,
-        h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search items', value: invQ, 'aria-label': 'Search items', oninput: (e) => { invQ = e.target.value.trim().toLowerCase(); drawList(); } })), chips),
+        toolbar(invQ, 'Search items', (v) => { invQ = v; drawList(); }, filtersButton([{ title: 'Show', value: invFilter, set: (k) => { invFilter = k; }, options: [['all', 'All items'], ['low', 'Low stock'], ['out', 'Sold out'], ['hidden', 'Hidden'], ['sale', 'On sale']] }, { title: 'Category', value: invCat, set: (k) => { invCat = k; }, options: [['', 'All categories'], ...cats.map((c) => [c, c])] }]), h('button', { class: 'btn', onclick: addItem }, ic('plus', 16), 'Add item')),
         list, bar,
         !ordering.taxRate && menu.length > 0 && h('p', { class: 'hint', style: 'margin-top:4px' }, 'The Tax switch only has an effect once you set a sales tax rate under Ordering.'))];
     },
@@ -792,13 +795,8 @@ export async function editor(id, mount, title, startTab = '') {
       const head = (st) => h('div', { class: 'inv-top' },
         h('div', {}, h('h2', {}, TITLES[V]), h('p', { class: 'muted' }, st && st.from ? (st.from === st.to ? day(st.from, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : `${day(st.from, { month: 'long', day: 'numeric' })} to ${day(st.to, { month: 'long', day: 'numeric', year: 'numeric' })}`) : 'Your sales, tax and best sellers.')),
         h('div', { class: 'row', style: 'flex-wrap:wrap' },
-          st && st.orders && st.orders.length > 0 && h('button', { class: 'btn soft', onclick: () => exportCsv(st) }, ic('dl', 16), 'Export'),
-          h('button', { class: 'btn soft', onclick: () => window.print() }, ic('print', 16), 'Print'),
           h('button', { class: 'btn soft', onclick: () => { stats = null; paintPanel(); } }, 'Refresh')));
-      const fromIn = h('input', { type: 'date', value: salesFrom, 'aria-label': 'From', onchange: (e) => { salesFrom = e.target.value; } });
-      const toIn = h('input', { type: 'date', value: salesTo, 'aria-label': 'To', onchange: (e) => { salesTo = e.target.value; } });
-      const filter = h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, RANGES.map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(salesRange === k), onclick: () => { if (k === 'custom') { salesRange = 'custom'; paintPanel(); } else pick(k); } }, l))),
-        salesRange === 'custom' && h('form', { class: 'dates', onsubmit: (e) => { e.preventDefault(); if (!salesFrom || !salesTo) return toast('Choose a start and end date.', true); stats = null; paintPanel(); } }, fromIn, h('span', { class: 'muted' }, 'to'), toIn, h('button', { class: 'btn sm' }, 'Show')));
+      const filter = h('div', { class: 'inv-bar' }, dateFilter());
       if (salesRange === 'custom' && (!salesFrom || !salesTo) && !stats) return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, 'Choose your dates'), h('p', {}, 'Pick a start and end date above, then press Show.'))))];
       if (!stats) { load(); return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(1, 'chart'), skel(5, 'row'))]; }
       if (stats.failed) return [h('div', { class: 'inv' }, head(null), filter, h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('alert', 30), h('b', {}, 'We could not load your sales'), h('p', {}, 'Nothing is lost. Press Refresh to try again.'))))];
@@ -811,8 +809,15 @@ export async function editor(id, mount, title, startTab = '') {
       const busy = st.series.filter((x) => x.orders);
       const shownSeries = st.unit === 'hour' ? st.series.slice(Math.max(0, Math.min(6, busy.length ? Number(busy[0].key) : 6)), Math.min(24, Math.max(23, busy.length ? Number(busy.at(-1).key) + 1 : 23))) : st.series;
       const every = Math.ceil(shownSeries.length / 12);
-      const chart = h('div', { class: 'chart' }, h('div', { class: 'chart-bars', role: 'img', 'aria-label': `Sales by ${st.unit}` }, shownSeries.map((x) => h('div', { class: 'cbar', title: `${st.unit === 'hour' ? `${hour(x.key)}m` : day(x.key, { weekday: 'short', month: 'short', day: 'numeric' })}: ${money(x.net)} · ${x.orders} order${x.orders === 1 ? '' : 's'}` }, x.net > 0 && h('em', {}, money(x.net).replace(/\.00$/, '')), h('i', { class: x.net ? 'on' : '', style: `height:${Math.max(x.net ? 4 : 1.5, (x.net / peak) * 100)}%` })))),
-        h('div', { class: 'chart-x' }, shownSeries.map((x, i) => h('span', {}, i % every === 0 ? (st.unit === 'hour' ? hour(x.key) : day(x.key)) : ''))));
+      const yTop = (() => { if (peak <= 1) return 100000; const u = 10 ** Math.floor(Math.log10(peak)); return [1, 2, 2.5, 5, 10].map((m) => m * u).find((v) => v >= peak * 1.05) || 10 * u; })();
+      const short = (c) => { const d = c / 100; return d >= 1000 ? `$${(d / 1000).toFixed(d % 1000 ? 1 : 0)}K` : `$${Math.round(d)}`; };
+      const nowAt = st.unit === 'hour' && st.to === st.today && shownSeries.length ? (() => { const n = new Date(); const x = n.getHours() + n.getMinutes() / 60 - Number(shownSeries[0].key); return x >= 0 && x <= shownSeries.length ? (x / shownSeries.length) * 100 : null; })() : null;
+      const chart = h('div', { class: 'chart g2' },
+        h('div', { class: 'chart-y', 'aria-hidden': 'true' }, [4, 3, 2, 1, 0].map((i) => h('span', { style: `bottom:${i * 25}%` }, short((yTop * i) / 4)))),
+        h('div', { class: 'chart-plot' }, [1, 2, 3, 4].map((i) => h('i', { class: 'gl', style: `bottom:${i * 25}%` })),
+          nowAt != null && h('div', { class: 'now', style: `left:${nowAt}%` }, h('span', {}, 'Now')),
+          h('div', { class: 'chart-bars', role: 'img', 'aria-label': `Sales by ${st.unit}` }, shownSeries.map((x) => h('div', { class: 'cbar', title: `${st.unit === 'hour' ? `${hour(x.key)}m` : day(x.key, { weekday: 'short', month: 'short', day: 'numeric' })}: ${money(x.net)} · ${x.orders} order${x.orders === 1 ? '' : 's'}` }, x.net > 0 && h('em', {}, money(x.net).replace(/\.00$/, '')), x.net > 0 && h('i', { class: 'on', style: `height:${Math.max(3, (x.net / yTop) * 100)}%` }))))),
+        h('span'), h('div', { class: 'chart-x' }, shownSeries.map((x, i) => h('span', {}, i % every === 0 ? (st.unit === 'hour' ? hour(x.key) : day(x.key)) : ''))));
       const line = (label, value, cls = '') => h('div', { class: `rline ${cls}` }, h('span', {}, label), h('b', {}, value));
       const mTotal = st.methods.reduce((a, m) => a + m.orders, 0) || 1;
       const topSales = Math.max(1, ...st.items.map((i) => i.sales));
@@ -823,8 +828,8 @@ export async function editor(id, mount, title, startTab = '') {
           kpi('Orders', t.orders, change(t.orders, st.previous.orders), t.cancelled ? `${t.cancelled} cancelled, not counted` : `${t.units} item${t.units === 1 ? '' : 's'} sold`, 'bag'),
           kpi('Average order', money(t.average), null, 'Including tax, fees and tips', 'chart'),
           kpi('Sales tax collected', money(t.tax), null, st.taxRate ? `At ${st.taxRate}%` : 'No tax rate set', 'doc')),
-        none && !['removed', 'disc', 'emp', 'tender', 'tips'].includes(V) && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
-        !none && V === 'overview' && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), chart),
+        none && !['overview', 'full', 'removed', 'disc', 'emp', 'tender', 'tips'].includes(V) && h('div', { class: 'inv-list' }, h('div', { class: 'inv-empty' }, ic('chart', 30), h('b', {}, st.range === 'today' ? 'No sales yet today' : 'No sales in this period'), h('p', {}, meta.live ? 'Orders appear here the moment they are placed.' : 'Publish your site to start taking orders. Sales appear here as they come in.'))),
+        (V === 'overview' || (V === 'full' && none)) && h('div', { class: 'scard' }, h('h3', {}, st.unit === 'hour' ? 'Sales by hour' : 'Sales by day'), none && h('p', { class: 'small muted', style: 'margin:-6px 0 6px' }, st.range === 'today' ? (meta.live ? 'No sales yet today. Orders show up here the moment they are placed.' : 'No sales yet. Publish your site to start taking orders.') : 'No sales in this period.'), chart),
         !none && V !== 'items' && h('div', { class: 'sgrid3 solo' },
           (V === 'overview' || V === 'full') && h('div', { class: 'scard' }, h('h3', {}, 'Where the money went'),
             line('Item sales', money(t.gross)), t.discounts > 0 && line('Discounts and promo codes', `−${money(t.discounts)}`), line('Net sales', money(t.net), 'strong'),
@@ -879,15 +884,16 @@ export async function editor(id, mount, title, startTab = '') {
       const when = (ms) => { const days = Math.floor((Date.now() - ms) / 86400000); return days < 1 ? 'Today' : days === 1 ? 'Yesterday' : days < 30 ? `${days} days ago` : fmtDate(ms); };
       const tbody = h('tbody', {});
       const draw = () => {
-        const rows = customers.filter((c) => !custQ || `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(custQ));
+        const rows = customers.filter((c) => (!custQ || `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(custQ)) && (custFilter === 'all' || (custFilter === 'regular' ? c.orders > 1 : custFilter === 'new' ? c.orders <= 1 : custFilter === 'email' ? !!c.email : !!c.phone)));
+        if (custSort !== 'recent') rows.sort((a, b) => (custSort === 'name' ? a.name.localeCompare(b.name) : custSort === 'spent' ? b.spent - a.spent : b.orders - a.orders));
         tbody.replaceChildren(...(rows.length ? rows.slice(0, 500).map((c) => h('tr', {}, h('td', {}, h('b', {}, c.name), c.orders > 1 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Regular'), c.company && h('div', { class: 'small muted' }, c.company)), h('td', {}, c.email ? h('a', { href: `mailto:${c.email}` }, c.email) : '—'), h('td', {}, c.phone ? h('a', { href: `tel:${c.phone.replace(/[^\d+]/g, '')}` }, c.phone) : '—'), h('td', {}, c.orders), h('td', {}, h('b', {}, money(c.spent))), h('td', { class: 'muted' }, c.last ? when(c.last) : 'Not yet'), h('td', { class: 'muted' }, c.favourite || '—'), h('td', { style: 'text-align:right' }, h('button', { class: 'btn soft sm', onclick: () => openInvoice(null, c) }, 'Invoice'))))
           : [h('tr', {}, h('td', { colspan: 8, class: 'muted', style: 'text-align:center;padding:28px' }, 'Nobody matches that search.'))]));
       };
       draw();
       return [h('div', { class: 'inv' },
-        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: importCustomers }, ic('up2', 16), 'Import'), h('button', { class: 'btn soft', onclick: exportCustomers }, ic('dl', 16), 'Export'), h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer'))),
+        head(h('div', { class: 'row' }, moreBtn([['Import customers (Excel or CSV)', importCustomers], ['Export customers', exportCustomers]]))),
         h('div', { class: 'inv-kpis' }, kpi('Customers', customers.length, 'have ordered at least once', 'person'), kpi('Regulars', repeat, `${customers.length ? Math.round((repeat / customers.length) * 100) : 0}% came back`, 'f_users'), kpi('Average per customer', money(customers.length ? spent / customers.length : 0), 'across all their orders', 'cash'), kpi('Orders', count, 'not counting cancelled', 'bag')),
-        h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search by name, email or phone', value: custQ, 'aria-label': 'Search customers', oninput: (e) => { custQ = e.target.value.trim().toLowerCase(); draw(); } }))),
+        toolbar(custQ, 'Search customers', (v) => { custQ = v; draw(); }, filtersButton([{ title: 'Show', value: custFilter, set: (k) => { custFilter = k; }, options: [['all', 'Everyone'], ['regular', 'Regulars'], ['new', 'One order'], ['email', 'Has email'], ['phone', 'Has phone']] }, { title: 'Sort by', value: custSort, set: (k) => { custSort = k; }, options: [['recent', 'Latest order'], ['name', 'Name'], ['spent', 'Most spent'], ['orders', 'Most orders']] }]), h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer')),
         h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Customer', 'Email', 'Phone', 'Orders', 'Spent', 'Last order', 'Favourite', ''].map((x) => h('th', {}, x)))), tbody)),
           customers.length > 500 && h('p', { class: 'hint' }, `Showing the latest 500. Export to see all ${customers.length}.`)))];
     },
@@ -1002,17 +1008,76 @@ export async function editor(id, mount, title, startTab = '') {
             h('td', { style: 'white-space:nowrap' }, c.balance > 0 && h('button', { class: 'btn soft sm', onclick: () => change(c, -1) }, 'Redeem'), ' ', h('button', { class: 'btn text sm', onclick: () => change(c, 1) }, 'Top up'))))))))
           : h('div', { class: 'inv-list' }, emptyState('tag', 'Grow your business with gift cards', 'Issue a card for any amount. The balance goes down each time it is used.', ['Issue gift card', issue])))];
     },
+    sale() {
+      const d = saleDraft;
+      if (!customers) api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => { customers = []; });
+      const rate = Number(ordering.taxRate) || 0;
+      const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
+      const TYPES = [['pay', 'Take payment'], ['preauth', 'Pre-authorization'], ['invoice', 'Invoice'], ['verify', 'Card verification']];
+      const cardOnly = d.type === 'preauth' || d.type === 'verify';
+      const totalEl = h('b', {}), taxEl = h('span', {}), bottomTotal = h('b', {});
+      const sums = () => { const sub = cents(d.sub), tax = d.taxOn ? Math.round((sub * rate) / 100) : 0, tip = cents(d.tip); return { sub, tax, tip, total: sub + tax + tip }; };
+      const done = h('button', { class: 'btn', type: 'button' });
+      const refresh = () => { const t = sums(); taxEl.textContent = `+${money(t.tax)}`; totalEl.textContent = money(t.total); bottomTotal.textContent = money(t.total); const card = d.type === 'pay' && d.tender === 'card'; done.disabled = cardOnly || card || (d.type === 'pay' && !(t.sub > 0)); done.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Needs card processing' : 'Record payment'; };
+      const money$ = (key, label, big) => h('label', { class: `vt-money ${big ? 'big' : ''}` }, h('small', {}, label), h('div', {}, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: '0.00', value: d[key], 'aria-label': label, oninput: (e) => { d[key] = e.target.value; refresh(); } })));
+      const who = h('div', { class: 'vt-who' });
+      const drawWho = () => {
+        if (d.customer) return who.replaceChildren(h('div', { class: 'vt-picked' }, h('div', {}, h('b', {}, d.customer.name), h('div', { class: 'small muted' }, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', type: 'button', onclick: () => { d.customer = null; drawWho(); } }, 'Change')));
+        const list = h('div', { class: 'vt-hits' });
+        const find = () => { const q = d.q.toLowerCase(); const hits = q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q)).slice(0, 6) : []; list.replaceChildren(...hits.map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; drawWho(); } }, h('b', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
+        who.replaceChildren(h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search customer or business name', value: d.q, 'aria-label': 'Search customers', oninput: (e) => { d.q = e.target.value; find(); } })), list);
+        find();
+      };
+      drawWho();
+      const record = async () => {
+        const t = sums();
+        if (d.type === 'invoice') return openInvoice(null, d.customer || null);
+        done.disabled = true;
+        try {
+          const items = [{ name: d.note.trim() || 'Sale', qty: 1, price: t.sub }, t.tax > 0 && { name: `Sales tax (${rate}%)`, qty: 1, price: t.tax }, t.tip > 0 && { name: 'Tip', qty: 1, price: t.tip }].filter(Boolean);
+          const c = d.customer || {};
+          const r = await api('POST', `/api/sites/${id}/invoices`, { customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '' }, items, taxRate: 0, notes: d.note.trim() });
+          await api('POST', `/api/sites/${id}/invoices/${r.invoice.id}/status`, { status: 'paid', method: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', note: 'Recorded with New sale' });
+          bills = null; txData = null; stats = null;
+          saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '' };
+          toast(`${money(t.total)} recorded as ${r.invoice.label || 'a sale'}`); paintPanel();
+        } catch (e) { toast(e.message, true); done.disabled = false; }
+      };
+      done.onclick = record;
+      const tender = h('div', { class: 'seg vt-tender', role: 'group', 'aria-label': 'Paid by' }, [['card', 'Card'], ['cash', 'Cash'], ['check', 'Check'], ['other', 'Other']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l)));
+      const cardBox = h('div', { class: 'vt-card', 'aria-disabled': 'true' },
+        h('div', { class: 'vt-grid' }, ['Card number', 'Card holder name', 'Expiration (MM/YYYY)', 'CVV', 'ZIP / postal code'].map((l) => h('label', { class: 'field' }, h('span', {}, l), h('input', { disabled: true, placeholder: l })))),
+        h('p', { class: 'note' }, h('b', {}, 'Card payments switch on once your payment processor is connected. '), 'Until then, record cash, check and other payments here, or send an invoice.'));
+      setTimeout(refresh);
+      return [h('div', { class: 'vt' },
+        h('div', { class: 'vt-type' }, h('label', { class: 'field' }, h('span', {}, 'Transaction type'), h('select', { onchange: (e) => { d.type = e.target.value; paintPanel(); } }, TYPES.map(([k, l]) => h('option', { value: k, selected: d.type === k }, l)))),
+          h('p', { class: 'small muted' }, { pay: 'Charge a customer now, or record a payment you have already taken.', preauth: 'Hold an amount on a card and capture it later.', invoice: 'Send a bill the customer pays by link.', verify: 'Check a card is valid without charging it.' }[d.type])),
+        h('h3', { class: 'vt-h' }, 'Sale detail'),
+        h('div', { class: 'scard vt-detail' },
+          h('div', { class: 'vt-row' }, money$('sub', cardOnly && d.type === 'verify' ? 'Amount (not charged)' : 'Subtotal', true),
+            h('div', { class: 'vt-tax' }, h('small', {}, rate ? `Sales tax (${rate}%)` : 'Sales tax'), taxEl, rate ? h('label', { class: 'switch sm' }, h('span', { class: 'small' }, 'Charge tax'), h('input', { type: 'checkbox', checked: d.taxOn, onchange: (e) => { d.taxOn = e.target.checked; refresh(); } }), h('i')) : h('button', { class: 'btn text sm', type: 'button', onclick: () => goTab('ordering') }, 'Set a tax rate'))),
+          h('label', { class: 'field' }, h('input', { placeholder: 'Note for item or service', value: d.note, maxlength: 160, 'aria-label': 'Note for item or service', oninput: (e) => { d.note = e.target.value; } })),
+          d.type === 'pay' && h('div', { class: 'vt-row end' }, money$('tip', 'Tip')),
+          h('div', { class: 'vt-total' }, h('span', {}, 'Total'), totalEl)),
+        h('h3', { class: 'vt-h' }, d.type === 'invoice' ? 'Customer' : 'Payment information'),
+        h('div', { class: 'scard vt-pay' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, 'Customer'), h('button', { class: 'btn text sm', type: 'button', onclick: addCustomer }, 'Add new customer')), who,
+          d.type === 'pay' && [h('div', { class: 'vt-line' }), h('b', {}, 'Paid by'), tender, d.tender === 'card' ? cardBox : h('p', { class: 'small muted' }, `Saved as a paid ${d.tender === 'check' ? 'check' : d.tender} sale under Transactions, with a receipt number you can find later.`)],
+          cardOnly && cardBox),
+        h('div', { class: 'vt-bar' }, h('span', {}, 'Total'), bottomTotal, h('span', { class: 'grow' }), done))];
+    },
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
-      const ICON = { Setup: 'settings', Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
+      const ICON = { Setup: 'settings', Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Ecommerce: 'address', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
       const card = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, navTile(ICON[title] || 'page', 32), title), ...kids);
       const u = state.user;
       return [h('div', { class: 'set-grid' },
         card('Setup', ...links(...SETUP.tabs.map((k, i) => [SETUP.subs[i], k]))),
         card('Profile', h('p', {}, h('b', {}, u.name || 'No name yet'), `, ${roleName}`), h('p', { class: 'muted' }, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-step sign-in is ', h('b', {}, u.twoFactor ? 'on' : 'off')), ...links(['Edit your profile', 'profile'])),
-        card('About your business', ...links(['Closeout', 'close'], ['Taxes', 'r-taxes'], ['Tips', 'tips'])),
+        card('About your business', ...links(['Business information', 'bizinfo'], ['Business hours', 'hours'], ['Appearance', 'appearance'])),
+        card('Business operations', ...links(['Taxes and additional charges', 'ordering'], ['Tips', 'tips'], ['Closeout', 'close'], ['Devices and printers', 'devices'], ['Alerts and emails', 'alerts'], ['Inventory', 'items']), h('a', { href: '#', onclick: (e) => { e.preventDefault(); quickbooks(); } }, 'Accounting sync (QuickBooks)')),
         card('Employees', ...links(['Team and logins', 'team'], ['Scheduling', 'schedule'], ['Timesheets', 'timesheets'])),
-        card('Transactions', ...links(['Orders', 'orders'], ['Transactions', 'tx'], ['Cash log', 'cash'], ['Invoices', 'invoices'], ['Estimates', 'est'], ['Recurring payments', 'plans'])),
+        card('Transactions', ...links(['New sale', 'sale'], ['Orders', 'orders'], ['Order types', 'r-types'], ['Payments', 'tx'], ['Cash log', 'cash'], ['Invoices and estimates', 'invoices'], ['Recurring payments', 'plans'])),
+        card('Ecommerce', ...links(['Online ordering', 'ordering'], ['Online booking', 'booking'], ['Web address', 'domain'], ['Policies', 'policies'], ['Gift cards', 'gift'])),
         card('Inventory', ...links(['Items', 'items'], ['Categories', 'menu'], ['Modifier groups', 'mods'], ['Menus', 'menus'], ['Printer labels', 'labels'], ['Revenue classes', 'revs'], ['Discounts', 'discs'])),
         card('Customers and promotions', ...links(['Customers', 'customers'], ['Promo codes', 'promos'], ['Happy hour', 'deals'], ['Rewards', 'rewards'], ['Gift cards', 'gift'])),
         card('Website', ...links(['Look and feel', 'design'], ['Home page', 'sections'], ['Business info on the site', 'business'], ['Web address', 'domain'], ['Policies', 'policies'], ['Search listing', 'seo'])))];
@@ -1062,10 +1127,10 @@ export async function editor(id, mount, title, startTab = '') {
     appts(asCalendar = false) {
       const tabNow = asCalendar ? 'calendar' : 'appts';
       const b = ordering.booking;
-      const add = () => formSheet('Add appointment', [['serviceName', 'What for', { maxlength: 80, placeholder: b.services[0]?.name || 'e.g. Table for dinner' }], ['date', 'Date', { type: 'date' }], ['time', 'Time', { type: 'time' }], ['name', 'Customer name', { maxlength: 120 }], ['phone', 'Phone', { type: 'tel' }], ['party', 'Number of people', { type: 'number', min: 1 }], ['notes', 'Notes', { maxlength: 500 }]],
-        { serviceName: b.services[0]?.name || '', date: apptData?.today || new Date().toISOString().slice(0, 10), time: '18:00', name: '', phone: '', party: '2', notes: '' }, async (v) => { await api('POST', `/api/sites/${id}/appointments`, v); await reload('appts'); });
-      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, asCalendar ? 'Calendar' : 'Appointments'), h('p', { class: 'muted' }, asCalendar ? 'Every booking for the next two weeks, day by day.' : 'Booking requests from your website, and appointments you add yourself.')),
-        h('div', { class: 'row' }, !b.enabled && h('button', { class: 'btn soft', onclick: () => goTab('booking') }, 'Set up online booking'), h('button', { class: 'btn', onclick: add }, ic('plus', 16), 'Add appointment')));
+      const add = (pre = {}) => formSheet('Add appointment', [['serviceName', 'What for', { maxlength: 80, placeholder: b.services[0]?.name || 'e.g. Table for dinner' }], ['date', 'Date', { type: 'date' }], ['time', 'Time', { type: 'time' }], ['name', 'Customer name', { maxlength: 120 }], ['phone', 'Phone', { type: 'tel' }], ['party', 'Number of people', { type: 'number', min: 1 }], ['notes', 'Notes', { maxlength: 500 }]],
+        { serviceName: b.services[0]?.name || '', date: apptData?.today || new Date().toISOString().slice(0, 10), time: '18:00', name: '', phone: '', party: '2', notes: '', ...pre }, async (v) => { await api('POST', `/api/sites/${id}/appointments`, v); await reload('appts'); });
+      const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, asCalendar ? 'Calendar' : 'Appointments'), h('p', { class: 'muted' }, asCalendar ? 'Day, week and month views. Press an empty time to book it.' : 'Booking requests from your website, and appointments you add yourself.')),
+        h('div', { class: 'row' }, !b.enabled && h('button', { class: 'btn soft', onclick: () => goTab('booking') }, 'Set up online booking'), h('button', { class: 'btn', onclick: () => add() }, ic('plus', 16), 'Add appointment')));
       if (!apptData) { api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; if (tab === tabNow) paintPanel(); }).catch((e) => { toast(e.message, true); apptData = { today: '', appointments: [] }; if (tab === tabNow) paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
       const all = apptData.appointments, today = apptData.today;
       const setStatus = async (a, status) => { try { Object.assign(a, (await api('POST', `/api/sites/${id}/appointments/${a.id}`, { status })).appointment); paintPanel(); } catch (e) { toast(e.message, true); } };
@@ -1078,8 +1143,52 @@ export async function editor(id, mount, title, startTab = '') {
       const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
       const upcoming = all.filter((a) => a.at.slice(0, 10) >= today), n = (st2) => all.filter((a) => a.status === st2).length;
       if (asCalendar) {
-        const days = Array.from({ length: 14 }, (_, i) => new Date(Date.parse(`${today}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10));
-        return [h('div', { class: 'inv' }, head, days.map((d) => { const list = all.filter((a) => a.at.slice(0, 10) === d && a.status !== 'cancelled'); return h('div', { class: 'scard', style: 'padding:18px 24px' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, d === today ? `Today · ${dayName(d)}` : dayName(d)), h('span', { class: 'small muted' }, `${list.length} booking${list.length === 1 ? '' : 's'}`)), list.length ? list.map((a) => row(a)) : h('p', { class: 'muted', style: 'padding:6px 0 2px' }, 'Nothing booked.')); }))];
+        if (!calDate) calDate = today;
+        const live = all.filter((a) => a.status !== 'cancelled');
+        const on = (d) => live.filter((a) => a.at.slice(0, 10) === d);
+        const mins = (a) => { const [hh, mm] = a.at.slice(11, 16).split(':').map(Number); return hh * 60 + mm; };
+        const len = (a) => Math.max(30, a.minutes || 60);
+        const short2 = (a) => clock(a.at).replace(':00', '').replace(' ', '').toLowerCase();
+        const open = (a) => sheet((close) => [h('h2', {}, a.name), h('p', { class: 'muted' }, `${dayName(a.at.slice(0, 10))} · ${clock(a.at)}${a.minutes ? ` · ${a.minutes} min` : ''}`),
+          h('div', { class: 'stack', style: 'gap:8px' }, h('div', {}, h('span', { class: `status ${NAME[a.status][1]}` }, NAME[a.status][0])), h('div', {}, h('b', {}, 'What for: '), a.service || 'Booking'), h('div', {}, h('b', {}, 'People: '), String(a.party)),
+            a.phone && h('div', {}, h('b', {}, 'Phone: '), h('a', { href: `tel:${a.phone.replace(/[^\d+]/g, '')}` }, a.phone)), a.email && h('div', {}, h('b', {}, 'Email: '), h('a', { href: `mailto:${a.email}` }, a.email)), a.notes && h('div', {}, h('b', {}, 'Notes: '), a.notes)),
+          h('div', { class: 'acts' }, h('div', { onclick: (e) => { if (e.target.closest('button')) close(); } }, acts(a)), h('button', { class: 'btn soft', onclick: close }, 'Close'))]);
+        const week = (() => { const wd = (new Date(`${calDate}T12:00:00Z`).getUTCDay() + 6) % 7; return Array.from({ length: 7 }, (_, i) => addDays(calDate, i - wd)); })();
+        const DAYS = calView === 'week' ? week : [calDate];
+        const inView = calView === 'month' ? live.filter((a) => a.at.slice(0, 7) === calDate.slice(0, 7)) : DAYS.flatMap(on);
+        const title = calView === 'month' ? monthName(calDate.slice(0, 7)) : calView === 'week' ? `${longDay(week[0], { month: 'short', day: 'numeric' })} – ${longDay(week[6], { month: 'short', day: 'numeric', year: 'numeric' })}` : longDay(calDate);
+        const move = (n) => { if (calView === 'month') calDate = new Date(Date.UTC(Number(calDate.slice(0, 4)), Number(calDate.slice(5, 7)) - 1 + n, 1)).toISOString().slice(0, 10); else calDate = addDays(calDate, n * (calView === 'week' ? 7 : 1)); paintPanel(); };
+        const titleBtn = h('button', { type: 'button', class: 'cal-title', 'aria-haspopup': 'dialog', onclick: () => popover(titleBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(calDate.slice(0, 7), (d) => { calDate = d; close(); paintPanel(); }, () => ({ from: calDate, to: calDate }))), 'left') }, title, h('span', { class: 'chv d', 'aria-hidden': 'true' }));
+        const bar = h('div', { class: 'cal-bar' },
+          h('div', { class: 'seg cal-seg', role: 'group', 'aria-label': 'View' }, [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(calView === k), onclick: () => { calView = k; paintPanel(); } }, l))),
+          titleBtn, h('div', { class: 'row', style: 'gap:2px' }, h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Previous', onclick: () => move(-1) }, chev('l')), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Next', onclick: () => move(1) }, chev('r'))),
+          h('button', { type: 'button', class: 'btn soft sm', disabled: calDate === today, onclick: () => { calDate = today; paintPanel(); } }, 'Today'),
+          h('span', { class: 'grow' }), h('span', { class: 'small muted' }, `${inView.length} booked`));
+        if (calView === 'month') {
+          const ym = calDate.slice(0, 7), [y, m] = ym.split('-').map(Number);
+          const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7, start = addDays(`${ym}-01`, -lead);
+          const cells = Array.from({ length: Math.ceil((lead + new Date(Date.UTC(y, m, 0)).getUTCDate()) / 7) * 7 }, (_, i) => addDays(start, i));
+          return [h('div', { class: 'inv' }, head, h('div', { class: 'scard cal' }, bar, h('div', { class: 'cal-month' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => h('span', { class: 'cm-h' }, d)),
+            cells.map((d) => { const list = on(d); return h('div', { class: 'cm-d', role: 'button', tabindex: '0', 'aria-label': `${dayName(d)}, ${list.length} booked`, 'data-out': d.slice(0, 7) !== ym ? '1' : null, 'data-today': d === today ? '1' : null, onclick: (e) => { if (e.target.closest('.cev')) return; calDate = d; calView = 'day'; paintPanel(); } },
+              h('b', {}, String(Number(d.slice(8)))), list.slice(0, 3).map((a) => h('button', { type: 'button', class: `cev ${a.status}`, onclick: () => open(a) }, h('i', {}, short2(a)), ` ${a.name}`)), list.length > 3 && h('small', {}, `+${list.length - 3} more`)); }))))];
+        }
+        const HOUR = 56;
+        const startH = Math.min(8, ...inView.map((a) => Math.floor(mins(a) / 60))), endH = Math.min(24, Math.max(21, ...inView.map((a) => Math.ceil((mins(a) + len(a)) / 60))));
+        const hours = Array.from({ length: endH - startH }, (_, i) => startH + i);
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const at = (d, m) => add({ date: d, time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` });
+        const col = (d) => {
+          const ends = [], placed = on(d).sort((a, b) => mins(a) - mins(b)).map((a) => { let l = ends.findIndex((e) => e <= mins(a)); if (l < 0) l = ends.length; ends[l] = mins(a) + len(a); return [a, l]; });
+          const n = Math.max(1, ends.length);
+          return h('div', { class: 'cg-col', style: `height:${hours.length * HOUR}px`, 'data-today': d === today ? '1' : null, title: 'Press an empty time to book it', onclick: (e) => { if (e.target.closest('.cev')) return; const r = e.currentTarget.getBoundingClientRect(); at(d, startH * 60 + Math.floor(((e.clientY - r.top) / HOUR) * 2) * 30); } },
+            d === today && nowMin >= startH * 60 && nowMin <= endH * 60 && h('i', { class: 'cg-now', style: `top:${((nowMin - startH * 60) / 60) * HOUR}px` }),
+            placed.map(([a, l]) => h('button', { type: 'button', class: `cev ${a.status}`, style: `top:${((mins(a) - startH * 60) / 60) * HOUR + 1}px;height:${Math.max(24, (len(a) / 60) * HOUR - 3)}px;left:calc(${(l / n) * 100}% + 3px);width:calc(${100 / n}% - 6px)`, onclick: () => open(a) }, h('b', {}, a.name), h('small', {}, `${clock(a.at)} · ${a.service || 'Booking'}${a.party > 1 ? ` · ${a.party} people` : ''}`))));
+        };
+        return [h('div', { class: 'inv' }, head, h('div', { class: 'scard cal' }, bar,
+          h('div', { class: 'cal-grid', style: `--cols:${DAYS.length}` },
+            h('div', { class: 'cg-head' }, h('span'), DAYS.map((d) => h('button', { type: 'button', class: 'cg-day', 'data-today': d === today ? '1' : null, onclick: () => { calDate = d; calView = 'day'; paintPanel(); } }, h('small', {}, longDay(d, { weekday: 'short' })), h('b', {}, String(Number(d.slice(8))))))),
+            h('div', { class: 'cg-body' }, h('div', { class: 'cg-gut' }, hours.map((x) => h('span', { style: `height:${HOUR}px` }, `${x % 12 || 12} ${x < 12 ? 'AM' : 'PM'}`))), DAYS.map(col))),
+          !inView.length && h('p', { class: 'small muted', style: 'margin:12px 4px 0' }, 'Nothing booked here yet. Press any empty time to add an appointment.')))];
       }
       const pending = all.filter((a) => a.status === 'pending'), todays = all.filter((a) => a.at.slice(0, 10) === today && a.status !== 'cancelled');
       return [h('div', { class: 'inv' }, head,
@@ -1240,7 +1349,7 @@ export async function editor(id, mount, title, startTab = '') {
         api('GET', `/api/sites/${id}/team`).then((r) => { team = r; if (tab === 'team') paintPanel(); }).catch((e) => { toast(e.message, true); team = { members: [], owner: { email: state.user.email, name: state.user.name } }; if (tab === 'team') paintPanel(); });
         return [group('', skel(3, 'row'))];
       }
-      const ROLES = { kitchen: ['Kitchen', 'Sees and updates orders on the kitchen screen. Nothing else.'], manager: ['Manager', 'Everything except the team and deleting the site.'] };
+      const ROLES = { kitchen: ['Kitchen', 'Sees and updates orders. Nothing else.'], manager: ['Manager', 'Everything except the team and deleting the site.'] };
       const nameIn = h('input', { placeholder: 'Name', 'aria-label': 'Name', maxlength: 80 });
       const emailIn = h('input', { type: 'email', placeholder: 'Email address', 'aria-label': 'Email address', required: true });
       const roleIn = h('select', { 'aria-label': 'Role' }, Object.entries(ROLES).map(([k, [l]]) => h('option', { value: k }, l)));
@@ -1255,17 +1364,29 @@ export async function editor(id, mount, title, startTab = '') {
             h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
         } catch (ex) { toast(ex.message, true); }
       };
-      const person = (name, email, right) => h('div', { class: 'srow', style: 'padding:12px 12px 12px 16px;gap:10px' }, h('span', { class: 'sico' }, ic('person', 16)), h('div', { class: 'grow', style: 'min-width:0' }, h('b', { style: 'font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis' }, name || email), name && h('span', { class: 'small muted', style: 'display:block;overflow:hidden;text-overflow:ellipsis' }, email)), right);
-      return [
-        group('People with access',
-          h('div', { class: 'slist' }, person(team.owner.name, team.owner.email, h('span', { class: 'tag' }, 'Owner')),
-            team.members.map((m) => person(m.name, m.email, [
-              h('select', { 'aria-label': `Role for ${m.email}`, class: 'mini', onchange: async (e) => { try { team.members = (await api('POST', `/api/sites/${id}/team`, { email: m.email, role: e.target.value })).members; toast('Role updated'); } catch (ex) { toast(ex.message, true); } paintPanel(); } }, Object.entries(ROLES).map(([k, [l]]) => h('option', { value: k, selected: m.role === k }, l))),
-              h('button', { class: 'icon-btn', 'aria-label': `Remove ${m.email}`, title: 'Remove', onclick: async () => { if (!await confirmSheet({ title: `Remove ${m.name || m.email}?`, text: 'They lose access to this site straight away.', action: 'Remove', danger: true })) return; try { team.members = (await api('DELETE', `/api/sites/${id}/team/${m.id}`)).members; } catch (ex) { toast(ex.message, true); } paintPanel(); } }, ic('trash', 16))])))),
-        group('Add someone', h('form', { class: 'stack', onsubmit: add }, h('label', { class: 'field' }, nameIn), h('label', { class: 'field' }, emailIn), h('label', { class: 'field' }, h('span', {}, 'Role'), roleIn),
+      const NAMES = { owner: 'Owner', manager: 'Manager', kitchen: 'Kitchen' };
+      const people = [{ id: '', name: team.owner.name, email: team.owner.email, role: 'owner', active: 1 }, ...team.members];
+      const setRole = async (m, role) => { try { team.members = (await api('POST', `/api/sites/${id}/team`, { email: m.email, role })).members; toast('Role updated'); } catch (ex) { toast(ex.message, true); } paintPanel(); };
+      const remove = async (m) => { if (!await confirmSheet({ title: `Remove ${m.name || m.email}?`, text: 'They lose access to this site straight away.', action: 'Remove', danger: true })) return; try { team.members = (await api('DELETE', `/api/sites/${id}/team/${m.id}`)).members; } catch (ex) { toast(ex.message, true); } paintPanel(); };
+      const addSheet = () => sheet((close) => [h('h2', {}, 'Add employee'), h('p', { class: 'muted' }, 'They get their own login with only what their role allows.'),
+        h('form', { class: 'stack', onsubmit: (e) => { e.preventDefault(); if (!emailIn.value) return; close(); add(e); } }, h('label', { class: 'field' }, h('span', {}, 'Name'), nameIn), h('label', { class: 'field' }, h('span', {}, 'Email'), emailIn), h('label', { class: 'field' }, h('span', {}, 'Role'), roleIn),
           h('div', { class: 'note stack', style: 'gap:6px' }, Object.values(ROLES).map(([l, d]) => h('div', {}, h('b', {}, `${l}. `), d))),
-          h('button', { class: 'btn', style: 'justify-self:start' }, ic('plus', 16), 'Add to team'))),
-      ];
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Add employee')))]);
+      const tbody = h('tbody', {});
+      const draw = () => {
+        const rows = people.filter((p) => (!teamQ || `${p.name} ${p.email}`.toLowerCase().includes(teamQ)) && (teamRole === 'all' || p.role === teamRole));
+        tbody.replaceChildren(...(rows.length ? rows.map((p) => h('tr', {},
+          h('td', {}, h('b', { class: 'emp-n' }, p.name || p.email.split('@')[0]), h('div', { class: 'small muted' }, p.email)),
+          h('td', {}, h('span', { class: 'pill' }, NAMES[p.role] || p.role)),
+          h('td', {}, h('span', { class: `pill ${p.active ? 'ok' : 'wait'}`, title: p.active ? 'Has signed in' : 'Has not signed in yet' }, p.active ? 'Active' : 'Invited')),
+          h('td', { style: 'text-align:right' }, h('button', { class: 'btn text sm', onclick: () => goTab('r-emp') }, 'View report')),
+          h('td', { style: 'text-align:right;width:52px' }, p.role !== 'owner' && moreBtn([p.role !== 'manager' && ['Make manager', () => setRole(p, 'manager')], p.role !== 'kitchen' && ['Make kitchen staff', () => setRole(p, 'kitchen')], ['Remove', () => remove(p), true]]))))
+          : [h('tr', {}, h('td', { colspan: 5, class: 'muted', style: 'text-align:center;padding:28px' }, 'Nobody matches that search.'))]));
+      };
+      draw();
+      return [h('div', { class: 'inv' },
+        toolbar(teamQ, 'Search employees', (v) => { teamQ = v; draw(); }, filtersButton([{ title: 'Role', value: teamRole, set: (k) => { teamRole = k; }, options: [['all', 'Everyone'], ['owner', 'Owner'], ['manager', 'Managers'], ['kitchen', 'Kitchen']] }]), h('button', { class: 'btn', onclick: addSheet }, ic('plus', 16), 'Add employee')),
+        h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable emp' }, h('thead', {}, h('tr', {}, ['Name', 'Role', 'Status', '', ''].map((x) => h('th', {}, x)))), tbody))))];
     },
   };
 
@@ -1447,7 +1568,65 @@ export async function editor(id, mount, title, startTab = '') {
 
   /* ---------- payments recorded at the counter ---------- */
   const rq = () => new URLSearchParams(salesRange === 'custom' && salesFrom && salesTo ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange === 'custom' ? 'today' : salesRange });
-  const rangeBar = () => h('div', { class: 'inv-bar' }, h('div', { class: 'inv-chips' }, [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days']].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String((salesRange === 'custom' ? 'today' : salesRange) === k), onclick: () => { salesRange = k; paintPanel(); } }, l))));
+  const rangeBar = () => h('div', { class: 'inv-bar' }, dateFilter());
+  const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const addDays = (d0, n) => new Date(Date.parse(`${d0}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  const longDay = (d0, o = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) => new Date(`${d0}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
+  const monthName = (ym) => new Date(`${ym}-01T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'long', year: 'numeric' });
+  const chev = (d) => h('span', { class: `chv ${d}`, 'aria-hidden': 'true' });
+  const RANGE_NAMES = { today: 'Today', yesterday: 'Yesterday', week: 'This week', month: 'This month', last30: 'Last 30 days' };
+  const rangeData = () => (SALES_TABS[tab] ? stats : tab === 'tx' ? txData : tab === 'cash' ? cashData : null);
+  function setRange(k, from = '', to = '') { salesRange = k; salesFrom = from; salesTo = to; stats = null; txData = null; cashData = null; paintPanel(); }
+  // A real month to click through: press a day, or a start day then an end day.
+  function monthGrid(ym, pick, sel, max) {
+    const [y, m] = ym.split('-').map(Number);
+    const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7, days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const cells = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => `${ym}-${String(i + 1).padStart(2, '0')}`)];
+    const today = isoDay(new Date());
+    return h('div', { class: 'mcal' }, ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => h('span', { class: 'mcal-h' }, d)),
+      cells.map((d) => (d ? h('button', { type: 'button', class: 'mcal-d', disabled: !!(max && d > max), 'data-today': d === today ? '1' : null, 'data-sel': sel && sel.from && (d === sel.from || d === sel.to) ? '1' : sel && sel.from && sel.to && d > sel.from && d < sel.to ? 'mid' : null, onclick: () => pick(d) }, String(Number(d.slice(8)))) : h('span'))));
+  }
+  function monthPicker(ym0, onPick, sel, max, extra) {
+    let ym = ym0;
+    const w = h('div', { class: 'dpop-cal' });
+    const draw = () => {
+      const [y, m] = ym.split('-').map(Number);
+      const step = (n) => { ym = new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); draw(); };
+      w.replaceChildren(h('div', { class: 'dpop-m' }, h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Previous month', onclick: () => step(-1) }, chev('l')), h('b', {}, monthName(ym)), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Next month', disabled: !!(max && ym >= max.slice(0, 7)), onclick: () => step(1) }, chev('r'))),
+        monthGrid(ym, (d) => { onPick(d); draw(); }, sel(), max), extra ? extra() : null);
+    };
+    draw(); return w;
+  }
+  function calPop(anchor, today) {
+    let a = salesRange === 'custom' ? salesFrom : '', b = salesRange === 'custom' && salesTo !== salesFrom ? salesTo : '';
+    popover(anchor, (close) => h('div', { class: 'dpop' },
+      h('div', { class: 'dpop-pre' }, Object.entries(RANGE_NAMES).map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(salesRange === k), onclick: () => { close(); setRange(k); } }, l))),
+      monthPicker((salesRange === 'custom' && salesTo ? salesTo : today).slice(0, 7), (d) => { if (!a || b) { a = d; b = ''; } else if (d < a) { b = a; a = d; } else if (d > a) b = d; }, () => ({ from: a, to: b || a }), today,
+        () => h('div', {}, h('p', { class: 'small muted', style: 'margin:8px 2px' }, !a ? 'Press a day, or a start day and an end day.' : b ? `${longDay(a)} – ${longDay(b)}` : `${longDay(a)}. Press an end day for a range.`),
+          h('div', { class: 'acts', style: 'margin-top:4px' }, h('button', { type: 'button', class: 'btn soft sm', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn sm', disabled: !a, onclick: () => { close(); setRange('custom', a, b || a); } }, 'Apply'))))), 'left');
+  }
+  function dateFilter() {
+    const k = rangeData(), today = (k && k.today) || isoDay(new Date());
+    const custom = salesRange === 'custom' && salesFrom && salesTo;
+    const from = custom ? salesFrom : k && k.from, to = custom ? salesTo : k && k.to;
+    const label = custom ? (salesFrom === salesTo ? longDay(salesFrom, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Custom dates') : RANGE_NAMES[salesRange] || 'Today';
+    const btn = h('button', { type: 'button', class: 'dsel', 'aria-haspopup': 'dialog', onclick: () => calPop(btn, today) }, ic('calendar', 18), h('span', {}, label), h('span', { class: 'chv d', 'aria-hidden': 'true' }));
+    const span = from && to ? Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1 : 0;
+    const shift = (dir) => { let f = addDays(from, dir * span), t = addDays(to, dir * span); if (t > today) { t = today; f = addDays(today, 1 - span); } setRange('custom', f, t); };
+    return h('div', { class: 'dfilter' }, btn, from && to && h('div', { class: 'dspan' }, h('b', {}, from === to ? longDay(from) : `${longDay(from, { month: 'short', day: 'numeric' })} – ${longDay(to, { month: 'short', day: 'numeric', year: 'numeric' })}`),
+      h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Earlier', title: 'Earlier', onclick: () => shift(-1) }, chev('l')), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Later', title: 'Later', disabled: to >= today, onclick: () => shift(1) }, chev('r'))));
+  }
+  // Search, a Filters button and the main action on one line, like a list in Settings.
+  function filtersButton(sections) {
+    const on = sections.filter((x) => x.value !== x.options[0][0]).length;
+    const btn = h('button', { type: 'button', class: 'fbtn', 'aria-haspopup': 'dialog', onclick: () => popover(btn, (close) => [
+      h('div', { class: 'tb-pop-h' }, h('b', {}, 'Filters'), on > 0 && h('button', { class: 'btn text sm', type: 'button', onclick: () => { close(); sections.forEach((x) => x.set(x.options[0][0], true)); paintPanel(); } }, 'Clear all')),
+      ...sections.map((x) => h('div', { class: 'fsec' }, h('small', {}, x.title), h('div', { class: 'fopts' }, x.options.map(([k, l]) => h('button', { type: 'button', class: 'chip', 'aria-pressed': String(x.value === k), onclick: () => { close(); x.set(k); paintPanel(); } }, l)))))], 'right') },
+    ic('sliders', 18), h('span', {}, 'Filters'), on > 0 && h('em', {}, String(on)));
+    return btn;
+  }
+  const toolbar = (q, ph, onq, filters, action) => h('div', { class: 'tbar' }, h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: ph, value: q, 'aria-label': ph, oninput: (e) => onq(e.target.value.trim().toLowerCase()) })), filters, action);
+  const moreBtn = (items) => { const b = h('button', { type: 'button', class: 'icon-btn rep-more', 'aria-label': 'More', title: 'More', 'aria-haspopup': 'menu', onclick: () => popover(b, (close) => items.filter(Boolean).map(([l, fn, danger]) => h('button', { class: 'tb-item', type: 'button', style: danger ? 'color:var(--red)' : null, onclick: () => { close(); fn(); } }, h('span', {}, l)))) }, h('span', { class: 'rep-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))); return b; };
   function csvFile(name, rows) {
     const q2 = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
     const url = URL.createObjectURL(new Blob([`\ufeff${rows.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
@@ -1885,7 +2064,7 @@ export async function editor(id, mount, title, startTab = '') {
   const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
   const panel = h('div', { class: 'panel' });
   const top = h('header', { class: 'ed-top' });
-  const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '' }, rail, h('aside', { class: 'ed-side' }, tabsEl, subnav, panel), stage);
+  const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '', 'data-rail': (() => { try { return localStorage.getItem('pf-rail') || null; } catch { return null; } })() }, rail, h('aside', { class: 'ed-side' }, tabsEl, subnav, panel), stage);
 
   const openNav = new Set(); let navFor = null;
   /* One soft highlight that glides to the page you are on, instead of each row snapping on and off. */
@@ -1919,7 +2098,7 @@ export async function editor(id, mount, title, startTab = '') {
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
     // A section with several pages only opens or closes when pressed; choosing a page underneath is what takes you there.
     if (navFor !== cur[0]) { navFor = cur[0]; openNav.add(group.label); }
-    rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navTile('back', 30), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
+    rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navTile('back', 30), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', 'aria-current': cur[0] === 'sale' ? 'page' : null, onclick: () => goTab('sale') }, ic('plus', 16), 'New sale') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const many = g.tabs.length > 1, open = many ? openNav.has(g.label) : g === group;
       const kids = many && h('div', { class: 'nav-kids', 'data-shut': open ? null : '1' }, h('div', { class: 'nav-kids-in' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))));
       const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; placeGlow(true); };
@@ -1929,6 +2108,7 @@ export async function editor(id, mount, title, startTab = '') {
       ];
     }).filter(Boolean),
       h('span', { class: 'grow' }),
+      mode === 'office' && h('div', { class: 'rail-tools' }, h('button', { class: 'nav-row', onclick: () => goTab(lastTab.site) }, navTile('address', 30), h('b', {}, 'Website')), has('booking') && h('button', { class: 'nav-row', 'aria-current': cur[0] === 'booking' ? 'page' : null, onclick: () => goTab('booking') }, navTile('calendar', 30), h('b', {}, 'Booking tools'))),
       mode === 'site' && railPub,
       h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].filter(Boolean));
     placeGlow(true);
@@ -1940,6 +2120,7 @@ export async function editor(id, mount, title, startTab = '') {
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...[crumbs(), HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]), h('p', { class: 'muted' }, HEAD[cur[0]][1]))), cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
+    if (REPORT_TABS.has(cur[0])) addReportTools(cur[0]);
     labelTables(panel);
     panel.scrollTop = y;
     const title2 = top.querySelector('.m-title b');
@@ -2016,6 +2197,81 @@ export async function editor(id, mount, title, startTab = '') {
   const stageWatch = new ResizeObserver(fit);
   stageWatch.observe(stage);
   function setDevice(d) { device = d; fit(); paintTop(); }
+
+  /* ---------- Export, print and more, on every sales and report page ---------- */
+  const REPORT_TABS = new Set(['orders', 'tx', 'cash', 'close', 'invoices', 'est', 'projects', 'plans', 'tips', 'sales', 'r-full', 'r-items', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-types', 'r-taxes']);
+  const ABOUT = {
+    orders: 'Every order taken online, newest first, with what was ordered, how it was collected and whether it has been paid.',
+    tx: 'Every payment and refund recorded in the period: orders paid at the counter and invoices marked paid, with the tender used.',
+    cash: 'Cash that came in and went out of the drawer, so you can check what should be there at the end of the day.',
+    close: 'Closeouts total a day of sales and tenders so the books can be squared and the drawer counted.',
+    invoices: 'Invoices you have sent, what is still owed and what has been paid.', est: 'Estimates you have sent and whether they were accepted.', projects: 'Larger jobs with their own invoices and estimates.', plans: 'Customers billed on a schedule, with the next date each one is due.',
+    tips: 'Tips added to orders in the period, and who handled each order.',
+    sales: 'The headline numbers for the period: net sales, orders, average order and how they compare with the period before.',
+    'r-full': 'Gross sales, discounts, refunds, tax and tips for the period, and what you took in each tender.',
+    'r-items': 'How many of each item sold and what it brought in.', 'r-emp': 'Sales grouped by the staff member who handled each order.', 'r-tender': 'What was taken in cash, card, gift card and other tenders.',
+    'r-disc': 'Promo codes, rewards and gift cards used, and how much they took off.', 'r-removed': 'Items and orders that were cancelled or refunded.', 'r-types': 'Sales split by pickup, curbside and delivery.', 'r-taxes': 'Sales tax collected, and what it was charged on.',
+  };
+  // Everything on the page as rows: the figures at the top, then each table under its own heading.
+  function pageRows(k) {
+    const rows = [[nameOf(k)], [meta.name], [`Exported ${new Date().toLocaleString()}`], []];
+    const figs = [...panel.querySelectorAll('.dk, .kpi, .inv-kpis > *')].map((x) => [...x.querySelectorAll('span, small, b')].map((e) => e.textContent.trim()).filter(Boolean)).filter((x) => x.length >= 2);
+    if (figs.length) { rows.push(['Summary']); for (const f of figs) rows.push([f[0], f[1], f[2] || '']); rows.push([]); }
+    for (const t of panel.querySelectorAll('table')) {
+      const title = t.closest('.scard, .group')?.querySelector('h3')?.textContent.trim();
+      if (title) rows.push([title]);
+      for (const tr of t.querySelectorAll('tr')) { const cells = [...tr.children].map((c) => c.textContent.replace(/\s+/g, ' ').trim()); if (cells.some(Boolean)) rows.push(cells); }
+      rows.push([]);
+    }
+    if (rows.length < 6) for (const card of panel.querySelectorAll('.ocard, .inv-row, .rline')) rows.push([card.innerText.replace(/\s*\n\s*/g, ' · ').trim()]);
+    return rows;
+  }
+  function exportReport(k) {
+    sheet((close) => {
+      const go2 = async (kind, btn) => { btn.disabled = true; try { await saveSheetFile(`${meta.slug}-${nameOf(k).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}`, pageRows(k), kind, nameOf(k)); close(); toast('Exported'); } catch (e) { btn.disabled = false; toast(e.message, true); } };
+      return [h('h2', {}, `Export ${nameOf(k).toLowerCase()}`), h('p', { class: 'muted' }, 'Everything on this page for the period you have chosen.'),
+        h('div', { class: 'xport' }, h('button', { class: 'xport-opt', type: 'button', onclick: (e) => go2('xlsx', e.currentTarget) }, h('b', {}, 'Excel'), h('small', {}, '.xlsx, opens in Excel, Numbers and Google Sheets')), h('button', { class: 'xport-opt', type: 'button', onclick: (e) => go2('csv', e.currentTarget) }, h('b', {}, 'CSV'), h('small', {}, '.csv, works with almost any system'))),
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'))];
+    });
+  }
+  // QuickBooks Online reads a three-column file (Date, Description, Amount) under Banking › Upload transactions.
+  function quickbooks() {
+    sheet((close) => {
+      const run = async (btn) => { btn.disabled = true; try {
+        const r = await api('GET', `/api/sites/${id}/transactions?${rq()}`);
+        const us = (d) => { const [y, m, dd] = d.split('-'); return `${m}/${dd}/${y}`; };
+        const rows = [['Date', 'Description', 'Amount'], ...r.payments.map((x) => [us(x.date), `${x.source} ${x.ref} · ${x.customer || 'Customer'} · ${x.method}`, ((x.amount) / 100).toFixed(2)]), ...r.refunds.map((x) => [us(x.date), `Refund ${x.ref} · ${x.customer || 'Customer'} · ${x.method}`, (-(x.amount) / 100).toFixed(2)])];
+        if (rows.length < 2) { btn.disabled = false; return toast('No payments in this period to send to QuickBooks.', true); }
+        await saveSheetFile(`${meta.slug}-quickbooks-${r.from}-to-${r.to}`, rows, 'csv'); close(); toast(`${rows.length - 1} transaction${rows.length === 2 ? '' : 's'} ready for QuickBooks`);
+      } catch (e) { btn.disabled = false; toast(e.message, true); } };
+      return [h('h2', {}, 'Sync with QuickBooks'), h('p', { class: 'muted' }, 'Download the payments and refunds for the period you have chosen as a file QuickBooks Online reads, then upload it.'),
+        h('ol', { class: 'steps-list' }, h('li', {}, 'Choose the dates at the top of this page, then download below.'), h('li', {}, 'In QuickBooks Online, go to Transactions › Bank transactions › Link account › Upload from file.'), h('li', {}, 'Pick the downloaded file and the account to put it in. QuickBooks matches the Date, Description and Amount columns for you.')),
+        h('p', { class: 'hint' }, 'A live connection that sends sales automatically needs Processor Freedom to be approved by Intuit. Until then, this file does the same job in a few clicks.'),
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn', onclick: (e) => run(e.currentTarget) }, 'Download for QuickBooks'))];
+    });
+  }
+  function reportSettings() {
+    sheet((close) => {
+      const pick = (k, l) => h('button', { class: 'chip', 'aria-pressed': String(salesRange === k), onclick: () => { salesRange = k; try { localStorage.setItem(`pf-range-${id}`, k); } catch { /* private mode */ } close(); reload(tab, false); paintPanel(); toast(`Reports open on ${l.toLowerCase()}`); } }, l);
+      return [h('h2', {}, 'Report settings'), h('p', { class: 'muted' }, 'Which period reports open on, on this device.'), h('div', { class: 'inv-chips', style: 'flex-wrap:wrap' }, [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['last30', 'Last 30 days']].map(([k, l]) => pick(k, l))),
+        h('p', { class: 'hint' }, 'Days are counted in your business’s time zone, set with your business hours.'), h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: () => { close(); goTab('hours'); } }, 'Time zone and hours'), h('button', { class: 'btn', onclick: close }, 'Done'))];
+    });
+  }
+  function addReportTools(k) {
+    const bar = h('div', { class: 'rep-tools' },
+      h('button', { class: 'btn soft', type: 'button', onclick: () => exportReport(k) }, ic('dl', 16), 'Export'),
+      (() => { const more = h('button', { class: 'icon-btn rep-more', type: 'button', title: 'More', 'aria-label': 'More', 'aria-haspopup': 'menu', onclick: () => popover(more, (close) => [
+        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); setTimeout(() => window.print(), 50); } }, h('span', {}, 'Print')),
+        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); exportReport(k); } }, h('span', {}, 'Export to Excel or CSV')),
+        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); reportSettings(); } }, h('span', {}, 'Report settings')),
+        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); quickbooks(); } }, h('span', {}, 'Sync with QuickBooks')),
+        h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); sheet((c2) => [h('h2', {}, nameOf(k)), h('p', {}, ABOUT[k] || 'What this page shows, for the period chosen at the top.'), h('p', { class: 'hint' }, 'Figures follow the dates chosen at the top of the page and your business’s time zone. Cancelled orders are left out of sales.'), h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: c2 }, 'Got it'))]); } }, h('span', {}, 'Learn about this report')),
+      ]) }, h('span', { class: 'rep-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))); return more; })());
+    const head = panel.querySelector('.inv-top, .page-head');
+    if (!head) return panel.prepend(bar);
+    const row = head.querySelector(':scope > .row');
+    if (row) { for (const b of row.querySelectorAll(':scope > button')) if (/^(Export|Print)$/.test(b.textContent.trim())) b.remove(); row.append(...bar.childNodes); } else head.append(bar);
+  }
 
   /* ---------- top right: notifications, settings, profile ---------- */
   const TI = {
@@ -2128,8 +2384,9 @@ export async function editor(id, mount, title, startTab = '') {
     top.dataset.mode = modeOf(tab); top.dataset.view = body.dataset.view;
     paintTabbar();
     top.replaceChildren(...[
-      h('button', { class: 'icon-btn', title: modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', 'aria-label': modeOf(tab) === 'site' ? 'Back to back office' : 'All my sites', onclick: async () => { if (modeOf(tab) === 'site') return goTab(lastTab.office); await flush(); go('/app'); } }, ic('back')),
+      modeOf(tab) === 'site' ? h('button', { class: 'icon-btn', title: 'Back to back office', 'aria-label': 'Back to back office', onclick: () => goTab(lastTab.office) }, ic('back')) : h('button', { class: 'icon-btn rail-tog', title: body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-label': body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-expanded': String(body.dataset.rail !== 'shut'), onclick: () => { if (body.dataset.rail === 'shut') delete body.dataset.rail; else body.dataset.rail = 'shut'; try { localStorage.setItem('pf-rail', body.dataset.rail || ''); } catch { /* private mode */ } paintTop(); requestAnimationFrame(fit); } }, h('span', { class: 'tog-ic', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
       h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Dashboard', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 })),
+      modeOf(tab) === 'office' && h('button', { class: 'tb-biz', type: 'button', title: 'Switch business', onclick: async () => { await flush(); go('/app'); } }, h('b', {}, meta.name), h('span', { class: 'swap', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>' })),
       h('span', { class: 'm-title' }, h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || [])[1] || '')),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label)],

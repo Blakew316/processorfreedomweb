@@ -57,6 +57,7 @@ export function openDb(dataDir) {
   addColumn('users', 'phone', "TEXT NOT NULL DEFAULT ''");
   addColumn('users', 'totp_secret', "TEXT NOT NULL DEFAULT ''");
   addColumn('users', 'totp_on', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('users', 'last_seen', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('sites', 'ordering', 'TEXT');
   addColumn('menu_items', 'options', 'TEXT');
   addColumn('menu_items', 'taxable', 'INTEGER NOT NULL DEFAULT 1');

@@ -159,6 +159,7 @@ export function createApp(options = {}) {
   function startSession(req, res, userId) {
     const token = randomBytes(32).toString('base64url');
     db.run('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + SESSION_DAYS * DAY);
+    db.run('UPDATE users SET last_seen = ? WHERE id = ?', Date.now(), userId);
     res.setHeader('Set-Cookie', `pf_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${protoOf(req) === 'https' ? '; Secure' : ''}`);
   }
   function currentUser(req) {
@@ -253,7 +254,7 @@ export function createApp(options = {}) {
     if (LEVEL[role] < LEVEL[need]) bad(403, 'Your login does not allow that. Ask the owner of this site.');
     return { user, site, role };
   }
-  const teamOf = (site) => db.all('SELECT u.id, u.name, u.email, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id);
+  const teamOf = (site) => db.all('SELECT u.id, u.name, u.email, u.phone, (u.last_seen > 0 OR EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id)) AS active, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id);
 
   /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
   const takenSlots = (siteId) => Object.fromEntries(db.all("SELECT scheduled, COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled != '' AND status != 'cancelled' AND created_at > ? GROUP BY scheduled", siteId, Date.now() - 3 * DAY).map((r) => [r.scheduled, r.n]));
