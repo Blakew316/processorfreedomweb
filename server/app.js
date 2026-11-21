@@ -1556,8 +1556,9 @@ export function createApp(options = {}) {
     if (path.startsWith('/assets/demo/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), { 'Cache-Control': 'public, max-age=604800' })) || send(res, 404, 'Not found');
     if (path.startsWith('/assets/')) return (await sendFile(res, join(ROOT, 'public'), path.slice(8), cache)) || send(res, 404, 'Not found');
     if (path.startsWith('/shared/')) return (await sendFile(res, join(ROOT, 'shared'), path.slice(8), cache)) || send(res, 404, 'Not found');
-    if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\n', { 'Content-Type': 'text/plain' });
-    if (path === '/' || /^\/(login|signup|forgot|reset|app(\/.*)?)$/.test(path)) {
+    if (path === '/robots.txt') return send(res, 200, `User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\nSitemap: ${appOrigin(req)}/sitemap.xml\n`, { 'Content-Type': 'text/plain' });
+    if (path === '/sitemap.xml') return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', '/faq', '/privacy', '/terms', '/signup'].map((u) => `<url><loc>${esc(appOrigin(req))}${u}</loc></url>`).join('')}</urlset>`, { 'Content-Type': 'application/xml' });
+    if (path === '/' || /^\/(login|signup|forgot|reset|faq|privacy|terms|app(\/.*)?)$/.test(path)) {
       // Link previews need absolute image addresses, so the shell is filled in per request.
       shell ??= await fs.readFile(join(ROOT, 'public', 'index.html'), 'utf8');
       return html(res, 200, shell.replaceAll('__ORIGIN__', esc(appOrigin(req))), { ...cache, 'Content-Security-Policy': APP_CSP, 'Permissions-Policy': 'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)' });

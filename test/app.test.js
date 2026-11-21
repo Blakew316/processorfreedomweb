@@ -175,7 +175,10 @@ test('sign up, build, publish, serve, collect a message, connect a domain', asyn
   // Own domain: only served after DNS points at us
   assert.equal((await me('POST', `/api/sites/${site.id}/domain`, { domain: 'x.pfsites.test' })).status, 400);
   assert.equal((await me('POST', `/api/sites/${site.id}/domain`, { domain: 'https://www.joespizza.com/' })).data.site.customDomain, 'joespizza.com');
-  assert.notEqual((await anon('GET', '/privacy', null, { host: 'joespizza.com' })).status, 200);
+  // Until the domain is proven, the business's site is not served there (our own policy page is, like any unknown address).
+  assert.notEqual((await anon('GET', '/menu', null, { host: 'joespizza.com' })).status, 200);
+  assert.ok(!String((await anon('GET', '/privacy', null, { host: 'joespizza.com' })).data).includes('Joe’s Pizza'));
+  assert.ok(!String((await anon('GET', '/privacy', null, { host: 'joespizza.com' })).data).includes("Joe's Pizza"));
   assert.equal((await me('POST', `/api/sites/${site.id}/domain/verify`)).data.ok, false);
   dnsAnswers.cname['www.joespizza.com'] = ['app.pfsites.test'];
   r = await me('POST', `/api/sites/${site.id}/domain/verify`);

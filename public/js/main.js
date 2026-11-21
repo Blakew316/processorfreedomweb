@@ -1,4 +1,5 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
+import { siteFooter, faqList, faqPage, privacyPage, termsPage, FAQ } from './pages.js';
 import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
 
 const root = document.getElementById('app');
@@ -146,7 +147,7 @@ function landing() {
   const office = h('div', { class: 'bo reveal' },
     h('div', { class: 'bo-main' },
       h('div', { class: 'bo-head' }, h('b', {}, 'Today'), h('span', {}, 'Harbor & Vine')),
-      h('div', { class: 'bo-kpis' }, stat('Sales', '$1,284.50', '+12% on last week'), stat('Orders', '37', '5 waiting'), stat('Average order', '$34.72', 'per ticket')),
+      h('div', { class: 'bo-kpis' }, stat('Sales', '$1,284.50', '+12% this week'), stat('Orders', '37', '5 waiting'), stat('Average order', '$34.72', 'per ticket')),
       h('div', { class: 'bo-chart', 'aria-hidden': 'true' }, [34, 52, 41, 68, 59, 86, 74].map((v, i) => h('i', { style: `--h:${v}%;--d:${i * 70}ms` }, h('u', {}, 'SMTWTFS'[i])))),
       h('div', { class: 'bo-list' }, orderRow(1042, 'Ana Ruiz', 'Pickup · 3 items', ['New', 'new']), orderRow(1041, 'James T.', 'Delivery · 5 items', ['Confirmed', 'ok']), orderRow(1040, 'Maria S.', 'Curbside · 2 items', ['Ready', 'ready']))),
     h('div', { class: 'bo-side' },
@@ -182,6 +183,10 @@ function landing() {
         gain('02', 'Get paid faster.', 'Send a clean invoice in a minute and see the moment it is opened and paid.', mockInvoice, true, 'services-3'),
         gain('03', 'Customers who come back.', 'Rewards and gift cards are built in, so a first visit turns into a habit.', mockLoyalty, false, 'cafe-2'))),
 
+      h('section', { class: 'l-sec l-faq', id: 'faq' }, h('div', { class: 'page' },
+        h('p', { class: 'kicker' }, 'Questions'), h('h2', {}, 'Good to know before you start.'),
+        faqList(FAQ.slice(0, 6)), h('p', { class: 'faq-more' }, link('/faq', {}, 'See all questions and answers')))),
+
       h('section', { class: 'page' }, h('div', { class: 'l-close reveal' },
         h('div', { class: 'l-close-copy' },
           h('img', { src: '/assets/icon-192.png', alt: '', width: 56, height: 56 }),
@@ -189,7 +194,7 @@ function landing() {
           h('p', {}, 'Name it, add your menu, publish. Nothing is public until you say so.'),
           h('form', { class: 'namer', onsubmit: (e) => { e.preventDefault(); start(endInput.value.trim() || input.value.trim()); } }, h('div', { class: 'box' }, endInput, h('button', { class: 'btn', type: 'submit' }, 'Build my website')))),
         h('div', { class: 'l-close-art', 'aria-hidden': 'true' }))),
-      h('footer', { class: 'page' }, h('div', { class: 'l-foot' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.')))));
+      siteFooter()));
 
   // Numbers run up to their value the first time they come into view.
   const countUp = (el) => { const full = el.dataset.count, m = full.match(/^(\D*)([\d,]+)(\.\d+)?(.*)$/); if (!m || matchMedia('(prefers-reduced-motion: reduce)').matches) return; const end = Number((m[2] + (m[3] || '')).replace(/,/g, '')), dec = m[3] ? m[3].length - 1 : 0, t0 = performance.now(); const step = (t) => { const k = Math.min(1, (t - t0) / 1100), v = end * (1 - Math.pow(1 - k, 3)); el.textContent = k === 1 ? full : `${m[1]}${v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec })}${m[4]}`; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); };
@@ -198,6 +203,8 @@ function landing() {
   // Over the film the top bar is clear glass; once the page scrolls past it, it turns solid.
   const bar = document.querySelector('header.top'); bar?.classList.add('glass-bar'); const onScroll = () => bar?.classList.toggle('over-film', window.scrollY < 520 && location.pathname === '/');
   onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  // A link such as /#examples lands on that part of the page.
+  if (location.hash.length > 1) setTimeout(() => { try { document.querySelector(location.hash)?.scrollIntoView({ block: 'start' }); } catch { /* not a valid target */ } }, 80);
   // The example rows only drift while they are on screen.
   const show = document.querySelector('.show');
   if (show) new IntersectionObserver((es) => es.forEach((e) => show.classList.toggle('run', e.isIntersecting)), { rootMargin: '200px' }).observe(show);
@@ -234,6 +241,7 @@ function auth(mode) {
     signup && h('p', { class: 'hint', style: 'margin-top:-8px' }, 'At least 8 characters.'),
     !signup && h('p', { class: 'small', style: 'margin-top:-8px' }, link('/forgot', {}, 'Forgot your password?')),
     err, button,
+    signup && h('p', { class: 'center small muted' }, 'By creating an account you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
     h('p', { class: 'center muted' }, signup ? 'Already have an account? ' : 'New here? ', link(`${signup ? '/login' : '/signup'}${q}`, {}, signup ? 'Sign in' : 'Create an account')));
   mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card' }, form,
     h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.png', alt: '', width: 48, height: 48 }),
@@ -394,6 +402,7 @@ async function render() {
     if (path === '/') landing();
     else if (path === '/login' || path === '/signup') auth(path.slice(1));
     else if (path === '/forgot') forgot();
+    else if (path === '/faq' || path === '/privacy' || path === '/terms') { title(); mount(topbar(link('/#examples', { class: 'opt' }, 'Examples'), link('/faq', { class: 'opt' }, 'Questions'), state.user ? link('/app', { class: 'btn sm' }, 'My sites') : [link('/login', {}, 'Sign in'), link('/signup', { class: 'btn sm' }, 'Get started')]), { faq: faqPage, privacy: privacyPage, terms: termsPage }[path.slice(1)](), siteFooter()); }
     else if (path === '/reset') reset();
     else if ((m = path.match(/^\/app\/site\/([\w-]+)\/kitchen$/))) cleanup = await (await import('./kitchen.js')).kitchen(m[1], mount, title);
     else if (path === '/app') await dashboard();
