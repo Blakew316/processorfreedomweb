@@ -1078,6 +1078,12 @@ export function createApp(options = {}) {
     }
 
     const pages = ['', ...(ordering.enabled ? ['order'] : []), ...Object.keys(LEGAL_PAGES).filter((k) => config.legal?.[k]?.enabled !== false)];
+    // Lets customers add the shop to their Home Screen under its own name.
+    if (path === '/manifest.webmanifest') {
+      const name = str(config.brand?.name || site.name, 60), logo = str(config.brand?.logo);
+      const kind = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }[(logo.match(/^\/u\/[\w.-]+\.(png|jpg|webp)$/) || [])[1]];
+      return send(res, 200, JSON.stringify({ name, short_name: name.slice(0, 12), start_url: `${base}/${ordering.enabled ? 'order' : ''}`, scope: `${base}/`, display: 'standalone', background_color: '#ffffff', theme_color: '#ffffff', icons: kind ? [{ src: logo, sizes: '512x512', type: kind, purpose: 'any' }] : [] }), { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=300' });
+    }
     if (path === '/robots.txt') return send(res, 200, draft ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\nSitemap: ${home}sitemap.xml\n`, { 'Content-Type': 'text/plain; charset=utf-8' });
     if (path === '/sitemap.xml') {
       const mod = new Date(site.published_at || site.updated_at).toISOString().slice(0, 10);

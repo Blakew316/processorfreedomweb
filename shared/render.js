@@ -56,6 +56,8 @@ h1,h2,h3{font-family:var(--font-head);font-weight:600;letter-spacing:-.022em;lin
 p{text-wrap:pretty}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+html{-webkit-tap-highlight-color:transparent}
+@supports (padding:max(0px)){.wrap{padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}}
 .narrow{max-width:720px}
 .skip{position:absolute;left:-999px;top:8px;background:var(--bg);padding:10px 16px;border-radius:10px;z-index:50}
 .skip:focus{left:8px}
@@ -487,7 +489,7 @@ export function renderPage(site, page = 'home', opts = {}) {
   }).replace(/</g, '\\u003c')}</script>` : '';
 
   const vars = themeVars(site);
-  const headHtml = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  const headHtml = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="format-detection" content="telephone=no">${!preview && base !== undefined ? `<link rel="manifest" href="${esc(base)}/manifest.webmanifest"><meta name="apple-mobile-web-app-title" content="${esc(str(site.brand?.name, 30))}">${/^\/u\/[\w.-]+\.(png|jpg|webp)$/.test(str(site.brand?.logo)) ? `<link rel="apple-touch-icon" href="${esc(site.brand.logo)}">` : ''}` : ''}
 <title>${esc(title)}</title>${desc ? `<meta name="description" content="${esc(desc)}">` : ''}
 ${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywords, 300))}">` : ''}${url ? `<link rel="canonical" href="${esc(url)}">` : ''}${status === 404 || preview || page === 'order-status' || page === 'invoice' ? '<meta name="robots" content="noindex">' : ''}
 <meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}">${desc ? `<meta property="og:description" content="${esc(desc)}">` : ''}${url ? `<meta property="og:url" content="${esc(url)}">` : ''}${ogImg ? `<meta property="og:image" content="${esc(ogImg)}"><meta name="twitter:card" content="summary_large_image">` : ''}

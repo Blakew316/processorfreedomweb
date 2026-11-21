@@ -156,6 +156,51 @@ export const ORDER_CSS = `
 .line{animation:oline .3s ease}
 @keyframes oline{from{opacity:0;transform:translateY(6px)}}
 @media (prefers-reduced-motion:reduce){.bump,.line{animation:none}}
+.cart-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cart-x,.cart-scrim{display:none}
+.cats a[aria-current]{background:var(--ink);color:var(--bg)}
+
+/* Phones: the menu fills the screen and the order slides up from the bottom, like an app. */
+@media (max-width:860px){
+  .order{padding:28px 0 calc(110px + env(safe-area-inset-bottom))}
+  .ord-head h1{font-size:34px}
+  .ord-head p{font-size:17px;margin-top:8px}
+  .ord-grid{margin-top:22px;gap:0}
+  .msearch input{font-size:16px}
+  .cats{top:var(--head-h,56px);margin:0 -20px;padding:10px 20px;gap:8px;scroll-padding:0 20px}
+  .cats a{padding:9px 16px;font-size:15px}
+  .cat{padding-top:28px;scroll-margin-top:calc(var(--head-h,56px) + 64px)}
+  .cat h2{font-size:24px;margin-bottom:12px}
+  .ord-menu .tiles{gap:10px}
+  .ord-menu .tile{padding:16px;gap:14px;border-radius:20px}
+  .ord-menu .tile:not(.off):hover{transform:none;box-shadow:none}
+  .ord-menu .tile h3{font-size:17px}
+  .ord-menu .tile .price{font-size:16px}
+  .ord-menu .tile .pic{width:92px;height:92px;border-radius:14px}
+  .tile .act{margin-top:12px}
+  .add{padding:10px 22px;min-height:40px}
+  .cartbar{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));padding:17px 24px;font-size:17px;border-radius:980px;box-shadow:0 18px 40px -12px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .cart-open .cartbar{display:none}
+  .cart-scrim{display:block;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.36);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);opacity:0;pointer-events:none;transition:opacity .3s ease}
+  .cart-open .cart-scrim{opacity:1;pointer-events:auto}
+  .cart{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:50;max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px - env(safe-area-inset-top));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+    border-radius:30px 30px 0 0;padding:10px 20px calc(22px + env(safe-area-inset-bottom));gap:18px;box-shadow:0 -20px 60px -20px rgba(0,0,0,.45);
+    transform:translateY(104%);visibility:hidden;transition:transform .42s cubic-bezier(.25,.1,.25,1),visibility 0s linear .42s}
+  .cart-open .cart{transform:none;visibility:visible;transition:transform .42s cubic-bezier(.25,.1,.25,1),visibility 0s}
+  .cart::before{content:"";justify-self:center;width:38px;height:5px;border-radius:5px;background:var(--line);margin-bottom:-4px}
+  .cart-x{display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:50%;background:var(--bg2);color:var(--ink);font:inherit;font-size:22px;line-height:1;cursor:pointer}
+  .cart .btn[type=submit]{position:sticky;bottom:0;box-shadow:0 -14px 18px 6px var(--bg)}
+  .cart-open,.cart-open body{overflow:hidden}
+  .osheet>div{padding-bottom:calc(22px + env(safe-area-inset-bottom))}
+  .ostat{padding:36px 0 calc(64px + env(safe-area-inset-bottom))}
+  .ostat .actions{display:grid;gap:10px}
+  .ostat .actions .btn{width:100%;text-align:center;justify-content:center}
+  .box{padding:22px 20px;border-radius:22px}
+  .trackl{font-size:12px}
+  .kv{grid-template-columns:1fr;gap:2px 0}
+  .kv dd{margin:0 0 10px}
+}
+@media (prefers-reduced-motion:reduce){.cart,.cart-scrim{transition:none!important}}
 @media (prefers-reduced-motion:reduce){.osheet,.osheet>div{animation:none}}
 `;
 
@@ -189,8 +234,8 @@ function orderClient() {
     var txs = L.reduce(function (s, l) { return s + (l.tx ? l.price * l.qty : 0); }, 0);
     var tax = sub ? Math.round((txs - disc * txs / sub) * c.tax / 100) : 0, fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
     var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(total) + '</span>'; }
-    var out = '<h2>' + h(T.yourOrder) + '</h2>';
-    if (!L.length) { el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.paused) + '</p>'; return; }
+    var out = '<div class="cart-h"><h2>' + h(T.yourOrder) + '</h2><button type="button" class="cart-x" data-cart-close="1" aria-label="' + h(T.close) + '">×</button></div>';
+    if (!L.length) { d.documentElement.classList.remove('cart-open'); el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.paused) + '</p>'; return; }
     out += L.map(function (l) { return '<div class="line"><b>' + h(l.name) + '</b><span>' + fmt(l.price * l.qty) + '</span>' + (l.opt ? '<span class="lopt">' + h(l.opt) + '</span>' : '') + '<div class="step"><button type="button" data-qty="-1" data-i="' + l.i + '" aria-label="−">−</button><span>' + l.qty + '</span><button type="button" data-qty="1" data-i="' + l.i + '" aria-label="+">+</button></div></div>'; }).join('');
     if (c.methods.length > 1) out += '<div class="oseg" role="group">' + c.methods.map(function (m) { return '<button type="button" data-method="' + m + '" aria-pressed="' + (S.method === m) + '">' + h(c.names[m]) + '</button>'; }).join('') + '</div>';
     var about = function (n) { return n ? ' ' + T.inAbout.replace('{n}', n) : ''; };
@@ -226,6 +271,26 @@ function orderClient() {
       put(c, id, o); keep(c); close(); draw();
     });
     d.body.appendChild(box);
+  }
+  // On a phone the order is a sheet: the bar at the bottom opens it, the cross or a tap outside closes it.
+  d.addEventListener('click', function (e) {
+    if (e.target.closest('#cartbar')) { e.preventDefault(); d.documentElement.classList.add('cart-open'); var cart = d.getElementById('cart'); if (cart) cart.scrollTop = 0; return; }
+    if (e.target.closest('[data-cart-close]') || e.target.classList.contains('cart-scrim')) d.documentElement.classList.remove('cart-open');
+  });
+  d.addEventListener('keydown', function (e) { if (e.key === 'Escape') d.documentElement.classList.remove('cart-open'); });
+  // The category chips follow along as the menu scrolls.
+  function spy() {
+    var nav = d.querySelector('.cats'); if (!nav || !('IntersectionObserver' in window)) return;
+    var head = d.querySelector('.header'); if (head) d.documentElement.style.setProperty('--head-h', head.offsetHeight + 'px');
+    var links = {}; [].forEach.call(nav.querySelectorAll('a'), function (a) { links[a.getAttribute('href').slice(1)] = a; });
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        [].forEach.call(nav.querySelectorAll('[aria-current]'), function (a) { a.removeAttribute('aria-current'); });
+        var a = links[en.target.id]; if (a) { a.setAttribute('aria-current', 'true'); nav.scrollTo({ left: a.offsetLeft - 20, behavior: 'smooth' }); }
+      });
+    }, { rootMargin: '-25% 0px -65% 0px' });
+    [].forEach.call(d.querySelectorAll('.ord-menu .cat'), function (c2) { io.observe(c2); });
   }
   d.addEventListener('click', function (e) {
     var re = e.target.closest('[data-reorder]');
@@ -282,7 +347,7 @@ function orderClient() {
       .then(function (j) { S.lines = []; keep(c); location.href = j.url; })
       .catch(function (x) { S.busy = false; S.err = x.message && x.message !== 'x' ? x.message : c.T.failed; draw(); });
   });
-  window.pfOrderInit = function () { var c = conf(); if (c) { if (!S.loaded) { load(c); S.loaded = 1; } draw(); } };
+  window.pfOrderInit = function () { var c = conf(); if (c) { if (!S.loaded) { load(c); S.loaded = 1; } draw(); spy(); } };
   window.pfOrderInit();
 }
 export const ORDER_JS = `(${orderClient.toString()})();`;
@@ -342,7 +407,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
     ? `${search}${cats.length > 1 ? `<nav class="cats" aria-label="${esc(T.menu)}">${cats.map((c) => `<a href="#${c.id}">${esc(c.name)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.name)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: can, button: true, T })).join('')}</div></div>`).join('')}`
     : `<div class="empty">${preview ? 'Your menu is empty. Upload your item list in the Menu tab.' : esc(T.menuSoon)}</div>`;
   return `<section class="order"><div class="wrap"><header class="ord-head"><h1>${esc(T.orderOnline)}</h1>${lede ? `<p>${esc(lede)}</p>` : ''}${notice ? `<p class="closed">${esc(notice)}</p>` : ''}</header>
-<div class="ord-grid"><div class="ord-menu">${body}</div><aside class="cart" id="cart" aria-live="polite"></aside></div></div><a class="cartbar" id="cartbar" href="#cart" hidden></a></section>
+<div class="ord-grid"><div class="ord-menu">${body}</div><aside class="cart" id="cart" aria-live="polite"></aside></div></div><div class="cart-scrim"></div><a class="cartbar" id="cartbar" href="#cart" role="button" hidden></a></section>
 <script type="application/json" id="pf-order">${JSON.stringify(conf).replace(/</g, '\\u003c')}</script>`;
 }
 

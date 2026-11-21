@@ -4,16 +4,33 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['start', 'Get started', 'rocket', 'office'], ['orders', 'Orders', 'bag', 'office'], ['sales', 'Sales', 'chart', 'office'], ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'], ['inbox', 'Messages', 'inbox', 'office'],
+  ['start', 'Home', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['sales', 'Sales', 'chart', 'office'], ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'], ['inbox', 'Messages', 'inbox', 'office'],
   ['menu', 'Menu', 'menu', 'office'], ['items', 'Items', 'tag', 'office'], ['ordering', 'Order settings', 'sliders', 'office'], ['team', 'Team', 'f_users', 'office'],
-  ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'home', 'site'], ['business', 'Business info', 'store', 'site'],
+  ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const DIVIDE_AFTER = new Set(['start', 'inbox', 'items', 'business', 'seo']);
 const WIDE = new Set(['items', 'sales', 'customers', 'invoices']);
 const MODES = { office: 'Back office', site: 'Website' };
-// On a phone the main screens of each side sit in a tab bar at the bottom; everything else is under More.
-const PHONE_TABS = { office: [['orders', 'Orders', 'bag'], ['sales', 'Sales', 'chart'], ['items', 'Items', 'tag'], ['invoices', 'Invoices', 'doc']], site: [['design', 'Look', 'brush'], ['sections', 'Home page', 'home'], ['business', 'Info', 'store']] };
+// What the sidebar shows: a few plainly named sections, each with a line saying what it is for.
+// A section can hold two related screens, switched with the tabs at the top of the page.
+const NAV = {
+  office: [
+    { label: 'Home', hint: 'Your to-do list', icon: 'home', tabs: ['start'] },
+    { label: 'Orders', hint: 'Confirm and track orders', icon: 'bag', tabs: ['orders'] },
+    { label: 'Menu', hint: 'Items, prices, photos, stock', icon: 'menu', tabs: ['items', 'menu'], subs: ['Items', 'Categories and order'] },
+    { label: 'Sales', hint: 'What you earned, invoices', icon: 'chart', tabs: ['sales', 'invoices'], subs: ['Sales report', 'Invoices'] },
+    { label: 'Customers', hint: 'Who orders, and messages', icon: 'person', tabs: ['customers', 'inbox'], subs: ['Customers', 'Messages'] },
+    { label: 'Settings', hint: 'Pickup, delivery, hours, tax', icon: 'sliders', tabs: ['ordering', 'team'], subs: ['Ordering', 'Staff logins'] },
+  ],
+  site: [
+    { label: 'Design', hint: 'Logo, colours and style', icon: 'brush', tabs: ['design', 'history'], subs: ['Design', 'Earlier versions'] },
+    { label: 'Home page', hint: 'What is on your page', icon: 'layers', tabs: ['sections', 'policies'], subs: ['Sections', 'Policies'] },
+    { label: 'Business info', hint: 'Phone, address, hours', icon: 'store', tabs: ['business'] },
+    { label: 'Web address', hint: 'Your link and Google listing', icon: 'globe', tabs: ['domain', 'seo'], subs: ['Web address', 'Google listing'] },
+  ],
+};
+// On a phone the first four sections of each side sit in the tab bar; the rest is under More.
+const PHONE_COUNT = { office: 4, site: 3 };
 
 // Item photos are trimmed to one shape so every tile on the menu lines up.
 const ITEM_PHOTO = { ratio: 4 / 3, max: 1400 };
@@ -1225,7 +1242,7 @@ export async function editor(id, mount, title) {
   function tour() {
     const steps = [
       [() => top.querySelector('.mode-seg'), 'Two sides, kept apart', 'Back office is where you run the business: orders, menu, sales and settings. Website is where you change how your site looks.', 'below'],
-      [() => rail, 'Each side has its own list', 'Start with Get started and work down. The list changes when you switch sides.', 'right'],
+      [() => rail, 'Everything is in this list', 'Each line says what it is for. Start at Home and work down.', 'right'],
       [() => top.querySelector('.qf-btn'), 'Find anything fast', 'Search for any setting, item or order. On a keyboard, press Ctrl or ⌘ and K.', 'below'],
       [() => top.lastElementChild, 'Publish when you are ready', 'Nothing is public until you publish. After that, menu and stock changes go live on their own.', 'below'],
     ];
@@ -1294,10 +1311,12 @@ export async function editor(id, mount, title) {
   /* ---------- chrome ---------- */
 
   const tabsEl = h('div', { class: 'phead' });
+  const subnav = h('div', { class: 'seg subnav', role: 'group', 'aria-label': 'In this section', hidden: true });
+  const lastIn = {};
   const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
   const panel = h('div', { class: 'panel' });
   const top = h('header', { class: 'ed-top' });
-  const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '' }, rail, h('aside', { class: 'ed-side' }, tabsEl, panel), stage);
+  const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '' }, rail, h('aside', { class: 'ed-side' }, tabsEl, subnav, panel), stage);
 
   function paintPanel() {
     const y = panel.scrollTop;
@@ -1307,17 +1326,25 @@ export async function editor(id, mount, title) {
     lastTab[mode] = cur[0];
     if (body.dataset.mode !== mode) { body.dataset.mode = mode; if (mode === 'office') body.dataset.view = 'edit'; paintTop(); requestAnimationFrame(fit); }
     panel.classList.toggle('narrow', mode === 'office' && !WIDE.has(cur[0]));
-    rail.replaceChildren(h('span', { class: 'rail-h' }, MODES[mode]), ...tabs.filter((t) => t[3] === mode).flatMap(([k, label, icon]) => [
-      h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, ic(icon, 18), h('span', {}, label), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)),
-      DIVIDE_AFTER.has(k) && h('hr'),
-    ]).filter(Boolean));
+    const has = (k) => tabs.some(([t]) => t === k);
+    const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
+    const group = groups.find((g) => g.tabs.includes(cur[0])) || groups[0];
+    rail.replaceChildren(h('span', { class: 'rail-h' }, mode === 'office' ? 'Run your business' : 'Edit your website'), ...groups.map((g) =>
+      h('button', { 'aria-current': g === group ? 'page' : null, onclick: () => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]) },
+        h('span', { class: 'rail-ic' }, ic(g.icon, 18)), h('span', { class: 'rail-t' }, h('b', {}, g.label), h('small', {}, g.hint)), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh))),
+      h('span', { class: 'grow' }),
+      h('button', { class: 'rail-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, h('span', { class: 'rail-ic' }, ic(mode === 'office' ? 'brush' : 'store', 18)), h('span', { class: 'rail-t' }, h('b', {}, mode === 'office' ? 'Edit your website' : 'Back to your business'), h('small', {}, mode === 'office' ? 'Change how your site looks' : 'Orders, menu and sales'))));
+    lastIn[group.label] = cur[0];
+    // Related screens share one sidebar entry and are switched here.
+    subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i], k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh))) : []));
+    subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...(cur[0] === 'start' ? startPanel() : PANELS[cur[0]]()).flat(Infinity).filter(Boolean));
     labelTables(panel);
     panel.scrollTop = y;
     const title2 = top.querySelector('.m-title b');
-    if (title2 && title2.textContent !== cur[1]) paintTop(); else paintTabbar();
+    if (title2 && title2.textContent !== group.label && body.dataset.view !== 'preview') paintTop(); else paintTabbar();
   }
   /* ---------- phone navigation ---------- */
   const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main screens' });
@@ -1325,18 +1352,21 @@ export async function editor(id, mount, title) {
     const mode = modeOf(tab);
     const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
     const previewing = mode === 'site' && body.dataset.view === 'preview';
-    const primary = PHONE_TABS[mode];
+    const has = (k) => tabs.some(([t]) => t === k);
+    const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has) })).filter((g) => g.tabs.length);
+    const primary = groups.slice(0, PHONE_COUNT[mode]);
     const item = (icon, label, on, fn, badge) => h('button', { type: 'button', 'aria-current': on ? 'page' : null, onclick: fn }, h('span', { class: 'tb-ic' }, ic(icon, 23), badge > 0 && h('em', { class: 'badge' }, badge)), h('span', {}, label));
     tabbar.replaceChildren(...[
-      ...primary.map(([k, label, icon]) => item(icon, label, tab === k && !previewing, () => { body.dataset.view = 'edit'; goTab(k); paintTop(); }, k === 'orders' ? fresh : 0)),
+      ...primary.map((g) => item(g.icon, g.label, g.tabs.includes(tab) && !previewing, () => { body.dataset.view = 'edit'; goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]); paintTop(); }, g.label === 'Orders' ? fresh : 0)),
       mode === 'site' && item('eye', 'Preview', previewing, () => { body.dataset.view = previewing ? 'edit' : 'preview'; paintTop(); requestAnimationFrame(fit); }),
-      item('list', 'More', !previewing && !primary.some(([k]) => k === tab), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
+      item('list', 'More', !previewing && !primary.some((g) => g.tabs.includes(tab)), moreSheet, mode === 'site' ? fresh : 0)].filter(Boolean));
   }
   function moreSheet() {
     sheet((close) => {
       const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
       const row = (icon, label, fn, extra) => h('button', { type: 'button', class: 'more-row', onclick: () => { close(); fn(); } }, h('span', { class: 'sico' }, ic(icon, 17)), h('b', {}, label), extra, ic('chev', 15));
-      const group = (mode) => h('div', { class: 'more-group' }, h('h3', {}, MODES[mode]), h('div', { class: 'more-list' }, tabs.filter((t) => t[3] === mode).map(([k, label, icon]) => row(icon, label, () => { body.dataset.view = 'edit'; goTab(k); paintTop(); }, [k === tab && h('span', { class: 'tag' }, 'Open'), k === 'orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)]))));
+      const has = (k) => tabs.some(([t]) => t === k);
+      const group = (mode) => h('div', { class: 'more-group' }, h('h3', {}, mode === 'office' ? 'Run your business' : 'Edit your website'), h('div', { class: 'more-list' }, NAV[mode].filter((g) => g.tabs.some(has)).map((g) => row(g.icon, h('span', {}, g.label, h('small', {}, g.hint)), () => { body.dataset.view = 'edit'; goTab(g.tabs.filter(has)[0]); paintTop(); }, [g.tabs.includes(tab) && h('span', { class: 'tag' }, 'Open'), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh)]))));
       return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, meta.name), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         group(modeOf(tab)), group(modeOf(tab) === 'office' ? 'site' : 'office'),
         h('div', { class: 'more-group' }, h('h3', {}, 'More'), h('div', { class: 'more-list' },
@@ -1388,7 +1418,7 @@ export async function editor(id, mount, title) {
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
       h('span', { class: 'name' }, meta.name),
-      h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || tabs[0])[1])),
+      h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'office' && h('span', { class: 'grow' }),
       modeOf(tab) === 'office' && meta.live && h('a', { class: 'btn soft view-site', href: meta.url, target: '_blank', rel: 'noopener' }, h('span', {}, 'View site'), ic('out', 15)),
