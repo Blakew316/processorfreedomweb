@@ -1768,3 +1768,61 @@ html[data-theme=dark] .ed-body[data-mode=office] .inv-chips .chip[aria-pressed=t
 .rail button.rail-new:hover{background:color-mix(in srgb,var(--switch) 7%,var(--card))}
 html[data-theme=dark] .rail button.rail-new{border-color:#fff;color:#fff}
 .rail button.rail-new{flex:none;min-height:48px}
+
+/* Top bar: our mark and name on the left, nothing else competing with it. */
+.mode-seg{display:none!important}
+.ed-top .name.brand{text-transform:none;font-size:19px;font-weight:600;letter-spacing:-.02em;border-left:0;padding-left:2px;margin-left:0;color:var(--ink)}
+.tb-logo{width:34px;height:34px;border-radius:10px}
+@media (min-width:901px){.ed-top .pub-top{display:none}}
+.pub-top{display:inline-flex}
+.rail-pub{display:grid;gap:8px;padding:12px 6px 4px;border-top:1px solid var(--line);margin-top:8px}
+.rail-pub small{font-size:13px;color:var(--muted);padding:0 8px}
+.rail .rail-pub .btn,.rail .rail-pub .btn:hover{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border-radius:980px;font-size:15px;font-weight:500;padding:0 16px;white-space:nowrap}
+.rail .rail-pub .btn:not(.soft),.rail .rail-pub .btn:not(.soft):hover{background:var(--brand);color:#fff}
+.rail .rail-pub .btn.soft,.rail .rail-pub .btn.soft:hover{background:#e7eaf1;color:var(--ink)}
+html[data-theme=dark] .rail .rail-pub .btn.soft{background:rgba(255,255,255,.12);color:#fff}
+.rail-foot b{color:var(--ink);font-weight:500}
+
+/* Calmer motion: things ease in gently rather than snapping up. */
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
+.panel.enter>*{animation:rise .7s cubic-bezier(.22,.61,.36,1) both}
+.panel.enter>*:nth-child(2){animation-delay:.06s}.panel.enter>*:nth-child(3){animation-delay:.12s}.panel.enter>*:nth-child(4){animation-delay:.18s}.panel.enter>*:nth-child(n+5){animation-delay:.24s}
+.sheet{animation-duration:.55s;animation-timing-function:cubic-bezier(.22,.61,.36,1)}
+.scrim{animation-duration:.4s}
+.nav-kids{animation:rise .5s cubic-bezier(.22,.61,.36,1)}
+.toast{animation-duration:.5s}
+.menu{animation-duration:.35s}
+.inv-empty>span:first-child{animation-duration:.8s}
+.btn,.chip,.rail button,.inv-row,.srow,.ocard,.scard{transition-duration:.3s}
+.btn:active,.add:active,.daypick button:active,.rail button:active,.tabbar button:active{transform:none}
+@media (max-width:900px){.sheet,.sheet.wide,.sheet.bill,.sheet.isheet,.sheet.live{animation:sheetup .6s cubic-bezier(.22,.61,.36,1)}}
+
+/* Website side: the same cards, pills and figures as the back office. */
+.ed-body[data-mode=site] .group{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:none;padding:20px}
+.ed-body[data-mode=site] .group>h3{font-size:17px;font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--ink)!important;padding:0 0 4px}
+.ed-body[data-mode=site] .panel .btn{border-radius:980px;font-weight:500}
+.ed-body[data-mode=site] .panel .btn.soft,html:not([data-theme=dark]) .ed-body[data-mode=site] .panel .btn.soft{background:#e7eaf1;box-shadow:none;color:var(--ink)}
+html[data-theme=dark] .ed-body[data-mode=site] .panel .btn.soft{background:rgba(255,255,255,.12);color:#fff}
+.ed-body[data-mode=site] .panel .btn:not(.soft):not(.text):not(.danger):not(.line){background:var(--brand);box-shadow:none;color:#fff}
+.ed-body[data-mode=site] .status{background:var(--bg2);border-radius:980px;padding:5px 12px}
+.ed-body[data-mode=site] .status::before{display:none}
+.ed-body[data-mode=site] .status.ok{background:color-mix(in srgb,var(--green) 12%,transparent)}
+.ed-body[data-mode=site] .status.warn{background:color-mix(in srgb,#d9a100 16%,transparent)}
+.ed-body[data-mode=site] .phead{padding:22px 22px 6px}
+.ed-body[data-mode=site] .phead b{font-size:24px;font-weight:600;letter-spacing:-.02em}
+.ed-top .btn.soft,html:not([data-theme=dark]) .ed-top .btn.soft{background:#e7eaf1;box-shadow:none;border-radius:980px;min-height:42px;padding:0 18px;font-weight:500}
+html[data-theme=dark] .ed-top .btn.soft{background:rgba(255,255,255,.12)}
+.ed-top .seg{background:#e7eaf1;box-shadow:none}
+.ed-top .mid select{border-radius:980px;border:1px solid var(--line2);background-color:var(--card);box-shadow:none}
+.stage-in{box-shadow:0 0 0 1px var(--line)!important}
+@media (min-width:901px){
+  .ed-top .open-draft{display:none}
+  .ed-body[data-mode=office] .panel[data-tab=ordering],.ed-body[data-mode=office] .panel[data-tab=team]{gap:44px 24px}
+  .ed-body[data-mode=office] .panel[data-tab=ordering]>.page-head,.ed-body[data-mode=office] .panel[data-tab=team]>.page-head{margin-bottom:-8px}
+  .ed-body[data-mode=office] .panel:not([data-tab=ordering]):not([data-tab=team]) .group+.group{margin-top:26px}
+}
+.ed-body[data-mode=site] .phead{padding:24px 22px 18px}
+.ed-body[data-mode=site] .panel{gap:44px;padding-top:26px}
+.sheet .btn:not(.soft):not(.text):not(.danger):not(.line){background:var(--brand);box-shadow:none;border-radius:980px}
+.sheet .btn.soft,html:not([data-theme=dark]) .sheet .btn.soft{background:#e7eaf1;box-shadow:none;border-radius:980px}
+html[data-theme=dark] .sheet .btn.soft{background:rgba(255,255,255,.12)}

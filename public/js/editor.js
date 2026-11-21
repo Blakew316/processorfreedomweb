@@ -1362,6 +1362,7 @@ export async function editor(id, mount, title) {
   /* ---------- chrome ---------- */
 
   const tabsEl = h('div', { class: 'phead' });
+  const railPub = h('div', { class: 'rail-pub' });
   const subnav = h('div', { class: 'seg subnav', role: 'group', 'aria-label': 'In this section', hidden: true });
   const lastIn = {};
   const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
@@ -1381,7 +1382,7 @@ export async function editor(id, mount, title) {
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
     const group = groups.find((g) => g.tabs.includes(cur[0])) || groups[0];
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
-    rail.replaceChildren(mode === 'office' ? h('button', { class: 'rail-new', onclick: () => { goTab('invoices'); openInvoice(); } }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
+    rail.replaceChildren(...[mode === 'office' ? h('button', { class: 'rail-new', onclick: () => { goTab('invoices'); openInvoice(); } }, ic('plus', 16), 'New invoice') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap((g) => {
       const open = g === group, many = g.tabs.length > 1;
       return [
         h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, onclick: () => pick(g) }, navIcon(g.icon, 23), h('b', {}, g.label), g.label === 'Orders' && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
@@ -1392,7 +1393,8 @@ export async function editor(id, mount, title) {
       h('button', { class: 'nav-row nav-swap', onclick: () => goTab(lastTab[mode === 'office' ? 'site' : 'office']) }, navIcon(mode === 'office' ? 'address' : 'business', 23), h('b', {}, mode === 'office' ? 'Website' : 'Back office')),
       mode === 'office' && h('button', { class: 'nav-row', onclick: () => go(`/app/site/${id}/kitchen`) }, navIcon('orders', 23), h('b', {}, 'Kitchen screen')),
       h('span', { class: 'grow' }),
-      h('small', { class: 'rail-foot' }, `© ${new Date().getFullYear()} Processor Freedom`));
+      mode === 'site' && railPub,
+      h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].filter(Boolean));
     lastIn[group.label] = cur[0];
     // Phones have no sidebar, so a section's screens are switched with two clear buttons at the top.
     subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i])) : []));
@@ -1471,15 +1473,18 @@ export async function editor(id, mount, title) {
 
   function paintTop() {
     const label = { saved: 'Saved', dirty: 'Saving…', saving: 'Saving…', error: 'Not saved' }[saveState];
-    const pub = !meta.live ? h('button', { class: 'btn', onclick: publish }, 'Publish')
+    const pubButton = () => (!meta.live ? h('button', { class: 'btn', onclick: publish }, 'Publish')
       : meta.dirty ? h('button', { class: 'btn', onclick: publish }, 'Publish changes')
-        : h('button', { class: 'btn soft pub-btn', onclick: () => liveSheet(false) }, ic('check', 15), h('span', {}, 'Published'));
+        : h('button', { class: 'btn soft pub-btn', onclick: () => liveSheet(false) }, ic('check', 15), h('span', {}, 'Published')));
+    const pub = h('span', { class: 'pub-top' }, pubButton());
+    // On a computer, publishing lives at the bottom of the website sidebar.
+    railPub.replaceChildren(h('small', {}, !meta.live ? 'Not public yet' : meta.dirty ? 'You have changes that are not live' : 'Your site is live and up to date'), pubButton());
     top.dataset.mode = modeOf(tab); top.dataset.view = body.dataset.view;
     paintTabbar();
     top.replaceChildren(...[
       h('button', { class: 'icon-btn', 'aria-label': 'Back to my sites', onclick: async () => { await flush(); go('/app'); } }, ic('back')),
       h('img', { class: 'tb-logo', src: '/assets/icon-192.png', alt: '', width: 30, height: 30 }),
-      h('span', { class: 'name' }, meta.name),
+      h('span', { class: 'name brand' }, 'PF Sites'),
       h('span', { class: 'm-title' }, h('small', {}, meta.name), h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (Object.values(NAV).flat().find((g) => g.tabs.includes(tab)) || { label: '' }).label)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'office' && h('span', { class: 'grow' }),
