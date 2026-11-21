@@ -1,16 +1,16 @@
-import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, parseMenuCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate } from '/shared/core.js';
 import { renderPage } from '/shared/render.js';
 import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['start', 'Get started', 'rocket', 'office'], ['orders', 'Orders', 'bag', 'office'], ['sales', 'Sales', 'chart', 'office'], ['customers', 'Customers', 'person', 'office'], ['inbox', 'Messages', 'inbox', 'office'],
+  ['start', 'Get started', 'rocket', 'office'], ['orders', 'Orders', 'bag', 'office'], ['sales', 'Sales', 'chart', 'office'], ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'], ['inbox', 'Messages', 'inbox', 'office'],
   ['menu', 'Menu', 'menu', 'office'], ['items', 'Items', 'tag', 'office'], ['ordering', 'Order settings', 'sliders', 'office'], ['team', 'Team', 'f_users', 'office'],
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'home', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
 const DIVIDE_AFTER = new Set(['start', 'inbox', 'items', 'business', 'seo']);
-const WIDE = new Set(['items', 'sales', 'customers']);
+const WIDE = new Set(['items', 'sales', 'customers', 'invoices']);
 const MODES = { office: 'Back office', site: 'Website' };
 
 // Item photos are trimmed to one shape so every tile on the menu lines up.
@@ -47,6 +47,7 @@ export async function editor(id, mount, title) {
   const itemSavers = new Map();
   let versions = null;
   let customers = null, custQ = '';
+  let bills = null, billFilter = 'all', billQ = '';
   const lastTab = { office: 'start', site: 'design' };
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
   let team = null;
@@ -745,7 +746,7 @@ export async function editor(id, mount, title) {
         api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'customers') paintPanel(); }).catch((e) => { toast(e.message, true); customers = []; if (tab === 'customers') paintPanel(); });
         return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(6, 'row'))];
       }
-      if (!customers.length) return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-list' }, emptyState('person', 'No customers yet', 'People appear here after their first order, with their contact details and order history.')))];
+      if (!customers.length) return [h('div', { class: 'inv' }, head(h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer')), h('div', { class: 'inv-list' }, emptyState('person', 'No customers yet', 'People appear here after their first order. You can also add catering and wholesale customers yourself, ready to invoice.', ['Add customer', addCustomer])))];
       const repeat = customers.filter((c) => c.orders > 1).length;
       const spent = customers.reduce((a, c) => a + c.spent, 0), count = customers.reduce((a, c) => a + c.orders, 0);
       const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
@@ -753,23 +754,63 @@ export async function editor(id, mount, title) {
       const tbody = h('tbody', {});
       const draw = () => {
         const rows = customers.filter((c) => !custQ || `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(custQ));
-        tbody.replaceChildren(...(rows.length ? rows.slice(0, 500).map((c) => h('tr', {}, h('td', {}, h('b', {}, c.name), c.orders > 1 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Regular')), h('td', {}, h('a', { href: `mailto:${c.email}` }, c.email)), h('td', {}, h('a', { href: `tel:${c.phone.replace(/[^\d+]/g, '')}` }, c.phone)), h('td', {}, c.orders), h('td', {}, h('b', {}, money(c.spent))), h('td', { class: 'muted' }, when(c.last)), h('td', { class: 'muted' }, c.favourite || '—')))
-          : [h('tr', {}, h('td', { colspan: 7, class: 'muted', style: 'text-align:center;padding:28px' }, 'Nobody matches that search.'))]));
+        tbody.replaceChildren(...(rows.length ? rows.slice(0, 500).map((c) => h('tr', {}, h('td', {}, h('b', {}, c.name), c.orders > 1 && h('span', { class: 'tag sale', style: 'margin-left:8px' }, 'Regular'), c.company && h('div', { class: 'small muted' }, c.company)), h('td', {}, c.email ? h('a', { href: `mailto:${c.email}` }, c.email) : '—'), h('td', {}, c.phone ? h('a', { href: `tel:${c.phone.replace(/[^\d+]/g, '')}` }, c.phone) : '—'), h('td', {}, c.orders), h('td', {}, h('b', {}, money(c.spent))), h('td', { class: 'muted' }, c.last ? when(c.last) : 'Not yet'), h('td', { class: 'muted' }, c.favourite || '—'), h('td', { style: 'text-align:right' }, h('button', { class: 'btn soft sm', onclick: () => openInvoice(null, c) }, 'Invoice'))))
+          : [h('tr', {}, h('td', { colspan: 8, class: 'muted', style: 'text-align:center;padding:28px' }, 'Nobody matches that search.'))]));
       };
       draw();
       const exportList = () => {
         const q2 = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-        const rows = [['Name', 'Email', 'Phone', 'Orders', 'Total spent', 'First order', 'Last order', 'Favourite item'], ...customers.map((c) => [c.name, c.email, c.phone, c.orders, (c.spent / 100).toFixed(2), new Date(c.first).toISOString().slice(0, 10), new Date(c.last).toISOString().slice(0, 10), c.favourite])];
+        const rows = [['Name', 'Email', 'Phone', 'Orders', 'Total spent', 'First order', 'Last order', 'Favourite item'], ...customers.map((c) => [c.name, c.email, c.phone, c.orders, (c.spent / 100).toFixed(2), new Date(c.first).toISOString().slice(0, 10), c.last ? new Date(c.last).toISOString().slice(0, 10) : '', c.favourite])];
         const url = URL.createObjectURL(new Blob([`\ufeff${rows.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
         h('a', { href: url, download: `${meta.slug}-customers.csv` }).click();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
       };
       return [h('div', { class: 'inv' },
-        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: exportList }, ic('dl', 16), 'Export'), h('button', { class: 'btn soft', onclick: () => { customers = null; paintPanel(); } }, 'Refresh'))),
+        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: exportList }, ic('dl', 16), 'Export'), h('button', { class: 'btn soft', onclick: () => { customers = null; paintPanel(); } }, 'Refresh'), h('button', { class: 'btn', onclick: addCustomer }, ic('plus', 16), 'Add customer'))),
         h('div', { class: 'inv-kpis' }, kpi('Customers', customers.length, 'have ordered at least once', 'person'), kpi('Regulars', repeat, `${customers.length ? Math.round((repeat / customers.length) * 100) : 0}% came back`, 'f_users'), kpi('Average per customer', money(customers.length ? spent / customers.length : 0), 'across all their orders', 'cash'), kpi('Orders', count, 'not counting cancelled', 'bag')),
         h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search by name, email or phone', value: custQ, 'aria-label': 'Search customers', oninput: (e) => { custQ = e.target.value.trim().toLowerCase(); draw(); } }))),
-        h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Customer', 'Email', 'Phone', 'Orders', 'Spent', 'Last order', 'Favourite'].map((x) => h('th', {}, x)))), tbody)),
+        h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Customer', 'Email', 'Phone', 'Orders', 'Spent', 'Last order', 'Favourite', ''].map((x) => h('th', {}, x)))), tbody)),
           customers.length > 500 && h('p', { class: 'hint' }, `Showing the latest 500. Export to see all ${customers.length}.`)))];
+    },
+
+    invoices() {
+      const head = (extra) => h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Invoices'), h('p', { class: 'muted' }, 'Bill catering, wholesale and other large orders. Customers get an email with a link to view and pay.')), extra);
+      const newBtn = h('button', { class: 'btn', onclick: () => openInvoice() }, ic('plus', 16), 'New invoice');
+      if (!bills) {
+        api('GET', `/api/sites/${id}/invoices`).then((r) => { bills = r; if (tab === 'invoices') paintPanel(); }).catch((e) => { toast(e.message, true); bills = { invoices: [], contacts: [], payUrl: '' }; if (tab === 'invoices') paintPanel(); });
+        return [h('div', { class: 'inv' }, head(), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(5, 'row'))];
+      }
+      const all = bills.invoices;
+      if (!all.length) return [h('div', { class: 'inv' }, head(newBtn), h('div', { class: 'inv-list' }, emptyState('doc', 'No invoices yet', 'Create one for a catering order or a business customer. Add what they ordered, press send, and track when it is opened and paid.', ['Create an invoice', () => openInvoice()])))];
+      const stateOf = (v) => (invoiceLate(v) ? 'late' : v.status);
+      const LABEL = { draft: ['Draft', ''], sent: ['Awaiting payment', 'warn'], late: ['Past due', 'bad'], paid: ['Paid', 'ok'], void: ['Cancelled', ''] };
+      const sum = (list) => list.reduce((a, v) => a + v.total, 0);
+      const open = all.filter((v) => v.status === 'sent'), late = all.filter((v) => stateOf(v) === 'late');
+      const month = new Date().toISOString().slice(0, 7);
+      const paidNow = all.filter((v) => v.status === 'paid' && new Date(v.paidAt).toISOString().slice(0, 7) === month);
+      const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
+      const n = (k) => all.filter((v) => (k === 'open' ? v.status === 'sent' : stateOf(v) === k)).length;
+      const day = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }) : '—');
+      const rows = all.filter((v) => (billFilter === 'all' || (billFilter === 'open' ? v.status === 'sent' : stateOf(v) === billFilter)) && (!billQ || `${v.label} ${v.customer.name} ${v.customer.company} ${v.customer.email}`.toLowerCase().includes(billQ)));
+      const exportBills = () => {
+        const q2 = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+        const out = [['Invoice', 'Status', 'Customer', 'Company', 'Email', 'Created', 'Sent', 'Due', 'Paid', 'Paid by', 'Subtotal', 'Discount', 'Tax', 'Total'], ...all.map((v) => [v.label, LABEL[stateOf(v)][0], v.customer.name, v.customer.company, v.customer.email, new Date(v.createdAt).toISOString().slice(0, 10), v.sentAt ? new Date(v.sentAt).toISOString().slice(0, 10) : '', v.due, v.paidAt ? new Date(v.paidAt).toISOString().slice(0, 10) : '', v.paidMethod, ...[v.subtotal, v.discount, v.tax, v.total].map((c) => (c / 100).toFixed(2))])];
+        const url = URL.createObjectURL(new Blob([`\ufeff${out.map((r) => r.map(q2).join(',')).join('\r\n')}`], { type: 'text/csv' }));
+        h('a', { href: url, download: `${meta.slug}-invoices.csv` }).click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
+      return [h('div', { class: 'inv' },
+        head(h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft', onclick: exportBills }, ic('dl', 16), 'Export'), newBtn)),
+        h('div', { class: 'inv-kpis' }, kpi('Awaiting payment', money(sum(open)), `${open.length} invoice${open.length === 1 ? '' : 's'} sent`, 'clock'), kpi('Past due', money(sum(late)), late.length ? `${late.length} need${late.length === 1 ? 's' : ''} a reminder` : 'Nothing overdue', 'alert'), kpi('Paid this month', money(sum(paidNow)), `${paidNow.length} invoice${paidNow.length === 1 ? '' : 's'}`, 'cash'), kpi('Drafts', n('draft'), 'not sent yet', 'doc')),
+        h('div', { class: 'inv-bar' }, h('label', { class: 'inv-search' }, ic('search', 16), h('input', { type: 'search', placeholder: 'Search by number, name or email', value: billQ, 'aria-label': 'Search invoices', oninput: (e) => { billQ = e.target.value.trim().toLowerCase(); paintPanel(); const el = panel.querySelector('.inv-search input'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); } })),
+          h('div', { class: 'inv-chips' }, [['all', `All · ${all.length}`], ['draft', `Drafts · ${n('draft')}`], ['open', `Awaiting payment · ${n('open')}`], ['late', `Past due · ${n('late')}`], ['paid', `Paid · ${n('paid')}`]].map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(billFilter === k), onclick: () => { billFilter = k; paintPanel(); } }, l)))),
+        h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable bills' }, h('thead', {}, h('tr', {}, ['Invoice', 'Customer', 'Sent', 'Due', 'Total', 'Status', ''].map((x) => h('th', {}, x)))),
+          h('tbody', {}, rows.length ? rows.map((v) => h('tr', { class: v.status === 'void' ? 'void' : '', onclick: (e) => { if (!e.target.closest('button,a')) openInvoice(v); } }, h('td', {}, h('b', {}, v.label)), h('td', {}, h('b', { style: 'font-weight:500' }, v.customer.company || v.customer.name), v.customer.company && v.customer.name !== v.customer.company && h('div', { class: 'small muted' }, v.customer.name)),
+            h('td', { class: 'muted' }, v.sentAt ? fmtDate(v.sentAt) : '—'), h('td', { class: 'muted' }, day(v.due)), h('td', {}, h('b', {}, money(v.total))),
+            h('td', {}, h('span', { class: `status ${LABEL[stateOf(v)][1]}` }, LABEL[stateOf(v)][0]), v.status === 'sent' && h('div', { class: 'small muted' }, v.viewedAt ? 'Opened by customer' : 'Not opened yet')),
+            h('td', { style: 'text-align:right;white-space:nowrap' }, v.status === 'sent' && h('button', { class: 'btn soft sm', onclick: () => markPaid(v) }, 'Mark paid'), ' ', h('button', { class: 'btn soft sm', onclick: () => openInvoice(v) }, v.status === 'draft' ? 'Edit' : 'Open'))))
+            : [h('tr', {}, h('td', { colspan: 7, class: 'muted', style: 'text-align:center;padding:28px' }, 'No invoices match.'))])))),
+        h('p', { class: 'hint' }, 'Invoices are tracked here on their own and are not added to the Sales screen, which covers orders placed on your site.'))];
     },
 
     history() {
@@ -993,6 +1034,107 @@ export async function editor(id, mount, title) {
     });
   }
 
+  /* ---------- invoices ---------- */
+  const setBills = (r) => { bills = { ...bills, ...Object.fromEntries(Object.entries(r).filter(([k]) => ['invoices', 'contacts'].includes(k))) }; customers = null; if (tab === 'invoices' || tab === 'customers') paintPanel(); };
+  function addCustomer() {
+    const c = { name: '', company: '', email: '', phone: '', address: '' };
+    sheet((close) => {
+      const f = (label, k, a = {}) => h('label', { class: 'field' }, h('span', {}, label), h('input', { value: c[k], oninput: (e) => { c[k] = e.target.value; }, ...a }));
+      return [h('h2', {}, 'Add a customer'), h('p', { class: 'muted' }, 'For catering, wholesale and other customers you bill by invoice.'),
+        h('form', { class: 'stack', onsubmit: async (e) => { e.preventDefault(); try { await api('POST', `/api/sites/${id}/contacts`, c); customers = null; bills = null; close(); toast('Customer added'); paintPanel(); } catch (ex) { toast(ex.message, true); } } },
+          h('div', { class: 'pair' }, f('Name', 'name', { autofocus: true, maxlength: 120 }), f('Company', 'company', { maxlength: 120, placeholder: 'Optional' })),
+          h('div', { class: 'pair' }, f('Email', 'email', { type: 'email' }), f('Phone', 'phone', { type: 'tel' })), f('Billing address', 'address', { maxlength: 300, placeholder: 'Optional' }),
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Add customer')))];
+    }, 'wide');
+  }
+  function markPaid(v) {
+    sheet((close) => {
+      const how = h('select', {}, ['Card', 'Online payment', 'Check', 'Cash', 'Bank transfer', 'Other'].map((m) => h('option', {}, m)));
+      const noteIn = h('input', { placeholder: 'Check number or reference (optional)', maxlength: 300 });
+      return [h('h2', {}, `Mark ${v.label} as paid?`), h('p', { class: 'muted' }, `${money(v.total)} from ${v.customer.company || v.customer.name}. The customer’s invoice page will show it as paid.`),
+        h('label', { class: 'field' }, h('span', {}, 'How they paid'), how), h('label', { class: 'field' }, h('span', {}, 'Note'), noteIn),
+        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn', autofocus: true, onclick: async () => { try { setBills(await api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'paid', method: how.value, note: noteIn.value })); close(); toast(`${v.label} marked as paid`); } catch (e) { toast(e.message, true); } } }, 'Mark as paid'))];
+    });
+  }
+  async function openInvoice(existing, person) {
+    if (!bills) { try { bills = await api('GET', `/api/sites/${id}/invoices`); } catch (e) { return toast(e.message, true); } }
+    if (!customers) { try { customers = (await api('GET', `/api/sites/${id}/customers`)).customers; } catch { customers = []; } }
+    const v = existing ? JSON.parse(JSON.stringify(existing)) : { status: 'draft', customer: { name: person?.name || '', company: person?.company || '', email: person?.email || '', phone: person?.phone || '', address: person?.address || '' }, items: [{ name: '', qty: 1, price: 0, taxable: true }], notes: '', due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), taxRate: ordering.taxRate || 0, discount: 0, payUrl: '' };
+    const locked = v.status === 'paid' || v.status === 'void';
+    const copyLink = async (url) => { try { await navigator.clipboard.writeText(url); toast('Invoice link copied'); } catch { toast('Copy the link from the address bar after pressing View', true); } };
+    sheet((close) => {
+      const act = async (fn, done) => { try { const r = await fn(); setBills(r); close(); if (done) done(r); } catch (e) { toast(e.message, true); } };
+      const day = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' });
+      if (locked) {
+        return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.label), h('span', { class: `status ${v.status === 'paid' ? 'ok' : ''}` }, v.status === 'paid' ? 'Paid' : 'Cancelled'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+          h('p', { class: 'muted' }, `${v.customer.company || v.customer.name}${v.customer.email ? ` · ${v.customer.email}` : ''}`),
+          h('div', { class: 'bill-lines ro' }, v.items.map((l) => h('div', { class: 'rline' }, h('span', {}, `${l.qty} × ${l.name}`), h('b', {}, money(l.price * l.qty)))), v.discount > 0 && h('div', { class: 'rline' }, h('span', {}, 'Discount'), h('b', {}, `−${money(v.discount)}`)), v.tax > 0 && h('div', { class: 'rline' }, h('span', {}, 'Tax'), h('b', {}, money(v.tax))), h('div', { class: 'rline total' }, h('span', {}, 'Total'), h('b', {}, money(v.total)))),
+          v.status === 'paid' && h('div', { class: 'note' }, h('b', {}, `Paid ${fmtDate(v.paidAt)}`), v.paidMethod && ` by ${v.paidMethod.toLowerCase()}`, v.paidNote && ` · ${v.paidNote}`),
+          h('div', { class: 'acts', style: 'justify-content:space-between;flex-wrap:wrap' },
+            h('div', { class: 'row' }, v.status === 'paid' && h('button', { class: 'btn text sm', onclick: () => act(() => api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'sent' })) }, 'Undo paid'), h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Delete ${v.label}?`, text: 'It is removed from your records and the customer’s link stops working.', action: 'Delete', danger: true })) act(() => api('DELETE', `/api/sites/${id}/invoices/${v.id}`)); } }, 'Delete')),
+            h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => { close(); dup(v); } }, 'Duplicate'), h('a', { class: 'btn', href: v.url, target: '_blank', rel: 'noopener' }, 'View invoice', ic('out', 15))))];
+      }
+      const people = [...new Map([...bills.contacts, ...customers].filter((c) => c.name).map((c) => [`${c.name}|${c.email}`, c])).values()];
+      const cust = v.customer;
+      const ins = {};
+      const cf = (label, k, a = {}) => { ins[k] = h('input', { value: cust[k], oninput: (e) => { cust[k] = e.target.value; if (k === 'name') { const hit = people.find((c) => c.name === e.target.value); if (hit) { for (const kk of ['company', 'email', 'phone', 'address']) if (hit[kk] && !cust[kk]) { cust[kk] = hit[kk]; ins[kk].value = hit[kk]; } } } }, ...a }); return h('label', { class: 'field' }, h('span', {}, label), ins[k]); };
+      const pid = uid('dl'), mid = uid('dl');
+      const linesBox = h('div', { class: 'bill-lines' });
+      const totalsBox = h('div', { class: 'bill-sum' });
+      const drawTotals = () => { const t = invoiceTotals(v.items.filter((l) => l.name.trim()), v.taxRate, v.discount); totalsBox.replaceChildren(...[h('div', { class: 'rline' }, h('span', {}, 'Subtotal'), h('b', {}, money(t.subtotal))), t.discount > 0 && h('div', { class: 'rline' }, h('span', {}, 'Discount'), h('b', {}, `−${money(t.discount)}`)), h('div', { class: 'rline' }, h('span', {}, `Tax${v.taxRate ? ` (${v.taxRate}%)` : ''}`), h('b', {}, money(t.tax))), h('div', { class: 'rline total' }, h('span', {}, 'Amount due'), h('b', {}, money(t.total)))].filter(Boolean)); };
+      const drawLines = () => {
+        linesBox.replaceChildren(h('div', { class: 'bill-head' }, h('span', {}, 'Description'), h('span', {}, 'Qty'), h('span', {}, 'Price each'), h('span', {}, 'Tax'), h('span', {})),
+          ...v.items.map((l, i) => {
+            const priceIn = h('input', { value: (l.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Price each', oninput: () => { const c = parsePrice(priceIn.value || '0'); priceIn.classList.toggle('bad', c === null); if (c !== null) { l.price = c; drawTotals(); } } });
+            return h('div', { class: 'bill-row' },
+              h('input', { value: l.name, placeholder: 'What they ordered', 'aria-label': 'Description', list: mid, maxlength: 160, oninput: (e) => { l.name = e.target.value; const hit = menu.find((x) => x.name === l.name); if (hit) { l.price = itemPrice(hit); l.taxable = hit.taxable !== false; priceIn.value = (l.price / 100).toFixed(2); drawLines(); } drawTotals(); } }),
+              h('input', { type: 'number', min: 1, max: 100000, value: l.qty, 'aria-label': 'Quantity', oninput: (e) => { l.qty = Math.max(1, Math.round(Number(e.target.value)) || 1); drawTotals(); } }),
+              priceIn,
+              h('label', { class: 'switch', title: 'Charge sales tax on this line' }, h('input', { type: 'checkbox', 'aria-label': 'Charge sales tax', checked: l.taxable !== false, onchange: (e) => { l.taxable = e.target.checked; drawTotals(); } }), h('i')),
+              h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove line', disabled: v.items.length === 1, onclick: () => { v.items.splice(i, 1); drawLines(); drawTotals(); } }, ic('x', 16)));
+          }),
+          h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { v.items.push({ name: '', qty: 1, price: 0, taxable: true }); drawLines(); linesBox.querySelector('.bill-row:last-of-type input').focus(); } }, ic('plus', 14), 'Add a line'));
+      };
+      drawLines(); drawTotals();
+      const discIn = h('input', { value: (v.discount / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const c = parsePrice(discIn.value || '0'); if (c !== null) { v.discount = c; drawTotals(); } } });
+      const body = () => ({ customer: cust, items: v.items.filter((l) => l.name.trim()), notes: v.notes, due: v.due, taxRate: v.taxRate, discount: v.discount, payUrl: v.payUrl });
+      const save = () => (v.id ? api('PUT', `/api/sites/${id}/invoices/${v.id}`, body()) : api('POST', `/api/sites/${id}/invoices`, body()));
+      const send = async (btn) => {
+        btn.disabled = true;
+        try {
+          const kept = await save(); v.id = kept.invoice.id; setBills(kept);
+          const r = await api('POST', `/api/sites/${id}/invoices/${v.id}/send`);
+          setBills(r); close();
+          if (r.emailed) return toast(`${r.invoice.label} sent to ${r.invoice.customer.email}`);
+          sheet((c2) => [h('h2', {}, `${r.invoice.label} is ready`), h('p', { class: 'muted' }, 'Email is not switched on yet, so we could not send it for you. Copy this link and send it to your customer yourself. Everything else works: they can view it, pay and print it.'), h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, r.invoice.url),
+            h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: c2 }, 'Done'), h('button', { class: 'btn', onclick: () => copyLink(r.invoice.url) }, 'Copy link'))]);
+        } catch (e) { toast(e.message, true); btn.disabled = false; }
+      };
+      const sent = v.status === 'sent';
+      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.id ? v.label : 'New invoice'), sent && h('span', { class: `status ${invoiceLate(v) ? 'bad' : 'warn'}` }, invoiceLate(v) ? 'Past due' : 'Awaiting payment'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        sent && h('p', { class: 'muted' }, `Sent ${fmtDate(v.sentAt)}${v.reminders ? ` · ${v.reminders} reminder${v.reminders === 1 ? '' : 's'}` : ''} · ${v.viewedAt ? `opened ${fmtDate(v.viewedAt)}` : 'not opened yet'}`),
+        h('div', { class: 'bill-sec' }, h('h3', {}, 'Bill to'),
+          h('div', { class: 'pair' }, cf('Name', 'name', { list: pid, maxlength: 120, autofocus: !v.id, placeholder: 'Start typing to find a customer' }), cf('Company', 'company', { maxlength: 120, placeholder: 'Optional' })),
+          h('div', { class: 'pair' }, cf('Email', 'email', { type: 'email', placeholder: 'Where the invoice is sent' }), cf('Phone', 'phone', { type: 'tel' })), cf('Billing address', 'address', { maxlength: 300, placeholder: 'Optional' }),
+          h('datalist', { id: pid }, people.map((c) => h('option', { value: c.name }, [c.company, c.email].filter(Boolean).join(' · ')))), h('datalist', { id: mid }, menu.map((x) => h('option', { value: x.name }, money(itemPrice(x)))))),
+        h('div', { class: 'bill-sec' }, h('h3', {}, 'What they ordered'), h('p', { class: 'hint' }, 'Type anything, or start typing a menu item to fill in its price.'), linesBox),
+        h('div', { class: 'bill-grid' },
+          h('div', { class: 'stack' },
+            h('div', { class: 'pair' }, h('label', { class: 'field' }, h('span', {}, 'Due date'), h('input', { type: 'date', value: v.due, onchange: (e) => { v.due = e.target.value; } })), h('label', { class: 'field' }, h('span', {}, 'Sales tax (%)'), h('input', { type: 'number', min: 0, max: 30, step: '0.001', value: v.taxRate, oninput: (e) => { v.taxRate = Number(e.target.value) || 0; drawTotals(); } }))),
+            h('label', { class: 'field' }, h('span', {}, 'Discount ($)'), discIn),
+            h('label', { class: 'field' }, h('span', {}, 'Note to customer'), h('textarea', { rows: 2, maxlength: 2000, value: v.notes, placeholder: 'Delivery details, thanks, payment terms…', oninput: (e) => { v.notes = e.target.value; } })),
+            h('label', { class: 'field' }, h('span', {}, 'Pay link'), h('input', { value: v.payUrl, placeholder: bills.payUrl || 'https://', oninput: (e) => { v.payUrl = e.target.value; } }), h('small', {}, bills.payUrl ? 'Leave empty to use your Processor Freedom payment link from Business info. The invoice shows a Pay now button that opens it.' : 'Paste your Processor Freedom payment link and the invoice shows a Pay now button. Add it once under Website → Business info to use it on every invoice.'))),
+          totalsBox),
+        h('div', { class: 'acts', style: 'justify-content:space-between;flex-wrap:wrap' },
+          h('div', { class: 'row' }, v.id && h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet(sent ? { title: `Cancel ${v.label}?`, text: 'It stays in your records as cancelled, and the customer’s page shows it is no longer due.', action: 'Cancel invoice', danger: true } : { title: `Delete ${v.label}?`, text: 'This draft is removed for good.', action: 'Delete', danger: true })) act(() => (sent ? api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'void' }) : api('DELETE', `/api/sites/${id}/invoices/${v.id}`))); } }, sent ? 'Cancel invoice' : 'Delete'),
+            sent && h('button', { class: 'btn text sm', onclick: () => copyLink(v.url) }, 'Copy link'), sent && h('a', { class: 'btn text sm', href: v.url, target: '_blank', rel: 'noopener' }, 'View')),
+          h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => act(save, () => toast('Invoice saved')) }, sent ? 'Save changes' : 'Save draft'),
+            sent && h('button', { class: 'btn soft', onclick: () => { close(); markPaid(v); } }, 'Mark paid'),
+            h('button', { class: 'btn', onclick: (e) => send(e.currentTarget) }, ic('mail', 16), sent ? 'Send reminder' : 'Send invoice')))];
+    }, 'wide bill');
+  }
+  const dup = (v) => openInvoice({ ...v, id: undefined, label: undefined, status: 'draft', url: undefined, sentAt: null, viewedAt: null, paidAt: null, reminders: 0, due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) });
+
   /* Reads a photo or PDF of a paper menu, then lets the merchant check the list before anything is saved. */
   async function scanMenu() {
     const [file] = await pickFiles(false, 'image/jpeg,image/png,image/webp,application/pdf');
@@ -1039,7 +1181,7 @@ export async function editor(id, mount, title) {
   const SETTINGS = [['Logo', 'design'], ['Brand colour', 'design'], ['Page background', 'design'], ['Typeface and corners', 'design'], ['Header', 'design'], ['Footer', 'design'], ['Announcement bar', 'design'], ['Site language', 'design'], ['Quick style', 'design'],
     ['Phone, address and email', 'business'], ['Social profiles', 'business'], ['Online payment link', 'business'],
     ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'ordering'], ['Order ahead and scheduling', 'ordering'], ['Kitchen capacity', 'ordering'], ['Happy hour and timed prices', 'ordering'], ['Promo codes', 'ordering'], ['Loyalty rewards', 'ordering'], ['Low stock alerts', 'ordering'], ['Daily summary email', 'ordering'], ['Order emails', 'ordering'], ['Pause ordering', 'ordering'],
-    ['Notifications on this device', 'orders'], ['Kitchen screen', 'orders'], ['Sales tax collected', 'sales'], ['Best sellers', 'sales'], ['Export sales', 'sales'], ['Export customers', 'customers'],
+    ['Notifications on this device', 'orders'], ['Kitchen screen', 'orders'], ['Sales tax collected', 'sales'], ['Best sellers', 'sales'], ['Export sales', 'sales'], ['Export customers', 'customers'], ['Send an invoice', 'invoices'], ['Catering and bulk orders', 'invoices'], ['Unpaid invoices', 'invoices'],
     ['Free web address', 'domain'], ['Connect my own domain', 'domain'], ['Privacy policy and terms', 'policies'], ['Google search description', 'seo'], ['Sharing image', 'seo'], ['Earlier versions', 'history'], ['Staff logins', 'team'], ['Daily refill', 'items'], ['Upload item list', 'menu'], ['Categories', 'menu']];
   let finding = false;
   function quickFind() {
@@ -1110,7 +1252,9 @@ export async function editor(id, mount, title) {
     place();
   }
 
-  const goTab = (k) => { if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
+  // Invoices change without the merchant doing anything (a customer opens one), so the list is refreshed on each visit.
+  const refreshBills = () => { if (bills) api('GET', `/api/sites/${id}/invoices`).then((r) => { if (JSON.stringify(r) !== JSON.stringify(bills)) { bills = r; if (tab === 'invoices' && !document.querySelector('.scrim')) paintPanel(); } }).catch(() => {}); };
+  const goTab = (k) => { if (k === 'invoices') refreshBills(); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); panel.classList.remove('enter'); void panel.offsetWidth; panel.classList.add('enter'); };
   function startPanel() {
     const b = draft.business;
     const steps = [

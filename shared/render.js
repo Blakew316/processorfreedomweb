@@ -1,6 +1,7 @@
 // Turns a site definition into finished HTML. The same code draws the live preview
 // in the builder and the published site, so what people see is what goes live.
 
+import { invoicePage } from './invoice.js';
 import { ORDER_CSS, ORDER_JS, menuSection, orderPage, orderStatusPage } from './order.js';
 import { ION } from './icons.js';
 import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, contrast, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM, strings } from './core.js';
@@ -440,6 +441,9 @@ export function renderPage(site, page = 'home', opts = {}) {
   } else if (page === 'order-status' && opts.order) {
     pageTitle = `${T.order} #${opts.order.number}`;
     main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty });
+  } else if (page === 'invoice' && opts.invoice) {
+    pageTitle = `${T.invoice} ${opts.invoice.label}`;
+    main = invoicePage({ invoice: opts.invoice, business: { name: site.brand?.name || '', address: [biz.address1, biz.city, biz.state, biz.zip].filter(Boolean).join(', '), phone: str(biz.phone) }, payUrl: safeUrl(opts.invoice.payUrl) || safeUrl(biz.payUrl), lang });
   } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
     pageTitle = T[page] || LEGAL_PAGES[page];
     main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">${esc(T.effective)} ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;
@@ -485,7 +489,7 @@ export function renderPage(site, page = 'home', opts = {}) {
   const vars = themeVars(site);
   const headHtml = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>${desc ? `<meta name="description" content="${esc(desc)}">` : ''}
-${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywords, 300))}">` : ''}${url ? `<link rel="canonical" href="${esc(url)}">` : ''}${status === 404 || preview || page === 'order-status' ? '<meta name="robots" content="noindex">' : ''}
+${str(seo.keywords).trim() ? `<meta name="keywords" content="${esc(str(seo.keywords, 300))}">` : ''}${url ? `<link rel="canonical" href="${esc(url)}">` : ''}${status === 404 || preview || page === 'order-status' || page === 'invoice' ? '<meta name="robots" content="noindex">' : ''}
 <meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}">${desc ? `<meta property="og:description" content="${esc(desc)}">` : ''}${url ? `<meta property="og:url" content="${esc(url)}">` : ''}${ogImg ? `<meta property="og:image" content="${esc(ogImg)}"><meta name="twitter:card" content="summary_large_image">` : ''}
 <meta name="theme-color" content="${site.theme?.mode === 'dark' ? '#000000' : '#ffffff'}"><link rel="icon" href="${favicon}">
 <style id="pf-vars">${vars}</style><style>${SITE_CSS}${ordering?.enabled || menu.length ? ORDER_CSS : ''}</style>${ld}${page === 'order-status' && !['completed', 'cancelled'].includes(opts.order?.status) ? '<meta http-equiv="refresh" content="30">' : ''}`;

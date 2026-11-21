@@ -1227,3 +1227,20 @@ select.mini{font:inherit;font-size:13px;font-weight:500;color:var(--ink);backgro
 @media (prefers-reduced-motion:reduce){.coach-ring,.coach{transition:none;animation:none}}
 @media print{.coach-layer{display:none}}
 @media (max-width:520px){.ed-top[data-mode=site] .qf-btn{display:none}}
+
+/* ---------- Invoices ---------- */
+.sheet.bill{max-width:820px}
+.bill-sec{display:grid;gap:12px}
+.bill-sec h3{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.bill-lines{display:grid;gap:8px}
+.bill-head,.bill-row{display:grid;grid-template-columns:minmax(0,1fr) 78px 104px 52px 34px;gap:8px;align-items:center}
+.bill-head{font-size:12px;font-weight:600;color:var(--muted)}
+.bill-row input:not([type=checkbox]){font:inherit;font-size:15px;color:var(--ink);background:var(--bg2);border:1px solid transparent;border-radius:10px;padding:10px 12px;min-width:0;width:100%;box-shadow:var(--well,none)}
+.bill-row input:focus{outline:0;background:var(--card);border-color:var(--blue)}
+.bill-row input.bad{border-color:var(--red)}
+.bill-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:28px;align-items:start}
+.bill-sum,.bill-lines.ro{background:var(--bg2);border-radius:16px;padding:16px 18px;display:grid;gap:2px;box-shadow:var(--well,none)}
+.bill-sum .rline.total b{font-size:24px;letter-spacing:-.02em}
+.table.bills tbody tr{cursor:pointer}
+.table.bills tbody tr:hover{background:color-mix(in srgb,var(--ink) 3%,transparent)}
+@media (max-width:700px){.bill-grid{grid-template-columns:1fr}.bill-head{display:none}.bill-row{grid-template-columns:minmax(0,1fr) 64px 34px;row-gap:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}.bill-row>input:first-child{grid-column:1/-1}.bill-row .switch{display:none}}

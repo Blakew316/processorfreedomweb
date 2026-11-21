@@ -111,3 +111,17 @@ export function inviteEmail({ business, role, link, inviter, fresh = true }) {
     html: shell(`<h1 style="margin:0 0 10px;font-size:26px;letter-spacing:-.02em;font-weight:600">You have been added to ${esc(business)}</h1><p style="margin:0;font-size:16px;line-height:1.5;color:#6e6e73">${esc(inviter || 'The owner')} added you so you can ${what}. ${fresh ? 'Choose your password to sign in. The link works once and expires in 3 days.' : 'Sign in with your existing account to get started.'}</p>${button(link, fresh ? 'Choose my password' : 'Sign in')}`),
   };
 }
+
+/** The email that carries an invoice: the amount, when it is due and one button to view and pay. */
+export function invoiceEmail({ business, invoice, url, reminder }) {
+  const first = (invoice.customer.name || '').split(' ')[0];
+  const due = invoice.due ? new Date(`${invoice.due}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const title = reminder ? `Reminder: invoice ${invoice.label} for ${money(invoice.total)}` : `Invoice ${invoice.label} for ${money(invoice.total)}`;
+  const intro = `${first ? `Hi ${first}, here` : 'Here'} is ${reminder ? 'a reminder about ' : ''}your invoice from ${business.name}.${due ? ` Payment is due ${due}.` : ''}`;
+  const rows = [...invoice.items.map((l) => [`${l.qty} × ${l.name}`, money(l.price * l.qty)]), ...(invoice.discount ? [['Discount', `−${money(invoice.discount)}`]] : []), ...(invoice.tax ? [['Tax', money(invoice.tax)]] : []), ['Amount due', money(invoice.total)]];
+  return {
+    subject: `${title} · ${business.name}`,
+    text: [intro, '', ...rows.map(([k, v]) => `${k}  ${v}`), '', `View and pay: ${url}`, '', [business.name, business.phone].filter(Boolean).join(' · ')].join('\n'),
+    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)} · Invoice ${esc(invoice.label)}</p><h1 style="margin:0 0 10px;font-size:34px;line-height:1.1;letter-spacing:-.025em;font-weight:600">${money(invoice.total)}</h1><p style="margin:0 0 22px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p>${rowsHtml(rows)}${invoice.notes ? `<p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#1d1d1f;white-space:pre-wrap">${esc(invoice.notes)}</p>` : ''}${button(url, 'View and pay invoice')}<p style="margin:26px 0 0;font-size:13px;line-height:1.5;color:#86868b">${esc([business.name, business.address, business.phone].filter(Boolean).join(' · '))}</p>`),
+  };
+}

@@ -869,3 +869,75 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     base = saved; srv.close(); app2.close(); rmSync(d2, { recursive: true, force: true });
   }
 });
+
+test('invoices: create, total, send, view, remind, mark paid, contacts', async () => {
+  const core = await import('../shared/core.js');
+  assert.deepEqual(core.invoiceTotals([{ price: 1000, qty: 10 }, { price: 500, qty: 2, taxable: false }], 10, 1100), { subtotal: 11000, discount: 1100, tax: 900, total: 10800 });
+  const d3 = mkdtempSync(join(tmpdir(), 'pfsites3-'));
+  const sent = [];
+  const app3 = createApp({ dataDir: d3, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const srv = createServer(app3);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'billcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'owner@bill.test', password: 'long-enough-pw' });
+    const site = (await me('POST', '/api/sites', { name: 'Bill Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco tray,80.00' })).data.site;
+    const draft = site.draft; draft.business.payUrl = 'https://pay.example/billcafe';
+    await me('POST', `/api/sites/${site.id}/publish`, { draft });
+    const body = { customer: { name: 'Dana Lee', company: 'Acme Co', email: 'Dana@Acme.test', phone: '903-555-0111', address: '1 Main St' }, items: [{ name: 'Taco tray', qty: 3, price: 8000 }, { name: 'Delivery', qty: 1, price: 2500, taxable: false }, { name: '', qty: 1, price: 1 }], taxRate: 8.25, discount: 1000, due: '2099-01-31', notes: 'Thank you <b>!' };
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, customer: {} })).status, 400);
+    const made = (await me('POST', `/api/sites/${site.id}/invoices`, body)).data;
+    const inv = made.invoice;
+    assert.deepEqual([inv.label, inv.status, inv.items.length, inv.subtotal, inv.discount, inv.tax, inv.total], ['INV-1001', 'draft', 2, 26500, 1000, 1905, 27405]);
+    assert.deepEqual(made.contacts.map((c) => [c.name, c.email]), [['Dana Lee', 'dana@acme.test']]);
+    assert.match(inv.url, /^https:\/\/billcafe\.pfsites\.test\/invoice\//);
+    const path = new URL(inv.url).pathname;
+
+    // Sending emails the customer a link and makes the invoice official.
+    const out = (await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/send`)).data;
+    assert.deepEqual([out.invoice.status, out.emailed, out.invoice.reminders], ['sent', true, 0]);
+    assert.equal(sent.at(-1).to, 'dana@acme.test');
+    assert.match(sent.at(-1).subject, /Invoice INV-1001 for \$274\.05/);
+    assert.ok(sent.at(-1).html.includes(inv.url) && !sent.at(-1).html.includes('<b>!'));
+
+    // The customer's page: branded, with the pay link, and it records the first view.
+    const page = await anon('GET', path, null, host);
+    assert.equal(page.status, 200);
+    assert.match(page.data, /INV-1001/);
+    assert.match(page.data, /href="https:\/\/pay\.example\/billcafe"/);
+    assert.match(page.data, /Pay \$274\.05 now/);
+    assert.ok(!page.data.includes('<b>!'), 'notes are escaped');
+    assert.match(page.headers.get('x-robots-tag'), /noindex/);
+    assert.equal((await anon('GET', '/invoice/nope-nope-nope', null, host)).status, 404);
+    let list = (await me('GET', `/api/sites/${site.id}/invoices`)).data.invoices;
+    assert.ok(list[0].viewedAt > 0);
+
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/send`);
+    assert.match(sent.at(-1).subject, /^Reminder/);
+    const edited = (await me('PUT', `/api/sites/${site.id}/invoices/${inv.id}`, { ...body, discount: 0 })).data.invoice;
+    assert.deepEqual([edited.total, edited.reminders, edited.status], [28480, 1, 'sent']);
+
+    const paid = (await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'paid', method: 'Check', note: '#1042' })).data.invoice;
+    assert.deepEqual([paid.status, paid.paidMethod, paid.paidNote], ['paid', 'Check', '#1042']);
+    assert.equal((await me('PUT', `/api/sites/${site.id}/invoices/${inv.id}`, body)).status, 409);
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/send`)).status, 409);
+    const paidPage = (await anon('GET', path, null, host)).data;
+    assert.match(paidPage, /Paid\. Thank you\./);
+    assert.ok(!paidPage.includes('Pay $'), 'no pay button once paid');
+
+    // A second invoice with no email cannot be sent; contacts show up with customers; strangers are kept out.
+    const two = (await me('POST', `/api/sites/${site.id}/invoices`, { customer: { name: 'Walk-in Wedding' }, items: [{ name: 'Catering', qty: 1, price: 50000 }] })).data.invoice;
+    assert.equal(two.label, 'INV-1002');
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices/${two.id}/send`)).status, 400);
+    const people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
+    assert.deepEqual(people.map((c) => c.name).sort(), ['Dana Lee', 'Walk-in Wedding']);
+    const other = client();
+    await other('POST', '/api/auth/signup', { email: 'else@bill.test', password: 'long-enough-pw' });
+    assert.equal((await other('GET', `/api/sites/${site.id}/invoices`)).status, 404);
+    list = (await me('DELETE', `/api/sites/${site.id}/invoices/${two.id}`)).data.invoices;
+    assert.equal(list.length, 1);
+  } finally {
+    base = saved; srv.close(); app3.close(); rmSync(d3, { recursive: true, force: true });
+  }
+});

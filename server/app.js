@@ -5,8 +5,8 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail } from './mail.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, pricedMenu, invoiceTotals, safeUrl } from '../shared/core.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -197,7 +197,7 @@ export function createApp(options = {}) {
   function businessOf(site) {
     const c = JSON.parse(site.published || site.draft);
     const b = c.business || {};
-    return { name: c.brand?.name || site.name, phone: str(b.phone), email: str(b.email), address: [b.address1, b.city, b.state].filter(Boolean).join(', ') };
+    return { name: c.brand?.name || site.name, phone: str(b.phone), email: str(b.email), payUrl: safeUrl(str(b.payUrl)), address: [b.address1, b.city, b.state].filter(Boolean).join(', ') };
   }
   function mail(kind, req, site, order, to) {
     const business = businessOf(site);
@@ -549,7 +549,109 @@ export function createApp(options = {}) {
       c.orders++; c.spent += o.total;
       for (const l of JSON.parse(o.items)) c.items.set(l.name, (c.items.get(l.name) || 0) + l.qty);
     }
-    json(res, 200, { customers: [...people.values()].map((c) => ({ ...c, items: undefined, favourite: [...c.items].sort((a, b) => b[1] - a[1])[0]?.[0] || '' })) });
+    const customers = [...people.values()].map((c) => ({ ...c, items: undefined, favourite: [...c.items].sort((a, b) => b[1] - a[1])[0]?.[0] || '' }));
+    // People the merchant added by hand, for invoices, sit in the same list.
+    for (const k of contactsOf(site.id)) {
+      const hit = k.email && customers.find((c) => c.email === k.email.toLowerCase());
+      if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address });
+      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: 0, last: null, first: k.createdAt, favourite: '', contactId: k.id });
+    }
+    json(res, 200, { customers });
+  });
+
+  /* Contacts and invoices, for catering and other large orders billed outside the order page. */
+  const contactsOf = (siteId) => db.all('SELECT id, name, company, email, phone, address, created_at AS createdAt FROM contacts WHERE site_id = ? ORDER BY name', siteId);
+  const cleanContact = (b) => {
+    const c = { name: str(b?.name, 120).trim(), company: str(b?.company, 120).trim(), email: str(b?.email, 200).trim().toLowerCase(), phone: str(b?.phone, 40).trim(), address: str(b?.address, 300).trim() };
+    if (!c.name && !c.company) bad(400, 'Add the customer’s name or company.');
+    if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)) bad(400, 'That email address does not look right.');
+    if (!c.name) c.name = c.company;
+    return c;
+  };
+  function keepContact(siteId, c) {
+    const old = c.email ? db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ?', siteId, c.email) : db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ? AND lower(name) = lower(?)', siteId, '', c.name);
+    if (old) db.run('UPDATE contacts SET name = ?, company = ?, phone = ?, address = ? WHERE id = ?', c.name, c.company, c.phone, c.address, old.id);
+    else if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n < 5000) db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, Date.now());
+  }
+  route('POST', '/api/sites/:id/contacts', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    keepContact(site.id, cleanContact(await readJson(req)));
+    json(res, 201, { contacts: contactsOf(site.id) });
+  });
+  route('DELETE', '/api/sites/:id/contacts/:contact', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    db.run('DELETE FROM contacts WHERE id = ? AND site_id = ?', p.contact, site.id);
+    json(res, 200, { contacts: contactsOf(site.id) });
+  });
+
+  const invoiceUrl = (req, site, token) => `${siteUrl(req, site).replace(/\/$/, '')}/invoice/${token}`;
+  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, label: `INV-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
+    payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
+  const invoicesOf = (req, site) => db.all('SELECT * FROM invoices WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id).map((r) => toInvoice(r, req, site));
+  function cleanInvoice(b) {
+    const customer = cleanContact(b.customer);
+    const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200).map((l) => ({ name: str(l?.name, 160).trim(), qty: Math.max(1, Math.min(100000, Math.round(Number(l?.qty)) || 1)), price: Math.max(0, Math.min(1_000_000_00, Math.round(Number(l?.price)) || 0)), taxable: l?.taxable !== false })).filter((l) => l.name);
+    const rate = Number(b.taxRate);
+    const taxRate = Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0;
+    const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due)) && !Number.isNaN(Date.parse(`${b.due}T00:00:00Z`)) ? b.due : '';
+    return { customer, items, notes: str(b.notes, 2000).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...invoiceTotals(items, taxRate, b.discount) };
+  }
+  const ownInvoice = (site, invId) => db.get('SELECT * FROM invoices WHERE id = ? AND site_id = ?', invId, site.id) || bad(404, 'We could not find that invoice.');
+  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.subtotal, v.tax, v.total, v.payUrl, Date.now(), rowId);
+
+  route('GET', '/api/sites/:id/invoices', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    json(res, 200, { invoices: invoicesOf(req, site), contacts: contactsOf(site.id), payUrl: businessOf(site).payUrl });
+  });
+  route('POST', '/api/sites/:id/invoices', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const v = cleanInvoice(await readJson(req, 200_000));
+    const id = newId(), now = Date.now();
+    const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
+    db.run('INSERT INTO invoices (id, site_id, number, token, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), '{}', '[]', now, now);
+    saveInvoice(id, v);
+    keepContact(site.id, v.customer);
+    json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
+  });
+  route('PUT', '/api/sites/:id/invoices/:inv', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const row = ownInvoice(site, p.inv);
+    if (row.status === 'paid' || row.status === 'void') bad(409, 'A paid or cancelled invoice cannot be changed. Duplicate it instead.');
+    const v = cleanInvoice(await readJson(req, 200_000));
+    saveInvoice(row.id, v);
+    keepContact(site.id, v.customer);
+    json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
+  });
+  // Emails the invoice. The first send makes it official; later sends are reminders.
+  route('POST', '/api/sites/:id/invoices/:inv/send', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const row = ownInvoice(site, p.inv);
+    if (row.status === 'paid' || row.status === 'void') bad(409, 'This invoice is already closed.');
+    const inv = toInvoice(row, req, site);
+    if (!inv.items.length) bad(400, 'Add at least one line before sending.');
+    if (!inv.customer.email) bad(400, 'Add the customer’s email address before sending.');
+    limit(`invoice:${site.id}`, 60, 3600000);
+    const reminder = row.status === 'sent';
+    const business = businessOf(site);
+    await mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url, reminder }), fromName: business.name, replyTo: business.email || orderingOf(site).notifyEmail }).catch((e) => { console.error('Invoice email failed:', e.message); bad(502, 'We could not send that email just now. Please try again, or copy the link and send it yourself.'); });
+    db.run("UPDATE invoices SET status = 'sent', sent_at = COALESCE(sent_at, ?), reminders = reminders + ?, updated_at = ? WHERE id = ?", Date.now(), reminder ? 1 : 0, Date.now(), row.id);
+    json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), emailed: !!mailer.enabled });
+  });
+  route('POST', '/api/sites/:id/invoices/:inv/status', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const row = ownInvoice(site, p.inv);
+    const b = await readJson(req);
+    const now = Date.now();
+    if (b.status === 'paid') db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, str(b.method, 40).trim(), str(b.note, 300).trim(), now, now, row.id);
+    else if (b.status === 'sent') db.run("UPDATE invoices SET status = 'sent', paid_at = NULL, paid_method = '', paid_note = '', sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, now, row.id);
+    else if (b.status === 'void') db.run("UPDATE invoices SET status = 'void', updated_at = ? WHERE id = ?", now, row.id);
+    else bad(400, 'Unknown status.');
+    json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site) });
+  });
+  route('DELETE', '/api/sites/:id/invoices/:inv', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    db.run('DELETE FROM invoices WHERE id = ? AND site_id = ?', p.inv, site.id);
+    json(res, 200, { invoices: invoicesOf(req, site) });
   });
 
   /* Reads a photo or PDF of a paper menu. Nothing is saved until the merchant confirms the list. */
@@ -963,6 +1065,15 @@ export function createApp(options = {}) {
         loyalty = { every: ordering.loyalty.every, have: earned ? ordering.loyalty.every : count % ordering.loyalty.every, code: earned?.code, value: earned ? rewardText(earned) : '' };
       }
       const out = renderPage(config, row ? 'order-status' : 'missing', { ...shared, order: row && toOrder(row), loyalty });
+      return html(res, out.status, out.html, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+    }
+
+    const billed = path.match(/^\/invoice\/([\w-]{10,40})$/);
+    if (billed) {
+      const row = db.get('SELECT * FROM invoices WHERE token = ? AND site_id = ?', billed[1], site.id);
+      // The first time the customer opens it is worth knowing; the merchant's own looks are not counted.
+      if (row && row.status === 'sent' && !row.viewed_at && req.method === 'GET' && !draft && !currentUser(req)) db.run('UPDATE invoices SET viewed_at = ? WHERE id = ?', Date.now(), row.id);
+      const out = renderPage(config, row ? 'invoice' : 'missing', { ...shared, invoice: row && toInvoice(row) });
       return html(res, out.status, out.html, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
     }
 

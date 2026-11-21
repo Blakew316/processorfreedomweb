@@ -87,7 +87,7 @@ export function sheet(build, cls = '', onClose) {
   const onKey = (e) => e.key === 'Escape' && close();
   const box = h('div', { class: `sheet ${cls}`, role: 'dialog', 'aria-modal': 'true' });
   const scrim = h('div', { class: 'scrim', onmousedown: (e) => e.target === scrim && close() }, box);
-  box.append(...[build(close)].flat());
+  box.append(...[build(close)].flat(Infinity).filter((x) => x != null && x !== false));
   document.body.append(scrim);
   document.addEventListener('keydown', onKey);
   (box.querySelector('[autofocus]') || box.querySelector('button, input'))?.focus();

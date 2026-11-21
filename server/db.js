@@ -74,6 +74,14 @@ export function openDb(dataDir) {
     CREATE TABLE IF NOT EXISTS members (site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, role TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (site_id, user_id));
     CREATE INDEX IF NOT EXISTS members_user ON members(user_id);
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL, company TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS contacts_site ON contacts(site_id);
+    CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, number INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'draft',
+      customer TEXT NOT NULL, items TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '', due TEXT NOT NULL DEFAULT '', tax_rate REAL NOT NULL DEFAULT 0, discount INTEGER NOT NULL DEFAULT 0, subtotal INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0,
+      pay_url TEXT NOT NULL DEFAULT '', paid_method TEXT NOT NULL DEFAULT '', paid_note TEXT NOT NULL DEFAULT '', reminders INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, sent_at INTEGER, viewed_at INTEGER, paid_at INTEGER);
+    CREATE INDEX IF NOT EXISTS invoices_site ON invoices(site_id, created_at);
+  `);
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
   return {

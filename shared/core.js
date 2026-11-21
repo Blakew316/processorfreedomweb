@@ -853,6 +853,7 @@ export const STRINGS = {
     details: 'details', yourItems: 'Your items', deliverTo: 'Deliver to', vehicleShort: 'Vehicle', notesShort: 'Notes', scheduledFor: 'Scheduled for', call: 'Call', backHome: 'Back to home', orderAgain: 'Order again',
     explore: 'Explore', contact: 'Contact', legal: 'Legal', location: 'Location', hours: 'Hours', directions: 'Get directions', rights: 'All rights reserved.', cards: 'Visa · Mastercard · American Express · Discover accepted', websiteBy: 'Website by',
     email: 'Email', message: 'Message', send: 'Send message', sent: 'Message sent', sentSub: 'Thank you. We will be in touch soon.', agree: 'By sending this message you agree to our', onlyReply: 'We only use your details to reply to you.',
+    invoice: 'Invoice', billTo: 'Bill to', issued: 'Issued', dueDate: 'Due', paidOn: 'Paid on', invItem: 'Description', qty: 'Qty', priceEach: 'Price', amount: 'Amount', amountDue: 'Amount due', invPaidTotal: 'Total paid', invPaid: 'Paid', invVoid: 'Cancelled', invLate: 'Past due', invOpen: 'Awaiting payment', invThanks: 'Paid. Thank you.', payNow: 'Pay {a} now', printSave: 'Print or save', payRef: 'Please include invoice {n} with your payment.', payContact: 'To pay this invoice, please contact {name}.',
     zip: 'ZIP code', noDelivery: 'Sorry, we do not deliver to that ZIP code.', stamps: '{n} of {m} orders toward your next reward.', rewardEarned: 'You earned a reward', rewardUse: 'Use code {code} on your next order for {value} off.',
     privacy: 'Privacy Policy', terms: 'Terms of Service', policies: 'Store Policies', accessibility: 'Accessibility', effective: 'Effective', skip: 'Skip to content', menu: 'Menu', notFound: 'Page not found.', notFoundSub: 'The page you are looking for does not exist or has moved.', learnMore: 'Learn more',
   },
@@ -872,9 +873,23 @@ export const STRINGS = {
     details: 'detalles', yourItems: 'Tus artículos', deliverTo: 'Entregar en', vehicleShort: 'Vehículo', notesShort: 'Notas', scheduledFor: 'Programado para', call: 'Llamar', backHome: 'Volver al inicio', orderAgain: 'Pedir de nuevo',
     explore: 'Explorar', contact: 'Contacto', legal: 'Legal', location: 'Ubicación', hours: 'Horario', directions: 'Cómo llegar', rights: 'Todos los derechos reservados.', cards: 'Aceptamos Visa · Mastercard · American Express · Discover', websiteBy: 'Sitio web por',
     email: 'Correo', message: 'Mensaje', send: 'Enviar mensaje', sent: 'Mensaje enviado', sentSub: 'Gracias. Nos pondremos en contacto pronto.', agree: 'Al enviar este mensaje aceptas nuestra', onlyReply: 'Solo usamos tus datos para responderte.',
+    invoice: 'Factura', billTo: 'Facturar a', issued: 'Emitida', dueDate: 'Vence', paidOn: 'Pagada el', invItem: 'Descripción', qty: 'Cant.', priceEach: 'Precio', amount: 'Importe', amountDue: 'Total a pagar', invPaidTotal: 'Total pagado', invPaid: 'Pagada', invVoid: 'Cancelada', invLate: 'Vencida', invOpen: 'Pendiente de pago', invThanks: 'Pagada. Gracias.', payNow: 'Pagar {a} ahora', printSave: 'Imprimir o guardar', payRef: 'Incluye la factura {n} con tu pago.', payContact: 'Para pagar esta factura, comunícate con {name}.',
     zip: 'Código postal', noDelivery: 'Lo sentimos, no entregamos en ese código postal.', stamps: '{n} de {m} pedidos para tu próxima recompensa.', rewardEarned: 'Ganaste una recompensa', rewardUse: 'Usa el código {code} en tu próximo pedido para obtener {value} de descuento.',
     privacy: 'Política de privacidad', terms: 'Términos del servicio', policies: 'Políticas de la tienda', accessibility: 'Accesibilidad', effective: 'Vigente desde', skip: 'Ir al contenido', menu: 'Menú', notFound: 'Página no encontrada.', notFoundSub: 'La página que buscas no existe o fue movida.', learnMore: 'Más información',
   },
 };
 export const strings = (lang) => STRINGS[lang] || STRINGS.en;
 export const fill = (text, vars) => String(text).replace(/\{(\w+)\}/g, (m, k) => (vars[k] ?? ''));
+
+/* ---------- invoices ---------- */
+export const INVOICE_STATUSES = { draft: 'Draft', sent: 'Sent', paid: 'Paid', void: 'Void' };
+/** Totals for an invoice. Tax applies to taxable lines only, after the discount. */
+export function invoiceTotals(lines, taxRate = 0, discount = 0) {
+  const ls = arr(lines);
+  const subtotal = ls.reduce((a, l) => a + Math.round(l.price * l.qty), 0);
+  const d = Math.max(0, Math.min(subtotal, Math.round(Number(discount)) || 0));
+  const taxable = ls.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0);
+  const tax = subtotal ? Math.round(((taxable - (d * taxable) / subtotal) * (Number(taxRate) || 0)) / 100) : 0;
+  return { subtotal, discount: d, tax, total: subtotal - d + tax };
+}
+export const invoiceLate = (inv, today = new Date().toISOString().slice(0, 10)) => inv.status === 'sent' && !!inv.due && inv.due < today;
