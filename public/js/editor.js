@@ -2090,13 +2090,14 @@ export async function editor(id, mount, title, startTab = '') {
           h('span'), h('div', { class: 'chart-x' }, ser.map((x, i) => h('span', {}, i % every === 0 ? lab(x) : '')))));
     };
     const pAvg = pv && pv.orders ? Math.round(pv.total / pv.orders) : 0;
-    const delta = (now, was, text) => h('small', { class: 'hm-d' }, h('b', {}, !was && now ? 'New' : `${pct(now, was) > 0 ? '+' : ''}${pct(now, was)}%`), text ? ` ${text}` : '');
+    const change = (now, was) => { if (!was) return now ? ['up', 'New'] : ['flat', '0%']; const v = ((now - was) / was) * 100; return [v > 0 ? 'up' : v < 0 ? 'down' : 'flat', `${Math.abs(v).toFixed(2)}%`]; };
+    const delta = (now, was, text) => { const [dir, label] = change(now, was); return h('small', { class: 'hm-d' }, h('b', { class: `chg ${dir}` }, dir !== 'flat' && h('i', { 'aria-hidden': 'true' }, dir === 'up' ? '↑' : '↓'), label), text ? ` ${text}` : ''); };
     const salesCard = h('div', { class: 'scard hcard' }, h('h3', { class: 'hc-h' }, 'Sales'),
       h('div', { class: 'hs' },
         h('div', { class: 'hs-l' },
           metric('Net sales', 'sales', t ? money(t.net) : '—', t && delta(t.net, pv.net, `compared to ${prevName}`), true),
           metric('Orders', 'orders', t ? String(t.orders) : '—', t && delta(t.orders, pv.orders)),
-          metric('Average order', 'r-full', t ? money(t.average) : '—', t && delta(t.average, pAvg))),
+          metric('Average order size', 'r-full', t ? money(t.average) : '—', t && delta(t.average, pAvg))),
         lineChart()));
     const openTotal = waiting.reduce((a, x) => a + x.total, 0);
     const summary = h('div', { class: 'scard hcard hsum' },
@@ -2106,7 +2107,7 @@ export async function editor(id, mount, title, startTab = '') {
     const units = t ? t.units : 0;
     const itemsCard = h('div', { class: 'scard hcard' }, h('button', { type: 'button', class: 'hc-h link', onclick: go2('r-items') }, 'Item sales', h('span', { class: 'chv r', 'aria-hidden': 'true' })),
       h('p', { class: 'hc-sub' }, `${units} item${units === 1 ? '' : 's'} sold ${nowName === 'Today' ? 'today' : nowName.toLowerCase()}`),
-      st && st.items.length ? h('div', { class: 'hi-list' }, st.items.slice(0, 6).map((it) => h('div', { class: 'hi' }, h('span', {}, it.name), h('small', {}, `${it.qty} sold`), h('b', {}, money(it.sales))))) : h('p', { class: 'hc-empty' }, menu.length ? 'No items sold yet' : 'No items added'));
+      st && st.items.length ? h('div', {}, h('h4', { class: 'hc-k' }, 'Top items'), h('div', { class: 'hi-list' }, st.items.slice(0, 5).map((it) => { const was = prevStats && prevStats.items ? prevStats.items.find((x) => x.name === it.name) : null; const [dir, label] = was && was.sales ? change(it.sales, was.sales) : ['none', '--']; return h('div', { class: 'hi' }, h('span', {}, it.name), h('b', {}, money(it.sales)), h('small', { class: `chg ${dir}` }, dir === 'up' || dir === 'down' ? h('i', { 'aria-hidden': 'true' }, dir === 'up' ? '↑' : '↓') : null, label)); }))) : h('p', { class: 'hc-empty' }, menu.length ? 'No items sold yet' : 'No items added'));
     const buckets = { Card: 0, Cash: 0, Other: 0 };
     for (const x of st && st.money ? st.money.tenders : []) { const k = /card/i.test(x.method) ? 'Card' : /cash/i.test(x.method) ? 'Cash' : 'Other'; buckets[k] += x.amount - (x.refunds || 0); }
     const collected = Object.values(buckets).reduce((a, b) => a + b, 0), bTop = nice(Math.max(1, ...Object.values(buckets)));
@@ -2228,6 +2229,7 @@ export async function editor(id, mount, title, startTab = '') {
     for (const [, label, ks] of QUICK) if (ks.includes(tab)) lastQuick[label] = tab;
   }
   function moreSheet() {
+    if (modeOf(tab) === 'office') return mobileMenu();
     sheet((close) => {
       const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
       const has = (k) => tabs.some(([t]) => t === k);
@@ -2422,27 +2424,66 @@ export async function editor(id, mount, title, startTab = '') {
     ]);
   }
   // The settings drawer: the handful of settings people open most, and a way to all of them.
+  // Everything in Settings, so the search box can find any of it.
+  const SETTINGS_INDEX = () => [
+    ['Business information', 'bizinfo', 'Your business name, address, phone number and logo.'], ['Business hours', 'hours', 'Monday to Sunday, for your website and online ordering.'],
+    ['Online ordering', 'ordering', 'Pickup, curbside and delivery, tax, tips and order limits.'], ['Taxes and additional charges', 'ordering', 'Sales tax and fees added to orders.'],
+    ['Online booking', 'booking', 'What customers can book, how long it takes and how many at once.'], ['Alerts and emails', 'alerts', 'How you hear about new orders and what customers are sent.'],
+    ['Devices and printers', 'devices', 'Phones and tablets told about every new order.'], ['Appearance', 'appearance', 'Light or dark, on this device.'],
+    ['Profile and sign-in', 'profile', 'Your name, email, password and two-step sign-in.'], ['Employees', 'team', 'Who can sign in and what they can do.'],
+    ['Scheduling', 'schedule', 'Shifts for your team.'], ['Timesheets', 'timesheets', 'Hours worked.'], ['Items', 'items', 'Prices, stock and photos.'], ['Categories', 'menu', 'How your menu is grouped.'],
+    ['Modifier groups', 'mods', 'Sizes, add-ons and choices.'], ['Discounts', 'discs', 'Money off at the counter.'], ['Promo codes', 'promos', 'Codes customers enter at checkout.'],
+    ['Gift cards', 'gift', 'Sell and redeem gift cards.'], ['Rewards', 'rewards', 'Loyalty points for regulars.'], ['Invoices and estimates', 'invoices', 'Bill customers and send quotes.'],
+    ['Look and feel', 'design', 'Colours, fonts, logo and layout of your website.'], ['Web address', 'domain', 'Your free address, or a domain of your own.'], ['Policies', 'policies', 'Privacy, terms and refunds.'],
+  ].filter(([, k]) => known(k));
   function openSettings() {
     sheet((close) => {
-      const row = (t, d, k, icon) => h('button', { class: 'set-row', type: 'button', onclick: () => { close(); goTab(k); } }, navTile(icon, 32), h('span', {}, h('b', {}, t), h('small', {}, d)), navIcon('chev', 14));
-      return [h('div', { class: 'drawer-h' }, h('h2', {}, tIcon('gear', 22), 'Settings'), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: close }, tIcon('x', 18))),
-        h('p', { class: 'drawer-k' }, 'Setup'),
-        row('Business information', 'Your business name, address, phone number and logo.', 'bizinfo', 'business'),
-        row('Business hours', 'Monday to Sunday, for your website and online ordering.', 'hours', 'calendar'),
-        row('Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', 'ordering', 'orders'),
-        row('Online booking', 'What customers can book, how long it takes and how many at once.', 'booking', 'calendar'),
-        row('Alerts and emails', 'How you hear about new orders and what customers are sent.', 'alerts', 'feedback'),
-        row('Devices', 'Phones and tablets that are told about every new order.', 'devices', 'page'),
-        row('Appearance', 'Light or dark, on this device.', 'appearance', 'design'),
-        h('p', { class: 'drawer-k' }, 'Website'),
-        row('Look and feel', 'Colours, fonts, logo and layout of your website.', 'design', 'design'),
-        row('Home page', 'The sections on your home page, in order.', 'sections', 'page'),
-        row('Web address', 'Your free address, or a domain of your own.', 'domain', 'address'),
-        row('Policies and search', 'Privacy, terms and how you appear on Google.', 'policies', 'invoice'),
-        h('p', { class: 'drawer-k' }, 'Account'),
-        row('Profile and sign-in', 'Your name, email, password and two-step sign-in.', 'profile', 'customers'),
-        h('div', { class: 'drawer-f' }, h('button', { class: 'btn', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'View all settings'))];
-    }, 'drawer');
+      const todos = setupTodos(), total = todos.length + 4, doneN = Math.max(0, total - todos.length);
+      const go3 = (k) => () => { close(); goTab(k); };
+      const results = h('div', { class: 'ss-list' });
+      const freq = h('div', {}, h('p', { class: 'ss-k' }, 'Frequently viewed settings'), h('div', { class: 'ss-list' },
+        [['Business information', 'View and edit your business name, address, phone number and logo.', go3('bizinfo')], ['Reporting settings', 'Which period your reports open on.', () => { close(); reportSettings(); }],
+          ['Business hours', 'Monday to Sunday, for your website and online ordering.', go3('hours')], ['Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', go3('ordering')],
+          ['Alerts and emails', 'How you hear about new orders and what customers are sent.', go3('alerts')], ['Profile and sign-in', 'Your name, email, password and two-step sign-in.', go3('profile')]]
+          .map(([t, d, fn]) => h('button', { type: 'button', class: 'ss-row', onclick: fn }, h('b', {}, t), h('small', {}, d)))));
+      const tasks = todos.length ? h('div', {}, h('p', { class: 'ss-k' }, 'Setup tasks'),
+        h('button', { type: 'button', class: 'ss-task', onclick: () => { const open = taskList.hidden; taskList.hidden = !open; } }, h('span', {}, h('b', {}, 'Get ready to take orders'), h('small', {}, 'Add items, set your hours and taxes, and publish your site.')), h('em', {}, `${doneN} of ${total} completed`))) : null;
+      const taskList = h('div', { class: 'ss-list', hidden: true }, todos.map((x) => h('button', { type: 'button', class: 'ss-row', onclick: () => { close(); x.act[1](); } }, h('b', {}, x.name), h('small', {}, x.text))));
+      const search = h('input', { type: 'search', placeholder: 'Search settings', 'aria-label': 'Search settings', oninput: () => { const q = search.value.trim().toLowerCase(); const hits = q ? SETTINGS_INDEX().filter(([t, , d]) => `${t} ${d}`.toLowerCase().includes(q)) : [];
+        results.replaceChildren(...(q ? (hits.length ? hits.map(([t, k, d]) => h('button', { type: 'button', class: 'ss-row', onclick: go3(k) }, h('b', {}, t), h('small', {}, d))) : [h('p', { class: 'ss-none' }, 'No settings match that.')]) : []));
+        freq.hidden = !!q; if (tasks) tasks.hidden = !!q; taskList.hidden = true; } });
+      return [h('div', { class: 'ss-head' }, h('h2', {}, tIcon('gear', 24), 'Settings'), h('button', { class: 'ss-x', type: 'button', 'aria-label': 'Close', onclick: close }, tIcon('x', 20))),
+        h('div', { class: 'ss-body' }, h('label', { class: 'tsearch ss-search' }, ic('search', 18), search), results, tasks, taskList, freq),
+        h('div', { class: 'ss-foot' }, h('button', { class: 'btn', type: 'button', onclick: go3('settings') }, 'View all settings'))];
+    }, 'drawer ss');
+  }
+  // On a phone the whole menu opens full screen: the top-right buttons, New sale, every section and the website tools.
+  function mobileMenu() {
+    sheet((close) => {
+      const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
+      const has = (k) => tabs.some(([t]) => t === k);
+      const go4 = (k) => () => { close(); body.dataset.view = 'edit'; goTab(k); };
+      const anchor = top.querySelector('.rail-tog') || top;
+      const groups = NAV.office.map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
+      const row = (g) => {
+        const here = g.tabs.includes(tab), many = g.tabs.length > 1, badge = g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh);
+        if (!many) return h('button', { type: 'button', class: 'mm-row', 'aria-current': here ? 'page' : null, onclick: go4(g.tabs[0]) }, navIcon(g.icon, 24), h('b', {}, g.label), badge);
+        const kids = h('div', { class: 'mm-kids', 'data-shut': here ? null : '1' }, h('div', {}, g.tabs.map((k, i) => h('button', { type: 'button', 'aria-current': k === tab ? 'page' : null, onclick: go4(k) }, g.subs[i]))));
+        const btn = h('button', { type: 'button', class: 'mm-row', 'data-here': here ? '1' : null, 'aria-expanded': String(here), onclick: () => { const now = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(now)); if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; } }, navIcon(g.icon, 24), h('b', {}, g.label), badge, h('span', { class: 'fold-chev', 'aria-hidden': 'true' }));
+        return [btn, kids];
+      };
+      return [h('div', { class: 'mm-head' },
+          h('button', { type: 'button', class: 'mm-x', 'aria-label': 'Close menu', onclick: close }, tIcon('x', 22)), h('span', { class: 'grow' }),
+          h('button', { type: 'button', class: 'icon-btn tb-btn', 'aria-label': 'Notifications', onclick: () => { close(); setTimeout(() => openNotes(anchor), 200); } }, tIcon('bell'), (unread() || newTodos()) && h('span', { class: 'tb-dot' })),
+          h('button', { type: 'button', class: 'icon-btn tb-btn', 'aria-label': 'Settings', onclick: () => { close(); setTimeout(openSettings, 200); } }, tIcon('gear')),
+          h('button', { type: 'button', class: 'icon-btn tb-btn', 'aria-label': 'Profile', onclick: () => { close(); setTimeout(() => openProfileMenu(anchor), 200); } }, tIcon('user'))),
+        h('div', { class: 'mm-body' },
+          h('button', { type: 'button', class: 'rail-new mm-new', onclick: go4('sale') }, ic('plus', 18), 'New sale'),
+          h('nav', { class: 'mm-nav', 'aria-label': 'Back office' }, groups.map(row)),
+          h('hr', { class: 'mm-hr' }),
+          h('nav', { class: 'mm-nav' }, h('button', { type: 'button', class: 'mm-row', onclick: go4(lastTab.site) }, navIcon('address', 24), h('b', {}, 'Website')), has('booking') && h('button', { type: 'button', class: 'mm-row', 'aria-current': tab === 'booking' ? 'page' : null, onclick: go4('booking') }, navIcon('calendar', 24), h('b', {}, 'Booking tools'))),
+          h('div', { class: 'mm-foot' }, h('small', {}, `© ${new Date().getFullYear()} Processor Freedom`), h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), h('a', { href: '/contact', target: '_blank', rel: 'noopener' }, 'Contact'), h('button', { type: 'button', class: 'mm-link', onclick: async () => { close(); await flush(); go('/app'); } }, 'All my sites')))];
+    }, 'mmenu');
   }
   const topRight = () => {
     const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !(unread() || newTodos()) }));
@@ -2487,7 +2528,7 @@ export async function editor(id, mount, title, startTab = '') {
     top.dataset.mode = modeOf(tab); top.dataset.view = body.dataset.view;
     paintTabbar();
     top.replaceChildren(...[
-      modeOf(tab) === 'site' ? h('button', { class: 'icon-btn', title: 'Back to back office', 'aria-label': 'Back to back office', onclick: () => goTab(lastTab.office) }, ic('back')) : h('button', { class: 'icon-btn rail-tog', title: body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-label': body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-expanded': String(body.dataset.rail !== 'shut'), onclick: () => { if (body.dataset.rail === 'shut') delete body.dataset.rail; else body.dataset.rail = 'shut'; try { localStorage.setItem('pf-rail', body.dataset.rail || ''); } catch { /* private mode */ } paintTop(); requestAnimationFrame(fit); } }, h('span', { class: 'tog-ic', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
+      modeOf(tab) === 'site' ? h('button', { class: 'icon-btn', title: 'Back to back office', 'aria-label': 'Back to back office', onclick: () => goTab(lastTab.office) }, ic('back')) : h('button', { class: 'icon-btn rail-tog', title: body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-label': body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-expanded': String(body.dataset.rail !== 'shut'), onclick: () => { if (matchMedia('(max-width:900px)').matches) return mobileMenu(); if (body.dataset.rail === 'shut') delete body.dataset.rail; else body.dataset.rail = 'shut'; try { localStorage.setItem('pf-rail', body.dataset.rail || ''); } catch { /* private mode */ } paintTop(); requestAnimationFrame(fit); } }, h('span', { class: 'tog-ic', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
       h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Home', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 })),
       modeOf(tab) === 'office' && h('button', { class: 'tb-biz', type: 'button', title: 'Switch business', onclick: async () => { await flush(); go('/app'); } }, h('b', {}, meta.name), h('span', { class: 'swap', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>' })),
       h('span', { class: 'm-title' }, h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || [])[1] || ''), modeOf(tab) === 'office' && h('small', { class: 'm-biz' }, meta.name)),
