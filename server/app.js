@@ -34,6 +34,12 @@ export function totpCode(secret, at = Date.now(), shift = 0) {
   const h = createHmac('sha1', fromB32(secret)).update(buf).digest(), o = h[19] & 15;
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
 }
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const recoveryNorm = (code) => String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const recoveryHash = (userId, code) => createHash('sha256').update(`recovery:${userId}:${recoveryNorm(code)}`).digest('hex');
+export function newRecoveryCodes(n = 10) {
+  return Array.from({ length: n }, () => { const b = randomBytes(10); const c = [...b].map((x) => RECOVERY_ALPHABET[x % RECOVERY_ALPHABET.length]).join(''); return `${c.slice(0, 5)}-${c.slice(5)}`; });
+}
 const totpOk = (secret, code) => /^\d{6}$/.test(String(code)) && !!secret && [-1, 0, 1].some((sft) => timingSafeEqual(Buffer.from(totpCode(secret, Date.now(), sft)), Buffer.from(String(code))));
 
 async function hashPassword(pw) {
@@ -369,14 +375,30 @@ export function createApp(options = {}) {
     if (!u || !ok) bad(401, 'That email and password do not match.');
     // With two-step sign-in on, the password alone is not enough: the code from the authenticator app is needed too.
     if (u.totp_on) {
-      const code = str(b.code, 12).replace(/\s/g, '');
+      const code = str(b.code, 24).replace(/\s/g, '');
       if (!code) return json(res, 401, { error: 'Enter the 6-digit code from your authenticator app.', twoFactor: true });
       limit(`2fa:${u.id}`, 8, 15 * 60000);
-      if (!totpOk(u.totp_secret, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one.', twoFactor: true });
+      if (!totpOk(u.totp_secret, code) && !useRecoveryCode(u, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one, or use one of your recovery codes.', twoFactor: true });
     }
     startSession(req, res, u.id);
     json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
   });
+
+  // A recovery code works once: it is taken off the list the moment it is used.
+  // The list is read again here, after the password check, so two log ins at the same moment cannot both use one code.
+  function useRecoveryCode(u, code) {
+    if (recoveryNorm(code).length !== 10) return false;
+    const row = db.get('SELECT recovery FROM users WHERE id = ? AND totp_on = 1', u.id);
+    if (!row) return false;
+    let list = [];
+    try { list = JSON.parse(row.recovery || '[]'); } catch { list = []; }
+    const want = Buffer.from(recoveryHash(u.id, code));
+    const at = list.findIndex((h) => typeof h === 'string' && h.length === want.length && timingSafeEqual(Buffer.from(h), want));
+    if (at < 0) return false;
+    list.splice(at, 1);
+    db.run('UPDATE users SET recovery = ? WHERE id = ?', JSON.stringify(list), u.id);
+    return true;
+  }
 
   // Signs this account out on every phone, tablet and computer at once.
   route('POST', '/api/auth/logout-all', (req, res) => {
@@ -427,13 +449,21 @@ export function createApp(options = {}) {
     db.run('UPDATE users SET totp_secret = ?, totp_on = 0 WHERE id = ?', secret, user.id);
     json(res, 200, { secret, uri: `otpauth://totp/${encodeURIComponent(`PF Sites:${user.email}`)}?secret=${secret}&issuer=${encodeURIComponent('PF Sites')}&digits=6&period=30` });
   });
+  route('POST', '/api/me/2fa/recovery', (req, res) => {
+    const user = requireUser(req);
+    if (!user.twoFactor) bad(409, 'Turn on the authenticator app first, then download your recovery codes.');
+    limit(`recovery:${user.id}`, 10, 3600000);
+    const codes = newRecoveryCodes();
+    db.run('UPDATE users SET recovery = ? WHERE id = ?', JSON.stringify(codes.map((c) => recoveryHash(user.id, c))), user.id);
+    json(res, 200, { codes });
+  });
   route('POST', '/api/me/2fa/enable', async (req, res) => {
     const user = requireUser(req);
     limit(`2fa:${user.id}`, 8, 15 * 60000);
     const row = db.get('SELECT totp_secret FROM users WHERE id = ?', user.id);
     if (!row.totp_secret) bad(400, 'Start again: the setup code has expired.');
     if (!totpOk(row.totp_secret, str((await readJson(req)).code, 12).replace(/\s/g, ''))) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
-    db.run('UPDATE users SET totp_on = 1 WHERE id = ?', user.id);
+    db.run("UPDATE users SET totp_on = 1, recovery = '' WHERE id = ?", user.id);
     // Every other device has to sign in again, now with a code.
     db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
     json(res, 200, { user: { ...user, twoFactor: true } });
@@ -443,7 +473,7 @@ export function createApp(options = {}) {
     limit(`pw:${user.id}`, 8, 15 * 60000);
     const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
     if (!await checkPassword(str((await readJson(req)).password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
-    db.run("UPDATE users SET totp_on = 0, totp_secret = '' WHERE id = ?", user.id);
+    db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '' WHERE id = ?", user.id);
     json(res, 200, { user: { ...user, twoFactor: false } });
   });
 

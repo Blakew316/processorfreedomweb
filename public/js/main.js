@@ -226,21 +226,58 @@ function landing() {
 const SAMPLE = { order: 'Corner Taqueria', restaurant: 'Harbor & Vine', cafe: 'Morning Ritual', retail: 'Field & Thread', salon: 'Studio Lumen', services: 'Northbridge Advisors', home: 'Summit Home Pros', fitness: 'Form Studio', auto: 'Main Street Auto', simple: 'Oak & Ember' };
 export const sampleName = (id) => SAMPLE[id] || 'Your Business';
 
-/* ---------- Sign in / sign up ---------- */
+/* ---------- Log in, create an account, access your account ----------
+   The form sits on the left with our name at the top; a photo fills the right. On a phone the photo steps aside. */
+const US_FLAG = '<svg viewBox="0 0 19 13" width="19" height="13" aria-hidden="true"><rect width="19" height="13" fill="#fff"/><path fill="#b22234" d="M0 0h19v1H0zM0 2h19v1H0zM0 4h19v1H0zM0 6h19v1H0zM0 8h19v1H0zM0 10h19v1H0zM0 12h19v1H0z"/><rect width="7.6" height="7" fill="#3c3b6e"/></svg>';
+const EYE = svg('<path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>', 20);
+const EYE_OFF = svg('<path d="M3 3l18 18"/><path d="M10.6 5.6A10.4 10.4 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17.4 17.4 0 0 1-3 3.8M6.6 6.6A16.5 16.5 0 0 0 2.5 12s3.5 6.5 9.5 6.5a9.6 9.6 0 0 0 4.4-1.1"/><path d="M9.9 9.9a2.8 2.8 0 0 0 4 4"/>', 20);
+function authShell(form) {
+  return h('main', { class: 'login' },
+    h('section', { class: 'lg-panel' },
+      link('/', { class: 'lg-brand', 'aria-label': 'Processor Freedom, home' }, h('img', { src: '/assets/logo-dark.svg', alt: '', width: 32, height: 32 }), h('b', {}, 'Processor Freedom')),
+      h('div', { class: 'lg-mid' }, form),
+      h('footer', { class: 'lg-foot' },
+        h('p', { class: 'lg-legal' }, 'By using Processor Freedom you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
+        h('div', { class: 'lg-meta' }, h('span', { class: 'lg-loc' }, h('i', { html: US_FLAG }), 'United States (English)'), link('/contact', {}, 'Help Center')))),
+    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/cafe.jpg', alt: '', decoding: 'async' })));
+}
+const lgField = (label, attrs) => h('label', { class: 'lg-field' }, h('span', {}, label), h('input', attrs));
+// A password box with the eye that shows what was typed.
+function lgPassword(label, attrs) {
+  const input = h('input', { type: 'password', id: 'lg-pw', ...attrs });
+  const eye = h('button', { type: 'button', class: 'lg-eye', 'aria-label': 'Show password', 'aria-pressed': 'false', html: EYE, onclick: () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    eye.innerHTML = show ? EYE_OFF : EYE; eye.setAttribute('aria-pressed', String(show)); eye.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    input.focus();
+  } });
+  return h('div', { class: 'lg-field' }, h('label', { for: 'lg-pw' }, label), h('div', { class: 'lg-pw' }, input, eye));
+}
 
 function auth(mode) {
   const signup = mode === 'signup';
-  title(signup ? 'Create your account' : 'Sign in');
+  title();
   const q = location.search;
   const next = () => go(new URLSearchParams(q).has('name') || new URLSearchParams(q).has('template') ? `/app/new${q}` : '/app');
   // Log in takes someone who is already signed in to their sites. Sign up always shows the form, because it is for making a new account;
   // the one exception is arriving with a site already chosen to build, which carries straight on.
   const building = new URLSearchParams(q).has('name') || new URLSearchParams(q).has('template');
   if (state.user && (!signup || building)) return next();
-  const err = h('p', { class: 'error center', role: 'alert' });
-  const f = (label, attrs) => h('label', { class: 'field' }, h('span', {}, label), h('input', attrs));
-  const button = h('button', { class: 'btn lg', type: 'submit' }, signup ? 'Create account' : 'Sign in');
-  const form = h('form', { onsubmit: async (e) => {
+  const err = h('p', { class: 'lg-err', role: 'alert' });
+  const button = h('button', { class: 'lg-go', type: 'submit' }, signup ? 'Create account' : 'Log in');
+  // Two-step sign-in: once the password is right, the code from the authenticator app is asked for, or one of the recovery codes.
+  let codeBox = null;
+  const askCode = (recovery) => {
+    const input = h('input', recovery
+      ? { name: 'code', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', maxlength: 16, required: true, placeholder: 'XXXXX-XXXXX' }
+      : { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' });
+    const box = h('div', { class: 'lg-code' }, h('label', { class: 'lg-field' }, h('span', {}, recovery ? 'Recovery code' : '6-digit code from your authenticator app'), input),
+      h('button', { type: 'button', class: 'lg-link', onclick: () => askCode(!recovery) }, recovery ? 'Use the code from your authenticator app instead' : 'Use a recovery code instead'));
+    if (codeBox) codeBox.replaceWith(box); else err.before(box);
+    codeBox = box; err.textContent = ''; button.textContent = 'Verify and log in';
+    input.focus();
+  };
+  const form = h('form', { class: 'lg-form', onsubmit: async (e) => {
     e.preventDefault();
     err.textContent = ''; button.disabled = true;
     try {
@@ -249,54 +286,52 @@ function auth(mode) {
       next();
     } catch (ex) {
       button.disabled = false;
-      // Two-step sign-in: the password was right, now the six-digit code is asked for.
-      if (ex.data?.twoFactor && !form.querySelector('[name=code]')) { const box = f('6-digit code from your authenticator app', { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' }); err.before(box); box.querySelector('input').focus(); err.textContent = ''; button.textContent = 'Verify and sign in'; return; }
+      if (!signup && ex.data?.twoFactor && !codeBox) return askCode(false);
       err.textContent = ex.message;
     }
   } },
-    h('h1', {}, signup ? 'Create your account' : 'Welcome back'),
-    h('p', { class: 'sub' }, signup ? 'Then name your business and start building.' : 'Sign in to manage your site and orders.'),
-    signup && f('Your name', { name: 'name', autocomplete: 'name', required: true, maxlength: 80, autofocus: true }),
-    f('Email', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: !signup }),
-    f(signup ? 'Create a password' : 'Password', { name: 'password', type: 'password', autocomplete: signup ? 'new-password' : 'current-password', required: true, minlength: signup ? 8 : 1 }),
-    signup && h('p', { class: 'hint', style: 'margin-top:-8px' }, 'At least 8 characters.'),
-    !signup && h('p', { class: 'small', style: 'margin-top:-8px' }, link('/forgot', {}, 'Forgot your password?')),
-    signup && state.user && h('p', { class: 'note small', style: 'margin:0' }, 'You are signed in as ', h('b', {}, state.user.email), '. Creating a new account here signs that one out on this device. ', link('/app', {}, 'Go to my sites instead')),
+    h('h1', {}, signup ? 'Create your account' : 'Log in'),
+    signup && lgField('Your name', { name: 'name', autocomplete: 'name', required: true, maxlength: 80, autofocus: true }),
+    lgField('Email', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: !signup }),
+    lgPassword(signup ? 'Create a password' : 'Password', { name: 'password', autocomplete: signup ? 'new-password' : 'current-password', required: true, minlength: signup ? 8 : 1 }),
+    signup && h('p', { class: 'lg-hint' }, 'At least 8 characters.'),
+    signup && state.user && h('p', { class: 'lg-note' }, 'You are signed in as ', h('b', {}, state.user.email), '. Creating a new account here signs that one out on this device. ', link('/app', {}, 'Go to my sites instead')),
     err, button,
-    signup && h('p', { class: 'center small muted' }, 'By creating an account you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
-    h('p', { class: 'center muted' }, signup ? 'Already have an account? ' : 'New here? ', link(`${signup ? '/login' : '/signup'}${q}`, {}, signup ? 'Sign in' : 'Create an account')));
-  mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card' }, form,
-    h('aside', { class: 'auth-side' }, h('img', { src: '/assets/logo.svg', alt: '', width: 48, height: 48 }),
-      h('h2', {}, 'A website and online ordering, live in minutes.'),
-      h('ul', {}, ['Menu built from your Excel or CSV file', 'Pickup, curbside and delivery', 'Your logo, colours and domain', 'Publish with one click'].map((t) => h('li', {}, h('i', { html: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>', 14) }), t)))))));
+    signup ? h('p', { class: 'lg-alt' }, 'Already have an account? ', link(`/login${q}`, {}, 'Log in'))
+      : h('p', { class: 'lg-alt' }, 'New user or forgot your password? ', link(`/forgot${q}`, {}, 'Access your account')));
+  mount(authShell(form));
 }
 
+// New here, or forgot the password: a reset link by email, or a new account.
 function forgot() {
-  title('Reset password');
-  const done = h('div', {});
-  const form = h('form', { onsubmit: async (e) => {
-    e.preventDefault();
+  title();
+  const q = location.search;
+  const err = h('p', { class: 'lg-err', role: 'alert' });
+  const button = h('button', { class: 'lg-go', type: 'submit' }, 'Send link');
+  const form = h('form', { class: 'lg-form', onsubmit: async (e) => {
+    e.preventDefault(); err.textContent = ''; button.disabled = true;
     try {
       const r = await api('POST', '/api/auth/forgot', Object.fromEntries(new FormData(form)));
-      form.replaceChildren(h('h1', {}, 'Check your email'), h('p', { class: 'sub' }, r.emailEnabled ? 'If an account exists for that address, a reset link is on its way. It works once and expires in 2 hours.' : 'Email is not switched on for this service yet, so no link could be sent. Contact Processor Freedom and we will send you a reset link directly.'), link('/login', { class: 'btn lg' }, 'Back to sign in'));
-    } catch (ex) { done.replaceChildren(h('p', { class: 'error', role: 'alert' }, ex.message)); }
-  } }, h('h1', {}, 'Reset your password'), h('p', { class: 'sub' }, 'Enter your email and we will send you a link.'),
-    h('label', { class: 'field' }, h('span', {}, 'Email'), h('input', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: true })), done,
-    h('button', { class: 'btn lg', type: 'submit' }, 'Send reset link'), h('p', { class: 'center muted' }, link('/login', {}, 'Back to sign in')));
-  mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card', style: 'grid-template-columns:1fr;max-width:460px' }, form)));
+      form.replaceChildren(h('h1', {}, 'Check your email'), h('p', { class: 'lg-sub' }, r.emailEnabled ? 'If an account exists for that address, a reset link is on its way. It works once and expires in 2 hours.' : 'Email is not switched on for this service yet, so no link could be sent. Contact Processor Freedom and we will send you a reset link directly.'), link('/login', { class: 'lg-go' }, 'Back to log in'));
+    } catch (ex) { err.textContent = ex.message; button.disabled = false; }
+  } }, h('h1', {}, 'Access your account'), h('p', { class: 'lg-sub' }, 'Forgot your password? Enter your email and we will send you a link to choose a new one.'),
+    lgField('Email', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: true }), err, button,
+    h('p', { class: 'lg-alt' }, 'New user? ', link(`/signup${q}`, {}, 'Create an account')),
+    h('p', { class: 'lg-alt' }, link(`/login${q}`, {}, 'Back to log in')));
+  mount(authShell(form));
 }
 
 function reset() {
-  title('Choose a new password');
+  title();
   const token = new URLSearchParams(location.search).get('token') || '';
-  const err = h('p', { class: 'error', role: 'alert' });
-  const form = h('form', { onsubmit: async (e) => {
-    e.preventDefault(); err.textContent = '';
-    try { state.user = (await api('POST', '/api/auth/reset', { token, password: new FormData(form).get('password') })).user; toast('Password updated'); go('/app'); } catch (ex) { err.textContent = ex.message; }
-  } }, h('h1', {}, 'Choose a new password'), h('p', { class: 'sub' }, 'You will be signed in straight away.'),
-    h('label', { class: 'field' }, h('span', {}, 'New password'), h('input', { name: 'password', type: 'password', autocomplete: 'new-password', required: true, minlength: 8, autofocus: true })), h('p', { class: 'hint', style: 'margin-top:-8px' }, 'At least 8 characters.'), err,
-    h('button', { class: 'btn lg', type: 'submit' }, 'Save password'));
-  mount(topbar(), h('main', { class: 'auth' }, h('div', { class: 'auth-card', style: 'grid-template-columns:1fr;max-width:460px' }, form)));
+  const err = h('p', { class: 'lg-err', role: 'alert' });
+  const button = h('button', { class: 'lg-go', type: 'submit' }, 'Save password');
+  const form = h('form', { class: 'lg-form', onsubmit: async (e) => {
+    e.preventDefault(); err.textContent = ''; button.disabled = true;
+    try { state.user = (await api('POST', '/api/auth/reset', { token, password: new FormData(form).get('password') })).user; toast('Password updated'); go('/app'); } catch (ex) { err.textContent = ex.message; button.disabled = false; }
+  } }, h('h1', {}, 'Choose a new password'), h('p', { class: 'lg-sub' }, 'You will be logged in straight away.'),
+    lgPassword('New password', { name: 'password', autocomplete: 'new-password', required: true, minlength: 8, autofocus: true }), h('p', { class: 'lg-hint' }, 'At least 8 characters.'), err, button);
+  mount(authShell(form));
 }
 
 /* ---------- Dashboard ---------- */

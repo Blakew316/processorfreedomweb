@@ -253,6 +253,50 @@ test('two devices cannot silently overwrite each other, and the other safety rul
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('recovery codes for two-step sign-in', async () => {
+  const { totpCode } = await import('../server/app.js');
+  const dir = mkdtempSync(join(tmpdir(), 'pfrc-'));
+  const { client, stop } = await boot(dir);
+  try {
+    const a = client(), other = client();
+    await a('POST', '/api/auth/signup', { email: 'rc@shop.test', password: 'long-enough-pw', name: 'Rae' });
+    await other('POST', '/api/auth/signup', { email: 'plain@shop.test', password: 'long-enough-pw' });
+    assert.equal((await client()('POST', '/api/me/2fa/recovery', {})).status, 401, 'signed out cannot make codes');
+    assert.equal((await other('POST', '/api/me/2fa/recovery', {})).status, 409, 'no codes without two-step sign-in');
+    const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
+
+    // Ten different codes, each signs in once in place of the app code.
+    const codes = (await a('POST', '/api/me/2fa/recovery', {})).data.codes;
+    assert.equal(codes.length, 10);
+    assert.equal(new Set(codes).size, 10);
+    for (const c of codes) assert.match(c, /^[A-Z2-9]{5}-[A-Z2-9]{5}$/);
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'wrong-password', code: codes[0] })).status, 401, 'a recovery code does not rescue a wrong password');
+    const rc = client();
+    assert.equal((await rc('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: ` ${codes[0].toLowerCase()} ` })).status, 200, 'a recovery code signs in, in any case and with spaces');
+    assert.equal((await rc('GET', '/api/sites')).status, 200);
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: codes[0] })).status, 401, 'the same code cannot be used twice');
+    // Two log ins sent at the same moment with the same code: only one gets in.
+    const both = await Promise.all([client(), client()].map((cl) => cl('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: codes[2] })));
+    assert.deepEqual(both.map((r) => r.status).sort(), [200, 401], 'a code cannot be used twice at the same time');
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: 'AAAAA-AAAAA' })).status, 401, 'a made-up code is refused');
+
+    // A new set replaces the old one.
+    const fresh = (await a('POST', '/api/me/2fa/recovery', {})).data.codes;
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: codes[1] })).status, 401, 'an old set stops working once a new one is made');
+    assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: fresh[1] })).status, 200);
+
+    // Codes are kept only as hashes, and go away with two-step sign-in.
+    const db = new DatabaseSync(join(dir, 'sites.db'));
+    const stored = db.prepare("SELECT recovery FROM users WHERE email = 'rc@shop.test'").get().recovery;
+    db.close();
+    assert.ok(!fresh.some((c) => stored.includes(c) || stored.includes(c.replace('-', ''))), 'codes are not stored as typed');
+    assert.equal(JSON.parse(stored).length, 9, 'a used code is taken off the list');
+    assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
+    assert.equal((await a('POST', '/api/me/2fa/recovery', {})).status, 409, 'codes go away with two-step sign-in');
+  } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('profile changes and two-step sign-in', async () => {
   const { totpCode } = await import('../server/app.js');
   const dir = mkdtempSync(join(tmpdir(), 'pfme-'));

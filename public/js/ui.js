@@ -325,7 +325,7 @@ export async function installApp() {
 const NAV_ICONS = {
   home: '<path d="M4 11.200L12 4.500l8 6.700"/><path d="M6.200 9.800V19.500h4.300v-5h3v5h4.300V9.800"/>',
   orders: '<path d="M6.300 8.500h11.400l.900 11H5.400z"/><path d="M9.200 8.500V7a2.800 2.800 0 015.600 0v1.500"/>',
-  menu: '<path d="M7.500 4v6.500M5.500 4v4a2 2 0 004 0V4M7.500 10.500V20"/><path d="M16.500 4c-1.900 1.600-2.500 4-2.500 6.200 0 1.500 1 2.300 2.500 2.300V20M16.500 4v8.500"/>',
+  menu: '<path d="M3.500 17h17M5.300 17a6.700 6.700 0 0113.400 0M12 10.300V8.300M10.200 8.300h3.600M5 20h14"/>',
   sales: '<path d="M5 19.500V12M10 19.500V5M15 19.500v-6M20 19.500V9"/>',
   customers: '<circle cx="12" cy="8.200" r="3.400"/><path d="M5.200 19.500c.700-3.300 3.300-5.200 6.800-5.200s6.100 1.900 6.800 5.200"/>',
   settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',   // gear outline after the Lucide icon set (ISC licence)
@@ -342,12 +342,13 @@ const NAV_ICONS = {
   swap: '<path d="M7 7.500h11.500M15.500 4.500l3 3-3 3M17 16.500H5.500M8.500 13.500l-3 3 3 3"/>',
   more: '<circle cx="6" cy="12" r="1.300"/><circle cx="12" cy="12" r="1.300"/><circle cx="18" cy="12" r="1.300"/>',
   preview: '<path d="M2.800 12S6.200 5.800 12 5.800 21.200 12 21.200 12 17.800 18.200 12 18.200 2.800 12 2.800 12z"/><circle cx="12" cy="12" r="2.700"/>',
+  ordering: '<path d="M7.500 4v6.500M5.500 4v4a2 2 0 004 0V4M7.500 10.500V20"/><path d="M16.500 4c-1.900 1.600-2.500 4-2.500 6.200 0 1.500 1 2.300 2.500 2.300V20M16.500 4v8.500"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
   back: '<path d="M15 6l-6 6 6 6"/>',
 };
 /* The same icons the way an iPhone shows them in Settings: a white glyph on a small rounded tile.
    The tiles stay within one family of navy, blue and slate, so a list reads as calm rather than as a rainbow. */
-const TILE = { home: 'navy', insights: 'navy', design: 'navy', orders: 'blue', calendar: 'blue', promo: 'blue', business: 'blue', menu: 'steel', invoice: 'steel', page: 'steel', sales: 'ink', team: 'ink', preview: 'ink', customers: 'slate', feedback: 'slate', address: 'slate', settings: 'grey', swap: 'grey', more: 'grey', back: 'grey' };
+const TILE = { home: 'navy', insights: 'navy', design: 'navy', orders: 'blue', calendar: 'blue', promo: 'blue', business: 'blue', menu: 'steel', invoice: 'steel', page: 'steel', sales: 'ink', team: 'ink', preview: 'ink', customers: 'slate', feedback: 'slate', ordering: 'blue', address: 'slate', settings: 'grey', swap: 'grey', more: 'grey', back: 'grey' };
 export function navTile(name, size = 30) {
   const el = h('span', { class: `tile-ic t-${TILE[name] || 'steel'}`, style: `width:${size}px;height:${size}px`, 'aria-hidden': 'true', html: `<svg viewBox="0 0 24 24" width="${Math.round(size * 0.62)}" height="${Math.round(size * 0.62)}" fill="none" stroke="currentColor" stroke-width="2.050" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || NAV_ICONS.page}</svg>` });
   // Each drawing is nudged so its ink, not its canvas, sits in the middle of the tile.

@@ -11,7 +11,7 @@ const CSS = `
 .inv-top2 .who{color:var(--muted);font-size:15px;line-height:1.5;margin-top:8px}
 .inv-state{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;border-radius:980px;padding:7px 14px;background:var(--bg2)}
 .inv-state i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-.inv-state.paid i{background:#1e8e3e}.inv-state.late i{background:#d1372f}.inv-state.open i{background:var(--accent)}
+.inv-state.paid i{background:#1d4f9e}.inv-state.late i{background:#d1372f}.inv-state.open i{background:var(--accent)}
 .inv-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:20px}
 .inv-meta dt{font-size:13px;color:var(--muted);font-weight:500;margin-bottom:4px}
 .inv-meta dd{margin:0;font-size:16px;line-height:1.45}
