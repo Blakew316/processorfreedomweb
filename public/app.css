@@ -5028,3 +5028,4 @@ html[data-theme=dark] .lg-go:hover{background:#2a62bd}
 .bi-namerow b{font-size:16px;font-weight:600;overflow-wrap:anywhere}
 @media (max-width:760px){.bi-top .pf-act{margin-right:-12px}}
 .pf-note a{color:var(--blue);text-decoration:underline;text-underline-offset:3px}
+.tb-btn[aria-current="page"]{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--blue)}

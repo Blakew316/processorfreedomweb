@@ -239,7 +239,7 @@ function authShell(form) {
       h('footer', { class: 'lg-foot' },
         h('p', { class: 'lg-legal' }, 'By using Processor Freedom you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
         h('div', { class: 'lg-meta' }, h('span', { class: 'lg-loc' }, h('i', { html: US_FLAG }), 'United States (English)'), link('/contact', {}, 'Help Center')))),
-    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/login.jpg', alt: '', decoding: 'async' })));
+    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/login.jpg', alt: '', decoding: 'async', loading: 'lazy' })));
 }
 const lgField = (label, attrs) => h('label', { class: 'lg-field' }, h('span', {}, label), h('input', attrs));
 // A password box with the eye that shows what was typed.
@@ -312,7 +312,7 @@ function forgot() {
     e.preventDefault(); err.textContent = ''; button.disabled = true;
     try {
       const r = await api('POST', '/api/auth/forgot', Object.fromEntries(new FormData(form)));
-      form.replaceChildren(h('h1', {}, 'Check your email'), h('p', { class: 'lg-sub' }, r.emailEnabled ? 'If an account exists for that address, a reset link is on its way. It works once and expires in 2 hours.' : 'Email is not switched on for this service yet, so no link could be sent. Contact Processor Freedom and we will send you a reset link directly.'), link('/login', { class: 'lg-go' }, 'Back to log in'));
+      form.replaceChildren(h('h1', {}, 'Check your email'), h('p', { class: 'lg-sub' }, r.emailEnabled ? 'If an account exists for that address, a reset link is on its way. It works once and expires in 2 hours.' : 'Email is not switched on for this service yet, so no link could be sent. Contact Processor Freedom and we will send you a reset link directly.'), link(`/login${q}`, { class: 'lg-go' }, 'Back to log in'));
     } catch (ex) { err.textContent = ex.message; button.disabled = false; }
   } }, h('h1', {}, 'Access your account'), h('p', { class: 'lg-sub' }, 'Forgot your password? Enter your email and we will send you a link to choose a new one.'),
     lgField('Email', { name: 'email', type: 'email', autocomplete: 'email', required: true, autofocus: true }), err, button,

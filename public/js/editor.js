@@ -22,7 +22,7 @@ const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timeshee
 const TYPE_TABS = new Set(['sales', 'r-full', 'r-items', 'r-types', 'r-disc', 'r-removed', 'r-taxes', 'r-emp', 'r-tender']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
-const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Notifications on this device', 'Alerts and reports', 'Order emails'] };
+const SETUP_VIEWS = { ordering: ['Online ordering', 'Food preparation time', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Notifications on this device', 'Alerts and reports', 'Order emails'] };
 const MODES = { office: 'Back office', site: 'Website' };
 const NAV_NAMES = new Set(['calendar', 'insights', 'home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address', 'invoice', 'promo', 'feedback', 'team']);
 // Setup lives behind the gear at the top right, in its own section of Settings, not in the sidebar.
@@ -447,7 +447,7 @@ export async function editor(id, mount, title, startTab = '') {
       const L = draft.legal;
       return [
         group('Store policies', null,
-          text('Legal business name', draft.business, 'legalName', { placeholder: draft.brand.name, hint: 'If different from your business name, e.g. “Los Socios LLC”.' }), text('Effective date', L, 'effective')),
+          text('Legal business name', draft.business, 'legalName', { placeholder: draft.brand.name, hint: 'If different from your business name.' }), text('Effective date', L, 'effective')),
         ...Object.entries(LEGAL_PAGES).map(([k, name]) => {
           const p = L[k];
           const own = !!str(p.custom).trim();
@@ -715,7 +715,8 @@ export async function editor(id, mount, title, startTab = '') {
           o.enabled && !menu.length && note('Your menu is empty.'),
           o.enabled && h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn soft sm', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/order`; } }, 'Preview order page', ic('out', 14)), meta.live && h('a', { class: 'btn soft sm', href: `${meta.url.replace(/\/$/, '')}/order`, target: '_blank', rel: 'noopener' }, 'Open as a customer', ic('out', 14)))),
         ...(o.enabled ? [
-          method('pickup', num('Ready in (minutes)', 'prepMinutes'), text('Pickup instructions', o, 'pickupNote', { placeholder: 'Collect at the front counter', maxlength: 300 })),
+          (o.methods.pickup || o.methods.curbside) && group('Food preparation time', num('Ready in (minutes)', 'prepMinutes')),
+          method('pickup', text('Pickup instructions', o, 'pickupNote', { placeholder: 'Collect at the front counter', maxlength: 300 })),
           method('curbside', text('Curbside instructions', o, 'curbsideNote', { maxlength: 300, hint: 'Customers are asked for their vehicle make, model and colour.' })),
           method('delivery', h('div', { class: 'pair' }, cash('Delivery fee', 'deliveryFee'), cash('Minimum order', 'deliveryMin')), num('Delivered in (minutes)', 'deliveryMinutes'), text('Delivery area', o, 'deliveryArea', { placeholder: 'Within 5 miles of the restaurant', maxlength: 300 }),
             h('div', { class: 'field' }, h('span', {}, 'Delivery zones by ZIP code'), h('div', { class: 'stack' }, o.zones.map((z, i) => h('div', { class: 'zrow' },
@@ -2201,7 +2202,7 @@ export async function editor(id, mount, title, startTab = '') {
     try { const fresh = await api('GET', `/api/sites/${id}/${f[0]()}`); const same = JSON.stringify(fresh) === JSON.stringify(f[2]()); f[1](fresh); if (quiet && !same && tab === k && !document.querySelector('.scrim')) paintPanel(); }
     catch (e) { if (!quiet) toast(e.message, true); }
   }
-  const goTab = (k, fromHistory = false) => { if (!known(k)) k = 'start'; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history.pushState(null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
+  const goTab = (k, fromHistory = false) => { if (!known(k)) k = 'start'; if (k === 'online') forget('devices'); if (k === 'outreach') forget('customers'); noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history.pushState(null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
   // What the merchant still has to do. Shown in Notifications, not on the dashboard.
   function setupTodos() {
     const b = draft.business;
@@ -3269,7 +3270,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'oo-plogo' }, h('span', { class: 'oo-mono lg' }, m.mono), h('small', {}, m.name)),
         h('div', { class: 'oo-psup' }, h('b', {}, 'Supports'), h('p', {}, m.supports)), h('button', { type: 'button', class: 'oo-pill', disabled: true }, 'Manage')))];
     } else {
-      const dev = isOwner ? need('devices', 'devices') : { devices: [] };
+      const dev = isOwner ? need('devices', 'devices') : null;
       const host = meta.live && meta.url ? meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
       const biz = h('section', { class: 'oo-biz' }, h('h2', { class: 'oo-h' }, 'Business information'),
         h('div', { class: 'scard oo-bizcard' },
@@ -3280,7 +3281,13 @@ export async function editor(id, mount, title, startTab = '') {
               b.email && h('p', {}, b.email))),
           h('div', { class: 'oo-bizfoot' }, h('span', { class: 'oo-fi', html: PI.info }), h('p', {}, 'This information mirrors your customer-facing business information. To correct any out-of-date details, edit them in the ', h('button', { type: 'button', class: 'oo-inl', onclick: () => goTab('bizinfo') }, 'Business information settings'), ' page.'))));
       const on = !!ordering.enabled, acc = on && ordering.accepting !== false;
-      const sw = h('input', { type: 'checkbox', checked: acc, disabled: !on, 'aria-label': 'Accepting orders', onchange: async (e) => { const was = ordering.accepting; ordering.accepting = e.target.checked; try { await putOrdering(); toast(ordering.accepting ? 'Accepting online orders' : 'Online orders paused'); } catch (err) { ordering.accepting = was; toast(err.message, true); } paintPanel(); } });
+      const sw = h('input', { type: 'checkbox', checked: acc, disabled: !on, onchange: async (e) => {
+        const box = e.target, want = box.checked;
+        box.disabled = true;   // one save at a time, so a failed save can never leave the switch out of step
+        ordering.accepting = want;
+        try { await putOrdering(); toast(want ? 'Accepting online orders' : 'Online orders paused'); } catch (err) { ordering.accepting = !want; toast(err.message, true); }
+        paintPanel(); panel.querySelector('.oo-side .oo-st:not(.off) input')?.focus();
+      } });
       const side = h('aside', { class: 'oo-side' },
         h('div', { class: 'oo-st' }, h('div', { class: 'oo-sthead' }, h('img', { class: 'oo-stlogo', src: '/assets/logo-dark.svg', alt: '', width: 26, height: 26 }), h('div', {}, h('b', {}, 'Processor Freedom Online Ordering'), h('p', {}, !on ? 'Online ordering is off.' : acc ? 'Accepting online orders.' : 'Online orders are paused.'))),
           h('div', { class: 'oo-stbody' }, tog(sw, acc ? 'Accepting orders' : 'Not accepting orders'), h('button', { type: 'button', class: 'oo-pill', onclick: () => goTab('ordering') }, h('span', { html: PI.manage }), 'Manage'))),
@@ -3289,14 +3296,15 @@ export async function editor(id, mount, title, startTab = '') {
           h('div', { class: 'oo-stbody' }, m.more ? h('button', { type: 'button', class: 'oo-more', disabled: true }, 'More Info')
             : [tog(h('input', { type: 'checkbox', disabled: true, 'aria-label': `${m.name} orders` }), 'Not accepting orders'), h('button', { type: 'button', class: 'oo-pill', disabled: true }, h('span', { html: PI.manage }), 'Manage')]))));
       const th = todayHours(), menusN = (ordering.menus || []).length, devN = dev && dev.devices ? dev.devices.length : null;
-      const op = (icon, title, value, k) => h('div', { class: 'scard oo-op' }, h('div', { class: 'oo-optop' }, h('span', { class: 'oo-opic', html: icon }), pfAct('Edit', PI.pen, () => goTab(k))), h('div', { class: 'oo-optx' }, h('b', {}, title), h('p', {}, value)));
+      const op = (icon, title, value, k) => h('div', { class: 'scard oo-op' }, h('div', { class: 'oo-optop' }, h('span', { class: 'oo-opic', html: icon }), k && pfAct('Edit', PI.pen, () => goTab(k))), h('div', { class: 'oo-optx' }, h('b', {}, title), h('p', {}, value)));
+      const off = 'Online ordering is off';
       const ops = h('section', { class: 'oo-ops' }, h('h2', { class: 'oo-h' }, 'Operational information'), h('div', { class: 'oo-opgrid' },
         op(PI.prep, 'Food preparation time', `${ordering.prepMinutes || 0} minutes`, 'ordering'),
-        op(PI.sched, 'Scheduled orders', ordering.scheduling ? 'Customers can place orders for later today or tomorrow' : 'Customers can only order for as soon as possible', 'hours'),
+        op(PI.sched, 'Scheduled orders', !on ? off : ordering.scheduling ? 'Customers can place orders for later today or tomorrow' : 'Customers can only order for as soon as possible', 'hours'),
         op(PI.menus, 'Online menus', menusN ? `${menusN} menu${menusN === 1 ? '' : 's'}` : 'Edit your online menus', 'menus'),
-        op(PI.hours, 'Online business hours', ordering.useHours ? th.text : 'Orders are taken at any time', 'hours'),
-        op(PI.printer, 'Order printing device', devN == null ? '…' : devN ? `${devN} device${devN === 1 ? '' : 's'} get new orders` : 'No device set up yet', 'devices'),
-        op(PI.notes, 'Customer requests', ordering.allowNotes !== false ? 'Customers can add special instructions' : 'Special instructions are turned off', 'ordering')));
+        op(PI.hours, 'Online business hours', !on ? off : ordering.useHours ? th.text : 'Orders are taken at any time', 'hours'),
+        isOwner ? op(PI.printer, 'Order printing device', devN == null ? '…' : devN ? `${devN} device${devN === 1 ? '' : 's'} get new orders` : 'No device set up yet', 'devices') : op(PI.printer, 'Order printing device', 'Set up by the account owner', null),
+        op(PI.notes, 'Customer requests', !on ? off : ordering.allowNotes !== false ? 'Customers can add special instructions' : 'Special instructions are turned off', 'ordering')));
       body = [h('div', { class: 'oo-grid' }, biz, side, ops)];
     }
     return [h('div', { class: 'cl oo' }, cHead('Order tools', 'Online ordering'), banner, tabsBar, launch, ...body)];
@@ -3326,14 +3334,14 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'co-row' },
           h('div', { class: 'co-info' }, h('h1', {}, name), addr && h('p', {}, addr), b.phone && h('p', {}, b.phone), b.email && h('p', {}, b.email)),
           h('div', { class: 'co-side' }, h('button', { type: 'button', class: 'co-a', onclick: () => goTab('bizinfo') }, 'Edit business information'),
-            h('p', { class: 'co-open' }, h('span', { html: PI.clock }), th.open ? 'Open' : 'Closed'), h('button', { type: 'button', class: 'co-a lg', onclick: () => goTab('hours') }, 'Edit business hours')))),
+            ordering.useHours && h('p', { class: 'co-open' }, h('span', { html: PI.clock }), th.open ? 'Open' : 'Closed'), h('button', { type: 'button', class: 'co-a lg', onclick: () => goTab('hours') }, 'Edit business hours')))),
       h('h2', { class: 'co-h' }, 'Connect with your customers'),
       h('div', { class: 'co-grid' },
         h('div', { class: 'scard co-card' }, ...band('g', PI.store), h('div', { class: 'co-body' }, h('h3', { class: 'co-gname' }, 'Google Business Profile'),
           h('p', { class: 'co-tx' }, h('b', {}, 'Stand out on Google'), ' and reach customers looking for businesses like yours on Google Search and Maps. Easily manage your business profile and reviews across Google.'), phone('g')),
           h('div', { class: 'co-foot' }, h('a', { class: 'co-claim', href: 'https://business.google.com/', target: '_blank', rel: 'noopener' }, 'Claim your business'))),
         h('div', { class: 'scard co-card' }, ...band('y', PI.burst), h('div', { class: 'co-body' }, h('h3', { class: 'co-yname' }, 'Yelp ', h('span', {}, 'for business')),
-          h('p', { class: 'co-tx' }, h('b', {}, 'Get discovered on Yelp'), ' and grow your market. Claim your free page to update your details, add photos and reply to reviews.'), phone('y')),
+          h('p', { class: 'co-tx' }, h('b', {}, 'Get discovered on Yelp'), ' and grow your market.'), phone('y')),
           h('div', { class: 'co-foot' }, h('a', { class: 'co-claim', href: 'https://biz.yelp.com/', target: '_blank', rel: 'noopener' }, 'Claim your business'))),
         h('div', { class: 'scard co-card co-rw' }, h('div', { class: 'co-body' }, h('h3', { class: 'co-title' }, h('span', { class: 'co-trophy', html: PI.trophy }), 'Rewards'),
           h('p', { class: 'co-k' }, 'Loyalty members'), h('b', { class: 'co-big' }, C ? members.length.toLocaleString() : '…'),
@@ -3343,7 +3351,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'scard co-card' }, ...band('p', PI.megaphone), h('div', { class: 'co-body' }, h('h3', { class: 'co-ptitle' }, 'Promos'),
           h('p', { class: 'co-tx' }, h('b', {}, 'Bring in new customers'), ' by creating custom discounts and special offers that you can share on social media or via email.'),
           active.length > 0 && h('div', { class: 'co-promos' }, active.map((p) => h('div', { class: 'co-promo' }, h('span', { class: 'co-pic', html: PI.tag }), h('div', {}, h('b', {}, p.code), h('small', {}, p.type === 'amount' ? `${money(p.value)} off` : `${p.value}% off`)))))),
-          h('div', { class: 'co-foot' }, h('button', { type: 'button', class: 'co-claim', onclick: () => { clState.openPromo = true; goTab('promos'); } }, 'Create a promo')))))];
+          isOwner && h('div', { class: 'co-foot' }, h('button', { type: 'button', class: 'co-claim', onclick: () => { clState.openPromo = true; goTab('promos'); } }, 'Create a promo')))))];
   };
   /* Change business name (DBA): one window, used by Business information and by the website's Business name box.
      The new name is used everywhere straight away, and the account owner gets an email about it. */
@@ -3442,7 +3450,7 @@ export async function editor(id, mount, title, startTab = '') {
     function navGroup(g) {
       const many = g.tabs.length > 1, open = many ? openNav.has(g.label) : g === group;
       const kids = many && h('div', { class: 'nav-kids', 'data-shut': open ? null : '1' }, h('div', { class: 'nav-kids-in' }, g.tabs.map((k, i) => h('button', { 'aria-current': k === cur[0] ? 'page' : null, onclick: () => goTab(k) }, g.subs[i]))));
-      const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; placeGlow(true); };
+      const toggle = (btn) => { const now = !openNav.has(g.label); if (now) openNav.add(g.label); else openNav.delete(g.label); btn.setAttribute('aria-expanded', String(now)); if (now) btn.dataset.open = '1'; else delete btn.dataset.open; if (now) delete kids.dataset.shut; else kids.dataset.shut = '1'; placeGlow(true); if (now) setTimeout(() => kids.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 280); };
       return [
         h('button', { class: 'nav-row', 'aria-current': open && !many ? 'page' : null, 'aria-expanded': many ? String(open) : null, 'data-open': open ? '1' : null, 'data-here': many && g === group ? '1' : null, onclick: (e) => (many ? toggle(e.currentTarget) : pick(g)) }, navTile(g.icon, 30), h('b', {}, g.label), g.tabs.includes('orders') && fresh > 0 && h('em', { class: 'badge' }, fresh), many && h('span', { class: 'nav-chev' }, navIcon('chev', 14))),
         kids,
@@ -3460,6 +3468,7 @@ export async function editor(id, mount, title, startTab = '') {
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...[!CL[cur[0]] && cur[0] !== 'sale' && crumbs(), !CL[cur[0]] && cur[0] !== 'sale' && HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), CL[cur[0]] ? CL[cur[0]]() : cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
+    for (const [sel, here] of [['.tb-right button[aria-label="Profile"]', cur[0] === 'profile'], ['.tb-gear', cur[0] === 'settings' || SETUP.tabs.includes(cur[0])]]) { const btn = top.querySelector(sel); if (btn) { if (here) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current'); } }
     if (cur[0] === 'appt-new' || cur[0] === 'cust-new' || cur[0] === 'sale') requestAnimationFrame(() => panel.style.setProperty('--cl-left', `${Math.round(panel.getBoundingClientRect().left)}px`));
     if (REPORT_TABS.has(cur[0]) && !CL[cur[0]]) addReportTools(cur[0]);
     labelTables(panel);
@@ -3749,8 +3758,8 @@ export async function editor(id, mount, title, startTab = '') {
   }
   const topRight = () => {
     const bell = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Notifications', 'aria-label': 'Notifications', 'aria-haspopup': 'dialog', onclick: () => openNotes(bell) }, tIcon('bell'), h('span', { class: 'tb-dot', hidden: !(unread() || newTodos()) }));
-    const gear = h('button', { class: 'icon-btn tb-btn tb-gear', type: 'button', title: 'Settings', 'aria-label': 'Settings', onclick: openSettings }, tIcon('gear'));
-    const me = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Profile', 'aria-label': 'Profile', 'aria-haspopup': 'dialog', onclick: () => openProfileMenu(me) }, tIcon('user'));
+    const gear = h('button', { class: 'icon-btn tb-btn tb-gear', type: 'button', title: 'Settings', 'aria-label': 'Settings', 'aria-current': tab === 'settings' || SETUP.tabs.includes(tab) ? 'page' : null, onclick: openSettings }, tIcon('gear'));
+    const me = h('button', { class: 'icon-btn tb-btn', type: 'button', title: 'Profile', 'aria-label': 'Profile', 'aria-current': tab === 'profile' ? 'page' : null, 'aria-haspopup': 'dialog', onclick: () => openProfileMenu(me) }, tIcon('user'));
     return h('div', { class: 'tb-right' }, bell, gear, me);
   };
   loadNotes();

@@ -23,7 +23,7 @@ export function wizard(mount, title) {
       known && !found.available && found.suggestions.length > 0 && h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:10px' }, h('span', { class: 'small muted' }, 'Try'),
         found.suggestions.map((s) => h('button', { class: 'chip', type: 'button', onclick: () => { d.slug = s; d.edited = true; check({ slug: s, name: d.name }); draw(); } }, showAddress(s)))));
   }
-  const input = h('input', { class: 'input lg', value: d.name, placeholder: 'e.g. Los Socios Café', maxlength: 80, autofocus: true, 'aria-label': 'Business name', oninput: () => {
+  const input = h('input', { class: 'input lg', value: d.name, placeholder: 'Your business name', maxlength: 80, autofocus: true, 'aria-label': 'Business name', oninput: () => {
     d.name = input.value;
     if (!d.edited) { d.slug = slugify(d.name); check({ name: d.name }); }
     draw();
