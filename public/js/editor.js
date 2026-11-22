@@ -1014,6 +1014,8 @@ export async function editor(id, mount, title, startTab = '') {
     sale() {
       const d = saleDraft;
       if (!d.lines) d.lines = [];
+      if (d.cat == null) d.cat = '';
+      if (d.iq == null) d.iq = '';
       if (!customers && !saleCust) { saleCust = true; api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => {}).finally(() => { saleCust = false; }); }
       const rate = Number(ordering.taxRate) || 0;
       const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
@@ -1025,41 +1027,50 @@ export async function editor(id, mount, title, startTab = '') {
         const tax = d.taxOn ? Math.round((taxable * rate) / 100) : 0, tip = d.type === 'pay' ? cents(d.tip) : 0;
         return { sub, tax, tip, total: sub + tax + tip };
       };
-      const sumEl = h('div', { class: 'ns-sum' }), btn = h('button', { class: 'btn ns-go', type: 'button' });
+      const cats = [...new Set(menu.map((x) => x.category))];
+      // Left: the items to ring up.
+      const grid = h('div', { class: 'reg-grid' });
+      const drawGrid = () => {
+        const q = d.iq.trim().toLowerCase();
+        const shown = menu.filter((x) => x.available !== false && (!d.cat || x.category === d.cat) && (!q || x.name.toLowerCase().includes(q)));
+        grid.replaceChildren(
+          h('button', { type: 'button', class: 'reg-tile reg-custom', onclick: () => { cName.focus(); } }, h('span', { class: 'reg-plus' }, ic('plus', 22)), h('b', {}, 'Custom amount')),
+          ...shown.map((x) => h('button', { type: 'button', class: 'reg-tile', onclick: () => addLine(x.name, itemPrice(x), x.taxable !== false, x.id) },
+            x.image ? h('span', { class: 'reg-img', style: `background-image:url("${x.image}")` }) : h('span', { class: 'reg-ini' }, x.name.slice(0, 2).toUpperCase()),
+            h('b', {}, x.name), h('small', {}, money(itemPrice(x))))));
+        if (!menu.length) grid.append(h('div', { class: 'reg-none' }, h('b', {}, 'No items yet'), h('button', { type: 'button', class: 'btn soft sm', onclick: () => goTab('items') }, 'Add items')));
+        else if (!shown.length) grid.append(h('div', { class: 'reg-none' }, h('b', {}, 'No items match')));
+      };
+      const chips = h('div', { class: 'reg-cats', role: 'tablist' }, [['', 'All items'], ...cats.map((c) => [c, c])].map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(d.cat === k), onclick: (e) => { d.cat = k; chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b === e.currentTarget))); drawGrid(); } }, l)));
+      const cName = h('input', { placeholder: 'Item name (optional)', 'aria-label': 'Custom item name', maxlength: 160 }), cPrice = h('input', { placeholder: '0.00', inputmode: 'decimal', 'aria-label': 'Custom amount', onkeydown: (e) => { if (e.key === 'Enter') addCustom(); } });
+      const addCustom = () => { const c = parsePrice(cPrice.value || ''); if (!c) { cPrice.focus(); return toast('Enter an amount.', true); } addLine(cName.value.trim() || 'Custom amount', c); cName.value = ''; cPrice.value = ''; };
+      // Right: the ticket.
+      const lines = h('div', { class: 'tk-lines' }), sumEl = h('div', { class: 'tk-sum' }), btn = h('button', { class: 'btn tk-go', type: 'button' });
       const drawSum = () => {
         const t = sums(), card = d.type === 'pay' && d.tender === 'card';
         sumEl.replaceChildren(
-          h('div', { class: 'ns-line' }, h('span', {}, 'Subtotal'), h('b', {}, money(t.sub))),
-          h('div', { class: 'ns-line' }, h('span', {}, rate ? `Tax (${rate}%)` : 'Tax'), h('b', {}, money(t.tax))),
-          d.type === 'pay' && h('div', { class: 'ns-line' }, h('span', {}, 'Tip'), h('b', {}, money(t.tip))),
-          h('div', { class: 'ns-line ns-total' }, h('span', {}, 'Total'), h('b', {}, money(t.total))));
+          h('div', {}, h('span', {}, 'Subtotal'), h('span', {}, money(t.sub))),
+          h('div', {}, h('span', {}, rate ? `Tax (${rate}%)` : 'Tax'), h('span', {}, money(t.tax))),
+          ...(d.type === 'pay' && t.tip > 0 ? [h('div', {}, h('span', {}, 'Tip'), h('span', {}, money(t.tip)))] : []),
+          h('div', { class: 'tk-total' }, h('b', {}, 'Total'), h('b', {}, money(t.total))));
         btn.disabled = saleBusy || cardOnly || card || (d.type === 'pay' && !(t.sub > 0));
         btn.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Card payments not connected' : `Charge ${money(t.total)}`;
       };
-      // Items: pick from the menu or add a custom amount; each line has a quantity.
-      const list = h('div', { class: 'ns-items' });
       const drawLines = () => {
-        list.replaceChildren(...(d.lines.length ? d.lines.map((l, i) => h('div', { class: 'ns-row' },
-          h('div', { class: 'ns-name' }, h('b', {}, l.name), h('small', {}, money(l.price))),
-          h('div', { class: 'ns-qty' }, h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'One fewer', onclick: () => { l.qty -= 1; if (l.qty < 1) d.lines.splice(i, 1); drawLines(); } }, ic('minus', 16)), h('span', {}, String(l.qty)), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'One more', onclick: () => { l.qty += 1; drawLines(); } }, ic('plus', 16))),
-          h('b', { class: 'ns-amt' }, money(l.price * l.qty)),
-          h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': `Remove ${l.name}`, onclick: () => { d.lines.splice(i, 1); drawLines(); } }, ic('x', 16))))
-          : [h('p', { class: 'ns-empty' }, 'No items yet')]));
+        lines.replaceChildren(...(d.lines.length ? d.lines.map((l, i) => h('div', { class: 'tk-row' },
+          h('div', { class: 'tk-name' }, h('b', {}, l.name), h('small', {}, `${money(l.price)} each`)),
+          h('div', { class: 'tk-qty' }, h('button', { type: 'button', 'aria-label': 'One fewer', onclick: () => { l.qty -= 1; if (l.qty < 1) d.lines.splice(i, 1); drawLines(); } }, ic('minus', 14)), h('span', {}, String(l.qty)), h('button', { type: 'button', 'aria-label': 'One more', onclick: () => { l.qty += 1; drawLines(); } }, ic('plus', 14))),
+          h('b', { class: 'tk-amt' }, money(l.price * l.qty))))
+          : [h('div', { class: 'tk-empty' }, ic('bag', 26), h('span', {}, 'Tap an item to add it to the sale'))]));
         drawSum();
       };
       const addLine = (name, price, taxable = true, itemId = '') => { const same = itemId && d.lines.find((l) => l.itemId === itemId); if (same) same.qty += 1; else d.lines.push({ name, price, qty: 1, taxable, itemId }); drawLines(); };
-      const hits = h('div', { class: 'ns-hits' });
-      const findItems = (q) => { const m = q ? menu.filter((x) => x.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8) : []; hits.replaceChildren(...m.map((x) => h('button', { type: 'button', onclick: () => { addLine(x.name, itemPrice(x), x.taxable !== false, x.id); itemQ.value = ''; findItems(''); itemQ.focus(); } }, h('span', {}, x.name), h('b', {}, money(itemPrice(x)))))); };
-      const itemQ = h('input', { type: 'search', placeholder: 'Search items', 'aria-label': 'Search items', oninput: (e) => findItems(e.target.value.trim()) });
-      const cName = h('input', { placeholder: 'Custom item', 'aria-label': 'Custom item name', maxlength: 160 }), cPrice = h('input', { placeholder: '0.00', inputmode: 'decimal', 'aria-label': 'Custom amount' });
-      const addCustom = () => { const c = parsePrice(cPrice.value || ''); if (!c) return toast('Enter an amount.', true); addLine(cName.value.trim() || 'Custom amount', c); cName.value = ''; cPrice.value = ''; cName.focus(); };
-      // Customer
-      const who = h('div', { class: 'ns-who' });
+      const who = h('div', { class: 'tk-who' });
       const drawWho = () => {
-        if (d.customer) return who.replaceChildren(h('div', { class: 'vt-picked' }, h('div', {}, h('b', {}, d.customer.name), h('div', { class: 'small muted' }, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', type: 'button', onclick: () => { d.customer = null; drawWho(); } }, 'Change')));
+        if (d.customer) return who.replaceChildren(h('div', { class: 'tk-cust' }, h('i', { class: 'sh-av' }, (d.customer.name || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()), h('div', {}, h('b', {}, d.customer.name), h('small', {}, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', type: 'button', onclick: () => { d.customer = null; drawWho(); } }, 'Remove')));
         const res = h('div', { class: 'ns-hits' });
         const find = () => { const q = d.q.toLowerCase(); res.replaceChildren(...(q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q)).slice(0, 6) : []).map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; drawWho(); } }, h('span', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
-        who.replaceChildren(h('div', { class: 'row', style: 'gap:8px' }, h('label', { class: 'tsearch grow' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search customers', value: d.q, 'aria-label': 'Search customers', oninput: (e) => { d.q = e.target.value; find(); } })), h('button', { class: 'btn soft', type: 'button', onclick: () => { who.replaceChildren(customerRow((c) => { d.customer = { name: c.name, email: c.email, phone: c.phone, company: c.company }; drawWho(); }, drawWho)); } }, ic('plus', 16), 'New')), res);
+        who.replaceChildren(h('div', { class: 'tk-find' }, h('label', { class: 'tsearch' }, ic('person', 18), h('input', { type: 'search', placeholder: 'Add a customer', value: d.q, 'aria-label': 'Search customers', oninput: (e) => { d.q = e.target.value; find(); } })), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'New customer', title: 'New customer', onclick: () => { who.replaceChildren(customerRow((c) => { d.customer = { name: c.name, email: c.email, phone: c.phone, company: c.company }; drawWho(); }, drawWho)); } }, ic('plus', 18))), res);
         find();
       };
       const record = async () => {
@@ -1072,31 +1083,32 @@ export async function editor(id, mount, title, startTab = '') {
           const c = d.customer || {};
           const r = await api('POST', `/api/sites/${id}/invoices`, { walkIn: !d.customer, customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '', address: c.address || '' }, items, taxRate: 0, notes: d.note.trim(), paidMethod: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', paidNote: 'Recorded with New sale' });
           bills = null; txData = null; stats = null;
-          saleDraft = { type: 'pay', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '', lines: [] };
+          saleDraft = { type: 'pay', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '', lines: [], cat: d.cat, iq: '' };
           toast(`${money(t.total)} recorded as ${r.invoice.label || 'a sale'}`);
         } catch (e) { toast(e.message, true); }
         saleBusy = false; if (tab === 'sale') paintPanel();
       };
       btn.onclick = record;
       const tenders = [['cash', 'Cash'], ['card', 'Card'], ['check', 'Check'], ['other', 'Other']];
-      const payBox = d.type === 'pay' && h('div', { class: 'ns-pay' },
-        h('span', { class: 'ns-k' }, 'Paid by'),
-        h('div', { class: 'ns-tenders', role: 'radiogroup', 'aria-label': 'Paid by' }, tenders.map(([k, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l))),
-        d.tender === 'card' && h('p', { class: 'note' }, 'Card payments are not connected yet.'));
-      drawLines(); drawWho();
-      return [h('div', { class: 'ns' },
-        h('div', { class: 'ns-main' },
-          h('div', { class: 'scard ns-card' }, h('div', { class: 'ns-head' }, h('h3', {}, 'Items'), h('select', { class: 'ns-type', 'aria-label': 'Transaction type', onchange: (e) => { d.type = e.target.value; paintPanel(); } }, TYPES.map(([k, l]) => h('option', { value: k, selected: d.type === k }, l)))),
-            h('label', { class: 'tsearch' }, ic('search', 18), itemQ), hits,
-            list,
-            h('div', { class: 'ns-custom' }, cName, h('div', { class: 'ns-price' }, h('span', {}, '$'), cPrice), h('button', { class: 'btn soft', type: 'button', onclick: addCustom }, ic('plus', 16), 'Add'))),
-          h('div', { class: 'scard ns-card' }, h('h3', {}, 'Customer'), who),
-          h('div', { class: 'scard ns-card' }, h('h3', {}, 'Note'), h('textarea', { rows: 2, maxlength: 500, placeholder: 'Optional', value: d.note, oninput: (e) => { d.note = e.target.value; } }))),
-        h('aside', { class: 'scard ns-card ns-side' }, h('h3', {}, 'Summary'),
+      drawGrid(); drawLines(); drawWho();
+      return [h('div', { class: 'reg' },
+        h('section', { class: 'reg-main' },
+          h('div', { class: 'reg-top' }, h('h1', {}, 'New sale'), h('label', { class: 'tsearch reg-search' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', value: d.iq, 'aria-label': 'Search items', oninput: (e) => { d.iq = e.target.value; drawGrid(); } }))),
+          cats.length > 0 && chips,
+          grid,
+          h('div', { class: 'reg-customrow' }, h('b', {}, 'Custom amount'), cName, h('div', { class: 'ns-price' }, h('span', {}, '$'), cPrice), h('button', { class: 'btn', type: 'button', onclick: addCustom }, 'Add to sale'))),
+        h('aside', { class: 'tk' },
+          h('div', { class: 'tk-head' }, h('h2', {}, 'Current sale'), h('select', { class: 'tk-type', 'aria-label': 'Transaction type', onchange: (e) => { d.type = e.target.value; paintPanel(); } }, TYPES.map(([k, l]) => h('option', { value: k, selected: d.type === k }, l)))),
+          who,
+          lines,
+          h('details', { class: 'tk-more', open: !!(d.note || d.tip) }, h('summary', {}, 'Note and tip'),
+            h('textarea', { rows: 2, maxlength: 500, placeholder: 'Note', 'aria-label': 'Note', value: d.note, oninput: (e) => { d.note = e.target.value; } }),
+            d.type === 'pay' && h('div', { class: 'ns-price' }, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: 'Tip', 'aria-label': 'Tip', value: d.tip, oninput: (e) => { d.tip = e.target.value; drawSum(); } })),
+            rate > 0 && h('label', { class: 'switch' }, h('span', {}, 'Charge tax'), h('input', { type: 'checkbox', checked: d.taxOn, onchange: (e) => { d.taxOn = e.target.checked; drawSum(); } }), h('i'))),
           sumEl,
-          rate > 0 && h('label', { class: 'switch ns-switch' }, h('span', {}, 'Charge tax'), h('input', { type: 'checkbox', checked: d.taxOn, onchange: (e) => { d.taxOn = e.target.checked; drawSum(); } }), h('i')),
-          d.type === 'pay' && h('label', { class: 'field ns-tip' }, h('span', {}, 'Tip'), h('div', { class: 'ns-price' }, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: '0.00', value: d.tip, oninput: (e) => { d.tip = e.target.value; drawSum(); } }))),
-          payBox, btn))];
+          d.type === 'pay' && h('div', { class: 'tk-tenders', role: 'radiogroup', 'aria-label': 'Paid by' }, tenders.map(([k, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l))),
+          d.type === 'pay' && d.tender === 'card' && h('p', { class: 'tk-note' }, 'Card payments are not connected yet.'),
+          btn))];
     },
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
@@ -2685,7 +2697,7 @@ export async function editor(id, mount, title, startTab = '') {
   };
   CL.disputes = () => [h('div', { class: 'cl' }, cHead(null, 'Disputes', [h('button', { type: 'button', class: 'cl-link up', onclick: () => goTab('alerts') }, 'SETTINGS'), moreBtn([['Print', () => printLight()]])]),
     h('div', { class: 'cl-dsp' }, h('h3', {}, 'Search for a Dispute'), h('label', { class: 'cl-lab' }, 'Case Number'),
-      h('form', { class: 'cl-case', onsubmit: (e) => { e.preventDefault(); const v = e.currentTarget.querySelector('input').value.trim(); if (!v) return; toast('No dispute found with that case number.', true); } }, h('input', { placeholder: 'Case number', 'aria-label': 'Case number' }), h('button', { class: 'btn cl-green' }, 'Search')),
+      h('form', { class: 'cl-case', onsubmit: (e) => { e.preventDefault(); const v = e.currentTarget.querySelector('input').value.trim(); if (!v) return; toast('No dispute found with that case number.', true); } }, h('input', { placeholder: 'Case number', 'aria-label': 'Case number' }), h('button', { class: 'btn cl-blue' }, 'Search')),
       h('h3', {}, 'Filter Your Disputes'),
       h('div', { class: 'cl-three' }, ...[['Location', ['Any location', meta.name]], ['Date', ['Any date', 'Last 30 days', 'Last 90 days', 'Last 12 months']], ['Amount', ['Any amount', 'Under $50', '$50 – $250', 'Over $250']]].map(([l, opts]) => h('label', { class: 'field' }, h('span', {}, l), h('select', {}, opts.map((o) => h('option', {}, o)))))),
       h('div', { class: 'scard cl-card' }, cEmpty('No disputes', ''))))];
@@ -2709,7 +2721,7 @@ export async function editor(id, mount, title, startTab = '') {
     ['Feature highlights', [[ICO.rec, 'Payment flexibility for you and your vendors', 'Pay your usual way. Your vendors get paid their way.'], [ICO.shield, 'Safe and secure online payments', 'We safeguard all transactions using bank-level security.'], [ICO.sync, 'QuickBooks-ready records', 'Download your payments as a file QuickBooks reads, to keep your books accurate.']]], null, 'bills')];
   /* ---------- Appointments ---------- */
   const A_STATUS = { Pending: 'pending', Confirmed: 'confirmed', Completed: 'completed', Canceled: 'cancelled', 'No show': 'noshow' };
-  const A_ICON = { Pending: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', Confirmed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>', Completed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m6.5 12 3 3 5-6M11 15l5-6"/></svg>', Canceled: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M6 18 18 6"/></svg>', 'No show': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c4362f" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16v.5"/></svg>', Open: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 7h6M9 17h6M9.5 7c0 3 5 3 5 5s-5 2-5 5"/></svg>', 'Partially paid': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2e8540" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 6v12M14.5 8.5c-1-1.5-5-1.5-5 .5s5 1.5 5 3.5-4 2-5 .5"/></svg>' };
+  const A_ICON = { Pending: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', Confirmed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>', Completed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m6.5 12 3 3 5-6M11 15l5-6"/></svg>', Canceled: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M6 18 18 6"/></svg>', 'No show': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c4362f" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16v.5"/></svg>', Open: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 7h6M9 17h6M9.5 7c0 3 5 3 5 5s-5 2-5 5"/></svg>', 'Partially paid': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#1d4f9e" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 6v12M14.5 8.5c-1-1.5-5-1.5-5 .5s5 1.5 5 3.5-4 2-5 .5"/></svg>' };
   const peopleList = () => { const s = need('shifts', 'shifts'); return s ? s.people : []; };
   function apptSheet(a) {
     const t = a.at.slice(11, 16), [hh, mm] = t.split(':').map(Number), tl = `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`;
@@ -2827,7 +2839,7 @@ export async function editor(id, mount, title, startTab = '') {
     const nF = (clState.empRole !== 'All') + (clState.empStatus !== 'All');
     return [h('div', { class: 'cl' }, cHead(null, 'Employees', [moreBtn([['Export employee list', () => saveSheetFile(`${meta.slug}-employees`, [['Name', 'Email', 'Role', 'Status'], ...people.map((p) => [p.name, p.email, ROLE_NAME[p.role], p.active ? 'Claimed' : 'Invited'])], 'csv')]])]),
       h('div', { class: 'tbar' }, cSearch('Search employee', clState.empQ, (v) => { clState.empQ = v; }), cFilters(() => rPanel('Filters', () => { let r = clState.empRole, s = clState.empStatus; return { el: h('div', {}, rpRadios('Role', ['All', 'Owner', 'Manager', 'Employee'], r, (v) => { r = v; }), rpRadios('Status', ['All', 'Claimed', 'Invited'], s, (v) => { s = v; })), apply: () => { clState.empRole = r; clState.empStatus = s; } }; }), nF),
-        h('button', { type: 'button', class: 'btn cl-green', onclick: () => { clState.empEdit = ''; goTab('emp-new'); } }, ic('plus', 18), 'Add employee')),
+        h('button', { type: 'button', class: 'btn cl-blue', onclick: () => { clState.empEdit = ''; goTab('emp-new'); } }, ic('plus', 18), 'Add employee')),
       cTable('team', [{ k: 'n', l: 'Name', sort: (r) => r._n }, { k: 'j', l: 'Jobs' }, { k: 'r', l: 'Role' }, { k: 's', l: 'Status' }, { k: 'v', l: '' }], rows, cEmpty('No employees match', '')))];
   };
   CL['emp-new'] = () => {
@@ -2855,7 +2867,7 @@ export async function editor(id, mount, title, startTab = '') {
         if (r.link) sheet((close) => [h('h2', {}, 'Login created'), h('p', { class: 'muted' }, `Send this link to ${v.email} so they can choose a password. It works once and lasts 3 days.`), h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, r.link), h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
       } catch (e) { toast(e.message, true); btn.disabled = false; }
     };
-    const saveBtn = h('button', { type: 'button', class: 'btn cl-green' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
+    const saveBtn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
     return [h('div', { class: 'cl cl-form' }, h('button', { type: 'button', class: 'cl-back', onclick: () => goTab('team') }, h('span', { html: SVG.back }), 'Employees'), h('h1', { class: 'cl-ftitle' }, ex ? 'Edit employee' : 'New employee'),
       h('div', { class: 'scard cl-sec cl-emp' }, h('h2', {}, 'Employee details'), h('p', { class: 'cl-req0' }, '*Indicates a required field'),
         h('h3', {}, 'Personal'), f('Full name*', inp('name', { maxlength: 80 })), f('Nickname', inp('nickname', { maxlength: 60 }), 'Nickname appears wherever the employee is listed. For example, on receipts.'),
@@ -2952,7 +2964,7 @@ export async function editor(id, mount, title, startTab = '') {
       .map((c) => ({ n: c.name, e: c.email || '', p: c.phone || '', _n: c.name, onclick: () => { clState.custKey = c.email || c.name; goTab('cust-new'); } }));
     return [h('div', { class: 'cl' }, cHead(null, 'Customers', [moreBtn([['Import customers (Excel or CSV)', importCustomers], ['Export customers', exportCustomers]])]),
       h('div', { class: 'tbar' }, cSearch('Search', clState.custQ, (v) => { clState.custQ = v; }), cFilters(() => rPanel('Filters', () => { let s = clState.custShow; return { el: rpRadios('Show', ['Everyone', 'Regulars', 'One order', 'Has email', 'Has phone'], s, (v) => { s = v; }), apply: () => { clState.custShow = s; } }; }), clState.custShow !== 'Everyone' ? 1 : 0),
-        h('button', { type: 'button', class: 'btn cl-green', onclick: () => { clState.custKey = ''; goTab('cust-new'); } }, ic('plus', 18), 'Add customer')),
+        h('button', { type: 'button', class: 'btn cl-blue', onclick: () => { clState.custKey = ''; goTab('cust-new'); } }, ic('plus', 18), 'Add customer')),
       cTable('customers', [{ k: 'n', l: 'Name', sort: (r) => r._n }, { k: 'e', l: 'Email address' }, { k: 'p', l: 'Phone number' }], rows, cEmpty(customers.length ? 'Nobody matches that search' : 'No customers yet', '')))];
   };
   CL['cust-new'] = () => {
@@ -2969,7 +2981,7 @@ export async function editor(id, mount, title, startTab = '') {
       btn.disabled = true;
       try { await api('POST', `/api/sites/${id}/contacts`, { name, company: v.company, email: v.emails[0] || '', phone: v.phones[0] || '', address: v.address, more: { emails: v.emails.slice(1), phones: v.phones.slice(1), note: v.note } }); customers = null; bills = null; clState.custDraft = null; toast(ex ? 'Customer saved' : 'Customer added'); goTab('customers'); } catch (e) { toast(e.message, true); btn.disabled = false; }
     };
-    const saveBtn = h('button', { type: 'button', class: 'btn cl-green' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
+    const saveBtn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
     return [h('div', { class: 'cl cl-form cl-cust' }, h('button', { type: 'button', class: 'cl-back', onclick: () => { clState.custDraft = null; goTab('customers'); } }, h('span', { html: SVG.back }), 'Customers'), h('h1', { class: 'cl-ftitle' }, ex ? 'Edit customer' : 'Add customer'),
       h('div', { class: 'cl-grid2' }, f('First name', inp(() => v.first, (x) => { v.first = x; }, { maxlength: 60 })), f('Last name', inp(() => v.last, (x) => { v.last = x; }, { maxlength: 60 }))),
       f('Business name', inp(() => v.company, (x) => { v.company = x; }, { maxlength: 120 })), h('hr'),
@@ -3079,7 +3091,7 @@ export async function editor(id, mount, title, startTab = '') {
       ];
     }).filter(Boolean),
       h('span', { class: 'grow' }),
-      mode === 'office' && h('div', { class: 'rail-tools' }, h('button', { class: 'nav-row', onclick: () => goTab(lastTab.site) }, navTile('address', 30), h('b', {}, 'Website')), has('booking') && h('button', { class: 'nav-row', 'aria-current': cur[0] === 'booking' ? 'page' : null, onclick: () => goTab('booking') }, navTile('calendar', 30), h('b', {}, 'Booking tools'))),
+      mode === 'office' && h('div', { class: 'rail-tools' }, has('booking') && h('button', { class: 'nav-row', 'aria-current': cur[0] === 'booking' ? 'page' : null, onclick: () => goTab('booking') }, navTile('calendar', 30), h('b', {}, 'Booking tools'))),
       mode === 'site' && railPub,
       h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].filter(Boolean));
     placeGlow(true);
@@ -3089,7 +3101,7 @@ export async function editor(id, mount, title, startTab = '') {
     subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
-    panel.replaceChildren(...[!CL[cur[0]] && crumbs(), !CL[cur[0]] && HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), CL[cur[0]] ? CL[cur[0]]() : cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
+    panel.replaceChildren(...[!CL[cur[0]] && cur[0] !== 'sale' && crumbs(), !CL[cur[0]] && cur[0] !== 'sale' && HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), CL[cur[0]] ? CL[cur[0]]() : cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
     if (cur[0] === 'appt-new' || cur[0] === 'cust-new') requestAnimationFrame(() => panel.style.setProperty('--cl-left', `${Math.round(panel.getBoundingClientRect().left)}px`));
     if (REPORT_TABS.has(cur[0]) && !CL[cur[0]]) addReportTools(cur[0]);
@@ -3335,7 +3347,7 @@ export async function editor(id, mount, title, startTab = '') {
       const freq = h('div', {}, h('p', { class: 'ss-k' }, 'Frequently viewed settings'), h('div', { class: 'ss-list' },
         [['Business information', 'Edit your business name, address, phone number, and more.', go3('bizinfo')], ['Reporting settings', 'Which period your reports open on.', () => { close(); reportSettings(); }],
           ['Business hours', 'Monday to Sunday, for your website and online ordering.', go3('hours')], ['Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', go3('ordering')],
-          ['Alerts and emails', 'How you hear about new orders and what customers are sent.', go3('alerts')]]
+          ['Alerts and emails', 'How you hear about new orders and what customers are sent.', go3('alerts')], ['Website', 'Edit your website: look and feel, home page, web address and policies.', go3(lastTab.site)]]
           .map(([t, d, fn]) => h('button', { type: 'button', class: 'ss-row', onclick: fn }, h('b', {}, t), h('small', {}, d)))));
       const allSteps = setupSteps();
       const tasks = h('div', {}, h('p', { class: 'ss-k' }, 'Setup tasks'),
@@ -3374,7 +3386,7 @@ export async function editor(id, mount, title, startTab = '') {
           h('button', { type: 'button', class: 'rail-new mm-new', onclick: go4('sale') }, ic('plus', 18), 'New sale'),
           h('nav', { class: 'mm-nav', 'aria-label': 'Back office' }, groups.map(row)),
           h('hr', { class: 'mm-hr' }),
-          h('nav', { class: 'mm-nav' }, h('button', { type: 'button', class: 'mm-row', onclick: () => { close(); goTab(lastTab.site); } }, navIcon('address', 24), h('b', {}, 'Website')), has('booking') && h('button', { type: 'button', class: 'mm-row', 'aria-current': tab === 'booking' ? 'page' : null, onclick: go4('booking') }, navIcon('calendar', 24), h('b', {}, 'Booking tools'))),
+          h('nav', { class: 'mm-nav' }, has('booking') && h('button', { type: 'button', class: 'mm-row', 'aria-current': tab === 'booking' ? 'page' : null, onclick: go4('booking') }, navIcon('calendar', 24), h('b', {}, 'Booking tools'))),
           h('div', { class: 'mm-foot' }, h('small', {}, `© ${new Date().getFullYear()} Processor Freedom`), h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), h('a', { href: '/contact', target: '_blank', rel: 'noopener' }, 'Contact')))];
     }, 'mmenu');
   }
