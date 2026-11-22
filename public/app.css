@@ -4098,7 +4098,7 @@ html[data-theme=dark] .rw-day i.e{background:#9cc0ff}
   .cl-fig>b{font-size:21px}
   .cl-bar{margin:0}
 }
-@media (max-width:520px){.cl-figs{grid-template-columns:1fr 1fr}.cl-svc,.cl-when{grid-template-columns:1fr}.cl-calbar .grow{display:none}}
+@media (max-width:520px){.cl-figs{grid-template-columns:1fr 1fr}.cl-svc,.cl-when{grid-template-columns:1fr}.cl-calbar>.grow{display:none}}
 .panel[data-tab="appt-new"],.panel[data-tab="cust-new"]{padding-bottom:0!important}
 .panel[data-tab="appt-new"] .cl,.panel[data-tab="cust-new"] .cl{padding-bottom:0}
 .sheet.swb{width:min(520px,calc(100vw - 32px))}
@@ -4478,3 +4478,90 @@ html[data-theme=dark] .rw-day i.e{background:#9cc0ff}
 .vt-go{height:44px;padding:0 24px;font-size:15px;border-radius:6px}
 @media (max-width:900px){.vt-subbox input{font-size:30px}.vt-bartotal span,.vt-bartotal b{font-size:20px}}
 @media (min-width:901px){.ed-body[data-mode=office] .panel>.vt{max-width:760px!important;margin-left:0!important;margin-right:auto!important}}
+
+/* ---------- iPhone pass ---------- */
+.cl-sel .grow{min-width:0}
+.cl-form .tsearch input,.cl-form .cl-csearch input,.cl-field .tsearch input{border:0!important;background:none!important;min-height:0!important;padding:0!important;box-shadow:none!important}
+@media (max-width:900px){
+  /* Title with its buttons on the right, on one line */
+  .cl-head{flex-wrap:nowrap;align-items:flex-start;gap:10px}
+  .cl-titles{flex:1 1 auto}
+  .cl-titles h1{font-size:24px;line-height:1.2}
+  .cl-tools{flex:none;gap:6px}
+  .cl-tools .cl-btn{height:38px;padding:0 12px;font-size:14px}
+  .cl-tools .icon-btn,.cl-tools .rep-more{width:38px;height:38px}
+  .cl-desc{font-size:14px}
+  /* Date row: dates and both arrows stay on one line */
+  .cl-range{flex-wrap:nowrap;gap:2px}
+  .cl-range b{font-size:13.5px;font-weight:600;flex:0 1 auto;min-width:0;margin-right:2px}
+  .cl-range .c2-arrow{flex:none;width:32px;height:32px}
+  /* Controls in one row that slides sideways instead of stacking */
+  .cl-ctrls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:2px 16px 4px}
+  .cl-ctrls::-webkit-scrollbar{display:none}
+  .cl-ctrls>*{flex:none}
+  .cl-ctrls .cl-sel,.cl-ctrls .fbtn{height:40px;font-size:14px}
+  .cl-ctrls .fbtn{padding:0 16px}
+  /* Three figures sit side by side */
+  .cl-figs:has(>.cl-fig:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cl-figs:has(>.cl-fig:nth-child(3):last-child)>.cl-fig{border-left:1px solid var(--line);padding:2px 12px}
+  .cl-figs:has(>.cl-fig:nth-child(3):last-child)>.cl-fig:first-child{border-left:0}
+  .cl-figs:has(>.cl-fig:nth-child(3):last-child)>.cl-fig>b{font-size:18px}
+  .cl-figs:has(>.cl-fig:nth-child(3):last-child)>.cl-fig>span{font-size:12.5px}
+  .cl-figs:has(>.cl-fig:nth-child(3):last-child)>.cl-fig>small{font-size:11.5px}
+  .cl-fig{padding:2px 16px}
+  .cl-fig>b{font-size:20px}
+  /* Tabs slide sideways */
+  .cl-tabs button{padding:9px 12px;font-size:14px}
+  /* Scheduling toolbar: dates and arrows on the first line, the rest underneath */
+  .cl-schbar{gap:6px;padding:10px 12px}
+  .cl-schbar>.grow{display:none}
+  .cl-schbar .cl-tsdate{flex:1 1 0;min-width:0;padding:0 6px;font-size:14px}
+  .cl-schbar .cl-tsdate .grow{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cl-schbar .c2-arrow{flex:none}
+  .cl-schbar .cl-plain{margin-left:auto}
+  /* Timesheets */
+  .cl-tsbar{padding:12px}
+  .cl-tsbar .cl-search{flex-basis:100%}
+  .cl-tsnav{flex:1 1 auto;justify-content:space-between}
+  /* Calendar bar */
+  .cl-calbar{gap:8px}
+  .cl-calbar .cl-date{font-size:15px}
+  .cl-pages{font-size:13px}
+  /* Section headings with a button on the right */
+  .cl-h2 h2{font-size:18px;min-width:0}
+  .cl-promo .cl-ph{font-size:21px}
+  .cl-hero{padding:40px 18px 32px;min-height:0}
+  .cl-hero h1{font-size:24px}
+  .cl.cl-center{min-height:0;padding:40px 18px}
+  .cl.cl-center h1{font-size:24px}
+}
+.cl-form .tsearch input:not([type=checkbox]):not([type=radio]),.cl-form .cl-csearch input:not([type=checkbox]):not([type=radio]){border:0!important;background:none!important;min-height:0!important;padding:0!important;box-shadow:none!important;height:auto}
+.cl-tsdate .ds{display:none}
+@media (max-width:900px){
+  .cl-tsdate .dl{display:none}.cl-tsdate .ds{display:inline}
+  .cl-schbar .cl-tsdate{flex:1 1 calc(100% - 190px)}
+  .cl-schbar .cl-plain{margin-left:0}
+  .cl-schbar .cl-pub{margin-left:auto}
+  .tbar:has(>.cl-sel) .cl-search{order:3;flex-basis:100%}
+  .tbar:has(>.cl-sel) .fbtn{margin-left:auto;flex:none}
+  .tbar>.btn{flex:1 1 auto}
+}
+@media (max-width:900px){
+  .scrim:has(>.sheet.rpanel){padding:0!important;place-items:stretch!important;align-items:stretch!important;justify-content:stretch!important}
+  .sheet.rpanel{position:fixed!important;inset:0!important;width:100%!important;max-width:none!important;height:100dvh!important;max-height:none!important;border-radius:0!important;overflow-y:auto}
+  .sheet.rpanel .rp-b{flex:1}
+  .sheet.swb{width:100%!important;max-width:none!important}
+  .cat-bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:10px 16px}
+  .cat-bar::-webkit-scrollbar{display:none}
+  .cat-bar>*{flex:none}
+  .cat-bar .grow{display:none}
+}
+/* Dark mode: deeper blue behind white button text, readable disabled state */
+html[data-theme=dark] .btn.cl-blue,html[data-theme=dark] .tbar>.btn.cl-blue,html[data-theme=dark] .cl-add,html[data-theme=dark] .btn.vt-go:not(:disabled),html[data-theme=dark] .rp-f .btn:not(.soft),html[data-theme=dark] .swb-f .btn.cl-dark{background:#2f6fd6!important;color:#fff!important}
+html[data-theme=dark] .btn.vt-go:disabled{background:#2c2c2e!important;color:#8e8e93!important}
+html[data-theme=dark] .cl-tabs button[aria-selected="true"]{background:color-mix(in srgb,var(--blue) 16%,transparent)}
+html[data-theme=dark] body .btn.cl-blue:not(.soft):not(.text):not(.danger):not(.line),html[data-theme=dark] body .rp-f .btn:not(.soft):not(.text):not(.danger):not(.line),html[data-theme=dark] body .btn.vt-go:not(:disabled):not(.soft):not(.text):not(.danger):not(.line){background:#2f6fd6!important;color:#fff!important}
+html[data-theme=dark] body .btn.vt-go:disabled:not(.soft):not(.text):not(.danger):not(.line){background:#2c2c2e!important;color:#8e8e93!important}
+.cl-form .ns-price{background:var(--card);border:1px solid var(--line2);border-radius:8px;min-height:46px}
+.cl-form .ns-price:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 15%,transparent)}
+.cl-form .ns-price input:not([type=checkbox]):not([type=radio]){border:0!important;background:none!important;min-height:0!important;padding:0!important;box-shadow:none!important}
