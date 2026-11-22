@@ -3206,15 +3206,19 @@ export async function editor(id, mount, title, startTab = '') {
       });
     };
     // Turning the authenticator app on or off uses the same steps as before: a QR code to scan, or the password to switch it off.
-    const twoFa = () => { const old = PANELS.profile(); const card = [...old[0].querySelectorAll('.prof-card')].find((c) => /Two-step/.test(c.textContent)); card?.querySelector('button')?.click(); };
+    const twoFa = () => { const old = PANELS.profile(); const card = [...old[0].querySelectorAll('.prof-card')].find((c) => c.querySelector('h3')?.textContent === 'Two-step sign-in'); card?.querySelector('button')?.click(); };
     const recovery = () => {
       if (!u.twoFactor) return toast('Turn on the authenticator app first.', true);
-      small('Download recovery codes', () => h('p', { class: 'cl-small' }, 'You will get 10 new recovery codes. Each one works once. Any codes you downloaded before will stop working.'), (close) => {
+      const pw = h('input', { type: 'password', autocomplete: 'current-password', autofocus: true });
+      small('Download recovery codes', () => [h('p', { class: 'cl-small' }, 'You will get 10 new recovery codes. Each one works once. Any codes you downloaded before will stop working.'),
+        h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Your password, to confirm'), pw))], (close) => {
         const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Download');
+        pw.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
         btn.onclick = async () => {
+          if (!pw.value) return toast('Enter your password.', true);
           btn.disabled = true;
           try {
-            const { codes } = await api('POST', '/api/me/2fa/recovery', {});
+            const { codes } = await api('POST', '/api/me/2fa/recovery', { password: pw.value });
             const text = ['Processor Freedom recovery codes', `Account: ${u.email}`, `Made: ${new Date().toLocaleString()}`, '', 'Each code works once. Keep them somewhere safe.', '', ...codes, ''].join('\n');
             const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
             const a = h('a', { href: url, download: 'processor-freedom-recovery-codes.txt' }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);

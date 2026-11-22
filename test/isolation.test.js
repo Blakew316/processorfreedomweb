@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
 import { createApp } from '../server/app.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -266,8 +267,12 @@ test('recovery codes for two-step sign-in', async () => {
     const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
     assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
 
+    // New codes need the password, like turning two-step off does.
+    assert.equal((await a('POST', '/api/me/2fa/recovery', {})).status, 401, 'codes need the password');
+    assert.equal((await a('POST', '/api/me/2fa/recovery', { password: 'not-my-password' })).status, 401, 'and the right one');
+
     // Ten different codes, each signs in once in place of the app code.
-    const codes = (await a('POST', '/api/me/2fa/recovery', {})).data.codes;
+    const codes = (await a('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).data.codes;
     assert.equal(codes.length, 10);
     assert.equal(new Set(codes).size, 10);
     for (const c of codes) assert.match(c, /^[A-Z2-9]{5}-[A-Z2-9]{5}$/);
@@ -282,7 +287,7 @@ test('recovery codes for two-step sign-in', async () => {
     assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: 'AAAAA-AAAAA' })).status, 401, 'a made-up code is refused');
 
     // A new set replaces the old one.
-    const fresh = (await a('POST', '/api/me/2fa/recovery', {})).data.codes;
+    const fresh = (await a('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).data.codes;
     assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: codes[1] })).status, 401, 'an old set stops working once a new one is made');
     assert.equal((await client()('POST', '/api/auth/login', { email: 'rc@shop.test', password: 'long-enough-pw', code: fresh[1] })).status, 200);
 
@@ -293,7 +298,44 @@ test('recovery codes for two-step sign-in', async () => {
     assert.ok(!fresh.some((c) => stored.includes(c) || stored.includes(c.replace('-', ''))), 'codes are not stored as typed');
     assert.equal(JSON.parse(stored).length, 9, 'a used code is taken off the list');
     assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
-    assert.equal((await a('POST', '/api/me/2fa/recovery', {})).status, 409, 'codes go away with two-step sign-in');
+    assert.equal((await a('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).status, 409, 'codes go away with two-step sign-in');
+  } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a reset link from the email does not get past two-step sign-in', async () => {
+  const { totpCode } = await import('../server/app.js');
+  const dir = mkdtempSync(join(tmpdir(), 'pfrs-'));
+  const { client, stop } = await boot(dir);
+  try {
+    const a = client();
+    await a('POST', '/api/auth/signup', { email: 'rs@shop.test', password: 'long-enough-pw', name: 'Rio' });
+    const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
+    // A reset link, as if it had been emailed (or, with staff = 1, made by staff for a locked-out merchant).
+    const link = (staff) => {
+      const token = `tok-${staff}-${Math.random().toString(36).slice(2)}`;
+      const db = new DatabaseSync(join(dir, 'sites.db'));
+      const id = db.prepare("SELECT id FROM users WHERE email = 'rs@shop.test'").get().id;
+      db.prepare('INSERT INTO resets (token_hash, user_id, expires_at, staff) VALUES (?, ?, ?, ?)').run(createHash('sha256').update(token).digest('hex'), id, Date.now() + 3600000, staff);
+      db.close();
+      return token;
+    };
+    const r = client();
+    const res = await r('POST', '/api/auth/reset', { token: link(0), password: 'brand-new-password' });
+    assert.equal(res.status, 200);
+    assert.equal(res.data.twoFactor, true, 'says a code is still needed');
+    assert.equal(res.data.user, undefined, 'and does not sign in');
+    assert.equal((await r('GET', '/api/sites')).status, 401, 'no session from the link');
+    assert.equal((await a('GET', '/api/sites')).status, 401, 'other devices are signed out');
+    const l = client();
+    assert.equal((await l('POST', '/api/auth/login', { email: 'rs@shop.test', password: 'brand-new-password' })).data.twoFactor, true, 'the new password alone is not enough');
+    assert.equal((await l('POST', '/api/auth/login', { email: 'rs@shop.test', password: 'brand-new-password', code: totpCode(secret) })).status, 200, 'the new password and the code sign in');
+    // Staff links are the way back in for someone who lost the phone.
+    const st = client();
+    const res2 = await st('POST', '/api/auth/reset', { token: link(1), password: 'another-new-password' });
+    assert.equal(res2.status, 200);
+    assert.equal(res2.data.user.email, 'rs@shop.test', 'a staff link signs in');
+    assert.equal((await st('GET', '/api/sites')).status, 200);
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 

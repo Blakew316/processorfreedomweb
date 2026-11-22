@@ -328,8 +328,13 @@ function reset() {
   const button = h('button', { class: 'lg-go', type: 'submit' }, 'Save password');
   const form = h('form', { class: 'lg-form', onsubmit: async (e) => {
     e.preventDefault(); err.textContent = ''; button.disabled = true;
-    try { state.user = (await api('POST', '/api/auth/reset', { token, password: new FormData(form).get('password') })).user; toast('Password updated'); go('/app'); } catch (ex) { err.textContent = ex.message; button.disabled = false; }
-  } }, h('h1', {}, 'Choose a new password'), h('p', { class: 'lg-sub' }, 'You will be logged in straight away.'),
+    try {
+      const r = await api('POST', '/api/auth/reset', { token, password: new FormData(form).get('password') });
+      // With two-step sign-in on, the new password is saved and logging in still asks for the code.
+      if (!r.user) { toast('Password saved. Log in with it and your two-step code.'); return go('/login'); }
+      state.user = r.user; toast('Password updated'); go('/app');
+    } catch (ex) { err.textContent = ex.message; button.disabled = false; }
+  } }, h('h1', {}, 'Choose a new password'),
     lgPassword('New password', { name: 'password', autocomplete: 'new-password', required: true, minlength: 8, autofocus: true }), h('p', { class: 'lg-hint' }, 'At least 8 characters.'), err, button);
   mount(authShell(form));
 }

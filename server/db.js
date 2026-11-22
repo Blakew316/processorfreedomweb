@@ -123,6 +123,8 @@ export function openDb(dataDir) {
   addColumn('members', 'details', "TEXT NOT NULL DEFAULT '{}'");
   addColumn('contacts', 'more', "TEXT NOT NULL DEFAULT '{}'");
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
+  // Links staff make for a locked-out merchant sign in even with two-step on; links from the email do not.
+  addColumn('resets', 'staff', 'INTEGER NOT NULL DEFAULT 0');
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
   db.exec(`

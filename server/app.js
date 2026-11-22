@@ -449,9 +449,12 @@ export function createApp(options = {}) {
     db.run('UPDATE users SET totp_secret = ?, totp_on = 0 WHERE id = ?', secret, user.id);
     json(res, 200, { secret, uri: `otpauth://totp/${encodeURIComponent(`PF Sites:${user.email}`)}?secret=${secret}&issuer=${encodeURIComponent('PF Sites')}&digits=6&period=30` });
   });
-  route('POST', '/api/me/2fa/recovery', (req, res) => {
+  route('POST', '/api/me/2fa/recovery', async (req, res) => {
     const user = requireUser(req);
     if (!user.twoFactor) bad(409, 'Turn on the authenticator app first, then download your recovery codes.');
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
+    if (!await checkPassword(str((await readJson(req)).password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
     limit(`recovery:${user.id}`, 10, 3600000);
     const codes = newRecoveryCodes();
     db.run('UPDATE users SET recovery = ? WHERE id = ?', JSON.stringify(codes.map((c) => recoveryHash(user.id, c))), user.id);
@@ -490,10 +493,10 @@ export function createApp(options = {}) {
     json(res, 200, { ok: true });
   });
 
-  function resetLinkFor(req, userId, hours = 2) {
+  function resetLinkFor(req, userId, hours = 2, staff = false) {
     const token = randomBytes(32).toString('base64url');
     db.run('DELETE FROM resets WHERE user_id = ?', userId);
-    db.run('INSERT INTO resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + hours * 3600000);
+    db.run('INSERT INTO resets (token_hash, user_id, expires_at, staff) VALUES (?, ?, ?, ?)', sha(token), userId, Date.now() + hours * 3600000, staff ? 1 : 0);
     return `${FIXED_ORIGIN || appOrigin(req)}/reset?token=${token}`;
   }
   route('POST', '/api/auth/forgot', async (req, res) => {
@@ -514,8 +517,11 @@ export function createApp(options = {}) {
     db.run('UPDATE users SET pass_hash = ?, verified = 1 WHERE id = ?', await hashPassword(str(b.password, 200)), row.user_id);
     db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
     db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
-    startSession(req, res, row.user_id);
     const u = db.get('SELECT id, email, name, verified, phone, totp_on FROM users WHERE id = ?', row.user_id);
+    // With two-step sign-in on, a link from the email only sets the password: logging in still needs the code or a recovery code.
+    // A link staff made for a locked-out merchant (who may have lost the phone) signs in as before.
+    if (u.totp_on && !row.staff) return json(res, 200, { twoFactor: true });
+    startSession(req, res, row.user_id);
     json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
   });
 
@@ -1445,7 +1451,7 @@ export function createApp(options = {}) {
   route('POST', '/api/admin/users/:id/reset-link', (req, res, p) => {
     requireAdmin(req);
     const target = db.get('SELECT id FROM users WHERE id = ?', p.id) || bad(404, 'That account no longer exists.');
-    json(res, 200, { link: resetLinkFor(req, target.id) });
+    json(res, 200, { link: resetLinkFor(req, target.id, 2, true) });
   });
 
   // Removes an account and everything it owns: sites, menus, orders and messages.
