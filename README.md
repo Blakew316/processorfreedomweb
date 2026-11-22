@@ -73,7 +73,15 @@ service and a persistent disk with nothing to fill in. It comes up working at it
 
 **Anywhere else**: `docker build -t pf-sites . && docker run -p 3000:3000 -v pf-data:/data pf-sites`
 
-Behind your own proxy or load balancer (anywhere but Render), set `TRUST_PROXY=1` so the attempt limits see each visitor's real address. Without it, the address headers a browser can make up are ignored. On Render this is automatic.
+Behind your own proxy or load balancer (anywhere but Render), set `TRUST_PROXY` so the attempt limits see each visitor's real address
+and links use the right host. Without it, the forwarding headers a browser can make up (`X-Forwarded-For`, `CF-Connecting-IP`,
+`X-Forwarded-Host`, `X-Forwarded-Proto`) are ignored. On Render this is automatic.
+
+- `TRUST_PROXY=1`: one proxy in front (nginx, a load balancer). It must add the visitor's address to the end of `X-Forwarded-For`.
+- `TRUST_PROXY=2` (or 3…): that many proxies in front, each adding to `X-Forwarded-For`.
+- `TRUST_PROXY=cloudflare`: Cloudflare directly in front; its `CF-Connecting-IP` is used.
+
+Set `APP_URL` too, so password reset and other emailed links always use your address.
 
 ### Domain setup
 

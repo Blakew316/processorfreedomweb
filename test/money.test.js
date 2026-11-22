@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../server/app.js';
 
-const env = { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' };
+const env = { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' };
 
 test('sales totals, charts, items, tenders, refunds, cash and counter sales all add up', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'pfmoney-'));

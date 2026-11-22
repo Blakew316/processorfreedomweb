@@ -75,7 +75,7 @@ const dns = { resolveCname: async (n) => dnsAnswers.cname[n] || Promise.reject(n
 
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), 'pfsites-'));
-  app = createApp({ dataDir: dir, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', ADMIN_EMAILS: 'staff@pf.test' }, mailer: { enabled: false, send: async (m) => { mainSent.push(m); } } });
+  app = createApp({ dataDir: dir, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1', ADMIN_EMAILS: 'staff@pf.test' }, mailer: { enabled: false, send: async (m) => { mainSent.push(m); } } });
   server = createServer(app);
   await new Promise((r) => server.listen(0, r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -259,7 +259,7 @@ test('order totals', () => {
 test('ordering: build from an item list, take an order, track stock, send emails', async () => {
   const sent = [];
   const dir2 = mkdtempSync(join(tmpdir(), 'pfsites-'));
-  const app2 = createApp({ dataDir: dir2, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const app2 = createApp({ dataDir: dir2, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
   const server2 = createServer(app2);
   await new Promise((r) => server2.listen(0, r));
   const prevBase = base; base = `http://127.0.0.1:${server2.address().port}`;
@@ -427,7 +427,7 @@ test('item options, promo codes, opening hours, scheduling, reset links, stats, 
   const core = await import('../shared/core.js');
   const sent = [];
   const dir3 = mkdtempSync(join(tmpdir(), 'pfsites-'));
-  const app3 = createApp({ dataDir: dir3, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', ADMIN_EMAILS: 'boss@pf.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const app3 = createApp({ dataDir: dir3, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1', ADMIN_EMAILS: 'boss@pf.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
   const server3 = createServer(app3);
   await new Promise((r) => server3.listen(0, r));
   const prevBase = base; base = `http://127.0.0.1:${server3.address().port}`;
@@ -559,7 +559,7 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
   const core = await import('../shared/core.js');
   const sent = [], pushed = [];
   const dir4 = mkdtempSync(join(tmpdir(), 'pfsites-'));
-  const app4 = createApp({ dataDir: dir4, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, message) => { pushed.push({ sub, message }); return sub.endpoint.includes('dead') ? 'gone' : 'sent'; } });
+  const app4 = createApp({ dataDir: dir4, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, message) => { pushed.push({ sub, message }); return sub.endpoint.includes('dead') ? 'gone' : 'sent'; } });
   const server4 = createServer(app4);
   await new Promise((r) => server4.listen(0, r));
   const prevBase = base; base = `http://127.0.0.1:${server4.address().port}`;
@@ -782,7 +782,7 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
 
   const d2 = mkdtempSync(join(tmpdir(), 'pfsites2-'));
   const sent = [], pushed = [];
-  const app2 = createApp({ dataDir: d2, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, msg) => { pushed.push(msg); },
+  const app2 = createApp({ dataDir: d2, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, msg) => { pushed.push(msg); },
     scanner: async (buf, type) => ({ items: [{ category: 'Tacos', name: `Scanned ${type}`, price: 425, desc: 'From the photo' }, { category: 'Tacos', name: '', price: 100, desc: '' }] }) });
   const srv = createServer(app2);
   await new Promise((r) => srv.listen(0, r));
@@ -889,7 +889,7 @@ test('invoices: create, total, send, view, remind, mark paid, contacts', async (
   assert.deepEqual(core.invoiceTotals([{ price: 1000, qty: 10 }, { price: 500, qty: 2, taxable: false }], 10, 1100), { subtotal: 11000, discount: 1100, tax: 900, total: 10800 });
   const d3 = mkdtempSync(join(tmpdir(), 'pfsites3-'));
   const sent = [];
-  const app3 = createApp({ dataDir: d3, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const app3 = createApp({ dataDir: d3, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
   const srv = createServer(app3);
   await new Promise((r) => srv.listen(0, r));
   const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
@@ -968,7 +968,7 @@ test('inventory: modifier groups, menus, printer labels, revenue classes', async
   assert.deepEqual(core.visibleMenu(items, o, at('14:00')).map((x) => x.name), ['Coffee'], 'breakfast is over; categories in no menu stay');
 
   const d4 = mkdtempSync(join(tmpdir(), 'pfsites4-'));
-  const app4 = createApp({ dataDir: d4, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: false, send: async () => {} } });
+  const app4 = createApp({ dataDir: d4, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
   const srv = createServer(app4);
   await new Promise((r) => srv.listen(0, r));
   const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
@@ -996,7 +996,7 @@ test('inventory: modifier groups, menus, printer labels, revenue classes', async
 
 test('sales activity: payments, refunds, transactions, cash log, closeout, estimates', async () => {
   const d5 = mkdtempSync(join(tmpdir(), 'pfsites5-'));
-  const app5 = createApp({ dataDir: d5, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async () => {} } });
+  const app5 = createApp({ dataDir: d5, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async () => {} } });
   const srv = createServer(app5);
   await new Promise((r) => srv.listen(0, r));
   const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
@@ -1055,7 +1055,7 @@ test('sales activity: payments, refunds, transactions, cash log, closeout, estim
 test('gift cards, recurring payments, customer import, projects', async () => {
   const d6 = mkdtempSync(join(tmpdir(), 'pfsites6-'));
   const sent = [];
-  const app6 = createApp({ dataDir: d6, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const app6 = createApp({ dataDir: d6, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
   const srv = createServer(app6);
   await new Promise((r) => srv.listen(0, r));
   const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
@@ -1108,7 +1108,7 @@ test('gift cards, recurring payments, customer import, projects', async () => {
 test('online booking, appointments, shifts and the time clock', async () => {
   const d7 = mkdtempSync(join(tmpdir(), 'pfsites7-'));
   const sent = [];
-  const app7 = createApp({ dataDir: d7, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const app7 = createApp({ dataDir: d7, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
   const srv = createServer(app7);
   await new Promise((r) => srv.listen(0, r));
   const saved = base; base = `http://127.0.0.1:${srv.address().port}`;

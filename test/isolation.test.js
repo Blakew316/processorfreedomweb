@@ -387,7 +387,7 @@ test('an authenticator code works only once', async () => {
     const login = (code) => client()('POST', '/api/auth/login', { email: 'once@shop.test', password: 'long-enough-pw', code });
     let r = await login(used);
     assert.deepEqual([r.status, r.data.twoFactor], [401, true], 'the code used to turn it on cannot also log in');
-    assert.match(r.data.error, /just used/);
+    assert.match(r.data.error, /can’t be used again/);
     const next = totpCode(secret, Date.now(), 1);
     assert.equal((await login(next)).status, 200, 'the next code logs in');
     assert.equal((await login(next)).status, 401, 'and only once');
@@ -400,6 +400,8 @@ test('an authenticator code works only once', async () => {
     const fresh = totpCode(s2);
     const both = await Promise.all([client(), client()].map((cl) => cl('POST', '/api/auth/login', { email: 'race@shop.test', password: 'long-enough-pw', code: fresh })));
     assert.deepEqual(both.map((x) => x.status).sort(), [200, 401], 'one code, one log in, even at the same moment');
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret, Date.now(), -1) })).status, 409, 'turning it on again while it is on is refused');
+    assert.equal((await login(next)).status, 401, 'and does not free a used code');
     // Turning it off and on again starts afresh.
     assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
     const again = (await a('POST', '/api/me/2fa/setup', {})).data.secret;
@@ -408,17 +410,59 @@ test('an authenticator code works only once', async () => {
 });
 
 test('typed-in address headers do not get round the attempt limits', async () => {
-  // Reached directly, with no proxy in front, the headers are ignored: every guess counts against the real address.
-  const guess = async (base, i, header) => (await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-Host': 'app.pfsites.test', [header]: `10.9.${i}.${i}` }, body: JSON.stringify({ email: `nobody${i}@shop.test`, password: 'wrong-guess-here' }) })).status;
-  for (const [trust, want] of [['', 429], ['1', 401]]) {
+  // Fourteen wrong log ins to different accounts: the 13th from one visitor is refused (429); different visitors are not (401).
+  const run = async (envExtra, headersFor) => {
     const dir = mkdtempSync(join(tmpdir(), 'pfip-'));
-    const app = createApp({ dataDir: dir, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: trust }, mailer });
+    const app = createApp({ dataDir: dir, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', ...envExtra }, mailer });
     const srv = createServer(app); await new Promise((done) => srv.listen(0, done));
     const base = `http://127.0.0.1:${srv.address().port}`;
     try {
       let last = 0;
-      for (let i = 0; i < 14; i++) last = await guess(base, i, i % 2 ? 'X-Forwarded-For' : 'CF-Connecting-IP');
-      assert.equal(last, want, trust ? 'behind a trusted proxy each visitor is counted on their own' : 'reached directly, made-up addresses are ignored');
+      for (let i = 0; i < 14; i++) last = (await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-Host': 'app.pfsites.test', ...headersFor(i) }, body: JSON.stringify({ email: `nobody${i}@shop.test`, password: 'wrong-guess-here' }) })).status;
+      return last;
+    } finally { await new Promise((done) => srv.close(done)); app.close(); rmSync(dir, { recursive: true, force: true }); }
+  };
+  const xff = (v) => ({ 'X-Forwarded-For': v }), cf = (v) => ({ 'CF-Connecting-IP': v });
+  // Reached directly: made-up headers are ignored.
+  assert.equal(await run({}, (i) => xff(`10.9.${i}.1`)), 429, 'direct: made-up X-Forwarded-For is ignored');
+  assert.equal(await run({}, (i) => cf(`10.9.${i}.1`)), 429, 'direct: made-up CF-Connecting-IP is ignored');
+  // Behind one ordinary proxy (TRUST_PROXY=1): the entry the proxy added, at the end, is the visitor.
+  assert.equal(await run({ TRUST_PROXY: '1' }, (i) => xff(`10.9.${i}.1`)), 401, 'proxy: each visitor counted on their own');
+  assert.equal(await run({ TRUST_PROXY: '1' }, (i) => xff(`10.9.${i}.1, 10.0.0.7`)), 429, 'proxy: a made-up entry in front of the proxy\'s does not help');
+  assert.equal(await run({ TRUST_PROXY: '1' }, (i) => ({ ...cf(`10.9.${i}.1`), ...xff('10.0.0.7') })), 429, 'proxy: CF-Connecting-IP passed through an ordinary proxy is not believed');
+  assert.equal(await run({ TRUST_PROXY: ' On ' }, (i) => xff(`10.9.${i}.1`)), 401, 'yes, true, on and 1 all count, with spaces and any case');
+  // Two proxies (TRUST_PROXY=2): the second entry from the end is the visitor.
+  assert.equal(await run({ TRUST_PROXY: '2' }, (i) => xff(`1.1.1.${i}, 10.0.0.7, 10.0.0.1`)), 429, 'two proxies: one visitor stays one visitor');
+  assert.equal(await run({ TRUST_PROXY: '2' }, (i) => xff(`10.0.${i}.7, 10.0.0.1`)), 401, 'two proxies: different visitors counted apart');
+  // Cloudflare in front of your own server, and Render.
+  assert.equal(await run({ TRUST_PROXY: 'cloudflare' }, (i) => cf(`10.9.${i}.1`)), 401, 'Cloudflare: its header is believed');
+  assert.equal(await run({ RENDER_GIT_COMMIT: 'abc123' }, (i) => cf(`10.9.${i}.1`)), 401, 'Render: CF-Connecting-IP is believed, as before');
+  assert.equal(await run({ RENDER_GIT_COMMIT: 'abc123' }, () => cf('10.9.9.9')), 429, 'Render: one visitor is still one visitor');
+  // IPv6: a visitor holds a whole /64, so it counts as one; an IPv4 address written as IPv6 is itself.
+  assert.equal(await run({ TRUST_PROXY: '1' }, (i) => xff(`2001:db8:71:2::${(i + 1).toString(16)}`)), 429, 'IPv6: one /64 is one visitor');
+  assert.equal(await run({ TRUST_PROXY: '1' }, (i) => xff(`2001:db8:${i + 1}::1`)), 401, 'IPv6: different /64s are different visitors');
+  const { ipKey } = await import('../server/app.js');
+  assert.equal(ipKey('::ffff:192.0.2.7'), '192.0.2.7');
+  assert.equal(ipKey('2001:DB8:71:2::5'), ipKey('2001:db8:71:2:abcd:0:0:9'));
+  assert.equal(ipKey('[2001:db8::1]'), '2001:db8:0:0::/64');
+  assert.ok(ipKey('x'.repeat(5000)).length <= 64, 'odd values are kept short');
+});
+
+test('links in emails never follow a host a request made up', async () => {
+  const sent = [], mail = { enabled: true, send: async (m) => { sent.push(m); } };
+  for (const [envExtra, want] of [[{}, '127.0.0.1'], [{ RENDER_EXTERNAL_URL: 'https://pf-test.onrender.com' }, 'pf-test.onrender.com']]) {
+    const dir = mkdtempSync(join(tmpdir(), 'pfhost-'));
+    const app = createApp({ dataDir: dir, env: envExtra, mailer: mail });
+    const srv = createServer(app); await new Promise((done) => srv.listen(0, done));
+    const base = `http://127.0.0.1:${srv.address().port}`;
+    try {
+      const signup = await fetch(`${base}/api/auth/signup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'host@shop.test', password: 'long-enough-pw', name: 'Hal' }) });
+      assert.ok([200, 201].includes(signup.status), `signup: ${signup.status}`);
+      sent.length = 0;
+      await fetch(`${base}/api/auth/forgot`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-Host': 'evil.example', 'X-Forwarded-Proto': 'https' }, body: JSON.stringify({ email: 'host@shop.test' }) });
+      await new Promise((done) => setTimeout(done, 30));
+      const link = (sent[0] && sent[0].text.match(/https?:\/\/[^\s]+\/reset\?token=\S+/) || [''])[0];
+      assert.ok(link && !link.includes('evil.example') && link.includes(want), `reset link uses the real address: ${link}`);
     } finally { await new Promise((done) => srv.close(done)); app.close(); rmSync(dir, { recursive: true, force: true }); }
   }
 });

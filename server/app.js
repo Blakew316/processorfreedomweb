@@ -42,6 +42,20 @@ export function newRecoveryCodes(n = 10) {
   return Array.from({ length: n }, () => { const b = randomBytes(10); const c = [...b].map((x) => RECOVERY_ALPHABET[x % RECOVERY_ALPHABET.length]).join(''); return `${c.slice(0, 5)}-${c.slice(5)}`; });
 }
 // The 30-second step a code belongs to (the one before, now or the one after, to allow for a phone clock a little off), or -1.
+export function ipKey(ip) {
+  let a = String(ip || '').trim().toLowerCase().slice(0, 100);
+  if (a.startsWith('[')) a = a.slice(1).split(']')[0];
+  const v4 = a.match(/^(?:::ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (v4) return v4[1];
+  if (!a.includes(':')) return a.slice(0, 64);
+  a = a.split('%')[0];
+  const [head, tail, extra] = a.split('::');
+  if (extra !== undefined) return a.slice(0, 64);
+  const h = head ? head.split(':') : [], t = tail === undefined ? null : tail ? tail.split(':') : [];
+  const parts = t === null ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+  if (parts.length !== 8 || !parts.every((x) => /^[0-9a-f]{1,4}$/.test(x))) return a.slice(0, 64);
+  return `${parts.slice(0, 4).map((x) => x.replace(/^0+(?=.)/, '')).join(':')}::/64`;
+}
 const totpStep = (secret, code) => {
   if (!/^\d{6}$/.test(String(code)) || !secret) return -1;
   const at = Date.now(), base = Math.floor(at / 30000);
@@ -132,22 +146,37 @@ export function createApp(options = {}) {
   sweep.unref();
 
   // Who is asking, for the attempt limits. A visitor can type any address into these headers, so they are only believed
-  // when a known proxy sits in front: on Render (whose Cloudflare edge sets CF-Connecting-IP itself), or where TRUST_PROXY is set.
+  // when a known proxy in front sets them itself:
+  //  - Render: its Cloudflare edge sets CF-Connecting-IP (read exactly as before).
+  //  - TRUST_PROXY=cloudflare: Cloudflare is in front of your own server; CF-Connecting-IP is used.
+  //  - TRUST_PROXY=1 (or yes/true/on), or a number of proxies such as 2: each proxy adds the address it saw to the end of
+  //    X-Forwarded-For, so the entry that many places from the end is the visitor. CF-Connecting-IP is not believed there,
+  //    because other proxies pass a visitor's own copy straight through.
+  // Anything else: the connecting address, whatever the headers say.
   const ON_RENDER = !!(env.RENDER || env.RENDER_EXTERNAL_URL || env.RENDER_SERVICE_ID || env.RENDER_GIT_COMMIT);
-  const TRUST_PROXY = ON_RENDER || /^(1|true|yes)$/i.test(String(env.TRUST_PROXY || ''));
+  const TRUST = String(env.TRUST_PROXY || '').trim().toLowerCase();
+  const TRUST_CF = !ON_RENDER && TRUST === 'cloudflare';
+  const HOPS = ON_RENDER || TRUST_CF ? 0 : /^\d{1,2}$/.test(TRUST) ? Number(TRUST) : /^(true|yes|on|y)$/.test(TRUST) ? 1 : 0;
+  const TRUST_PROXY = ON_RENDER || TRUST_CF || HOPS > 0;
+  let proxyWarned = false;
   const ipOf = (req) => {
     const socket = req.socket.remoteAddress || '';
-    if (!TRUST_PROXY) return socket;
-    const cf = String(req.headers['cf-connecting-ip'] || '').trim();
-    if (cf) return cf;
-    const hops = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
-    if (!hops.length) return socket;
-    // Behind your own proxy the last address is the one it added; on Render the first is the visitor, as before.
-    return ON_RENDER ? hops[0] : hops[hops.length - 1];
+    if (ON_RENDER) return ipKey(String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || socket);
+    if (TRUST_CF) return ipKey(String(req.headers['cf-connecting-ip'] || '').split(',')[0].trim() || socket);
+    if (HOPS) {
+      const hops = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+      return ipKey(hops.length >= HOPS ? hops[hops.length - HOPS] : socket);
+    }
+    if (!proxyWarned && (req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'])) {
+      proxyWarned = true;
+      console.warn('Requests carry X-Forwarded-For or CF-Connecting-IP, but TRUST_PROXY is not set, so attempt limits count the connecting address. Behind a proxy, set TRUST_PROXY (see README).');
+    }
+    return ipKey(socket);
   };
-  const protoOf = (req) => (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' ? 'https' : 'http');
-  const hostOf = (req) => String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim().toLowerCase();
+  const protoOf = (req) => (TRUST_PROXY ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' : !!req.socket.encrypted) ? 'https' : 'http';
+  const hostOf = (req) => String((TRUST_PROXY && req.headers['x-forwarded-host']) || req.headers.host || 'localhost').split(',')[0].trim().toLowerCase();
   const appOrigin = (req) => APP_URL || `${protoOf(req)}://${hostOf(req)}`;
+  const linkOrigin = (req) => FIXED_ORIGIN || appOrigin(req);
   const cnameTarget = (req) => cleanDomain(env.CNAME_TARGET || '') || APP_HOST || SITES_DOMAIN || hostOf(req).split(':')[0];
 
   function send(res, status, body, headers = {}) {
@@ -216,7 +245,7 @@ export function createApp(options = {}) {
   function siteUrl(req, site) {
     if (site.custom_domain && site.domain_verified) return `https://${site.custom_domain}`;
     if (SITES_DOMAIN) return `https://${site.slug}.${SITES_DOMAIN}`;
-    return `${appOrigin(req)}/s/${site.slug}/`;
+    return `${linkOrigin(req)}/s/${site.slug}/`;
   }
   const addressFor = (req, slug) => (SITES_DOMAIN ? `${slug}.${SITES_DOMAIN}` : `${hostOf(req)}/s/${slug}`);
   // A short fingerprint of what is saved. A device sends back the one it last saw; if someone else saved since, it is told instead of overwriting them.
@@ -272,7 +301,7 @@ export function createApp(options = {}) {
     const business = businessOf(site);
     const when = order.scheduled ? slotLabel(order.scheduled, orderingOf(site)) : '';
     const lang = kind === 'merchant' ? 'en' : JSON.parse(site.published || site.draft).lang === 'es' ? 'es' : 'en';
-    const msg = orderEmail(kind, { business, order, when, lang, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
+    const msg = orderEmail(kind, { business, order, when, lang, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
     Promise.resolve().then(() => mailer.send({ to, ...msg, fromName: business.name, replyTo: kind === 'merchant' ? order.email : business.email })).catch((e) => console.error('Order email failed:', e.message));
   }
 
@@ -407,7 +436,7 @@ export function createApp(options = {}) {
       limit(`2fa:${u.id}`, 8, 15 * 60000);
       const step = totpStep(u.totp_secret, code);
       if (step >= 0) {
-        if (!useTotpStep(u.id, step)) return json(res, 401, { error: 'That code was just used. Wait for the next code in your authenticator app.', twoFactor: true });
+        if (!useTotpStep(u.id, step)) return json(res, 401, { error: 'That code can’t be used again. Wait for your authenticator app to show a new code, then enter it.', twoFactor: true });
       } else if (!useRecoveryCode(u, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one, or use one of your recovery codes.', twoFactor: true });
     }
     startSession(req, res, u.id);
@@ -415,12 +444,10 @@ export function createApp(options = {}) {
   });
 
   // An authenticator code works once: a code from the same 30 seconds as the last one used, or from earlier, is refused.
-  // Read and written in one go after the password check, so two log ins at the same moment cannot both use one code.
+  // Checked after the password, in one step, so two log ins at the same moment cannot both use one code.
   function useTotpStep(userId, step) {
-    const row = db.get('SELECT totp_step FROM users WHERE id = ?', userId);
-    if (!row || step <= row.totp_step) return false;
-    db.run('UPDATE users SET totp_step = ? WHERE id = ?', step, userId);
-    return true;
+    // One statement that only moves forward, so it holds even with two servers on one database.
+    return db.run('UPDATE users SET totp_step = ? WHERE id = ? AND totp_step < ?', step, userId, step).changes === 1;
   }
 
   // A recovery code works once: it is taken off the list the moment it is used.
@@ -501,13 +528,18 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/me/2fa/enable', async (req, res) => {
     const user = requireUser(req);
+    if (user.twoFactor) bad(409, 'Two-step sign-in is already on.');
     limit(`2fa:${user.id}`, 8, 15 * 60000);
+    // The code is read before the secret, and the switch-on only happens if the secret checked is still the one on file,
+    // so a setup started in another tab meanwhile cannot leave two-step on for an app nobody scanned.
+    const code = str((await readJson(req)).code, 12).replace(/\s/g, '');
     const row = db.get('SELECT totp_secret FROM users WHERE id = ?', user.id);
     if (!row.totp_secret) bad(400, 'Start again: the setup code has expired.');
-    const step = totpStep(row.totp_secret, str((await readJson(req)).code, 12).replace(/\s/g, ''));
+    const step = totpStep(row.totp_secret, code);
     if (step < 0) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
     // The code used to turn it on counts as used, so it cannot also be used to log in.
-    db.run("UPDATE users SET totp_on = 1, recovery = '', totp_step = ? WHERE id = ?", step, user.id);
+    const done = db.run("UPDATE users SET totp_on = 1, recovery = '', totp_step = ? WHERE id = ? AND totp_on = 0 AND totp_secret = ?", step, user.id, row.totp_secret);
+    if (!done.changes) bad(409, 'Start again: the setup code has expired.');
     // Every other device has to sign in again, now with a code.
     db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
     json(res, 200, { user: { ...user, twoFactor: true } });
@@ -634,7 +666,7 @@ export function createApp(options = {}) {
     const msg = nameChangeEmail({
       before: site.name, after: name, by: user.name ? `${user.name} (${user.email})` : user.email,
       when: new Date().toLocaleString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
-      manageUrl: `${appOrigin(req)}/app/site/${site.id}/bizinfo`,
+      manageUrl: `${linkOrigin(req)}/app/site/${site.id}/bizinfo`,
     });
     for (const to of new Set([owner?.email, user.email].filter(Boolean))) Promise.resolve().then(() => mailer.send({ to, ...msg })).catch((e) => console.error('Name change email failed:', e.message));
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)), emailed: !!mailer.enabled });
@@ -774,7 +806,7 @@ export function createApp(options = {}) {
       db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify({ nickname: str(d.nickname, 60).trim(), phone: str(d.phone, 40).trim(), payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass }), site.id, person.id);
       if (str(b.name, 80).trim()) db.run("UPDATE users SET name = ? WHERE id = ? AND name = ''", str(b.name, 80).trim(), person.id);
     }
-    const msg = inviteEmail({ business: site.name, role, link: link || `${appOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
+    const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
     Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
     json(res, 201, { members: teamOf(site), link, emailed: !!mailer.enabled });
   });
@@ -1584,7 +1616,7 @@ export function createApp(options = {}) {
       if (!ordering.booking.enabled) bad(409, 'Online booking is not available right now. Please call us.');
       const appt = makeAppt(site, ordering, await readJson(req, 20_000), true);
       const business = businessOf(site), owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
-      const send = (to, kind) => Promise.resolve().then(() => mailer.send({ to, ...bookingEmail(kind, { business, appt, when: apptWhen(appt.at), manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=appts` }), fromName: business.name, replyTo: kind === 'merchant' ? appt.email : business.email })).catch((e) => console.error('Booking email failed:', e.message));
+      const send = (to, kind) => Promise.resolve().then(() => mailer.send({ to, ...bookingEmail(kind, { business, appt, when: apptWhen(appt.at), manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=appts` }), fromName: business.name, replyTo: kind === 'merchant' ? appt.email : business.email })).catch((e) => console.error('Booking email failed:', e.message));
       send(appt.email, 'request'); send(ordering.notifyEmail || business.email || owner?.email, 'merchant');
       notifySite(site, { title: 'New booking request', body: `${site.name} · ${appt.name} · ${apptWhen(appt.at)}`, url: `/app/site/${site.id}?tab=appts`, tag: `appt-${appt.id}` });
       return json(res, 201, { ok: true });
@@ -1656,7 +1688,7 @@ export function createApp(options = {}) {
       if (order.low.length) {
         const text = order.low.map((x) => (x.stock === 0 ? `${x.name} is sold out` : `${x.name}: ${x.stock} left`)).join(' · ');
         notifySite(site, { title: order.low.some((x) => x.stock === 0) ? 'Sold out' : 'Running low', body: `${site.name} · ${text}`, url: `/app/site/${site.id}?tab=items`, tag: `stock-${site.id}` });
-        const msg = lowStockEmail({ business: businessOf(site), items: order.low, manageUrl: `${appOrigin(req)}/app/site/${site.id}?tab=items` });
+        const msg = lowStockEmail({ business: businessOf(site), items: order.low, manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=items` });
         Promise.resolve().then(() => mailer.send({ to: ordering.notifyEmail || businessOf(site).email || owner?.email, ...msg })).catch((e) => console.error('Low stock email failed:', e.message));
       }
       return json(res, 201, { number: order.number, url: `${base}/order/${order.token}` });
