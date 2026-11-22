@@ -10,7 +10,7 @@ import { wallNow } from '../shared/core.js';
 
 async function boot() {
   const dir = mkdtempSync(join(tmpdir(), 'pfstress-'));
-  const app = createApp({ dataDir: dir, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' }, mailer: { enabled: true, send: async () => {} }, pusher: async () => 'ok' });
+  const app = createApp({ dataDir: dir, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async () => {} }, pusher: async () => 'ok' });
   const srv = createServer(app);
   await new Promise((r) => srv.listen(0, r));
   const base = `http://127.0.0.1:${srv.address().port}`;

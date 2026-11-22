@@ -41,7 +41,14 @@ const recoveryHash = (userId, code) => createHash('sha256').update(`recovery:${u
 export function newRecoveryCodes(n = 10) {
   return Array.from({ length: n }, () => { const b = randomBytes(10); const c = [...b].map((x) => RECOVERY_ALPHABET[x % RECOVERY_ALPHABET.length]).join(''); return `${c.slice(0, 5)}-${c.slice(5)}`; });
 }
-const totpOk = (secret, code) => /^\d{6}$/.test(String(code)) && !!secret && [-1, 0, 1].some((sft) => timingSafeEqual(Buffer.from(totpCode(secret, Date.now(), sft)), Buffer.from(String(code))));
+// The 30-second step a code belongs to (the one before, now or the one after, to allow for a phone clock a little off), or -1.
+const totpStep = (secret, code) => {
+  if (!/^\d{6}$/.test(String(code)) || !secret) return -1;
+  const at = Date.now(), base = Math.floor(at / 30000);
+  let hit = -1;
+  for (const sft of [-1, 0, 1]) if (timingSafeEqual(Buffer.from(totpCode(secret, at, sft)), Buffer.from(String(code)))) hit = base + sft;
+  return hit;
+};
 
 async function hashPassword(pw) {
   const salt = randomBytes(16);
@@ -124,7 +131,20 @@ export function createApp(options = {}) {
   const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ? OR (seen_at > 0 AND seen_at < ?)', now, now - IDLE_MS); }, 10 * 60000);
   sweep.unref();
 
-  const ipOf = (req) => String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+  // Who is asking, for the attempt limits. A visitor can type any address into these headers, so they are only believed
+  // when a known proxy sits in front: on Render (whose Cloudflare edge sets CF-Connecting-IP itself), or where TRUST_PROXY is set.
+  const ON_RENDER = !!(env.RENDER || env.RENDER_EXTERNAL_URL || env.RENDER_SERVICE_ID || env.RENDER_GIT_COMMIT);
+  const TRUST_PROXY = ON_RENDER || /^(1|true|yes)$/i.test(String(env.TRUST_PROXY || ''));
+  const ipOf = (req) => {
+    const socket = req.socket.remoteAddress || '';
+    if (!TRUST_PROXY) return socket;
+    const cf = String(req.headers['cf-connecting-ip'] || '').trim();
+    if (cf) return cf;
+    const hops = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (!hops.length) return socket;
+    // Behind your own proxy the last address is the one it added; on Render the first is the visitor, as before.
+    return ON_RENDER ? hops[0] : hops[hops.length - 1];
+  };
   const protoOf = (req) => (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' ? 'https' : 'http');
   const hostOf = (req) => String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim().toLowerCase();
   const appOrigin = (req) => APP_URL || `${protoOf(req)}://${hostOf(req)}`;
@@ -385,11 +405,23 @@ export function createApp(options = {}) {
       const code = str(b.code, 24).replace(/\s/g, '');
       if (!code) return json(res, 401, { error: 'Enter the 6-digit code from your authenticator app.', twoFactor: true });
       limit(`2fa:${u.id}`, 8, 15 * 60000);
-      if (!totpOk(u.totp_secret, code) && !useRecoveryCode(u, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one, or use one of your recovery codes.', twoFactor: true });
+      const step = totpStep(u.totp_secret, code);
+      if (step >= 0) {
+        if (!useTotpStep(u.id, step)) return json(res, 401, { error: 'That code was just used. Wait for the next code in your authenticator app.', twoFactor: true });
+      } else if (!useRecoveryCode(u, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one, or use one of your recovery codes.', twoFactor: true });
     }
     startSession(req, res, u.id);
     json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
   });
+
+  // An authenticator code works once: a code from the same 30 seconds as the last one used, or from earlier, is refused.
+  // Read and written in one go after the password check, so two log ins at the same moment cannot both use one code.
+  function useTotpStep(userId, step) {
+    const row = db.get('SELECT totp_step FROM users WHERE id = ?', userId);
+    if (!row || step <= row.totp_step) return false;
+    db.run('UPDATE users SET totp_step = ? WHERE id = ?', step, userId);
+    return true;
+  }
 
   // A recovery code works once: it is taken off the list the moment it is used.
   // The list is read again here, after the password check, so two log ins at the same moment cannot both use one code.
@@ -453,7 +485,7 @@ export function createApp(options = {}) {
     const user = requireUser(req);
     if (user.twoFactor) bad(409, 'Two-step sign-in is already on.');
     const secret = toB32(randomBytes(20));
-    db.run('UPDATE users SET totp_secret = ?, totp_on = 0 WHERE id = ?', secret, user.id);
+    db.run('UPDATE users SET totp_secret = ?, totp_on = 0, totp_step = 0 WHERE id = ?', secret, user.id);
     json(res, 200, { secret, uri: `otpauth://totp/${encodeURIComponent(`PF Sites:${user.email}`)}?secret=${secret}&issuer=${encodeURIComponent('PF Sites')}&digits=6&period=30` });
   });
   route('POST', '/api/me/2fa/recovery', async (req, res) => {
@@ -472,8 +504,10 @@ export function createApp(options = {}) {
     limit(`2fa:${user.id}`, 8, 15 * 60000);
     const row = db.get('SELECT totp_secret FROM users WHERE id = ?', user.id);
     if (!row.totp_secret) bad(400, 'Start again: the setup code has expired.');
-    if (!totpOk(row.totp_secret, str((await readJson(req)).code, 12).replace(/\s/g, ''))) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
-    db.run("UPDATE users SET totp_on = 1, recovery = '' WHERE id = ?", user.id);
+    const step = totpStep(row.totp_secret, str((await readJson(req)).code, 12).replace(/\s/g, ''));
+    if (step < 0) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
+    // The code used to turn it on counts as used, so it cannot also be used to log in.
+    db.run("UPDATE users SET totp_on = 1, recovery = '', totp_step = ? WHERE id = ?", step, user.id);
     // Every other device has to sign in again, now with a code.
     db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
     json(res, 200, { user: { ...user, twoFactor: true } });
@@ -483,7 +517,7 @@ export function createApp(options = {}) {
     limit(`pw:${user.id}`, 8, 15 * 60000);
     const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
     if (!await checkPassword(str((await readJson(req)).password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
-    db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '' WHERE id = ?", user.id);
+    db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '', totp_step = 0 WHERE id = ?", user.id);
     json(res, 200, { user: { ...user, twoFactor: false } });
   });
 

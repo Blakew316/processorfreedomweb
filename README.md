@@ -73,6 +73,8 @@ service and a persistent disk with nothing to fill in. It comes up working at it
 
 **Anywhere else**: `docker build -t pf-sites . && docker run -p 3000:3000 -v pf-data:/data pf-sites`
 
+Behind your own proxy or load balancer (anywhere but Render), set `TRUST_PROXY=1` so the attempt limits see each visitor's real address. Without it, the address headers a browser can make up are ignored. On Render this is automatic.
+
 ### Domain setup
 
 1. Pick a domain for customer sites, for example `pfsites.com`, and set `SITES_DOMAIN=pfsites.com`.

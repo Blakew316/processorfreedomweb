@@ -13,7 +13,7 @@ import { createApp } from '../server/app.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROUTES = [...readFileSync(join(here, '../server/app.js'), 'utf8').matchAll(/route\('(GET|POST|PUT|DELETE)', '(\/api\/sites\/:id[^']*)'/g)].map((m) => [m[1], m[2]]);
-const env = { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test' };
+const env = { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' };
 const mailer = { enabled: true, send: async () => {} };
 
 async function boot(dataDir) {
@@ -374,6 +374,55 @@ test('a session ends after 16 minutes with no requests at all', async () => {
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('an authenticator code works only once', async () => {
+  const { totpCode } = await import('../server/app.js');
+  const dir = mkdtempSync(join(tmpdir(), 'pfotp-'));
+  const { client, stop } = await boot(dir);
+  try {
+    const a = client();
+    await a('POST', '/api/auth/signup', { email: 'once@shop.test', password: 'long-enough-pw', name: 'Oni' });
+    const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
+    const used = totpCode(secret);
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: used })).data.user.twoFactor, true);
+    const login = (code) => client()('POST', '/api/auth/login', { email: 'once@shop.test', password: 'long-enough-pw', code });
+    let r = await login(used);
+    assert.deepEqual([r.status, r.data.twoFactor], [401, true], 'the code used to turn it on cannot also log in');
+    assert.match(r.data.error, /just used/);
+    const next = totpCode(secret, Date.now(), 1);
+    assert.equal((await login(next)).status, 200, 'the next code logs in');
+    assert.equal((await login(next)).status, 401, 'and only once');
+    assert.equal((await login(totpCode(secret, Date.now(), -1))).status, 401, 'an older code is refused too');
+    // Two log ins at the same moment with one code: only one gets in. (A second account, turned on with the previous code, so the current one is fresh.)
+    const b = client();
+    await b('POST', '/api/auth/signup', { email: 'race@shop.test', password: 'long-enough-pw', name: 'Ray' });
+    const s2 = (await b('POST', '/api/me/2fa/setup', {})).data.secret;
+    assert.equal((await b('POST', '/api/me/2fa/enable', { code: totpCode(s2, Date.now(), -1) })).data.user.twoFactor, true);
+    const fresh = totpCode(s2);
+    const both = await Promise.all([client(), client()].map((cl) => cl('POST', '/api/auth/login', { email: 'race@shop.test', password: 'long-enough-pw', code: fresh })));
+    assert.deepEqual(both.map((x) => x.status).sort(), [200, 401], 'one code, one log in, even at the same moment');
+    // Turning it off and on again starts afresh.
+    assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
+    const again = (await a('POST', '/api/me/2fa/setup', {})).data.secret;
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(again) })).data.user.twoFactor, true, 'a new app can be set up');
+  } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('typed-in address headers do not get round the attempt limits', async () => {
+  // Reached directly, with no proxy in front, the headers are ignored: every guess counts against the real address.
+  const guess = async (base, i, header) => (await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-Host': 'app.pfsites.test', [header]: `10.9.${i}.${i}` }, body: JSON.stringify({ email: `nobody${i}@shop.test`, password: 'wrong-guess-here' }) })).status;
+  for (const [trust, want] of [['', 429], ['1', 401]]) {
+    const dir = mkdtempSync(join(tmpdir(), 'pfip-'));
+    const app = createApp({ dataDir: dir, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: trust }, mailer });
+    const srv = createServer(app); await new Promise((done) => srv.listen(0, done));
+    const base = `http://127.0.0.1:${srv.address().port}`;
+    try {
+      let last = 0;
+      for (let i = 0; i < 14; i++) last = await guess(base, i, i % 2 ? 'X-Forwarded-For' : 'CF-Connecting-IP');
+      assert.equal(last, want, trust ? 'behind a trusted proxy each visitor is counted on their own' : 'reached directly, made-up addresses are ignored');
+    } finally { await new Promise((done) => srv.close(done)); app.close(); rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
 test('a reset link from the email does not get past two-step sign-in', async () => {
   const { totpCode } = await import('../server/app.js');
   const dir = mkdtempSync(join(tmpdir(), 'pfrs-'));
@@ -401,7 +450,7 @@ test('a reset link from the email does not get past two-step sign-in', async () 
     assert.equal((await a('GET', '/api/sites')).status, 401, 'other devices are signed out');
     const l = client();
     assert.equal((await l('POST', '/api/auth/login', { email: 'rs@shop.test', password: 'brand-new-password' })).data.twoFactor, true, 'the new password alone is not enough');
-    assert.equal((await l('POST', '/api/auth/login', { email: 'rs@shop.test', password: 'brand-new-password', code: totpCode(secret) })).status, 200, 'the new password and the code sign in');
+    assert.equal((await l('POST', '/api/auth/login', { email: 'rs@shop.test', password: 'brand-new-password', code: totpCode(secret, Date.now(), 1) })).status, 200, 'the new password and the code sign in');
     // Staff links are the way back in for someone who lost the phone.
     const st = client();
     const res2 = await st('POST', '/api/auth/reset', { token: link(1), password: 'another-new-password' });
@@ -452,7 +501,9 @@ test('profile changes and two-step sign-in', async () => {
     assert.equal((await dev('GET', '/api/sites')).status, 401);
     assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw', code: '123456' })).status, 401);
     assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'wrong-password', code: totpCode(secret) })).status, 401, 'a right code does not rescue a wrong password');
-    assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw', code: ` ${totpCode(secret).slice(0, 3)} ${totpCode(secret).slice(3)} ` })).status, 200);
+    // The code that turned it on counts as used, so the next code is the one that logs in.
+    const next = totpCode(secret, Date.now(), 1);
+    assert.equal((await dev('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw', code: ` ${next.slice(0, 3)} ${next.slice(3)} ` })).status, 200);
     assert.equal((await dev('GET', '/api/sites')).status, 200);
 
     // Turning it off needs the password.
