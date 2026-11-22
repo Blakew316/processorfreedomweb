@@ -4678,3 +4678,17 @@ html[data-theme=dark] body .btn.vt-go:disabled:not(.soft):not(.text):not(.danger
   .cl-csearch{min-width:0}
   .cl-tot .cl-link{padding-top:3px;padding-bottom:3px;margin-top:-3px;margin-bottom:-3px}
 }
+
+/* ---------- iPhone app: the top bar runs right up under the status bar ---------- */
+/* The page behind everything is the same colour as the bar, so the status-bar area matches it instead of showing a grey fog. */
+html:has(.ed),html:has(.ed) body{background:#fff}
+html[data-theme=dark]:has(.ed),html[data-theme=dark]:has(.ed) body{background:#2c2c2e}
+html:has(.k),html:has(.k) body{background:var(--card)}
+html[data-theme=dark]:has(.k),html[data-theme=dark]:has(.k) body{background:#1c1c1e}
+/* The bar is pinned to the top so iPhone treats it as the top bar */
+.ed-top{position:sticky;top:0;z-index:20}
+@media (max-width:900px){
+  /* Snug under the status bar: the bar's own height trimmed, its colour carried all the way to the top edge */
+  .ed-top[data-mode=office],html:not([data-theme=dark]) .ed-top[data-mode=office]{height:calc(54px + env(safe-area-inset-top))!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .ed-top[data-mode=office] .rail-tog{width:40px;height:40px}
+}

@@ -1,11 +1,11 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
 import { MARK } from './mark.js';
 import { siteFooter, faqList, faqPage, privacyPage, termsPage, contactPage, FAQ, dock, testimonialsSection } from './pages.js';
-import { h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
+import { syncTopColor, h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
 
 const root = document.getElementById('app');
 let cleanup = null;
-const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0, 0); };
+const mount = (...nodes) => { root.replaceChildren(...nodes); window.scrollTo(0, 0); requestAnimationFrame(syncTopColor); };
 // The browser tab always carries our name and nothing else.
 const title = () => { document.title = 'Processor Freedom'; };
 

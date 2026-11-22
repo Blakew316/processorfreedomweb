@@ -40,10 +40,19 @@ export const svg = (inner, size = 22) => (/stroke-width="32"|scale\(32\)/.test(i
 
 /* Light or dark. Light unless the person chooses otherwise. */
 export const getTheme = () => { try { return localStorage.getItem('pf-theme') || 'light'; } catch { return 'light'; } };
+// iPhone paints the status-bar area from the page colour, so it is kept the same colour as the bar at the top.
+// That way the top bar runs right up under the clock and battery with no grey or foggy band above it.
+export function syncTopColor() {
+  const bar = document.querySelector('.ed-top, .k-top, .top');
+  let c = bar ? getComputedStyle(bar).backgroundColor : '';
+  if (!c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c)) c = document.documentElement.dataset.theme === 'dark' ? '#000000' : '#ffffff';
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', c);
+  document.documentElement.style.backgroundColor = c;
+}
 export function setTheme(t) {
   try { localStorage.setItem('pf-theme', t); } catch { /* ignore */ }
   document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', document.documentElement.dataset.theme === 'dark' ? '#000000' : '#ffffff');
+  syncTopColor();
   document.querySelectorAll('.theme-btn').forEach((b) => b.replaceChildren(ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18)));
 }
 export const themeButton = () => h('button', { class: 'icon-btn theme-btn', title: 'Switch between light and dark', 'aria-label': 'Switch between light and dark', onclick: () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark') }, ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18));
