@@ -7,7 +7,7 @@ import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
 import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail } from './mail.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -308,7 +308,8 @@ export function createApp(options = {}) {
   }
   const daily = setInterval(() => { tick(); try { backup(); } catch (e) { console.error('Backup failed:', e.message); } }, 5 * 60000);
   daily.unref();
-  setTimeout(tick, 4000).unref();
+  const firstTick = setTimeout(tick, 4000);
+  firstTick.unref();
   function packDraft(input) {
     const draft = JSON.stringify(normalizeSite(input));
     if (draft.length > 400_000) bad(413, 'This site has more content than we can save. Try shortening some text.');
@@ -562,13 +563,41 @@ export function createApp(options = {}) {
 
   route('GET', '/api/sites/:id', (req, res, p) => { const { site, role } = ownSite(req, p.id, 'kitchen'); json(res, 200, { site: { ...present(req, site, true), role } }); });
 
+  // The business name (DBA) only changes through Change business name, which emails the owner; saving the website keeps it as it is.
+  const keepName = (draft, site) => {
+    if (!site.name) return draft;
+    const d = JSON.parse(draft);
+    if (!d.brand || d.brand.name === site.name) return draft;
+    d.brand.name = site.name;
+    return JSON.stringify(d);
+  };
   route('PUT', '/api/sites/:id', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const b = await readJson(req);
     if (b.rev && b.rev !== revOf(site.draft)) bad(412, STALE);
-    const draft = packDraft(b.draft);
+    const draft = keepName(packDraft(b.draft), site);
     db.run('UPDATE sites SET draft = ?, name = ?, updated_at = ? WHERE id = ?', draft, JSON.parse(draft).brand.name, Date.now(), site.id);
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
+  });
+
+  // Change business name (DBA): the website, receipts and emails all use the new name straight away, and the owner gets an email.
+  route('PUT', '/api/sites/:id/name', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    const name = str((await readJson(req)).name, 80).replace(/\s+/g, ' ').trim();
+    if (!name) bad(400, 'Enter your business name.');
+    if (name === site.name) return json(res, 200, { site: present(req, site), emailed: false });
+    limit(`rename:${site.id}`, 10, 3600000);
+    const rename = (raw) => { const d = JSON.parse(raw); d.brand = { ...(d.brand || {}), name }; return JSON.stringify(d); };
+    db.run('UPDATE sites SET name = ?, draft = ?, published = ?, updated_at = ? WHERE id = ?', name, rename(site.draft), site.published ? rename(site.published) : null, Date.now(), site.id);
+    const owner = db.get('SELECT id, email FROM users WHERE id = ?', site.user_id);
+    const tz = orderingOf(site).timezone || 'America/Chicago';
+    const msg = nameChangeEmail({
+      before: site.name, after: name, by: user.name ? `${user.name} (${user.email})` : user.email,
+      when: new Date().toLocaleString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
+      manageUrl: `${appOrigin(req)}/app/site/${site.id}/bizinfo`,
+    });
+    for (const to of new Set([owner?.email, user.email].filter(Boolean))) Promise.resolve().then(() => mailer.send({ to, ...msg })).catch((e) => console.error('Name change email failed:', e.message));
+    json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)), emailed: !!mailer.enabled });
   });
 
   route('DELETE', '/api/sites/:id', (req, res, p) => {
@@ -580,7 +609,7 @@ export function createApp(options = {}) {
   route('POST', '/api/sites/:id/publish', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const b = await readJson(req);
-    const draft = b.draft ? packDraft(b.draft) : site.draft;
+    const draft = b.draft ? keepName(packDraft(b.draft), site) : site.draft;
     const now = Date.now();
     db.run('UPDATE sites SET draft = ?, name = ?, published = ?, published_at = ?, updated_at = ? WHERE id = ?', draft, JSON.parse(draft).brand.name, draft, now, now, site.id);
     if (draft !== site.published) {
@@ -1761,6 +1790,6 @@ export function createApp(options = {}) {
   handler.db = db;
   handler.tick = tick;
   handler.backup = backup;
-  handler.close = () => { clearInterval(sweep); clearInterval(daily); db.close(); };
+  handler.close = () => { clearInterval(sweep); clearInterval(daily); clearTimeout(firstTick); db.close(); };
   return handler;
 }

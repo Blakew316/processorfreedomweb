@@ -103,6 +103,17 @@ export function lowStockEmail({ business, items, manageUrl }) {
   return { subject: `${title} · ${business.name}`, html, text: [business.name, '', title, '', ...items.map((i) => `${i.name}: ${i.stock === 0 ? 'sold out' : `${i.stock} left`}`), '', manageUrl || ''].join('\n') };
 }
 
+/** Sent to the owner (and to whoever made the change, if someone else) when the business name, the DBA, changes. */
+export function nameChangeEmail({ before, after, by, when, manageUrl }) {
+  const title = 'Your business name was changed';
+  const intro = `The business name (DBA) your customers see on your website, receipts and emails is now ${after}.`;
+  const warn = 'If you did not make this change, log in, open Settings, then Business information, and change it back.';
+  const rows = [['Old name', before], ['New name', after], ['Changed by', by], ['When', when]];
+  const html = shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">Processor Freedom</p><h1 style="margin:0 0 10px;font-size:26px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p>${rowsHtml(rows)}<p style="margin:20px 0 0;font-size:14px;line-height:1.5;color:#6e6e73">${esc(warn)}</p>${button(manageUrl, 'Open business information')}`);
+  const text = [title, '', intro, '', ...rows.map(([k, v]) => `${k}: ${v}`), '', warn, '', manageUrl || ''].join('\n');
+  return { subject: `${title} to ${after}`, html, text };
+}
+
 export function inviteEmail({ business, role, link, inviter, fresh = true }) {
   const what = role === 'kitchen' ? 'see and update orders' : 'help manage the site, menu and orders';
   return {

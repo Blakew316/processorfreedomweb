@@ -136,7 +136,7 @@ test('one account cannot read or change another account’s shop', async () => {
 
     // A kitchen login can work orders but cannot touch settings, money, the team or the website.
     assert.equal((await cook('GET', `/api/sites/${siteA.id}/orders`)).status, 200);
-    for (const [m, p, body] of [['PUT', '', { draft: beforeA[''].site.draft }], ['PUT', '/ordering', { ordering: { enabled: false } }], ['DELETE', '', undefined], ['POST', '/team', { email: 'x@y.test', role: 'owner' }], ['GET', '/invoices', undefined], ['GET', '/customers', undefined], ['POST', '/unpublish', {}], ['DELETE', `/menu/${ids.item}`, undefined], ['POST', '/gift-cards', { amount: 100 }]]) {
+    for (const [m, p, body] of [['PUT', '', { draft: beforeA[''].site.draft }], ['PUT', '/ordering', { ordering: { enabled: false } }], ['DELETE', '', undefined], ['POST', '/team', { email: 'x@y.test', role: 'owner' }], ['GET', '/invoices', undefined], ['GET', '/customers', undefined], ['POST', '/unpublish', {}], ['DELETE', `/menu/${ids.item}`, undefined], ['POST', '/gift-cards', { amount: 100 }], ['PUT', '/name', { name: 'Kitchen Name' }]]) {
       assert.equal((await cook(m, `/api/sites/${siteA.id}${p}`, body)).status, 403, `kitchen login: ${m} ${p || '/'}`);
     }
     assert.equal((await cook('GET', `/api/sites/${siteB.id}/orders`)).status, 404, 'a team member of A is nobody on B');
@@ -300,6 +300,50 @@ test('recovery codes for two-step sign-in', async () => {
     assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
     assert.equal((await a('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).status, 409, 'codes go away with two-step sign-in');
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('changing the business name (DBA) updates everything and emails the owner', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pfdba-'));
+  const { client, stop } = await boot(dir);
+  const sent = [], was = mailer.send;
+  mailer.send = async (m) => { sent.push(m); };
+  try {
+    const own = client(), other = client(), anon = client();
+    await own('POST', '/api/auth/signup', { email: 'own@dba.test', password: 'long-enough-pw', name: 'Olive Owner' });
+    await other('POST', '/api/auth/signup', { email: 'other@dba.test', password: 'long-enough-pw' });
+    const site = (await own('POST', '/api/sites', { name: 'Old Name Cafe', template: 'order', kind: 'ordering' })).data.site;
+    const S = `/api/sites/${site.id}`;
+    assert.equal((await own('POST', `${S}/publish`, {})).status, 200);
+    sent.length = 0;
+    assert.equal((await own('PUT', `${S}/name`, { name: '   ' })).status, 400, 'a name is needed');
+    assert.equal((await other('PUT', `${S}/name`, { name: 'Hijack LLC' })).status, 404, 'someone else cannot rename it');
+    const r = await own('PUT', `${S}/name`, { name: '  New  Name   Bakery ' });
+    assert.equal(r.status, 200);
+    assert.equal(r.data.site.name, 'New Name Bakery', 'spaces tidied');
+    assert.equal(r.data.emailed, true);
+    await new Promise((done) => setTimeout(done, 30));
+    assert.equal(sent.length, 1, 'one email, to the owner');
+    assert.equal(sent[0].to, 'own@dba.test');
+    assert.match(sent[0].subject, /business name was changed/i);
+    for (const bit of ['Old Name Cafe', 'New Name Bakery', 'Olive Owner']) assert.ok(sent[0].text.includes(bit), `email mentions ${bit}`);
+    // The dashboard, the website and the live site all carry the new name, with no publish needed.
+    const full = (await own('GET', S)).data.site;
+    assert.equal(full.name, 'New Name Bakery');
+    assert.equal(full.draft.brand.name, 'New Name Bakery');
+    assert.equal(full.dirty, false, 'the live site changed too');
+    assert.ok((await anon('GET', '/', null, { host: `${site.slug}.pfsites.test` })).text.includes('New Name Bakery'), 'live site shows the new name');
+    // Saving the website cannot change the name without the email.
+    const saved = await own('PUT', S, { draft: { ...full.draft, brand: { ...full.draft.brand, name: 'Sneaky Name' } }, rev: full.draftRev });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.site.name, 'New Name Bakery');
+    assert.equal((await own('GET', S)).data.site.draft.brand.name, 'New Name Bakery');
+    assert.equal((await own('POST', `${S}/publish`, { draft: { ...full.draft, brand: { ...full.draft.brand, name: 'Sneaky Name' } } })).data.site.name, 'New Name Bakery', 'nor can publishing');
+    // The same name again sends nothing.
+    sent.length = 0;
+    assert.equal((await own('PUT', `${S}/name`, { name: 'New Name Bakery' })).data.emailed, false);
+    await new Promise((done) => setTimeout(done, 30));
+    assert.equal(sent.length, 0);
+  } finally { mailer.send = was; await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('a reset link from the email does not get past two-step sign-in', async () => {

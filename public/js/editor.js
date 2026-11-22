@@ -18,7 +18,7 @@ const TABS = [
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices', 'r-peer', 'r-gift', 'fin', 'stmts', 'disputes', 'capital', 'stax', 'bills', 'emp-new', 'cust-new', 'appt-new', 'promos', 'inbox', 'rewards', 'profile', 'online', 'outreach']);
+const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices', 'r-peer', 'r-gift', 'fin', 'stmts', 'disputes', 'capital', 'stax', 'bills', 'emp-new', 'cust-new', 'appt-new', 'promos', 'inbox', 'rewards', 'profile', 'online', 'outreach', 'bizinfo']);
 const TYPE_TABS = new Set(['sales', 'r-full', 'r-items', 'r-types', 'r-disc', 'r-removed', 'r-taxes', 'r-emp', 'r-tender']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
@@ -385,7 +385,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('span', { class: 'lk', style: `--b:${t.accent}` }, h('i'), h('i'), h('i')), h('b', {}, q.name), h('small', {}, q.blurb))));
       return [
         group('Quick style', null, looks),
-        group('Brand', text('Business name', draft.brand, 'name', { maxlength: 80 }), text('Tagline', draft.brand, 'tagline', { hint: 'A short line shown in your footer and search results.' }),
+        group('Brand', h('div', { class: 'field' }, h('span', {}, 'Business name'), h('div', { class: 'bi-namerow' }, h('b', {}, draft.brand.name || meta.name), h('button', { type: 'button', class: 'btn soft sm', onclick: () => changeName() }, 'Change business name'))), text('Tagline', draft.brand, 'tagline', { hint: 'A short line shown in your footer and search results.' }),
           image('Logo', draft.brand, 'logo', { logo: true, hint: 'PNG or SVG with a transparent background works best.', after: () => { if (draft.brand.logo && draft.brand.logoMode === 'text') draft.brand.logoMode = 'image'; paintPanel(); } }),
           draft.brand.logo && seg('Show in header', draft.brand, 'logoMode', { image: 'Logo', both: 'Logo and name', text: 'Name only' }),
           seg('Site language', draft, 'lang', LANGS), null),
@@ -727,9 +727,9 @@ export async function editor(id, mount, title, startTab = '') {
           group('Checkout', wrap('Sales tax (%)', h('input', { type: 'number', min: 0, max: 30, step: '0.001', value: o.taxRate, oninput: (e) => { o.taxRate = Number(e.target.value) || 0; saveOrdering(); } }), 'Added to every order. Enter 0 if your prices include tax.'),
             toggle('Let customers add a tip', o, 'tips'), toggle('Let customers add notes', o, 'allowNotes'),
             null),
-          group('Opening hours', toggle('Only take orders during set hours', o, 'useHours', (v) => v === true, redraw),
-            o.useHours && [wrap('Time zone', h('select', { onchange: (e) => { o.timezone = e.target.value; saveOrdering(); } }, Object.entries(TIMEZONES).map(([k, l]) => h('option', { value: k, selected: o.timezone === k }, l)))),
-              hoursGrid(o.hours, () => { draft.business.hours = hoursText(o.hours); saveOrdering(); changed(); })],
+          group('Opening hours', wrap('Time zone', h('select', { onchange: (e) => { o.timezone = e.target.value; saveOrdering(); } }, Object.entries(TIMEZONES).map(([k, l]) => h('option', { value: k, selected: o.timezone === k }, l)))),
+            hoursGrid(o.hours, () => { draft.business.hours = hoursText(o.hours); saveOrdering(); changed(); }),
+            toggle('Only take orders during set hours', o, 'useHours', (v) => v === true, redraw),
             toggle('Let customers order ahead for a later time', o, 'scheduling', (v) => v === true), null),
           group('Kitchen capacity', wrap('Most orders in any 15 minutes', h('input', { type: 'number', min: 0, max: 500, value: o.slotLimit || '', placeholder: 'No limit', style: 'max-width:160px', oninput: (e) => { o.slotLimit = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'Stops the kitchen being overbooked. Once a time is full, customers are offered the next one. Leave empty for no limit.')),
           group('Happy hour and timed prices', null,
@@ -3345,6 +3345,79 @@ export async function editor(id, mount, title, startTab = '') {
           active.length > 0 && h('div', { class: 'co-promos' }, active.map((p) => h('div', { class: 'co-promo' }, h('span', { class: 'co-pic', html: PI.tag }), h('div', {}, h('b', {}, p.code), h('small', {}, p.type === 'amount' ? `${money(p.value)} off` : `${p.value}% off`)))))),
           h('div', { class: 'co-foot' }, h('button', { type: 'button', class: 'co-claim', onclick: () => { clState.openPromo = true; goTab('promos'); } }, 'Create a promo')))))];
   };
+  /* Change business name (DBA): one window, used by Business information and by the website's Business name box.
+     The new name is used everywhere straight away, and the account owner gets an email about it. */
+  function changeName() {
+    const inp = h('input', { value: (draft.brand && draft.brand.name) || meta.name, maxlength: 80, autofocus: true, autocomplete: 'organization' });
+    const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Save');
+    small('Change business name "DBA"', () => h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Business name'), inp)), (close) => {
+      btn.onclick = async () => {
+        const name = inp.value.replace(/\s+/g, ' ').trim();
+        if (!name) return toast('Enter your business name.', true);
+        btn.disabled = true;
+        try {
+          await flush();
+          const r = await api('PUT', `/api/sites/${id}/name`, { name });
+          meta = { ...meta, ...r.site }; draftRev = r.site.draftRev; draft.brand.name = r.site.name; title(meta.name);
+          close();
+          toast(!r.emailed ? 'Business name changed' : isOwner ? 'Business name changed. We emailed you about it.' : 'Business name changed. The account owner was emailed.');
+          paint(true); paintTop(); paintPanel();
+        } catch (e) { toast(e.message, true); btn.disabled = false; }
+      };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
+      return [h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), btn];
+    });
+  }
+
+  /* Business information, laid out like the photo: customer-facing details, logo, privacy policy, locale and currency. */
+  CL.bizinfo = () => {
+    const b = draft.business || (draft.business = {}), { name, logo } = bizOf();
+    const host = meta.live && meta.url ? meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+    const lines = [b.address1, [b.city, b.state].filter(Boolean).join(', '), b.zip].filter(Boolean);
+    // A small window for one or more of the details, saved with the website like before.
+    const edit = (title, fields, check) => {
+      const boxes = fields.map(([label, k, a = {}], i) => [k, label, h('input', { value: b[k] || '', autofocus: i === 0, ...a })]);
+      const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Save');
+      small(title, () => h('div', { class: 'cl-promoform' }, boxes.map(([, label, el]) => h('label', { class: 'field cl-field' }, h('span', {}, label), el))), (close) => {
+        btn.onclick = () => {
+          const v = Object.fromEntries(boxes.map(([k, , el]) => [k, el.value.trim()]));
+          const bad = check && check(v); if (bad) return toast(bad, true);
+          Object.assign(b, v); changed(); close(); toast('Saved'); paintPanel();
+        };
+        for (const [, , el] of boxes) el.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
+        return [h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), btn];
+      });
+    };
+    const pickLogo = async () => {
+      const [file] = await pickFiles(); if (!file) return;
+      try { draft.brand.logo = await uploadImage(file); if (draft.brand.logoMode === 'text') draft.brand.logoMode = 'image'; changed(); toast('Logo saved'); paintPanel(); } catch (e) { toast(e.message, true); }
+    };
+    const row = (label, value, action, note) => h('div', { class: 'bi-row' }, h('div', { class: 'bi-top' }, h('h3', {}, label), action), note && h('p', { class: 'pf-note' }, note), h('div', { class: 'bi-val' }, [].concat(value).map((x) => h('p', {}, x))));
+    const card = (title, note, action, ...rest) => h('div', { class: 'scard pf-card' }, h('div', { class: 'pf-top' }, h('div', { class: 'pf-main' }, h('h2', {}, title), note && h('p', { class: 'pf-note' }, note)), action), ...rest);
+    const priv = draft.legal && draft.legal.privacy, privOn = !!(priv && priv.enabled);
+    const camera = SV('<path d="M4 8.5h3l1.6-2.2h6.8L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.3"/><path d="M19 4v4M17 6h4"/>', 24);
+    return [h('div', { class: 'cl pf bi' },
+      h('button', { type: 'button', class: 'bi-back', onclick: () => goTab('settings') }, h('span', { html: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 20) }), 'Settings'),
+      h('h1', { class: 'pf-title' }, 'Business information'),
+      h('p', { class: 'bi-sub' }, name),
+      h('div', { class: 'scard pf-card bi-card' }, h('h2', {}, 'Customer-facing information'),
+        h('p', { class: 'pf-note' }, 'This information appears on your website, order pages and ', h('button', { type: 'button', class: 'oo-inl', onclick: () => goTab('alerts') }, 'receipts'), '. It may or may not be the same as your billing and tax-related business information.'),
+        row('DBA name', name, pfAct('Edit', PI.pen, changeName)),
+        row('Business phone number', b.phone || 'None', pfAct('Edit', PI.pen, () => edit('Business phone number', [['Business phone number', 'phone', { type: 'tel', maxlength: 40, autocomplete: 'tel' }]]))),
+        row('Customer contact email address (optional)', b.email || 'None', pfAct('Edit', PI.pen, () => edit('Customer contact email address', [['Email address', 'email', { type: 'email', maxlength: 200, autocomplete: 'email' }]], (v) => (v.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email) ? 'Enter a full email address, like name@example.com.' : ''))),
+          'This is the email customers can reach you at. It is separate from the email address you log in with.'),
+        row('Business address', lines.length ? lines : 'None', pfAct('Edit', PI.pen, () => edit('Business address', [['Street address', 'address1', { maxlength: 160, autocomplete: 'address-line1' }], ['City', 'city', { maxlength: 80, autocomplete: 'address-level2' }], ['State', 'state', { maxlength: 40, autocomplete: 'address-level1' }], ['ZIP', 'zip', { maxlength: 12, inputmode: 'numeric', autocomplete: 'postal-code' }]]))),
+        row('Website (optional)', host || 'None', pfAct('Edit', PI.pen, () => goTab('domain')))),
+      card('Logo', 'Your logo appears on your website and order pages.', logo ? pfAct('Edit', PI.pen, pickLogo) : pfAct('Add', PI.plus, pickLogo),
+        h('button', { type: 'button', class: `bi-logo${logo ? ' has' : ''}`, 'aria-label': logo ? 'Replace logo' : 'Add a logo', onclick: pickLogo }, logo ? h('img', { src: logo, alt: '' }) : h('span', { html: camera }))),
+      card('Privacy policy', ['Learn how to stay compliant with the ', h('a', { href: 'https://oag.ca.gov/privacy/ccpa', target: '_blank', rel: 'noopener' }, 'California Consumer Privacy Act (CCPA)'), ' and include your own privacy policy on your website.'],
+        privOn ? pfAct('Edit', PI.pen, () => goTab('policies')) : pfAct('Add', PI.plus, () => goTab('policies')),
+        h('p', { class: 'pf-val' }, !privOn ? 'None' : priv.custom && String(priv.custom).trim() ? 'Your own privacy policy, on your website' : 'Shown on your website')),
+      h('div', { class: 'scard pf-card' }, h('h2', {}, 'Locale and currency'),
+        h('div', { class: 'bi-kv' }, h('b', {}, 'Locale'), h('span', {}, draft.lang === 'es' ? 'es-US' : 'en-US')),
+        h('div', { class: 'bi-kv' }, h('b', {}, 'Currency'), h('span', {}, 'USD'))))];
+  };
+
   function paintPanel() {
     const y = panel.scrollTop;
     const cur = tabs.find(([k]) => k === tab) || tabs[0];
@@ -3607,7 +3680,7 @@ export async function editor(id, mount, title, startTab = '') {
       h('button', { class: 'tb-who', type: 'button', onclick: () => { close(); goTab('profile'); } }, tIcon('user', 22), h('span', {}, h('b', {}, state.user.name || state.user.email), h('small', {}, roleName))),
       h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('profile'); } }, 'Profile and sign-in'),
       h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'Settings'),
-      h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Log out'),
+      h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); await api('POST', '/api/auth/logout'); state.user = null; go('/login'); } }, 'Log out'),
     ]);
   }
   // The settings drawer: the handful of settings people open most, and a way to all of them.

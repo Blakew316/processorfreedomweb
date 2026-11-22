@@ -46,7 +46,7 @@ function accountMenu() {
       state.user.admin && h('button', { onclick: () => { close(); go('/app/admin'); } }, 'Staff dashboard'),
       h('button', { onclick: () => { close(); changePassword(); } }, 'Change password'),
       h('div', { style: 'padding:8px 12px 10px' }, h('small', { class: 'muted' }, 'Appearance'), h('div', { class: 'seg', style: 'margin-top:6px' }, [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']].map(([k, l]) => h('button', { 'aria-pressed': String(getTheme() === k), onclick: () => { setTheme(k); close(); } }, l)))),
-      h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Sign out'),
+      h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/login'); } }, 'Sign out'),
       h('button', { onclick: async () => { close(); if (!await confirmSheet({ title: 'Sign out everywhere?', text: 'This signs your account out on every phone, tablet and computer, including this one. Use it if a device was lost or shared.', action: 'Sign out everywhere' })) return; await api('POST', '/api/auth/logout-all'); state.user = null; go('/login'); } }, 'Sign out everywhere'));
     wrap.append(menu);
     setTimeout(() => document.addEventListener('click', away));
@@ -239,7 +239,7 @@ function authShell(form) {
       h('footer', { class: 'lg-foot' },
         h('p', { class: 'lg-legal' }, 'By using Processor Freedom you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
         h('div', { class: 'lg-meta' }, h('span', { class: 'lg-loc' }, h('i', { html: US_FLAG }), 'United States (English)'), link('/contact', {}, 'Help Center')))),
-    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/cafe.jpg', alt: '', decoding: 'async' })));
+    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/login.jpg', alt: '', decoding: 'async' })));
 }
 const lgField = (label, attrs) => h('label', { class: 'lg-field' }, h('span', {}, label), h('input', attrs));
 // A password box with the eye that shows what was typed.
