@@ -4565,3 +4565,116 @@ html[data-theme=dark] body .btn.vt-go:disabled:not(.soft):not(.text):not(.danger
 .cl-form .ns-price{background:var(--card);border:1px solid var(--line2);border-radius:8px;min-height:46px}
 .cl-form .ns-price:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 15%,transparent)}
 .cl-form .ns-price input:not([type=checkbox]):not([type=radio]){border:0!important;background:none!important;min-height:0!important;padding:0!important;box-shadow:none!important}
+/* iPhone: bigger tap areas for text links and small controls, without moving anything */
+@media (max-width:900px){
+  .cl-link,.cl-name,.hm-l,.vt-link,.cl-date,.cl-back,.cl-fbset,.panel[data-tab="settings"] a{padding-top:10px;padding-bottom:10px;margin-top:-10px;margin-bottom:-10px}
+  .cl-rowacts{gap:22px}
+  .cat-sel,.cat-all input,.cb{width:24px!important;height:24px!important}
+  .cl-tog{min-width:40px;min-height:40px;display:inline-grid;place-items:center;margin:-10px}
+  .vt-radios input{width:20px;height:20px}
+  .cl-whohead>.muted{display:none}
+  .cl-whohead .cl-small-sel{min-width:96px}
+  .cl-chead{overflow-x:hidden}
+  .cl-chead,.cl-cbody{grid-template-columns:52px repeat(var(--n),minmax(140px,1fr))}
+}
+@media (max-width:600px){
+  .chart-x span[data-k="1"]{visibility:hidden}
+  .chart-x span{overflow:visible}
+  .cl-chead,.cl-cbody{grid-template-columns:62px repeat(var(--n),minmax(140px,1fr))}
+  .c2-gut span{font-size:11px;right:6px}
+}
+.cl-req:has(.cl-pillbtn){display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.cl-link.plain{display:inline-flex;align-items:center;gap:6px}
+.cl-link.plain svg,.cl-link.plain span{flex:none}
+@media (max-width:900px){
+  .cl-table{min-height:280px}
+  .cl-table:has(tbody tr){min-height:0}
+  .panel[data-tab="sales"] .cl-card,.panel[data-tab="r-full"] .cl-card,.panel[data-tab="r-types"] .cl-card,.panel[data-tab="r-items"] .cl-card,.panel[data-tab="r-peer"] .cl-card{min-height:240px}
+  .panel[data-tab="sales"] .cl-card .cl-empty{padding-top:40px}
+  .cl-fbtable{min-height:280px}
+  .cl-tscard{min-height:0}
+  /* Tables shown as cards on phones */
+  .cl-table tr{padding:14px 16px!important}
+  .cl-table td:first-child{font-size:16px;font-weight:600}
+}
+@media (max-width:900px){
+  .tbar:not(:has(>.cl-sel)) .cl-search{flex:1 1 0;min-width:0}
+  .tbar:not(:has(>.cl-sel)) .fbtn{flex:none}
+  .tbar:not(:has(>.cl-sel)):has(>.btn) .cl-search{flex-basis:100%}
+  /* Title and buttons share the top line; the description runs the full width underneath */
+  .cl-head{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:2px;align-items:start}
+  .cl-head .cl-titles{display:contents}
+  .cl-head .cl-eyebrow,.cl-head .cl-titles h1{grid-column:1}
+  .cl-head .cl-tools{grid-column:2;grid-row:1 / span 2;align-self:start}
+  .cl-head .cl-desc{grid-column:1 / -1;margin-top:6px}
+}
+@media (max-width:900px){
+  .ed-body[data-mode=office] .inv-row{grid-template-columns:26px 56px minmax(0,1fr) minmax(0,1fr)!important;gap:10px 12px!important}
+  .ed-body[data-mode=office] .inv-row .inv-price{min-width:0;justify-self:stretch}
+  .ed-body[data-mode=office] .inv-row .inv-price input{width:100%!important;max-width:130px;min-width:0}
+  .ed-body[data-mode=office] .inv-row .inv-cell[data-l="In stock"]{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+  .ed-body[data-mode=office] .inv-row .inv-cell[data-l="In stock"] input{width:76px!important;min-width:76px;text-align:center!important;padding:0 8px!important}
+}
+@media (max-width:900px){
+  .ed-body[data-mode=office] .panel>.page-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px;margin:0!important;flex-wrap:nowrap}
+  .ed-body[data-mode=office] .panel>.page-head>div:first-child{display:block!important;min-width:0;flex:1 1 auto}
+  .ed-body[data-mode=office] .panel>.page-head h2{display:block!important;font-size:24px!important;line-height:1.2;margin:0}
+  .ed-body[data-mode=office] .panel>.page-head .rep-tools{display:flex;gap:6px;flex:none}
+  .ed-body[data-mode=office] .panel .inv-top .row{display:flex!important;flex-wrap:nowrap;gap:8px}
+  .ed-body[data-mode=office] .panel .inv-top .row>.btn{flex:1 1 auto;min-width:0}
+  .ed-body[data-mode=office] .panel .inv-top .row>.icon-btn,.ed-body[data-mode=office] .panel .inv-top .row>.rep-more{flex:none}
+  .panel[data-tab="settings"] a{display:block;width:max-content;max-width:100%;padding:7px 0!important;margin:0!important;line-height:1.35}
+}
+@media (max-width:900px){
+  .ed-body[data-mode=office] .panel .inv-top{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:12px}
+  .ed-body[data-mode=office] .panel .inv-top>div:first-child{grid-column:1;min-width:0}
+  .ed-body[data-mode=office] .panel .inv-top h2{display:block!important;font-size:24px!important;line-height:1.2;margin:0}
+  .ed-body[data-mode=office] .panel .inv-top>div:first-child p{display:none}
+  /* Up to two short buttons share the title line; a main action gets its own full-width line */
+  .ed-body[data-mode=office] .panel .inv-top>.row,.ed-body[data-mode=office] .panel .inv-top>.rep-tools{grid-column:2;grid-row:1;display:flex!important;gap:6px;justify-self:end}
+  .ed-body[data-mode=office] .panel .inv-top>.btn{grid-column:1 / -1;grid-row:2;width:100%;justify-content:center}
+  .ed-body[data-mode=office] .panel .inv-top>.row:has(>.btn:not(.soft)){grid-column:1 / -1;grid-row:2;justify-self:stretch}
+  .ed-body[data-mode=office] .panel .inv-top>.row:has(>.btn:not(.soft))>.btn{flex:1 1 0}
+  .ed-body[data-mode=office] .panel .inv-top .rep-tools .btn.soft{height:38px;padding:0 12px}
+}
+@media (max-width:900px){.ed-body[data-mode=office] .panel>.page-head{min-height:auto!important}}
+.cl-date .ds{display:none}
+@media (max-width:900px){
+  .tsearch{min-width:0}
+  .cl-tscard,.scard.cl-sched,.cl-card,.cl-sec{grid-template-columns:minmax(0,1fr)}
+  .cl-tsbar>*{min-width:0}
+  .set-grid.set-clover{grid-template-columns:minmax(0,1fr)!important}
+  .set-grid.set-clover>*{min-width:0}
+  .set-grid.set-clover h3,.set-grid.set-clover .set-head{overflow-wrap:anywhere}
+  .panel[data-tab="settings"] a{width:auto!important;display:block;white-space:normal}
+  /* Calendar bar: date and arrows on line one, paging, filters and + on line two */
+  .cl-calbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px}
+  .cl-calbar>.cl-view{grid-column:1}
+  .cl-calbar>.cl-date{grid-column:2;justify-self:start;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cl-date .dl{display:none}.cl-date .ds{display:inline}
+  .cl-calbar>.grow{display:none}
+  .cl-calbar>.cl-pages,.cl-calbar>.cl-pages~*{grid-row:2}
+  .cl-calbar>.cl-add{justify-self:end}
+  .cl-chead,.cl-cbody{grid-template-columns:56px repeat(var(--n),minmax(0,1fr))!important}
+  .cl-who{padding:12px 8px}
+  .cl-who b{white-space:normal;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .vt-erri{font-size:11px}
+  .cl-lines .cl-link{padding-top:4px;padding-bottom:4px;margin-top:-4px;margin-bottom:-4px}
+  .cl-rowacts .cl-link{padding-left:6px;padding-right:6px;margin-left:-6px;margin-right:-6px}
+}
+@media (max-width:900px){
+  .cl-calbar{display:flex!important;flex-wrap:wrap;gap:8px 6px}
+  .cl-calbar>.cl-date{flex:1 1 calc(100% - 210px);grid-column:auto}
+  .cl-calbar>.cl-pages,.cl-calbar>.cl-pages~*{grid-row:auto}
+  .cl-calbar>.cl-add{margin-left:auto;width:42px;height:42px}
+  .cl-calbar .cl-chip{height:36px;padding:0 10px}
+}
+@media (max-width:360px){.cl-calbar>.cl-pages{display:none}.cl-calbar .c2-arrow{width:30px;height:30px}}
+@media (max-width:900px){.cl-calbar>.cl-date{text-align:left}}
+@media (max-width:400px){.cl-tsnav .cl-tsdate .dl{display:none}.cl-tsnav .cl-tsdate .ds{display:inline}}
+@media (max-width:900px){
+  .cl-secb{grid-template-columns:minmax(0,1fr)}
+  .cl-secb>*{min-width:0}
+  .cl-csearch{min-width:0}
+  .cl-tot .cl-link{padding-top:3px;padding-bottom:3px;margin-top:-3px;margin-bottom:-3px}
+}
