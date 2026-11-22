@@ -4956,7 +4956,11 @@ img.co-lg{border-radius:4px;box-shadow:none;background:transparent}
 }
 
 /* ---------- Log in: the form on the left, a photo on the right ---------- */
-.login{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(440px,44%) minmax(0,1fr);background:var(--bg)}
+.login{--photo-ar:1.156;min-height:100vh;min-height:100dvh;display:grid;background:var(--bg);
+  /* The photo column is as wide as the window's height allows for the photo's shape, so the whole scene shows;
+     the form side takes the rest and is never narrower than 440px. On narrower windows the photo trims its sides around the people. */
+  grid-template-columns:minmax(0,1fr) min(calc(100% - clamp(440px,40%,640px)),calc(100vh * var(--photo-ar)))}
+@supports (height:100dvh){.login{grid-template-columns:minmax(0,1fr) min(calc(100% - clamp(440px,40%,640px)),calc(100dvh * var(--photo-ar)))}}
 .lg-panel{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;padding:28px 56px 24px;padding-top:max(24px,env(safe-area-inset-top));background:var(--bg)}
 .lg-brand{display:inline-flex;align-items:center;gap:10px;width:max-content;color:var(--ink);font-size:19px;font-weight:700;letter-spacing:-.02em}
 .lg-brand:hover{text-decoration:none}
@@ -4996,9 +5000,9 @@ html[data-theme=dark] .lg-go:hover{background:#2a62bd}
 .lg-loc{display:inline-flex;align-items:center;gap:7px;color:var(--muted)}
 .lg-loc i{display:inline-flex;border-radius:2px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
 .lg-meta a{color:var(--blue)}
-.lg-photo{position:relative;min-width:0;background:#e9eef8;overflow:hidden}
-.lg-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 50%}
-@media (max-width:820px){
+.lg-photo{position:sticky;top:0;height:100vh;height:100dvh;min-width:0;background:#e9eef8;overflow:hidden}
+.lg-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:52% 50%}
+@media (max-width:820px),(max-width:1100px) and (orientation:portrait){
   .login{grid-template-columns:minmax(0,1fr)}
   .lg-photo{display:none}
   .lg-panel{padding:20px 22px calc(20px + env(safe-area-inset-bottom));padding-top:max(20px,env(safe-area-inset-top))}
