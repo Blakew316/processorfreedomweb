@@ -895,6 +895,27 @@ export function createApp(options = {}) {
     else { if (open) bad(400, 'You are already clocked in.'); db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at) VALUES (?, ?, ?, ?, ?)', newId(), site.id, user.id, user.name || user.email, Date.now()); }
     json(res, 200, clockOf(site, user));
   });
+  // Managers correct or add time: who, when they started, and when they finished (empty while still working).
+  const clockTimes = (b) => {
+    const inAt = Number(b.inAt), outAt = b.outAt == null || b.outAt === '' ? null : Number(b.outAt);
+    if (!Number.isFinite(inAt) || inAt <= 0) bad(400, 'Enter when the shift started.');
+    if (outAt !== null && (!Number.isFinite(outAt) || outAt <= inAt)) bad(400, 'The finish time must be after the start time.');
+    if (outAt !== null && outAt - inAt > 24 * 3600000) bad(400, 'A shift can be at most 24 hours.');
+    return { inAt, outAt };
+  };
+  route('PUT', '/api/sites/:id/timeclock/:entry', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    const row = db.get('SELECT id FROM timeclock WHERE id = ? AND site_id = ?', p.entry, site.id) || bad(404, 'We could not find that entry.');
+    const b = await readJson(req); const t = clockTimes(b); const name = str(b.name, 80).trim();
+    db.run('UPDATE timeclock SET in_at = ?, out_at = ?, name = CASE WHEN ? = \'\' THEN name ELSE ? END WHERE id = ?', t.inAt, t.outAt, name, name, row.id);
+    json(res, 200, clockOf(site, user));
+  });
+  route('POST', '/api/sites/:id/timeclock/entries', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    const b = await readJson(req); const t = clockTimes(b); const name = str(b.name, 80).trim() || bad(400, 'Enter who worked.');
+    db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at, out_at) VALUES (?, ?, ?, ?, ?, ?)', newId(), site.id, '', name, t.inAt, t.outAt);
+    json(res, 201, clockOf(site, user));
+  });
   route('DELETE', '/api/sites/:id/timeclock/:entry', (req, res, p) => {
     const { site, user } = ownSite(req, p.id);
     db.run('DELETE FROM timeclock WHERE id = ? AND site_id = ?', p.entry, site.id);
