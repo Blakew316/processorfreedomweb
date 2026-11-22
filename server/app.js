@@ -710,6 +710,13 @@ export function createApp(options = {}) {
     if (old) db.run("UPDATE contacts SET name = COALESCE(NULLIF(?, ''), name), company = COALESCE(NULLIF(?, ''), company), phone = COALESCE(NULLIF(?, ''), phone), address = COALESCE(NULLIF(?, ''), address) WHERE id = ?", c.name, c.company, c.phone, c.address, old.id);   // blank fields never wipe what is saved
     else if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n < 5000) db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, Date.now());
   }
+  // Loyalty rewards earned and used, with how much they took off.
+  route('GET', '/api/sites/:id/rewards', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const rows = db.all('SELECT code, email, type, value, earned_order AS earnedOrder, used_order AS usedOrder, created_at AS createdAt FROM rewards WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id);
+    const used = new Map(db.all("SELECT promo, discount, created_at FROM orders WHERE site_id = ? AND promo LIKE 'THANKS%' AND status != 'cancelled'", site.id).map((o) => [o.promo, { discount: o.discount, at: o.created_at }]));
+    json(res, 200, { rewards: rows.map((r) => ({ ...r, discount: used.get(r.code)?.discount || 0, usedAt: used.get(r.code)?.at || null })) });
+  });
   route('POST', '/api/sites/:id/contacts', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     keepContact(site.id, cleanContact(await readJson(req)));
