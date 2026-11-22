@@ -3588,3 +3588,4 @@ html[data-theme=dark] .chg.down{color:#ff8a80}html[data-theme=dark] .chg.up{colo
 .set-clover .set-2fa i{width:20px;height:20px;border-radius:50%;background:var(--line);flex:none}.set-clover .set-2fa i.on{background:#2e8540}
 html[data-theme=dark] .set-clover .set-body a{color:#9cc0ff!important}
 @media (max-width:700px){.set-grid.set-clover{grid-template-columns:1fr}.set-clover .set-card{padding:28px 26px!important}.set-clover .set-card h3{font-size:30px!important}}
+.set-clover .set-2fa{display:block!important}.set-clover .set-2fa i{display:inline-block;vertical-align:-4px;margin-right:10px}.set-clover .set-2fa b{margin-left:4px}
