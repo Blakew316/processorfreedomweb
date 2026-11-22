@@ -3383,3 +3383,108 @@ html[data-theme=dark] .tb-todo .tb-note em{color:#9cc0ff}
 html[data-theme=dark] .cg-day[data-today] b,html[data-theme=dark] .cm-d[data-today]>b{background:#fff;color:#0b1b3a}
 html[data-theme=dark] .mcal-d[data-today]{box-shadow:inset 0 0 0 1.5px #fff}
 .vt-type .field{max-width:340px}
+
+/* ===== Appointment calendar, refined ===== */
+.panel[data-tab=calendar] .inv-top>.row>.btn:not(.soft){display:none}
+.scard.c2{padding:0;overflow:hidden;border-radius:22px}
+.c2-bar{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;padding:18px 20px 16px;border-bottom:1px solid var(--line)}
+.c2-nav,.c2-right{display:flex;align-items:center;gap:8px}
+.c2-today{height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.c2-today:hover:not(:disabled){background:var(--bg2)}.c2-today:disabled{opacity:.45;cursor:default}
+.c2-arrow{width:36px;height:36px;border-radius:50%;border:0;background:none;color:var(--ink);display:grid;place-items:center;cursor:pointer;transition:background .15s}
+.c2-arrow:hover{background:var(--bg2)}
+.c2-title{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:6px 10px;border-radius:10px;font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink);cursor:pointer;white-space:nowrap}
+.c2-title:hover{background:var(--bg2)}
+.c2-count{font-size:13px;color:var(--muted);margin-right:6px;white-space:nowrap}
+.c2-seg{display:flex;background:var(--bg2);border-radius:11px;padding:3px;gap:2px}
+.c2-seg button{border:0;background:none;border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
+.c2-seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.12),0 0 0 .5px rgba(16,24,40,.06)}
+.c2-add{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--brand) 70%,transparent);transition:transform .15s}
+.c2-add:hover{transform:scale(1.05)}
+html[data-theme=dark] .c2-add{background:#fff;color:#0b1b3a}
+/* day and week */
+.c2-grid{--gut:64px}
+.c2-head,.c2-body{display:grid;grid-template-columns:var(--gut) repeat(var(--cols),minmax(0,1fr))}
+.c2-head{border-bottom:1px solid var(--line);background:var(--card);position:relative;z-index:2}
+.c2-tz{align-self:end;font-size:11px;color:var(--muted);text-align:right;padding:0 10px 10px 0}
+.c2-day{border:0;background:none;padding:12px 4px 10px;display:grid;justify-items:center;gap:4px;cursor:pointer;color:var(--ink)}
+.c2-day small{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.c2-day b{font-size:22px;font-weight:600;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;transition:background .15s}
+.c2-day:hover b{background:var(--bg2)}
+.c2-day[data-past] b{color:var(--muted);font-weight:500}
+.c2-day[data-today] small{color:#e5484d}
+.c2-day[data-today] b{background:#e5484d;color:#fff}
+.c2-body{height:min(660px,68vh);overflow-y:auto;position:relative;scroll-behavior:auto}
+.c2-gut{position:relative}
+.c2-gut span{position:absolute;right:10px;transform:translateY(-50%);font-size:11px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.c2-gut .c2-nowlab{color:#fff;background:#e5484d;font-weight:700;padding:2px 6px;border-radius:6px;right:6px;z-index:3}
+.c2-col{position:relative;border-left:1px solid var(--line);cursor:copy;
+  background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px),linear-gradient(to bottom,transparent 25px,color-mix(in srgb,var(--line) 55%,transparent) 26px,transparent 27px);
+  background-size:100% 52px;background-repeat:repeat-y}
+.c2-col[data-today]{background-color:color-mix(in srgb,#e5484d 2.5%,transparent)}
+.c2-off{position:absolute;left:0;right:0;pointer-events:none;background:repeating-linear-gradient(135deg,transparent 0 7px,color-mix(in srgb,var(--ink) 4.5%,transparent) 7px 8px);background-color:color-mix(in srgb,var(--ink) 2.5%,transparent)}
+.c2-now{position:absolute;left:0;right:0;height:2px;background:#e5484d;z-index:3;pointer-events:none}
+.c2-now::before{content:'';position:absolute;left:-6px;top:-5px;width:12px;height:12px;border-radius:50%;background:#e5484d}
+.c2-ev{position:absolute;z-index:2;display:grid;align-content:start;gap:2px;text-align:left;border:0;border-radius:10px;padding:6px 10px;overflow:hidden;cursor:pointer;font:inherit;color:var(--ink);
+  background:color-mix(in srgb,var(--brand) 11%,var(--card));box-shadow:inset 3px 0 0 var(--brand),0 1px 2px rgba(16,24,40,.08);transition:transform .15s,box-shadow .15s}
+.c2-ev:hover{transform:translateY(-1px);box-shadow:inset 3px 0 0 var(--brand),0 8px 18px -10px rgba(16,24,40,.45)}
+.c2-ev b{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c2-ev small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c2-ev.thin{grid-auto-flow:column;justify-content:start;align-items:center;gap:6px;padding:3px 8px}
+.c2-ev.pending{background:var(--card);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--brand) 50%,transparent),inset 0 0 0 1px color-mix(in srgb,var(--brand) 30%,transparent)}
+.c2-ev.completed,.c2-ev.noshow{background:var(--bg2);box-shadow:inset 3px 0 0 var(--faint,#9aa3b2);color:var(--muted)}
+.c2-hint{margin:0;padding:12px 20px 16px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+/* month */
+.c2-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.c2-wd{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:12px 12px 10px;border-bottom:1px solid var(--line)}
+.c2-cell{min-height:122px;padding:8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:background .15s;min-width:0}
+.c2-cell:nth-child(7n+7){border-right:0}
+.c2-cell.we,.c2-wd.we{background:color-mix(in srgb,var(--ink) 1.8%,transparent)}
+.c2-cell:hover{background:color-mix(in srgb,var(--brand) 4%,transparent)}
+.c2-cell[data-out]{background:color-mix(in srgb,var(--ink) 2.5%,transparent)}
+.c2-cell[data-out] .c2-num{color:var(--muted);opacity:.5}
+.c2-cell[data-past]:not([data-out]) .c2-num{color:var(--muted)}
+.c2-num{align-self:flex-start;font-size:14px;font-weight:600;min-width:28px;height:28px;padding:0 6px;border-radius:14px;display:grid;place-items:center;color:var(--ink)}
+.c2-cell[data-today] .c2-num{background:#e5484d;color:#fff}
+.c2-pills{display:grid;gap:3px;min-width:0}
+.c2-pill{display:flex;align-items:center;gap:6px;min-width:0;border:0;background:none;padding:3px 6px;border-radius:6px;font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;text-align:left}
+.c2-pill:hover{background:color-mix(in srgb,var(--brand) 9%,transparent)}
+.c2-pill i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--brand)}
+.c2-pill.pending i{background:none;box-shadow:inset 0 0 0 1.5px var(--brand)}
+.c2-pill.completed i,.c2-pill.noshow i{background:var(--faint,#9aa3b2)}
+.c2-pill b{flex:none;font-weight:600;font-variant-numeric:tabular-nums}
+.c2-pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c2-more{font-size:12px;font-weight:600;color:var(--muted);padding-left:6px}
+html[data-theme=dark] .c2-ev{background:color-mix(in srgb,#9cc0ff 16%,var(--card));box-shadow:inset 3px 0 0 #9cc0ff}
+html[data-theme=dark] .c2-pill i{background:#9cc0ff}
+@media (max-width:760px){
+  .c2-bar{padding:14px}.c2-title{font-size:18px;padding:4px 6px}.c2-nav{flex-wrap:wrap}.c2-right{width:100%;justify-content:space-between}.c2-count{display:none}
+  .c2-grid{--gut:46px}.c2-day b{font-size:17px;width:30px;height:30px}.c2-day small{font-size:10px}
+  .c2-body{height:62vh}.c2-ev{padding:4px 6px}.c2-ev small{display:none}
+  .c2-cell{min-height:72px;padding:4px}.c2-wd{padding:8px 4px;text-align:center;font-size:10px}
+  .c2-pill{padding:0;justify-content:center}.c2-pill b,.c2-pill span{display:none}.c2-pills{grid-template-columns:repeat(auto-fill,8px);gap:3px}.c2-num{font-size:13px;min-width:24px;height:24px}
+}
+.c2{--ev:#2f5fd0}
+.c2-ev{background:color-mix(in srgb,var(--ev) 10%,var(--card));box-shadow:inset 3px 0 0 var(--ev),0 1px 2px rgba(16,24,40,.06)}
+.c2-ev:hover{box-shadow:inset 3px 0 0 var(--ev),0 8px 18px -10px rgba(16,24,40,.4)}
+.c2-ev b{color:color-mix(in srgb,var(--ev) 55%,var(--ink))}
+.c2-ev small{color:color-mix(in srgb,var(--ev) 35%,var(--muted))}
+.c2-ev.pending{background:var(--card);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--ev) 55%,transparent),inset 0 0 0 1px color-mix(in srgb,var(--ev) 30%,transparent)}
+.c2-pill i{background:var(--ev)}.c2-pill.pending i{background:none;box-shadow:inset 0 0 0 1.5px var(--ev)}
+.c2-pill:hover{background:color-mix(in srgb,var(--ev) 9%,transparent)}
+html[data-theme=dark] .c2{--ev:#8fb3ff}
+html[data-theme=dark] .c2-ev{background:color-mix(in srgb,var(--ev) 16%,var(--card));box-shadow:inset 3px 0 0 var(--ev)}
+html[data-theme=dark] .c2-ev b{color:#e8eeff}html[data-theme=dark] .c2-pill i{background:var(--ev)}
+.c2-ev.completed,.c2-ev.noshow{background:var(--bg2);box-shadow:inset 3px 0 0 var(--faint,#9aa3b2)}.c2-ev.completed b,.c2-ev.noshow b{color:var(--muted)}
+/* Day view: the date is already in the title */
+.c2-grid[style*="--cols:1"] .c2-head{display:none}
+@media (max-width:760px){
+  .panel[data-tab=calendar] .inv-top{display:none}
+  .c2-bar{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-areas:"title title prev next" "today seg seg add";gap:10px 6px;align-items:center;padding:12px 12px 12px}
+  .c2-nav,.c2-right{display:contents}
+  .c2-nav>:nth-child(1){grid-area:today}.c2-nav>:nth-child(2){grid-area:prev}.c2-nav>:nth-child(3){grid-area:next}.c2-nav>:nth-child(4){grid-area:title;justify-self:start}
+  .c2-seg{grid-area:seg;justify-self:center}.c2-add{grid-area:add;width:38px;height:38px}
+  .c2-seg button{padding:7px 12px}.c2-today{height:36px;padding:0 12px}
+  .c2-title{font-size:19px}
+}
+@media (max-width:760px){.c2-grid[style*="--cols:1"] .c2-ev small{display:block}.c2-grid[style*="--cols:1"] .c2-ev{padding:5px 10px}}

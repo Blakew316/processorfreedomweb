@@ -1154,37 +1154,71 @@ export async function editor(id, mount, title, startTab = '') {
         const inView = calView === 'month' ? live.filter((a) => a.at.slice(0, 7) === calDate.slice(0, 7)) : DAYS.flatMap(on);
         const title = calView === 'month' ? monthName(calDate.slice(0, 7)) : calView === 'week' ? `${longDay(week[0], { month: 'short', day: 'numeric' })} – ${longDay(week[6], { month: 'short', day: 'numeric', year: 'numeric' })}` : longDay(calDate);
         const move = (n) => { if (calView === 'month') calDate = new Date(Date.UTC(Number(calDate.slice(0, 4)), Number(calDate.slice(5, 7)) - 1 + n, 1)).toISOString().slice(0, 10); else calDate = addDays(calDate, n * (calView === 'week' ? 7 : 1)); paintPanel(); };
-        const titleBtn = h('button', { type: 'button', class: 'cal-title', 'aria-haspopup': 'dialog', onclick: () => popover(titleBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(calDate.slice(0, 7), (d) => { calDate = d; close(); paintPanel(); }, () => ({ from: calDate, to: calDate }))), 'left') }, title, h('span', { class: 'chv d', 'aria-hidden': 'true' }));
-        const bar = h('div', { class: 'cal-bar' },
-          h('div', { class: 'seg cal-seg', role: 'group', 'aria-label': 'View' }, [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(calView === k), onclick: () => { calView = k; paintPanel(); } }, l))),
-          titleBtn, h('div', { class: 'row', style: 'gap:2px' }, h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Previous', onclick: () => move(-1) }, chev('l')), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Next', onclick: () => move(1) }, chev('r'))),
-          h('button', { type: 'button', class: 'btn soft sm', disabled: calDate === today, onclick: () => { calDate = today; paintPanel(); } }, 'Today'),
-          h('span', { class: 'grow' }), h('span', { class: 'small muted' }, `${inView.length} booked`));
+        const titleBtn = h('button', { type: 'button', class: 'c2-title', 'aria-haspopup': 'dialog', title: 'Pick a date', onclick: () => popover(titleBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(calDate.slice(0, 7), (d) => { calDate = d; close(); paintPanel(); }, () => ({ from: calDate, to: calDate }))), 'left') }, title, h('span', { class: 'chv d', 'aria-hidden': 'true' }));
+        const bar = h('div', { class: 'c2-bar' },
+          h('div', { class: 'c2-nav' },
+            h('button', { type: 'button', class: 'c2-today', disabled: calDate === today && calView !== 'month', onclick: () => { calDate = today; paintPanel(); } }, 'Today'),
+            h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous', onclick: () => move(-1) }, chev('l')),
+            h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next', onclick: () => move(1) }, chev('r')),
+            titleBtn),
+          h('div', { class: 'c2-right' },
+            h('span', { class: 'c2-count' }, inView.length ? `${inView.length} booked` : 'Nothing booked'),
+            h('div', { class: 'c2-seg', role: 'group', 'aria-label': 'View' }, [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(calView === k), onclick: () => { calView = k; paintPanel(); } }, l))),
+            h('button', { type: 'button', class: 'c2-add', title: 'Add appointment', 'aria-label': 'Add appointment', onclick: () => add({ date: calDate }) }, ic('plus', 20))));
+        const meta2 = (a) => [clock(a.at), a.service || 'Booking', a.party > 1 ? `${a.party} people` : ''].filter(Boolean).join(' · ');
         if (calView === 'month') {
           const ym = calDate.slice(0, 7), [y, m] = ym.split('-').map(Number);
           const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7, start = addDays(`${ym}-01`, -lead);
           const cells = Array.from({ length: Math.ceil((lead + new Date(Date.UTC(y, m, 0)).getUTCDate()) / 7) * 7 }, (_, i) => addDays(start, i));
-          return [h('div', { class: 'inv' }, head, h('div', { class: 'scard cal' }, bar, h('div', { class: 'cal-month' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => h('span', { class: 'cm-h' }, d)),
-            cells.map((d) => { const list = on(d); return h('div', { class: 'cm-d', role: 'button', tabindex: '0', 'aria-label': `${dayName(d)}, ${list.length} booked`, 'data-out': d.slice(0, 7) !== ym ? '1' : null, 'data-today': d === today ? '1' : null, onclick: (e) => { if (e.target.closest('.cev')) return; calDate = d; calView = 'day'; paintPanel(); } },
-              h('b', {}, String(Number(d.slice(8)))), list.slice(0, 3).map((a) => h('button', { type: 'button', class: `cev ${a.status}`, onclick: () => open(a) }, h('i', {}, short2(a)), ` ${a.name}`)), list.length > 3 && h('small', {}, `+${list.length - 3} more`)); }))))];
+          return [h('div', { class: 'inv' }, head, h('div', { class: 'scard c2' }, bar,
+            h('div', { class: 'c2-month' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => h('span', { class: `c2-wd${i > 4 ? ' we' : ''}` }, d)),
+              cells.map((d, i) => { const list = on(d).sort((a, b) => mins(a) - mins(b)); return h('div', { class: `c2-cell${i % 7 > 4 ? ' we' : ''}`, role: 'button', tabindex: '0', 'aria-label': `${dayName(d)}, ${list.length} booked`, 'data-out': d.slice(0, 7) !== ym ? '1' : null, 'data-today': d === today ? '1' : null, 'data-past': d < today ? '1' : null,
+                onclick: (e) => { if (e.target.closest('.c2-pill')) return; calDate = d; calView = 'day'; paintPanel(); }, onkeydown: (e) => { if (e.key === 'Enter') { calDate = d; calView = 'day'; paintPanel(); } } },
+                h('span', { class: 'c2-num' }, String(Number(d.slice(8)))),
+                h('div', { class: 'c2-pills' }, list.slice(0, 3).map((a) => h('button', { type: 'button', class: `c2-pill ${a.status}`, title: `${a.name} · ${meta2(a)}`, onclick: () => open(a) }, h('i'), h('b', {}, short2(a)), h('span', {}, a.name))), list.length > 3 && h('small', { class: 'c2-more' }, `+${list.length - 3} more`))); }))))];
         }
-        const HOUR = 56;
-        const startH = Math.min(8, ...inView.map((a) => Math.floor(mins(a) / 60))), endH = Math.min(24, Math.max(21, ...inView.map((a) => Math.ceil((mins(a) + len(a)) / 60))));
-        const hours = Array.from({ length: endH - startH }, (_, i) => startH + i);
+        // Day and week: the whole day, scrolled to the morning or the current time; closed hours shaded from Business hours.
+        const HOUR = 52, hrs = Array.from({ length: 24 }, (_, i) => i);
         const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
         const at = (d, m) => add({ date: d, time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` });
-        const col = (d) => {
-          const ends = [], placed = on(d).sort((a, b) => mins(a) - mins(b)).map((a) => { let l = ends.findIndex((e) => e <= mins(a)); if (l < 0) l = ends.length; ends[l] = mins(a) + len(a); return [a, l]; });
-          const n = Math.max(1, ends.length);
-          return h('div', { class: 'cg-col', style: `height:${hours.length * HOUR}px`, 'data-today': d === today ? '1' : null, title: 'Press an empty time to book it', onclick: (e) => { if (e.target.closest('.cev')) return; const r = e.currentTarget.getBoundingClientRect(); at(d, startH * 60 + Math.floor(((e.clientY - r.top) / HOUR) * 2) * 30); } },
-            d === today && nowMin >= startH * 60 && nowMin <= endH * 60 && h('i', { class: 'cg-now', style: `top:${((nowMin - startH * 60) / 60) * HOUR}px` }),
-            placed.map(([a, l]) => h('button', { type: 'button', class: `cev ${a.status}`, style: `top:${((mins(a) - startH * 60) / 60) * HOUR + 1}px;height:${Math.max(24, (len(a) / 60) * HOUR - 3)}px;left:calc(${(l / n) * 100}% + 3px);width:calc(${100 / n}% - 6px)`, onclick: () => open(a) }, h('b', {}, a.name), h('small', {}, `${clock(a.at)} · ${a.service || 'Booking'}${a.party > 1 ? ` · ${a.party} people` : ''}`))));
+        const toMin = (t) => { const [hh, mm] = String(t || '0:0').split(':').map(Number); return hh * 60 + (mm || 0); };
+        const closedBands = (d) => {
+          const x = ordering.hours && ordering.hours[new Date(`${d}T12:00:00Z`).getUTCDay()];
+          if (!x) return [];
+          if (x.closed) return [[0, 1440]];
+          const o = toMin(x.open), c = toMin(x.close);
+          return c > o ? [[0, o], [c, 1440]].filter(([a, b]) => b > a) : [[c, o]].filter(([a, b]) => b > a);   // closing after midnight
         };
-        return [h('div', { class: 'inv' }, head, h('div', { class: 'scard cal' }, bar,
-          h('div', { class: 'cal-grid', style: `--cols:${DAYS.length}` },
-            h('div', { class: 'cg-head' }, h('span'), DAYS.map((d) => h('button', { type: 'button', class: 'cg-day', 'data-today': d === today ? '1' : null, onclick: () => { calDate = d; calView = 'day'; paintPanel(); } }, h('small', {}, longDay(d, { weekday: 'short' })), h('b', {}, String(Number(d.slice(8))))))),
-            h('div', { class: 'cg-body' }, h('div', { class: 'cg-gut' }, hours.map((x) => h('span', { style: `height:${HOUR}px` }, `${x % 12 || 12} ${x < 12 ? 'AM' : 'PM'}`))), DAYS.map(col))),
-          !inView.length && h('p', { class: 'small muted', style: 'margin:12px 4px 0' }, 'Nothing booked here yet. Press any empty time to add an appointment.')))];
+        const col = (d) => {
+          // Side by side only where bookings actually overlap; everything else keeps the full width.
+          const placed = []; let group = [], ends = [], groupEnd = -1;
+          const flush = () => { for (const g of group) g.push(ends.length); group = []; ends = []; };
+          for (const a of on(d).sort((x, y) => mins(x) - mins(y))) {
+            if (mins(a) >= groupEnd) { flush(); groupEnd = -1; }
+            let l = ends.findIndex((e) => e <= mins(a)); if (l < 0) l = ends.length; ends[l] = mins(a) + len(a);
+            const row = [a, l]; group.push(row); placed.push(row); groupEnd = Math.max(groupEnd, mins(a) + len(a));
+          }
+          flush();
+          return h('div', { class: 'c2-col', style: `height:${24 * HOUR}px`, 'data-today': d === today ? '1' : null, 'data-past': d < today ? '1' : null, title: 'Press an empty time to book it',
+            onclick: (e) => { if (e.target.closest('.c2-ev')) return; const r = e.currentTarget.getBoundingClientRect(); at(d, Math.max(0, Math.min(1410, Math.floor(((e.clientY - r.top) / HOUR) * 2) * 30))); } },
+            closedBands(d).map(([a, b]) => h('i', { class: 'c2-off', style: `top:${(a / 60) * HOUR}px;height:${((b - a) / 60) * HOUR}px` })),
+            d === today && h('i', { class: 'c2-now', style: `top:${(nowMin / 60) * HOUR}px` }),
+            placed.map(([a, l, n]) => { const tall = (len(a) / 60) * HOUR - 4; return h('button', { type: 'button', class: `c2-ev ${a.status}${tall < 44 ? ' thin' : ''}`, title: `${a.name} · ${meta2(a)}`, style: `top:${(mins(a) / 60) * HOUR + 2}px;height:${Math.max(22, tall)}px;left:calc(${(l / n) * 100}% + 4px);width:calc(${100 / n}% - 8px)`, onclick: () => open(a) },
+              h('b', {}, a.name), h('small', {}, meta2(a))); }));
+        };
+        const body = h('div', { class: 'c2-body' },
+          h('div', { class: 'c2-gut', style: `height:${24 * HOUR}px` }, hrs.slice(1).map((x) => h('span', { style: `top:${x * HOUR}px` }, `${x % 12 || 12} ${x < 12 ? 'AM' : 'PM'}`)),
+            DAYS.includes(today) && h('span', { class: 'c2-nowlab', style: `top:${(nowMin / 60) * HOUR}px` }, clock(`0000-00-00T${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${String(nowMin % 60).padStart(2, '0')}`))),
+          DAYS.map(col));
+        // Open on the first booking, the current time, or 8 in the morning, whichever comes first in view.
+        const firstAt = Math.min(...inView.map(mins), DAYS.includes(today) ? nowMin : 1440, 8 * 60);
+        requestAnimationFrame(() => { body.scrollTop = Math.max(0, Math.floor(firstAt / 60 - 1) * HOUR - 12); });
+        return [h('div', { class: 'inv' }, head, h('div', { class: 'scard c2' }, bar,
+          h('div', { class: 'c2-grid', style: `--cols:${DAYS.length}` },
+            h('div', { class: 'c2-head' }, h('span', { class: 'c2-tz' }, calView === 'week' ? `Week ${Math.ceil(((Date.parse(`${week[3]}T12:00:00Z`) - Date.UTC(Number(week[3].slice(0, 4)), 0, 1)) / 86400000 + 1) / 7)}` : ''),
+              DAYS.map((d) => h('button', { type: 'button', class: 'c2-day', 'data-today': d === today ? '1' : null, 'data-past': d < today ? '1' : null, onclick: () => { calDate = d; calView = 'day'; paintPanel(); } }, h('small', {}, longDay(d, { weekday: 'short' })), h('b', {}, String(Number(d.slice(8))))))),
+            body),
+          !inView.length && h('p', { class: 'c2-hint' }, 'Nothing booked here yet. Press any empty time to add an appointment.')))];
       }
       const pending = all.filter((a) => a.status === 'pending'), todays = all.filter((a) => a.at.slice(0, 10) === today && a.status !== 'cancelled');
       return [h('div', { class: 'inv' }, head,
