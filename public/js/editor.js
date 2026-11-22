@@ -139,7 +139,7 @@ export async function editor(id, mount, title, startTab = '') {
   const modeOf = (k) => (tabs.find(([t]) => t === k) || tabs[0])[3];
   let team = null;
   let saleBusy = false, saleCust = false;
-  let saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: true, tender: 'cash', customer: null, q: '' };
+  let saleDraft = { type: 'pay', tip: '', note: '', taxOn: true, tender: 'cash', customer: null, q: '', lines: [] };
   let calView = 'day', calDate = '', custFilter = 'all', custSort = 'recent', invCat = '', teamQ = '', teamRole = 'all';
   let pushIsOn = null;
   pushOn().then((v) => { pushIsOn = v; }).catch(() => { pushIsOn = false; });
@@ -1004,61 +1004,90 @@ export async function editor(id, mount, title, startTab = '') {
     },
     sale() {
       const d = saleDraft;
+      if (!d.lines) d.lines = [];
       if (!customers && !saleCust) { saleCust = true; api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => {}).finally(() => { saleCust = false; }); }
       const rate = Number(ordering.taxRate) || 0;
       const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
-      const TYPES = [['pay', 'Take payment'], ['preauth', 'Pre-authorization'], ['invoice', 'Invoice'], ['verify', 'Card verification']];
+      const TYPES = [['pay', 'Take payment'], ['invoice', 'Invoice'], ['preauth', 'Pre-authorization'], ['verify', 'Card verification']];
       const cardOnly = d.type === 'preauth' || d.type === 'verify';
-      const totalEl = h('b', {}), taxEl = h('span', {}), bottomTotal = h('b', {});
-      const sums = () => { const sub = cents(d.sub), tax = d.taxOn ? Math.round((sub * rate) / 100) : 0, tip = cents(d.tip); return { sub, tax, tip, total: sub + tax + tip }; };
-      const done = h('button', { class: 'btn', type: 'button' });
-      const refresh = () => { const t = sums(); taxEl.textContent = `+${money(t.tax)}`; totalEl.textContent = money(t.total); bottomTotal.textContent = money(t.total); const card = d.type === 'pay' && d.tender === 'card'; done.disabled = saleBusy || cardOnly || card || (d.type === 'pay' && !(t.sub > 0)); done.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Needs card processing' : 'Record payment'; };
-      const money$ = (key, label, big) => h('label', { class: `vt-money ${big ? 'big' : ''}` }, h('small', {}, label), h('div', {}, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: '0.00', value: d[key], 'aria-label': label, oninput: (e) => { d[key] = e.target.value; refresh(); } })));
-      const who = h('div', { class: 'vt-who' });
+      const sums = () => {
+        const sub = d.lines.reduce((a, l) => a + l.price * l.qty, 0);
+        const taxable = d.lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0);
+        const tax = d.taxOn ? Math.round((taxable * rate) / 100) : 0, tip = d.type === 'pay' ? cents(d.tip) : 0;
+        return { sub, tax, tip, total: sub + tax + tip };
+      };
+      const sumEl = h('div', { class: 'ns-sum' }), btn = h('button', { class: 'btn ns-go', type: 'button' });
+      const drawSum = () => {
+        const t = sums(), card = d.type === 'pay' && d.tender === 'card';
+        sumEl.replaceChildren(
+          h('div', { class: 'ns-line' }, h('span', {}, 'Subtotal'), h('b', {}, money(t.sub))),
+          h('div', { class: 'ns-line' }, h('span', {}, rate ? `Tax (${rate}%)` : 'Tax'), h('b', {}, money(t.tax))),
+          d.type === 'pay' && h('div', { class: 'ns-line' }, h('span', {}, 'Tip'), h('b', {}, money(t.tip))),
+          h('div', { class: 'ns-line ns-total' }, h('span', {}, 'Total'), h('b', {}, money(t.total))));
+        btn.disabled = saleBusy || cardOnly || card || (d.type === 'pay' && !(t.sub > 0));
+        btn.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Card payments not connected' : `Charge ${money(t.total)}`;
+      };
+      // Items: pick from the menu or add a custom amount; each line has a quantity.
+      const list = h('div', { class: 'ns-items' });
+      const drawLines = () => {
+        list.replaceChildren(...(d.lines.length ? d.lines.map((l, i) => h('div', { class: 'ns-row' },
+          h('div', { class: 'ns-name' }, h('b', {}, l.name), h('small', {}, money(l.price))),
+          h('div', { class: 'ns-qty' }, h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'One fewer', onclick: () => { l.qty -= 1; if (l.qty < 1) d.lines.splice(i, 1); drawLines(); } }, ic('minus', 16)), h('span', {}, String(l.qty)), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'One more', onclick: () => { l.qty += 1; drawLines(); } }, ic('plus', 16))),
+          h('b', { class: 'ns-amt' }, money(l.price * l.qty)),
+          h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': `Remove ${l.name}`, onclick: () => { d.lines.splice(i, 1); drawLines(); } }, ic('x', 16))))
+          : [h('p', { class: 'ns-empty' }, 'No items yet')]));
+        drawSum();
+      };
+      const addLine = (name, price, taxable = true, itemId = '') => { const same = itemId && d.lines.find((l) => l.itemId === itemId); if (same) same.qty += 1; else d.lines.push({ name, price, qty: 1, taxable, itemId }); drawLines(); };
+      const hits = h('div', { class: 'ns-hits' });
+      const findItems = (q) => { const m = q ? menu.filter((x) => x.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8) : []; hits.replaceChildren(...m.map((x) => h('button', { type: 'button', onclick: () => { addLine(x.name, itemPrice(x), x.taxable !== false, x.id); itemQ.value = ''; findItems(''); itemQ.focus(); } }, h('span', {}, x.name), h('b', {}, money(itemPrice(x)))))); };
+      const itemQ = h('input', { type: 'search', placeholder: 'Search items', 'aria-label': 'Search items', oninput: (e) => findItems(e.target.value.trim()) });
+      const cName = h('input', { placeholder: 'Custom item', 'aria-label': 'Custom item name', maxlength: 160 }), cPrice = h('input', { placeholder: '0.00', inputmode: 'decimal', 'aria-label': 'Custom amount' });
+      const addCustom = () => { const c = parsePrice(cPrice.value || ''); if (!c) return toast('Enter an amount.', true); addLine(cName.value.trim() || 'Custom amount', c); cName.value = ''; cPrice.value = ''; cName.focus(); };
+      // Customer
+      const who = h('div', { class: 'ns-who' });
       const drawWho = () => {
         if (d.customer) return who.replaceChildren(h('div', { class: 'vt-picked' }, h('div', {}, h('b', {}, d.customer.name), h('div', { class: 'small muted' }, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', type: 'button', onclick: () => { d.customer = null; drawWho(); } }, 'Change')));
-        const list = h('div', { class: 'vt-hits' });
-        const find = () => { const q = d.q.toLowerCase(); const hits = q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q)).slice(0, 6) : []; list.replaceChildren(...hits.map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; drawWho(); } }, h('b', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
-        who.replaceChildren(h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search customer or business name', value: d.q, 'aria-label': 'Search customers', oninput: (e) => { d.q = e.target.value; find(); } })), list);
+        const res = h('div', { class: 'ns-hits' });
+        const find = () => { const q = d.q.toLowerCase(); res.replaceChildren(...(q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q)).slice(0, 6) : []).map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; drawWho(); } }, h('span', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
+        who.replaceChildren(h('div', { class: 'row', style: 'gap:8px' }, h('label', { class: 'tsearch grow' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search customers', value: d.q, 'aria-label': 'Search customers', oninput: (e) => { d.q = e.target.value; find(); } })), h('button', { class: 'btn soft', type: 'button', onclick: addCustomer }, ic('plus', 16), 'New')), res);
         find();
       };
-      drawWho();
       const record = async () => {
         const t = sums();
-        if (d.type === 'invoice') return openInvoice(null, d.customer || null, 'invoice', t.sub > 0 ? [{ name: d.note.trim() || 'Sale', qty: 1, price: t.sub, taxable: d.taxOn }] : null);
+        if (d.type === 'invoice') return openInvoice(null, d.customer || null, 'invoice', d.lines.length ? d.lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price, taxable: l.taxable !== false })) : null);
         if (saleBusy) return;
-        saleBusy = true; refresh();
+        saleBusy = true; drawSum();
         try {
-          const items = [{ name: d.note.trim() || 'Sale', qty: 1, price: t.sub }, t.tax > 0 && { name: `Sales tax (${rate}%)`, qty: 1, price: t.tax }, t.tip > 0 && { name: 'Tip', qty: 1, price: t.tip }].filter(Boolean);
+          const items = [...d.lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price })), t.tax > 0 && { name: `Sales tax (${rate}%)`, qty: 1, price: t.tax }, t.tip > 0 && { name: 'Tip', qty: 1, price: t.tip }].filter(Boolean);
           const c = d.customer || {};
-          // Saved already paid in one step, so a dropped connection can never leave an unpaid copy behind.
           const r = await api('POST', `/api/sites/${id}/invoices`, { walkIn: !d.customer, customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '', address: c.address || '' }, items, taxRate: 0, notes: d.note.trim(), paidMethod: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', paidNote: 'Recorded with New sale' });
           bills = null; txData = null; stats = null;
-          saleDraft = { type: 'pay', sub: '', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '' };
+          saleDraft = { type: 'pay', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '', lines: [] };
           toast(`${money(t.total)} recorded as ${r.invoice.label || 'a sale'}`);
         } catch (e) { toast(e.message, true); }
         saleBusy = false; if (tab === 'sale') paintPanel();
       };
-      done.onclick = record;
-      const tender = h('div', { class: 'seg vt-tender', role: 'group', 'aria-label': 'Paid by' }, [['card', 'Card'], ['cash', 'Cash'], ['check', 'Check'], ['other', 'Other']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l)));
-      const cardBox = h('div', { class: 'vt-card', 'aria-disabled': 'true' },
-        h('div', { class: 'vt-grid' }, ['Card number', 'Card holder name', 'Expiration (MM/YYYY)', 'CVV', 'ZIP / postal code'].map((l) => h('label', { class: 'field' }, h('span', {}, l), h('input', { disabled: true, placeholder: l })))),
-        h('p', { class: 'note' }, 'Card payments are not connected yet.'));
-      setTimeout(refresh);
-      return [h('div', { class: 'vt' },
-        h('div', { class: 'vt-type' }, h('label', { class: 'field' }, h('span', {}, 'Transaction type'), h('select', { onchange: (e) => { d.type = e.target.value; paintPanel(); } }, TYPES.map(([k, l]) => h('option', { value: k, selected: d.type === k }, l)))),),
-        h('h3', { class: 'vt-h' }, 'Sale detail'),
-        h('div', { class: 'scard vt-detail' },
-          h('div', { class: 'vt-row' }, money$('sub', cardOnly && d.type === 'verify' ? 'Amount (not charged)' : 'Subtotal', true),
-            h('div', { class: 'vt-tax' }, h('small', {}, rate ? `Sales tax (${rate}%)` : 'Sales tax'), taxEl, rate ? h('label', { class: 'switch sm' }, h('span', { class: 'small' }, 'Charge tax'), h('input', { type: 'checkbox', checked: d.taxOn, onchange: (e) => { d.taxOn = e.target.checked; refresh(); } }), h('i')) : h('button', { class: 'btn text sm', type: 'button', onclick: () => goTab('ordering') }, 'Set a tax rate'))),
-          h('label', { class: 'field' }, h('input', { placeholder: 'Note for item or service', value: d.note, maxlength: 160, 'aria-label': 'Note for item or service', oninput: (e) => { d.note = e.target.value; } })),
-          d.type === 'pay' && h('div', { class: 'vt-row end' }, money$('tip', 'Tip')),
-          h('div', { class: 'vt-total' }, h('span', {}, 'Total'), totalEl)),
-        h('h3', { class: 'vt-h' }, d.type === 'invoice' ? 'Customer' : 'Payment information'),
-        h('div', { class: 'scard vt-pay' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, 'Customer'), h('button', { class: 'btn text sm', type: 'button', onclick: addCustomer }, 'Add new customer')), who,
-          d.type === 'pay' && [h('div', { class: 'vt-line' }), h('b', {}, 'Paid by'), tender, d.tender === 'card' && cardBox],
-          cardOnly && cardBox),
-        h('div', { class: 'vt-bar' }, h('span', {}, 'Total'), bottomTotal, h('span', { class: 'grow' }), done))];
+      btn.onclick = record;
+      const tenders = [['cash', 'Cash'], ['card', 'Card'], ['check', 'Check'], ['other', 'Other']];
+      const payBox = d.type === 'pay' && h('div', { class: 'ns-pay' },
+        h('span', { class: 'ns-k' }, 'Paid by'),
+        h('div', { class: 'ns-tenders', role: 'radiogroup', 'aria-label': 'Paid by' }, tenders.map(([k, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l))),
+        d.tender === 'card' && h('p', { class: 'note' }, 'Card payments are not connected yet.'));
+      drawLines(); drawWho();
+      return [h('div', { class: 'ns' },
+        h('div', { class: 'ns-main' },
+          h('div', { class: 'scard ns-card' }, h('div', { class: 'ns-head' }, h('h3', {}, 'Items'), h('select', { class: 'ns-type', 'aria-label': 'Transaction type', onchange: (e) => { d.type = e.target.value; paintPanel(); } }, TYPES.map(([k, l]) => h('option', { value: k, selected: d.type === k }, l)))),
+            h('label', { class: 'tsearch' }, ic('search', 18), itemQ), hits,
+            list,
+            h('div', { class: 'ns-custom' }, cName, h('div', { class: 'ns-price' }, h('span', {}, '$'), cPrice), h('button', { class: 'btn soft', type: 'button', onclick: addCustom }, ic('plus', 16), 'Add'))),
+          h('div', { class: 'scard ns-card' }, h('h3', {}, 'Customer'), who),
+          h('div', { class: 'scard ns-card' }, h('h3', {}, 'Note'), h('textarea', { rows: 2, maxlength: 500, placeholder: 'Optional', value: d.note, oninput: (e) => { d.note = e.target.value; } }))),
+        h('aside', { class: 'scard ns-card ns-side' }, h('h3', {}, 'Summary'),
+          sumEl,
+          rate > 0 && h('label', { class: 'switch ns-switch' }, h('span', {}, 'Charge tax'), h('input', { type: 'checkbox', checked: d.taxOn, onchange: (e) => { d.taxOn = e.target.checked; drawSum(); } }), h('i')),
+          d.type === 'pay' && h('label', { class: 'field ns-tip' }, h('span', {}, 'Tip'), h('div', { class: 'ns-price' }, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: '0.00', value: d.tip, oninput: (e) => { d.tip = e.target.value; drawSum(); } }))),
+          payBox, btn))];
     },
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));

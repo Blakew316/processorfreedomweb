@@ -3653,3 +3653,44 @@ html[data-theme=dark] .delta.up{color:#7bd88f!important}html[data-theme=dark] .d
   .ed-body[data-mode=office] .inv-kpis .kpi:nth-child(odd){border-left:0!important}
   .ed-body[data-mode=office] [data-l]::before{text-transform:none!important;letter-spacing:0!important;font-weight:500!important}
 }
+
+/* ===== New sale: a normal page with items, customer and a summary ===== */
+.ns{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+.ns-main{display:grid;gap:20px;min-width:0}
+.scard.ns-card{padding:20px 22px!important;display:grid;gap:14px}
+.ns-card h3{margin:0;font-size:17px;font-weight:600}
+.ns-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ns-type{height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:0 32px 0 12px;font:inherit;font-size:14px}
+.ns-hits{display:grid;gap:2px}.ns-hits:empty{display:none}
+.ns-hits button{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--ink);font:inherit}
+.ns-hits button:hover{background:var(--bg2)}.ns-hits small{color:var(--muted)}
+.ns-items{display:grid;border-top:1px solid var(--line)}
+.ns-row{display:grid;grid-template-columns:minmax(0,1fr) auto 90px 32px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.ns-name{display:grid;min-width:0}.ns-name b{font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ns-name small{color:var(--muted);font-size:13px}
+.ns-qty{display:flex;align-items:center;gap:6px}.ns-qty span{min-width:22px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
+.ns-amt{text-align:right;font-variant-numeric:tabular-nums}
+.ns-empty{margin:0;padding:18px 0;color:var(--muted);text-align:center;border-bottom:1px solid var(--line)}
+.ns-custom{display:grid;grid-template-columns:minmax(0,1fr) 130px auto;gap:8px}
+.ns-custom>input,.ns-price{height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:0 14px;font:inherit;color:var(--ink)}
+.ns-price{display:flex;align-items:center;gap:4px;padding:0 12px}.ns-price span{color:var(--muted)}.ns-price input{border:0;outline:0;background:none;width:100%;font:inherit;color:var(--ink);padding:0}
+.ns-custom .btn{height:44px;border-radius:12px}
+.ns-card textarea{width:100%;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:10px 14px;font:inherit;color:var(--ink);resize:vertical}
+.ns-who{display:grid;gap:8px}.ns-who .btn{height:44px;border-radius:12px}
+.ns-side{position:sticky;top:12px}
+.ns-sum{display:grid;gap:10px}
+.ns-line{display:flex;justify-content:space-between;font-size:15px;color:var(--muted)}.ns-line b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.ns-total{border-top:1px solid var(--line);padding-top:12px;margin-top:2px;font-size:18px;color:var(--ink)}.ns-total b{font-size:24px;font-weight:700}
+.ns-switch{margin:0}.ns-tip{margin:0}.ns-tip .ns-price{height:42px}
+.ns-pay{display:grid;gap:8px}.ns-k{font-size:13px;font-weight:600;color:var(--muted)}
+.ns-tenders{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.ns-tenders button{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);font:inherit;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s}
+.ns-tenders button[aria-checked=true]{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 8%,var(--card));font-weight:600}
+html[data-theme=dark] .ns-tenders button[aria-checked=true]{border-color:#9cc0ff}
+.ns-pay .note{margin:0}
+.ns-go{width:100%;height:50px;border-radius:14px;font-size:16px}
+@media (max-width:1000px){.ns{grid-template-columns:1fr}.ns-side{position:static}}
+@media (max-width:560px){.ns-row{grid-template-columns:minmax(0,1fr) auto 70px 28px;gap:8px}.ns-custom{grid-template-columns:1fr 110px}.ns-custom .btn{grid-column:1/-1}}
+.ns-main{grid-template-columns:minmax(0,1fr)}.ns-card,.ns-card>*{min-width:0}.ns .tsearch{min-width:0}.ns-head .ns-type{max-width:60%}
+.ns-custom>*{min-width:0}.ns-custom>input{width:100%}.ns-price input{min-width:0}.ns-who>.row{flex-wrap:nowrap!important}.ns-who>.row .tsearch{flex:1}@media (max-width:560px){.ns-custom{grid-template-columns:minmax(0,1fr) 100px}.ns-who>.row .btn{padding:0 14px}}
+.ns-who>.row .tsearch{flex:1 1 auto!important;flex-basis:auto!important;min-width:0!important}.ns-who>.row .btn{flex:none}.ns-price input,.ns-price input:focus{background:none!important;box-shadow:none!important;border:0!important;height:auto!important;padding:0!important}
+.ns-who>.row{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px;width:100%}
