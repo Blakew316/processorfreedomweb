@@ -3024,7 +3024,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'cl-empty' }, h('span', { class: 'cl-fbbig', html: SVG.heart }), h('b', {}, 'No messages yet'), h('p', {}, 'Messages customers send you from your website will show here.'))))];
   };
   CL.rewards = () => {
-    if (ordering.loyalty && ordering.loyalty.enabled) return PANELS.rewardsDash();
+    if (ordering.loyalty && ordering.loyalty.enabled) return [cHead(null, 'Rewards'), ...[PANELS.rewardsDash()].flat()];
     const act = h('button', { type: 'button', class: 'btn cl-dark', onclick: async () => { ordering.loyalty = { ...(ordering.loyalty || {}), enabled: true }; try { await putOrdering(); toast('Rewards are on'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Activate rewards');
     const faq = [['How does the Rewards program benefit my business?', 'Regulars come back more often when every visit counts toward a reward, and they spend more when a reward is close.'], ['What kinds of rewards can I offer?', 'A percentage off or a fixed amount off their next order. You choose the amount and how many orders earn it.'], ['How many orders do rewards members need?', 'You decide, from 2 to 50 orders. The default is a reward every 10 orders.'], ['How do my customers join?', 'Automatically. Orders are counted by the customer’s email, and the reward code appears on their order page when they earn it.']];
     const L = ordering.loyalty || { every: 10, type: 'percent', value: 5 };
@@ -3119,6 +3119,9 @@ export async function editor(id, mount, title, startTab = '') {
     // Phones have no sidebar, so a section's screens are switched with two clear buttons at the top.
     subnav.replaceChildren(...(group.tabs.length > 1 ? group.tabs.map((k, i) => h('button', { type: 'button', 'aria-pressed': String(k === cur[0]), onclick: () => goTab(k) }, group.subs[i])) : []));
     subnav.hidden = group.tabs.length < 2;
+    // The fade at the right edge only shows while there is more to swipe to; the chosen page is scrolled into view.
+    requestAnimationFrame(() => { const on = subnav.querySelector('[aria-pressed="true"]'); if (on && subnav.scrollWidth > subnav.clientWidth) subnav.scrollLeft = Math.max(0, on.offsetLeft - 16); subnav.classList.toggle('at-end', subnav.scrollLeft + subnav.clientWidth >= subnav.scrollWidth - 2); });
+    if (!subnav.onscroll) subnav.onscroll = () => subnav.classList.toggle('at-end', subnav.scrollLeft + subnav.clientWidth >= subnav.scrollWidth - 2);
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...[!CL[cur[0]] && cur[0] !== 'sale' && crumbs(), !CL[cur[0]] && cur[0] !== 'sale' && HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), CL[cur[0]] ? CL[cur[0]]() : cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));

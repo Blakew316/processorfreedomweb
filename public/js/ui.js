@@ -44,8 +44,13 @@ export const getTheme = () => { try { return localStorage.getItem('pf-theme') ||
 // That way the top bar runs right up under the clock and battery with no grey or foggy band above it.
 export function syncTopColor() {
   const bar = document.querySelector('.ed-top, .k-top, .top');
-  let c = bar ? getComputedStyle(bar).backgroundColor : '';
-  if (!c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c)) c = document.documentElement.dataset.theme === 'dark' ? '#000000' : '#ffffff';
+  const rgb = (v) => (v.match(/[\d.]+/g) || []).map(Number);
+  const under = rgb(getComputedStyle(document.body).backgroundColor);
+  let [r, g, b, a = 1] = rgb(bar ? getComputedStyle(bar).backgroundColor : '');
+  if (r == null || a === 0) [r, g, b, a] = document.documentElement.dataset.theme === 'dark' ? [0, 0, 0, 1] : [255, 255, 255, 1];
+  // A see-through bar is flattened onto the page colour, because iPhone needs one solid colour.
+  if (a < 1 && under.length >= 3) [r, g, b] = [r, g, b].map((x, i) => Math.round(x * a + under[i] * (1 - a)));
+  const c = `rgb(${r}, ${g}, ${b})`;
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', c);
   document.documentElement.style.backgroundColor = c;
 }
