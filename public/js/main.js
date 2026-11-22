@@ -303,7 +303,7 @@ function reset() {
 
 async function dashboard() {
   title('My sites');
-  mount(topbar(accountMenu()), h('main', { class: 'page dash' }, h('div', { class: 'dash-head' }, h('h1', {}, 'My sites')), h('div', { class: 'sgrid', 'aria-busy': 'true' }, Array.from({ length: 3 }, () => h('div', { class: 'skel sk-site' })))));
+  // Nothing is drawn until we know where to go, so signing in goes straight to the back office with no flash of this page.
   const { sites } = await api('GET', '/api/sites');
   // Signing in opens the back office straight away; the list of sites lives under Settings › My sites.
   if (sites.length) { let last = ''; try { last = localStorage.getItem('pf-last-site') || ''; } catch { /* private mode */ } const s0 = sites.find((x) => x.id === last) || sites[0]; { history.replaceState(null, '', s0.role === 'kitchen' ? `/app/site/${s0.id}/kitchen` : `/app/site/${s0.id}`); window.dispatchEvent(new Event('popstate')); return; } }

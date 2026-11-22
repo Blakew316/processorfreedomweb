@@ -4,7 +4,7 @@ import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pi
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
-  ['sale', 'New sale', 'cash', 'office'], ['sites', 'My sites', 'page', 'office'], ['start', 'Home', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
+  ['sale', 'Virtual Terminal', 'cash', 'office'], ['sites', 'My sites', 'page', 'office'], ['start', 'Home', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
   ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'], ['settings', 'Settings', 'settings', 'office'], ['profile', 'Profile', 'person', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
@@ -561,7 +561,7 @@ export async function editor(id, mount, title, startTab = '') {
       const addTo = async (c) => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: c })).items; paintPanel(); paint(true); openItem(menu.find((x) => !before.has(x.id))?.id); } catch (e) { toast(e.message, true); } };
       const newCat = h('form', { class: 'inline-add cat-add', onsubmit: async (e) => { e.preventDefault(); const n = newCat.querySelector('input').value.trim(); if (!n) return; if (cats.includes(n)) return toast('That category already exists.', true); const known3 = new Map(ordering.cats.map((x) => [x.name, x])); ordering.cats = [...cats, n].map((m) => known3.get(m) || { name: m, hidden: false, from: '', to: '' }); try { await putOrdering(); paintPanel(); toast('Category added'); } catch (ex) { toast(ex.message, true); } } },
         h('input', { placeholder: 'New category name', 'aria-label': 'New category name', maxlength: 60 }), h('div', { class: 'inline-acts' }, h('button', { class: 'btn' }, ic('plus', 16), 'Add category')));
-      const catHead = (c) => { const m = metaOf(c), on = clState.catOpen.has(c), n = menu.filter((x) => x.category === c).length; return h('div', { class: 'cathead' }, h('button', { type: 'button', class: 'cat-tog', 'aria-expanded': String(on), onclick: () => { if (on) clState.catOpen.delete(c); else clState.catOpen.add(c); paintPanel(); } }, h('i', { class: `chv ${on ? 'u' : 'd'}`, 'aria-hidden': 'true' }), h('b', {}, c), h('small', { class: 'muted' }, `${n} item${n === 1 ? '' : 's'}`)), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move up', 'aria-label': `Move ${c} up`, disabled: cats.indexOf(c) === 0, onclick: () => move(c, -1) }, chev('u')), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move down', 'aria-label': `Move ${c} down`, disabled: cats.indexOf(c) === cats.length - 1, onclick: () => move(c, 1) }, chev('dn')), h('button', { class: 'btn soft sm', onclick: () => addTo(c) }, ic('plus', 14), 'Add item'), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
+      const catHead = (c) => { const m = metaOf(c), on = clState.catOpen.has(c), n = menu.filter((x) => x.category === c).length; return h('div', { class: 'cathead' }, h('input', { type: 'checkbox', class: 'cat-sel', 'aria-label': `Select ${c}`, checked: clState.catSel.has(c), onchange: (e) => { if (e.target.checked) clState.catSel.add(c); else clState.catSel.delete(c); paintPanel(); } }), h('button', { type: 'button', class: 'cat-tog', 'aria-expanded': String(on), onclick: () => { if (on) clState.catOpen.delete(c); else clState.catOpen.add(c); paintPanel(); } }, h('i', { class: `chv ${on ? 'u' : 'd'}`, 'aria-hidden': 'true' }), h('b', {}, c), h('small', { class: 'muted' }, `${n} item${n === 1 ? '' : 's'}`)), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move up', 'aria-label': `Move ${c} up`, disabled: cats.indexOf(c) === 0, onclick: () => move(c, -1) }, chev('u')), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move down', 'aria-label': `Move ${c} down`, disabled: cats.indexOf(c) === cats.length - 1, onclick: () => move(c, 1) }, chev('dn')), h('button', { class: 'btn soft sm', onclick: () => addTo(c) }, ic('plus', 14), 'Add item'), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
       let dragId = null;
       const dropOn = async (target) => {
         const moved = menu.find((x) => x.id === dragId);
@@ -577,14 +577,26 @@ export async function editor(id, mount, title, startTab = '') {
       const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : `${x.stock} in stock`);
       return [
         group('', newCat),
+        (() => {
+          for (const c of [...clState.catSel]) if (!cats.includes(c)) clState.catSel.delete(c);
+          const sel = [...clState.catSel], n = sel.length;
+          const allOn = n > 0 && n === cats.length;
+          const ids = () => menu.filter((x) => clState.catSel.has(x.category)).map((x) => x.id);
+          const bulk = async (body, msg) => { const list = ids(); if (!list.length) return toast('Those categories have no items yet.', true); try { menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: list, ...body })).items; toast(msg); paintPanel(); paint(true); } catch (e) { toast(e.message, true); } };
+          const what = n === 1 ? sel[0] : `${n} categories`;
+          const pair = (label, onL, onFn, offL, offFn) => h('div', { class: 'bgroup' }, h('span', {}, label), h('div', { class: 'seg' }, h('button', { type: 'button', onclick: onFn }, onL), h('button', { type: 'button', onclick: offFn }, offL)));
+          return h('div', { class: 'cat-bar' }, h('label', { class: 'cat-all' }, h('input', { type: 'checkbox', checked: allOn, onchange: (e) => { if (e.target.checked) cats.forEach((c) => clState.catSel.add(c)); else clState.catSel.clear(); paintPanel(); } }), h('span', {}, n ? `${n} selected` : 'Select all')),
+            n > 0 && [pair('Sales tax', 'On', () => bulk({ set: { taxable: true } }, `Sales tax on for ${what}`), 'Off', () => bulk({ set: { taxable: false } }, `Sales tax off for ${what}`)),
+              pair('On the menu', 'Show', () => bulk({ set: { available: true } }, `${what} shown`), 'Hide', () => bulk({ set: { available: false } }, `${what} hidden`)),
+              h('button', { class: 'btn soft sm', type: 'button', onclick: async () => { const v = await ask({ title: `Change prices in ${what}`, label: 'Percent change', type: 'number', value: '5', hint: 'Use a minus sign to lower prices, for example -10.' }); if (v !== null && v !== '' && Number(v)) bulk({ set: { pricePercent: v } }, `Prices updated in ${what}`); } }, 'Price'),
+              h('button', { class: 'btn soft sm', type: 'button', onclick: async () => { const v = await ask({ title: `Put ${what} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale.' }); if (v !== null && v !== '') bulk({ set: { sale: v } }, Number(v) > 0 ? `${what} now ${Number(v)}% off` : `Sale ended for ${what}`); } }, 'Sale'),
+              h('span', { class: 'grow' }), h('button', { class: 'btn text sm', type: 'button', onclick: () => { clState.catSel.clear(); paintPanel(); } }, 'Clear')]);
+        })(),
         ...cats.map((c) => group('', catHead(c), h('div', { class: 'slist', hidden: !clState.catOpen.has(c) }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
           h('span', { class: 'grip', title: 'Drag to reorder' }, ic('grip', 16)),
           h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
           h('button', { class: 't', onclick: () => openItem(x.id) }, h('b', {}, x.name), h('span', {}, [money(itemPrice(x)), stockText(x)].filter(Boolean).join(' · '))),
           h('label', { class: 'switch', title: 'Available to order' }, h('input', { type: 'checkbox', 'aria-label': `${x.name} available`, checked: x.available !== false, onchange: async (e) => { x.available = e.target.checked; await api('PUT', `/api/sites/${id}/menu/${x.id}`, x); paintPanel(); paint(true); } }), h('i'))))))),
-        menu.length > 0 && group('', h('p', { class: 'hint' }, `${menu.length} item${menu.length === 1 ? '' : 's'} in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}. Drag an item to move it.`),
-          !ordering.enabled && note('Online ordering is off.'),
-          h('button', { class: 'btn danger sm', style: 'justify-self:start', onclick: async () => { if (!await confirmSheet({ title: 'Remove every item?', text: 'Your whole menu will be deleted. Past orders are kept.', action: 'Remove all', danger: true })) return; menu = (await api('DELETE', `/api/sites/${id}/menu/all`)).items; paintPanel(); paint(true); } }, 'Remove all items')),
       ];
     },
 
@@ -1013,102 +1025,76 @@ export async function editor(id, mount, title, startTab = '') {
     },
     sale() {
       const d = saleDraft;
-      if (!d.lines) d.lines = [];
-      if (d.cat == null) d.cat = '';
-      if (d.iq == null) d.iq = '';
+      if (!['pay', 'preauth', 'verify'].includes(d.type)) d.type = 'pay';
+      for (const [k, v] of Object.entries({ sub: '', taxSel: 'none', note: '', tip: '', receipt: 'none', email: '', q: '' })) if (d[k] == null) d[k] = v;
+      if (!d.card) d.card = { number: '', holder: '', exp: '', cvv: '', zip: '', street: '' };
       if (!customers && !saleCust) { saleCust = true; api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => {}).finally(() => { saleCust = false; }); }
       const rate = Number(ordering.taxRate) || 0;
       const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
-      const TYPES = [['pay', 'Take payment'], ['invoice', 'Invoice'], ['preauth', 'Pre-authorization'], ['verify', 'Card verification']];
-      const cardOnly = d.type === 'preauth' || d.type === 'verify';
-      const sums = () => {
-        const sub = d.lines.reduce((a, l) => a + l.price * l.qty, 0);
-        const taxable = d.lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0);
-        const tax = d.taxOn ? Math.round((taxable * rate) / 100) : 0, tip = d.type === 'pay' ? cents(d.tip) : 0;
-        return { sub, tax, tip, total: sub + tax + tip };
+      const TYPES = [['pay', 'Take payment'], ['preauth', 'Pre-authorization'], ['invoice', 'Invoice'], ['verify', 'Card verification']];
+      const sums = () => { const sub = d.type === 'verify' ? 0 : cents(d.sub), tax = d.type === 'pay' && d.taxSel === 'tax' ? Math.round((sub * rate) / 100) : 0, tip = d.type === 'pay' ? cents(d.tip) : 0; return { sub, tax, tip, total: sub + tax + tip }; };
+      const fl = (label, input, help, cls = '') => h('div', { class: `vt-f ${cls}` }, h('label', { class: 'vt-box' }, h('span', { class: 'vt-lab' }, label), input), help && h('small', { class: 'vt-help' }, help));
+      const totalEls = [], btn = h('button', { type: 'button', class: 'btn vt-go' });
+      const subErr = h('p', { class: 'vt-err', role: 'alert' }, h('span', { class: 'vt-erri' }, '!'), 'Total must be between $0.01 and $999,999.99');
+      const subBox = h('div', { class: 'vt-subbox' });
+      const ready = () => { const t = sums(), c = d.card; const cardOk = c.number.replace(/\D/g, '').length >= 12 && /^\d{2}\/\d{4}$/.test(c.exp) && /^\d{3,4}$/.test(c.cvv) && c.zip.trim(); return cardOk && (d.type === 'verify' || (t.sub >= 1 && t.sub <= 99999999)); };
+      const refresh = () => {
+        const t = sums();
+        totalEls.forEach((el) => { el.textContent = money(t.total); });
+        taxVal.textContent = `+${money(t.tax)}`;
+        const bad = d.type !== 'verify' && !(t.sub >= 1 && t.sub <= 99999999);
+        subErr.hidden = !bad; subBox.classList.toggle('bad', bad);
+        btn.disabled = !ready();
       };
-      const cats = [...new Set(menu.map((x) => x.category))];
-      // Left: the items to ring up.
-      const grid = h('div', { class: 'reg-grid' });
-      const drawGrid = () => {
-        const q = d.iq.trim().toLowerCase();
-        const shown = menu.filter((x) => x.available !== false && (!d.cat || x.category === d.cat) && (!q || x.name.toLowerCase().includes(q)));
-        grid.replaceChildren(
-          h('button', { type: 'button', class: 'reg-tile reg-custom', onclick: () => { cName.focus(); } }, h('span', { class: 'reg-plus' }, ic('plus', 22)), h('b', {}, 'Custom amount')),
-          ...shown.map((x) => h('button', { type: 'button', class: 'reg-tile', onclick: () => addLine(x.name, itemPrice(x), x.taxable !== false, x.id) },
-            x.image ? h('span', { class: 'reg-img', style: `background-image:url("${x.image}")` }) : h('span', { class: 'reg-ini' }, x.name.slice(0, 2).toUpperCase()),
-            h('b', {}, x.name), h('small', {}, money(itemPrice(x))))));
-        if (!menu.length) grid.append(h('div', { class: 'reg-none' }, h('b', {}, 'No items yet'), h('button', { type: 'button', class: 'btn soft sm', onclick: () => goTab('items') }, 'Add items')));
-        else if (!shown.length) grid.append(h('div', { class: 'reg-none' }, h('b', {}, 'No items match')));
-      };
-      const chips = h('div', { class: 'reg-cats', role: 'tablist' }, [['', 'All items'], ...cats.map((c) => [c, c])].map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(d.cat === k), onclick: (e) => { d.cat = k; chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b === e.currentTarget))); drawGrid(); } }, l)));
-      const cName = h('input', { placeholder: 'Item name (optional)', 'aria-label': 'Custom item name', maxlength: 160 }), cPrice = h('input', { placeholder: '0.00', inputmode: 'decimal', 'aria-label': 'Custom amount', onkeydown: (e) => { if (e.key === 'Enter') addCustom(); } });
-      const addCustom = () => { const c = parsePrice(cPrice.value || ''); if (!c) { cPrice.focus(); return toast('Enter an amount.', true); } addLine(cName.value.trim() || 'Custom amount', c); cName.value = ''; cPrice.value = ''; };
-      // Right: the ticket.
-      const lines = h('div', { class: 'tk-lines' }), sumEl = h('div', { class: 'tk-sum' }), btn = h('button', { class: 'btn tk-go', type: 'button' });
-      const drawSum = () => {
-        const t = sums(), card = d.type === 'pay' && d.tender === 'card';
-        sumEl.replaceChildren(
-          h('div', {}, h('span', {}, 'Subtotal'), h('span', {}, money(t.sub))),
-          h('div', {}, h('span', {}, rate ? `Tax (${rate}%)` : 'Tax'), h('span', {}, money(t.tax))),
-          ...(d.type === 'pay' && t.tip > 0 ? [h('div', {}, h('span', {}, 'Tip'), h('span', {}, money(t.tip)))] : []),
-          h('div', { class: 'tk-total' }, h('b', {}, 'Total'), h('b', {}, money(t.total))));
-        btn.disabled = saleBusy || cardOnly || card || (d.type === 'pay' && !(t.sub > 0));
-        btn.textContent = d.type === 'invoice' ? 'Continue to invoice' : cardOnly || card ? 'Card payments not connected' : `Charge ${money(t.total)}`;
-      };
-      const drawLines = () => {
-        lines.replaceChildren(...(d.lines.length ? d.lines.map((l, i) => h('div', { class: 'tk-row' },
-          h('div', { class: 'tk-name' }, h('b', {}, l.name), h('small', {}, `${money(l.price)} each`)),
-          h('div', { class: 'tk-qty' }, h('button', { type: 'button', 'aria-label': 'One fewer', onclick: () => { l.qty -= 1; if (l.qty < 1) d.lines.splice(i, 1); drawLines(); } }, ic('minus', 14)), h('span', {}, String(l.qty)), h('button', { type: 'button', 'aria-label': 'One more', onclick: () => { l.qty += 1; drawLines(); } }, ic('plus', 14))),
-          h('b', { class: 'tk-amt' }, money(l.price * l.qty))))
-          : [h('div', { class: 'tk-empty' }, ic('bag', 26), h('span', {}, 'Tap an item to add it to the sale'))]));
-        drawSum();
-      };
-      const addLine = (name, price, taxable = true, itemId = '') => { const same = itemId && d.lines.find((l) => l.itemId === itemId); if (same) same.qty += 1; else d.lines.push({ name, price, qty: 1, taxable, itemId }); drawLines(); };
-      const who = h('div', { class: 'tk-who' });
+      btn.textContent = d.type === 'preauth' ? 'Pre-authorize Payment' : d.type === 'verify' ? 'Verify Card' : 'Complete Payment';
+      btn.onclick = () => toast('Card payments are not connected yet. Nothing was charged.', true);
+      // Transaction type
+      const typeBtn = h('button', { type: 'button', class: 'vt-type', 'aria-haspopup': 'listbox', onclick: () => popover(typeBtn, (close) => h('div', { class: 'cl-menu vt-menu', role: 'listbox' }, TYPES.map(([k, l]) => h('button', { type: 'button', role: 'option', 'aria-selected': String(d.type === k), onclick: () => { close(); if (k === 'invoice') { goTab('invoices'); return; } d.type = k; paintPanel(); } }, h('span', {}, l)))), 'left') },
+        h('span', { class: 'vt-lab' }, 'Transaction Type'), h('b', {}, (TYPES.find(([k]) => k === d.type) || TYPES[0])[1]), h('i', { class: 'chv d', 'aria-hidden': 'true' }));
+      // Sale detail
+      const subIn = h('input', { inputmode: 'decimal', 'aria-label': 'Subtotal', value: d.sub ? `$${d.sub}` : '$0.00', onfocus: (e) => { if (!d.sub) e.target.value = ''; else e.target.value = d.sub; }, onblur: (e) => { const c = cents(e.target.value); d.sub = c ? (c / 100).toFixed(2) : ''; e.target.value = d.sub ? `$${d.sub}` : '$0.00'; refresh(); }, oninput: (e) => { d.sub = e.target.value.replace(/[^\d.]/g, ''); refresh(); } });
+      subBox.replaceChildren(h('label', {}, h('span', { class: 'vt-lab' }, 'Subtotal *'), subIn));
+      const taxVal = h('b', {}, '+$0.00');
+      const taxBtn = h('button', { type: 'button', class: 'vt-tax', onclick: () => popover(taxBtn, (close) => h('div', { class: 'cl-menu' }, [['none', 'No tax'], ['tax', rate ? `Sales tax (${rate}%)` : 'Sales tax (no rate set)']].map(([k, l]) => h('button', { type: 'button', class: d.taxSel === k ? 'on' : '', onclick: () => { close(); d.taxSel = k; refresh(); } }, h('span', {}, l), d.taxSel === k && h('i', { class: 'cl-tick' }, '✓')))), 'left') },
+        h('span', { class: 'vt-lab' }, rate ? `Tax (Sales tax ${rate}%)` : 'Tax'), h('span', { class: 'vt-taxrow' }, taxVal, h('i', { class: 'chv d', 'aria-hidden': 'true' })));
+      const detail = d.type !== 'verify' && [h('h2', { class: 'vt-h' }, 'Sale detail'),
+        h('div', { class: 'vt-card' },
+          h('div', { class: `vt-top ${d.type === 'pay' ? 'two' : ''}` }, h('div', { class: 'vt-subwrap' }, subBox, subErr), d.type === 'pay' && h('div', { class: 'vt-taxcol' }, taxBtn)),
+          h('div', { class: 'vt-sec' }, fl('Note for item or service', h('input', { value: d.note, maxlength: 500, placeholder: ' ', oninput: (e) => { d.note = e.target.value; } }))),
+        ),
+        d.type === 'pay' && h('div', { class: 'vt-tipbox' }, h('div', { class: 'vt-sec' }, fl('Tip', h('input', { inputmode: 'decimal', value: d.tip ? `$${d.tip}` : '$0.00', onfocus: (e) => { e.target.value = d.tip || ''; }, onblur: (e) => { const c = cents(e.target.value); d.tip = c ? (c / 100).toFixed(2) : ''; e.target.value = d.tip ? `$${d.tip}` : '$0.00'; refresh(); }, oninput: (e) => { d.tip = e.target.value.replace(/[^\d.]/g, ''); refresh(); } }))),
+          h('div', { class: 'vt-tiptotal' }, h('span', {}, 'Total'), (() => { const b = h('b', {}, '$0.00'); totalEls.push(b); return b; })()))];
+      // Payment information
+      const who = h('div', { class: 'vt-who' });
       const drawWho = () => {
-        if (d.customer) return who.replaceChildren(h('div', { class: 'tk-cust' }, h('i', { class: 'sh-av' }, (d.customer.name || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()), h('div', {}, h('b', {}, d.customer.name), h('small', {}, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', type: 'button', onclick: () => { d.customer = null; drawWho(); } }, 'Remove')));
+        if (d.customer) return who.replaceChildren(h('div', { class: 'vt-picked' }, h('div', {}, h('b', {}, d.customer.name), h('div', { class: 'small muted' }, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { class: 'btn text sm', type: 'button', onclick: () => { d.customer = null; drawWho(); paintCardNote(); } }, 'Remove')));
         const res = h('div', { class: 'ns-hits' });
-        const find = () => { const q = d.q.toLowerCase(); res.replaceChildren(...(q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q)).slice(0, 6) : []).map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; drawWho(); } }, h('span', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
-        who.replaceChildren(h('div', { class: 'tk-find' }, h('label', { class: 'tsearch' }, ic('person', 18), h('input', { type: 'search', placeholder: 'Add a customer', value: d.q, 'aria-label': 'Search customers', oninput: (e) => { d.q = e.target.value; find(); } })), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'New customer', title: 'New customer', onclick: () => { who.replaceChildren(customerRow((c) => { d.customer = { name: c.name, email: c.email, phone: c.phone, company: c.company }; drawWho(); }, drawWho)); } }, ic('plus', 18))), res);
+        const find = () => { const q = d.q.toLowerCase(); res.replaceChildren(...(q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q)).slice(0, 6) : []).map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; if (!d.email && c.email) d.email = c.email; drawWho(); paintCardNote(); } }, h('span', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
+        who.replaceChildren(h('label', { class: 'vt-search' }, h('input', { type: 'search', placeholder: 'Search customer or business name', value: d.q, 'aria-label': 'Search customer or business name', oninput: (e) => { d.q = e.target.value; find(); } }), ic('search', 20)), res);
         find();
       };
-      const record = async () => {
-        const t = sums();
-        if (d.type === 'invoice') return openInvoice(null, d.customer || null, 'invoice', d.lines.length ? d.lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price, taxable: l.taxable !== false })) : null);
-        if (saleBusy) return;
-        saleBusy = true; drawSum();
-        try {
-          const items = [...d.lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price })), t.tax > 0 && { name: `Sales tax (${rate}%)`, qty: 1, price: t.tax }, t.tip > 0 && { name: 'Tip', qty: 1, price: t.tip }].filter(Boolean);
-          const c = d.customer || {};
-          const r = await api('POST', `/api/sites/${id}/invoices`, { walkIn: !d.customer, customer: { name: c.name || 'Walk-in customer', email: c.email || '', phone: c.phone || '', company: c.company || '', address: c.address || '' }, items, taxRate: 0, notes: d.note.trim(), paidMethod: { cash: 'Cash', check: 'Check', other: 'Other' }[d.tender] || 'Other', paidNote: 'Recorded with New sale' });
-          bills = null; txData = null; stats = null;
-          saleDraft = { type: 'pay', tip: '', note: '', taxOn: d.taxOn, tender: d.tender, customer: null, q: '', lines: [], cat: d.cat, iq: '' };
-          toast(`${money(t.total)} recorded as ${r.invoice.label || 'a sale'}`);
-        } catch (e) { toast(e.message, true); }
-        saleBusy = false; if (tab === 'sale') paintPanel();
-      };
-      btn.onclick = record;
-      const tenders = [['cash', 'Cash'], ['card', 'Card'], ['check', 'Check'], ['other', 'Other']];
-      drawGrid(); drawLines(); drawWho();
-      return [h('div', { class: 'reg' },
-        h('section', { class: 'reg-main' },
-          h('div', { class: 'reg-top' }, h('h1', {}, 'New sale'), h('label', { class: 'tsearch reg-search' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', value: d.iq, 'aria-label': 'Search items', oninput: (e) => { d.iq = e.target.value; drawGrid(); } }))),
-          cats.length > 0 && chips,
-          grid,
-          h('div', { class: 'reg-customrow' }, h('b', {}, 'Custom amount'), cName, h('div', { class: 'ns-price' }, h('span', {}, '$'), cPrice), h('button', { class: 'btn', type: 'button', onclick: addCustom }, 'Add to sale'))),
-        h('aside', { class: 'tk' },
-          h('div', { class: 'tk-head' }, h('h2', {}, 'Current sale'), h('select', { class: 'tk-type', 'aria-label': 'Transaction type', onchange: (e) => { d.type = e.target.value; paintPanel(); } }, TYPES.map(([k, l]) => h('option', { value: k, selected: d.type === k }, l)))),
-          who,
-          lines,
-          h('details', { class: 'tk-more', open: !!(d.note || d.tip) }, h('summary', {}, 'Note and tip'),
-            h('textarea', { rows: 2, maxlength: 500, placeholder: 'Note', 'aria-label': 'Note', value: d.note, oninput: (e) => { d.note = e.target.value; } }),
-            d.type === 'pay' && h('div', { class: 'ns-price' }, h('span', {}, '$'), h('input', { inputmode: 'decimal', placeholder: 'Tip', 'aria-label': 'Tip', value: d.tip, oninput: (e) => { d.tip = e.target.value; drawSum(); } })),
-            rate > 0 && h('label', { class: 'switch' }, h('span', {}, 'Charge tax'), h('input', { type: 'checkbox', checked: d.taxOn, onchange: (e) => { d.taxOn = e.target.checked; drawSum(); } }), h('i'))),
-          sumEl,
-          d.type === 'pay' && h('div', { class: 'tk-tenders', role: 'radiogroup', 'aria-label': 'Paid by' }, tenders.map(([k, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(d.tender === k), onclick: () => { d.tender = k; paintPanel(); } }, l))),
-          d.type === 'pay' && d.tender === 'card' && h('p', { class: 'tk-note' }, 'Card payments are not connected yet.'),
-          btn))];
+      const addCust = h('button', { type: 'button', class: 'vt-link', onclick: () => { who.replaceChildren(customerRow((c) => { d.customer = { name: c.name, email: c.email, phone: c.phone, company: c.company }; drawWho(); paintCardNote(); }, drawWho)); } }, 'ADD NEW CUSTOMER');
+      const cardIn = (k, a = {}) => h('input', { value: d.card[k], placeholder: ' ', autocomplete: 'off', oninput: (e) => { let v = e.target.value; if (k === 'number') v = v.replace(/[^\d ]/g, '').slice(0, 23); if (k === 'cvv') v = v.replace(/\D/g, '').slice(0, 4); if (k === 'exp') { v = v.replace(/[^\d/]/g, ''); if (/^\d{3,}$/.test(v)) v = `${v.slice(0, 2)}/${v.slice(2, 6)}`; v = v.slice(0, 7); } e.target.value = v; d.card[k] = v; refresh(); }, ...a });
+      const cardNote = h('div', { class: 'vt-onfile' });
+      const paintCardNote = () => cardNote.replaceChildren(d.customer ? h('label', { class: 'vt-check' }, h('input', { type: 'checkbox', disabled: true }), h('span', {}, `Save card on file for ${d.customer.name}`)) : h('span', {}, 'Add a customer to save a card on file'));
+      paintCardNote(); drawWho();
+      const pay = [h('h2', { class: 'vt-h' }, 'Payment information'),
+        h('div', { class: 'vt-card' },
+          h('div', { class: 'vt-sec' }, h('div', { class: 'vt-custh' }, h('b', {}, 'Customer'), addCust), who),
+          h('div', { class: 'vt-sec vt-cardf' },
+            h('div', { class: 'vt-row2' }, fl('Card Number *', cardIn('number', { inputmode: 'numeric', autocomplete: 'cc-number' }), '12- to 19-digit card number'), fl('Card holder name', cardIn('holder', { autocomplete: 'cc-name', maxlength: 80 }))),
+            h('div', { class: 'vt-row3' }, fl('Expiration *', cardIn('exp', { inputmode: 'numeric', autocomplete: 'cc-exp' }), 'MM/YYYY'), fl('CVV *', cardIn('cvv', { inputmode: 'numeric', autocomplete: 'cc-csc' }), '3-digit security code'), fl('Zip / Postal Code *', cardIn('zip', { autocomplete: 'postal-code', maxlength: 10 }))),
+            fl('Card holder street address', cardIn('street', { autocomplete: 'street-address', maxlength: 127 }), 'Address must be 127 characters or less'),
+            cardNote))];
+      // Receipt delivery
+      const emailBox = d.receipt === 'email' && h('div', { class: 'vt-sec', style: 'padding-top:0' }, fl('Email address', h('input', { type: 'email', value: d.email, placeholder: ' ', oninput: (e) => { d.email = e.target.value; } })));
+      const receipt = [h('h2', { class: 'vt-h' }, 'Receipt delivery'),
+        h('div', { class: 'vt-card' }, h('div', { class: 'vt-sec vt-radios' }, [['email', 'Email'], ['none', 'None']].map(([k, l]) => h('label', {}, h('input', { type: 'radio', name: 'vt-receipt', checked: d.receipt === k, onchange: () => { d.receipt = k; paintPanel(); } }), h('span', {}, l)))), emailBox)];
+      const bar = h('div', { class: 'cl-bar vt-bar' }, h('div', { class: 'vt-bartotal' }, h('span', {}, 'Total'), (() => { const b = h('b', {}, '$0.00'); totalEls.push(b); return b; })()), h('span', { class: 'grow' }), btn);
+      setTimeout(refresh);
+      return [h('div', { class: 'vt' },
+        h('h1', { class: 'vt-title' }, 'Virtual Terminal'), h('p', { class: 'vt-req' }, '* Required field'),
+        typeBtn, detail, pay, receipt, bar)];
     },
     settings() {
       const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
@@ -1760,7 +1746,7 @@ export async function editor(id, mount, title, startTab = '') {
       const [y, m] = ym.split('-').map(Number);
       const step = (n) => { ym = new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); draw(); };
       w.replaceChildren(h('div', { class: 'dpop-m' }, h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Previous month', onclick: () => step(-1) }, chev('l')), h('b', {}, monthName(ym)), h('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Next month', disabled: !!(max && ym >= max.slice(0, 7)), onclick: () => step(1) }, chev('r'))),
-        monthGrid(ym, (d) => { onPick(d); draw(); }, sel(), max), extra ? extra() : null);
+        monthGrid(ym, (d) => { onPick(d); draw(); }, sel(), max), ...(extra ? [extra()] : []));
     };
     draw(); return w;
   }
@@ -2309,7 +2295,7 @@ export async function editor(id, mount, title, startTab = '') {
   /* ---------- Back-office pages laid out like the reference screens ---------- */
   /* ======================= Back-office pages laid out after the reference screens ======================= */
   const CL = {};
-  const clState = { txTab: 'payments', txBy: 'pid', txQ: '', txTender: 'All', txCard: 'All', ordTab: 'orders', ordBy: 'customer', ordQ: '', ordPay: 'All', ordStatus: 'All', itemsTab: 'rev', discTab: 'rev', remTab: 'rev', discQ: '', giftLoad: 'all', viewBy: 'hour', metric: 'net', cmp: 'week', allDay: 'all', type: '', cols: {}, sort: {}, peer: 'prev3', peerShift: 0, stmtYear: new Date().getFullYear(), apptEmp: null, apptAttr: null, empPage: 0, tsMode: 'day', tsDay: '', tsQ: '', tsView: 'all', schedSort: 'first', schedQ: '', schedSearch: false, schedRows: new Set(['events', 'open', 'team']), empEdit: '', empRole: 'All', empStatus: 'All', empQ: '', custKey: '', custQ: '', custShow: 'Everyone', apptDraft: null, giftSetup: false, catOpen: new Set(), bannerOff: false };
+  const clState = { txTab: 'payments', txBy: 'pid', txQ: '', txTender: 'All', txCard: 'All', ordTab: 'orders', ordBy: 'customer', ordQ: '', ordPay: 'All', ordStatus: 'All', itemsTab: 'rev', discTab: 'rev', remTab: 'rev', discQ: '', giftLoad: 'all', viewBy: 'hour', metric: 'net', cmp: 'week', allDay: 'all', type: '', cols: {}, sort: {}, peer: 'prev3', peerShift: 0, stmtYear: new Date().getFullYear(), apptEmp: null, apptAttr: null, empPage: 0, tsMode: 'day', tsDay: '', tsQ: '', tsView: 'all', schedSort: 'first', schedQ: '', schedSearch: false, schedRows: new Set(['events', 'open', 'team']), empEdit: '', empRole: 'All', empStatus: 'All', empQ: '', custKey: '', custQ: '', custShow: 'Everyone', apptDraft: null, giftSetup: false, catOpen: new Set(), catSel: new Set(), bannerOff: false };
   const NORES = 'Try again with a different timeframe, filters or search criteria.';
   const NORES2 = 'Try again with a different timeframe, filter, and search combination.';
   const SVG = {
@@ -2646,7 +2632,7 @@ export async function editor(id, mount, title, startTab = '') {
   };
   CL.tips = () => {
     const st = needStats(); if (!st) return loadingPage('Tips');
-    if (!st.totals.tips && !ordering.tips) return [h('div', { class: 'cl cl-center' }, clArt('person'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide a comprehensive overview of employee tips from transactions, detailing key information such as the source of the tips, the associated card, and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
+    if (!st.totals.tips) return [h('div', { class: 'cl cl-center' }, clArt('person'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide a comprehensive overview of employee tips from transactions, detailing key information such as the source of the tips, the associated card, and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
     return PANELS.sales('tips');
   };
 
@@ -2991,17 +2977,49 @@ export async function editor(id, mount, title, startTab = '') {
       f('Note', h('textarea', { rows: 3, maxlength: 500, value: v.note, oninput: (e) => { v.note = e.target.value; } })),
       h('div', { class: 'cl-bar' }, h('span', { class: 'grow' }), ex && h('button', { type: 'button', class: 'btn text', onclick: () => openInvoice(null, ex) }, 'Send invoice'), h('button', { type: 'button', class: 'btn soft', onclick: () => { clState.custDraft = null; goTab('customers'); } }, 'Cancel'), saveBtn))];
   };
-  CL.promos = () => [h('div', { class: 'cl' }, !isOwner && h('div', { class: 'cl-banner warn' }, h('span', { class: 'cl-bi', html: SVG.tri }), h('div', { class: 'grow' }, h('b', {}, 'Account owner access is required'), h('p', {}, 'Only the account owner can change promotions. Please contact your account owner.'))),
-    h('div', { class: 'cl-center' }, clArt('person'), h('h1', { class: 'cl-big' }, 'Boost Sales with Targeted Customer Promotions'), h('p', { class: 'cl-lead' }, 'Create promo codes your customers can use when they order online.')), isOwner && PANELS.ordering('promos'))];
+  CL.promos = () => {
+    const list = ordering.promos || (ordering.promos = []);
+    const edit = (pr) => sheet((close) => {
+      const v = pr ? { ...pr } : { code: '', type: 'percent', value: 10, active: true };
+      const valIn = h('input', { inputmode: 'decimal', value: v.type === 'amount' ? (v.value / 100).toFixed(2) : String(v.value) });
+      const typeSel = h('select', { onchange: (e) => { v.type = e.target.value; valIn.value = v.type === 'amount' ? '5.00' : '10'; } }, [['percent', 'Percent off'], ['amount', 'Dollars off']].map(([k, l]) => h('option', { value: k, selected: v.type === k }, l)));
+      const codeIn = h('input', { value: v.code, maxlength: 24, placeholder: 'WELCOME10', style: 'text-transform:uppercase', oninput: (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); } });
+      const act = h('input', { type: 'checkbox', checked: v.active });
+      const save = async () => {
+        const code = codeIn.value.trim(); if (!code) return toast('Enter a code.', true);
+        if (list.some((x) => x !== pr && x.code === code)) return toast('That code already exists.', true);
+        const n = v.type === 'amount' ? parsePrice(valIn.value || '0') : Math.round(Number(valIn.value));
+        if (!n || n < 0 || (v.type === 'percent' && n > 100)) return toast(v.type === 'percent' ? 'Enter a percent from 1 to 100.' : 'Enter an amount.', true);
+        const next = { code, type: v.type, value: n, active: act.checked };
+        if (pr) Object.assign(pr, next); else list.push(next);
+        try { await putOrdering(); close(); toast(pr ? 'Promo saved' : 'Promo created'); paintPanel(); } catch (e) { toast(e.message, true); }
+      };
+      return [h('div', { class: 'swb-h' }, h('h2', {}, pr ? 'Edit promo' : 'Create promo'), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Promo code'), codeIn),
+          h('div', { class: 'cl-grid2' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Discount type'), typeSel), h('label', { class: 'field cl-field' }, h('span', {}, 'Amount'), valIn)),
+          h('label', { class: 'switch' }, h('span', {}, 'Active'), act, h('i'))),
+        h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn cl-blue', onclick: save }, 'Save'))];
+    }, 'swb');
+    const remove = async (pr) => { if (!await confirmSheet({ title: `Delete ${pr.code}?`, text: 'Customers will no longer be able to use this code.', action: 'Delete', danger: true })) return; list.splice(list.indexOf(pr), 1); try { await putOrdering(); paintPanel(); } catch (e) { toast(e.message, true); } };
+    const rows = list.map((pr) => ({ c: h('b', { class: 'cl-code' }, pr.code), d: pr.type === 'amount' ? `${money(pr.value)} off` : `${pr.value}% off`, s: pill(pr.active ? 'Active' : 'Paused', pr.active ? 'ok' : 'wait'),
+      a: h('div', { class: 'cl-rowacts' }, isOwner && h('button', { type: 'button', class: 'cl-link', onclick: () => edit(pr) }, 'Edit'), isOwner && h('button', { type: 'button', class: 'cl-link danger', onclick: () => remove(pr) }, 'Delete')) }));
+    const create = isOwner && h('button', { type: 'button', class: 'btn cl-blue cl-promobtn', onclick: () => edit(null) }, ic('plus', 18), 'Create promo');
+    return [h('div', { class: 'cl cl-promos' }, !isOwner && h('div', { class: 'cl-banner warn' }, h('span', { class: 'cl-bi', html: SVG.tri }), h('div', { class: 'grow' }, h('b', {}, 'Account owner access is required'), h('p', {}, 'Only the account owner can create promotions. Please contact your account owner.'))),
+      list.length ? [cHead(null, 'Promos', create && [create]), cTable('promos', [{ k: 'c', l: 'Code' }, { k: 'd', l: 'Discount' }, { k: 's', l: 'Status' }, { k: 'a', l: '' }], rows, null)]
+        : h('div', { class: 'cl-hero' }, clArt('person'), h('h1', {}, 'Boost Sales with Targeted Customer Promotions'), h('p', {}, 'Create promo codes your customers can enter at checkout when they order from your website.'), create))];
+  };
   CL.inbox = () => {
     const L = need('leads', 'leads'); if (!L) return loadingPage('Feedback');
     const leads2 = L.leads || [];
-    const setBtn = h('button', { type: 'button', class: 'cl-fbset', onclick: () => popover(setBtn, (close) => h('div', { class: 'cl-menu' }, h('button', { type: 'button', onclick: () => { close(); goTab('alerts'); } }, h('span', {}, 'Manage notifications')), h('button', { type: 'button', onclick: () => { close(); goTab('devices'); } }, h('span', {}, 'Manage printing'))), 'right') }, h('span', { html: SVG.gear }), 'Settings', h('i', { class: 'cl-tri' }, '▾'));
-    const t12 = (ms) => new Date(ms).toLocaleString(undefined, isoDay(new Date(ms)) === isoDay(new Date()) ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    return [h('div', { class: 'cl cl-fb' }, h('div', { class: 'cl-fbhead' }, h('span', { class: 'cl-fbic', html: SVG.heart }), h('b', {}, 'Feedback'), h('span', { class: 'grow' }), setBtn),
-      h('div', { class: 'cl-fbcount' }, h('b', {}, String(leads2.length)), h('div', {}, h('span', {}, 'Messages'), h('small', {}, `0 ♥  0 ♡`))),
-      h('div', { class: 'cl-fbtable' }, h('table', {}, h('thead', {}, h('tr', {}, ['Time', 'Customer', 'Mood', 'Message', 'Reply'].map((x) => h('th', {}, x)))),
-        h('tbody', {}, leads2.map((l) => h('tr', {}, h('td', {}, t12(l.createdAt)), h('td', { class: 'cl-fbname' }, l.name || l.email), h('td', { class: 'center' }, '—'), h('td', {}, l.message), h('td', {}, l.email && h('a', { href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply'))))))), !leads2.length && h('p', { class: 'muted', style: 'padding:18px 14px' }, 'No messages yet.'))];
+    const setBtn = h('button', { type: 'button', class: 'cl-fbset', onclick: () => popover(setBtn, (close) => h('div', { class: 'cl-menu' }, h('button', { type: 'button', onclick: () => { close(); goTab('alerts'); } }, h('span', {}, 'Manage notifications')), h('button', { type: 'button', onclick: () => { close(); goTab('devices'); } }, h('span', {}, 'Manage printing'))), 'right') }, h('span', { html: SVG.gear }), 'Settings', h('i', { class: 'chv d', 'aria-hidden': 'true' }));
+    const when = (ms) => new Date(ms).toLocaleString(undefined, isoDay(new Date(ms)) === isoDay(new Date()) ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const heart = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 20s-7.5-4.6-7.5-10.1A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>';
+    const broken = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 20s-7.5-4.6-7.5-10.1A4.3 4.3 0 0 1 11 7.6l-1.2 3.6 2.6 1.4-1.6 3.6 3.6-4.3-2.4-1.5 1.4-2.9a4.3 4.3 0 0 1 6.1 2.4C19.5 15.4 12 20 12 20z"/></svg>';
+    return [h('div', { class: 'cl' }, h('div', { class: 'cl-fbtop' }, h('div', { class: 'cl-fbtitle' }, h('span', { class: 'cl-fbic', html: SVG.heart }), h('h1', {}, 'Feedback')), setBtn),
+      h('div', { class: 'cl-figs cl-fbfigs' }, h('div', { class: 'cl-fig' }, h('span', {}, 'Messages'), h('b', {}, String(leads2.length))), h('div', { class: 'cl-fig' }, h('span', {}, h('i', { class: 'cl-fbh', html: heart }), 'Happy'), h('b', {}, '0')), h('div', { class: 'cl-fig' }, h('span', {}, h('i', { class: 'cl-fbh', html: broken }), 'Unhappy'), h('b', {}, '0'))),
+      cTable('feedback', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'c', l: 'Customer' }, { k: 'm', l: 'Mood' }, { k: 'x', l: 'Message' }, { k: 'r', l: 'Reply' }],
+        leads2.map((l) => ({ _t: l.createdAt, t: when(l.createdAt), c: h('b', { class: 'cl-fbname' }, l.name || l.email), m: '—', x: h('span', { class: 'cl-fbmsg' }, l.message), r: l.email ? h('a', { class: 'cl-link', href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply') : '' })),
+        h('div', { class: 'cl-empty' }, h('span', { class: 'cl-fbbig', html: SVG.heart }), h('b', {}, 'No messages yet'), h('p', {}, 'Messages customers send you from your website will show here.'))))];
   };
   CL.rewards = () => {
     if (ordering.loyalty && ordering.loyalty.enabled) return PANELS.rewardsDash();
@@ -3103,7 +3121,7 @@ export async function editor(id, mount, title, startTab = '') {
     body.dataset.wide = String(mode === 'office');
     panel.replaceChildren(...[!CL[cur[0]] && cur[0] !== 'sale' && crumbs(), !CL[cur[0]] && cur[0] !== 'sale' && HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), CL[cur[0]] ? CL[cur[0]]() : cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
-    if (cur[0] === 'appt-new' || cur[0] === 'cust-new') requestAnimationFrame(() => panel.style.setProperty('--cl-left', `${Math.round(panel.getBoundingClientRect().left)}px`));
+    if (cur[0] === 'appt-new' || cur[0] === 'cust-new' || cur[0] === 'sale') requestAnimationFrame(() => panel.style.setProperty('--cl-left', `${Math.round(panel.getBoundingClientRect().left)}px`));
     if (REPORT_TABS.has(cur[0]) && !CL[cur[0]]) addReportTools(cur[0]);
     labelTables(panel);
     panel.scrollTop = y;
