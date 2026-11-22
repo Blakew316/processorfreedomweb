@@ -3133,24 +3133,25 @@ export async function editor(id, mount, title, startTab = '') {
     }, 'swb');
   }
   CL.profile = () => {
-    const u = state.user, v = { name: u.name || '', phone: u.phone || '', email: u.email, pw: '', cur: '', next: '' };
+    // Name, mobile number, email (shown, not editable) and two-step sign-in. Nothing else.
+    const u = state.user, v = { name: u.name || '', phone: u.phone || '' };
     const f = (label, el, note) => h('label', { class: 'field cl-field' }, h('span', {}, label), el, note && h('small', {}, note));
-    const inp = (k, a = {}) => h('input', { value: v[k], oninput: (e) => { v[k] = e.target.value; if (k === 'email') pwWrap.hidden = v.email.trim().toLowerCase() === u.email; }, ...a });
-    const pwWrap = f('Your password, to change your email', inp('pw', { type: 'password', autocomplete: 'current-password' })); pwWrap.hidden = true;
+    const inp = (k, a = {}) => h('input', { value: v[k], oninput: (e) => { v[k] = e.target.value; }, ...a });
     const save = async (btn) => {
+      if (!v.name.trim()) return toast('Enter your name.', true);
       btn.disabled = true;
       try {
-        let user = (await api('PUT', '/api/me', { name: v.name, phone: v.phone })).user;
-        if (v.email.trim().toLowerCase() !== u.email) user = (await api('POST', '/api/me/email', { email: v.email, password: v.pw })).user;
-        if (v.next) { if (v.next.length < 8) throw new Error('The new password needs at least 8 characters.'); await api('POST', '/api/auth/password', { current: v.cur, next: v.next }); }
+        const user = (await api('PUT', '/api/me', { name: v.name, phone: v.phone })).user;
         state.user = { ...state.user, ...user }; toast('Saved'); paintPanel();
       } catch (e) { toast(e.message, true); btn.disabled = false; }
     };
     const twoFa = () => { const old = PANELS.profile(); const card = [...old[0].querySelectorAll('.prof-card')].find((c) => /Two-step/.test(c.textContent)); card?.querySelector('button')?.click(); };
     const saveBtn = h('button', { type: 'button', class: 'btn cl-dark' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
     return [h('div', { class: 'cl cl-form' }, h('h1', { class: 'cl-ftitle' }, 'Profile'),
-      h('div', { class: 'scard cl-sec cl-emp' }, h('h3', {}, 'Personal'), f('Full name', inp('name', { maxlength: 80, autocomplete: 'name' })), f('Mobile number', inp('phone', { type: 'tel', maxlength: 40, autocomplete: 'tel' })), f('Email address', inp('email', { type: 'email', autocomplete: 'email' })), pwWrap,
-        h('h3', {}, 'Password'), h('div', { class: 'cl-grid2' }, f('Current password', inp('cur', { type: 'password', autocomplete: 'current-password' })), f('New password', inp('next', { type: 'password', autocomplete: 'new-password', minlength: 8 }))),
+      h('div', { class: 'scard cl-sec cl-emp' }, h('h3', {}, 'Personal'),
+        f('Full name', inp('name', { maxlength: 80, autocomplete: 'name' })),
+        f('Mobile number', inp('phone', { type: 'tel', maxlength: 40, autocomplete: 'tel' })),
+        h('div', { class: 'field cl-field' }, h('span', {}, 'Email address'), h('div', { class: 'cl-ro', 'aria-label': 'Email address', 'aria-readonly': 'true' }, u.email)),
         h('h3', {}, 'Two-step sign-in'), h('label', { class: 'switch' }, h('span', {}, u.twoFactor ? 'On' : 'Off'), h('input', { type: 'checkbox', checked: !!u.twoFactor, onchange: (e) => { e.target.checked = !!u.twoFactor; twoFa(); } }), h('i')),
         h('div', { class: 'cl-formf' }, saveBtn)))];
   };
@@ -3425,7 +3426,7 @@ export async function editor(id, mount, title, startTab = '') {
     ['Online ordering', 'ordering', 'Pickup, curbside and delivery, tax, tips and order limits.'], ['Taxes and additional charges', 'ordering', 'Sales tax and fees added to orders.'],
     ['Online booking', 'booking', 'What customers can book, how long it takes and how many at once.'], ['Alerts and emails', 'alerts', 'How you hear about new orders and what customers are sent.'],
     ['Devices and printers', 'devices', 'Phones and tablets told about every new order.'], ['Appearance', 'appearance', 'Light or dark, on this device.'],
-    ['Profile and sign-in', 'profile', 'Your name, email, password and two-step sign-in.'], ['Employees', 'team', 'Who can sign in and what they can do.'],
+    ['Profile and sign-in', 'profile', 'Your name, mobile number, email and two-step sign-in.'], ['Employees', 'team', 'Who can sign in and what they can do.'],
     ['Scheduling', 'schedule', 'Shifts for your team.'], ['Timesheets', 'timesheets', 'Hours worked.'], ['Items', 'items', 'Prices, stock and photos.'], ['Categories', 'menu', 'How your menu is grouped.'],
     ['Modifier groups', 'mods', 'Sizes, add-ons and choices.'], ['Discounts', 'discs', 'Money off at the counter.'], ['Promo codes', 'promos', 'Codes customers enter at checkout.'],
     ['Gift cards', 'gift', 'Sell and redeem gift cards.'], ['Rewards', 'rewards', 'Loyalty points for regulars.'], ['Invoices and estimates', 'invoices', 'Bill customers and send quotes.'],
