@@ -1066,16 +1066,17 @@ export async function editor(id, mount, title, startTab = '') {
       // On a computer every card is open; on a phone each one folds open with its arrow.
       const card = (title, ...kids) => { const el = h('div', { class: 'set-card' }); const head = h('button', { type: 'button', class: 'set-head', 'aria-expanded': 'false', onclick: () => { const now = head.getAttribute('aria-expanded') !== 'true'; head.setAttribute('aria-expanded', String(now)); el.toggleAttribute('data-open', now); } }, navTile(ICON[title] || 'page', 32), h('span', {}, title), h('i', { class: 'fold-chev', 'aria-hidden': 'true' })); el.append(h('h3', {}, head), h('div', { class: 'set-body' }, h('div', {}, ...kids))); return el; };
       const u = state.user;
-      return [h('div', { class: 'set-grid' },
-        card('Setup', ...links(...SETUP.tabs.map((k, i) => [SETUP.subs[i], k]))),
-        card('Profile', h('p', {}, h('b', {}, u.name || 'No name yet'), `, ${roleName}`), h('p', { class: 'muted' }, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-step sign-in is ', h('b', {}, u.twoFactor ? 'on' : 'off')), ...links(['Edit your profile', 'profile'])),
-        card('Business operations', ...links(['Taxes and additional charges', 'ordering'], ['Tips', 'tips'], ['Closeout', 'close'], ['Devices and printers', 'devices'], ['Alerts and emails', 'alerts'], ['Inventory', 'items']), h('a', { href: '#', onclick: (e) => { e.preventDefault(); quickbooks(); } }, 'Accounting sync (QuickBooks)')),
-        card('Employees', ...links(['Team and logins', 'team'], ['Scheduling', 'schedule'], ['Timesheets', 'timesheets'])),
-        card('Transactions', ...links(['New sale', 'sale'], ['Orders', 'orders'], ['Order types', 'r-types'], ['Payments', 'tx'], ['Cash log', 'cash'], ['Invoices and estimates', 'invoices'], ['Recurring payments', 'plans'])),
-        card('Ecommerce', ...links(['Online ordering', 'ordering'], ['Online booking', 'booking'], ['Web address', 'domain'], ['Policies', 'policies'], ['Gift cards', 'gift'])),
-        card('Inventory', ...links(['Items', 'items'], ['Categories', 'menu'], ['Modifier groups', 'mods'], ['Menus', 'menus'], ['Printer labels', 'labels'], ['Revenue classes', 'revs'], ['Discounts', 'discs'])),
-        card('Customers and promotions', ...links(['Customers', 'customers'], ['Promo codes', 'promos'], ['Happy hour', 'deals'], ['Rewards', 'rewards'], ['Gift cards', 'gift'])),
-        card('Website', ...links(['Look and feel', 'design'], ['Home page', 'sections'], ['Business info on the site', 'business'], ['Web address', 'domain'], ['Policies', 'policies'], ['Search listing', 'seo'])))];
+      // Same cards, order and names as the reference. Items with nothing behind them yet are shown greyed out, not linked.
+      const L = (t, k) => (typeof k === 'function' ? h('a', { href: '#', onclick: (e) => { e.preventDefault(); k(); } }, t) : k && known(k) ? h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t) : h('span', { class: 'set-off', 'aria-disabled': 'true' }, t));
+      const box = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, h('span', { class: 'set-head' }, h('span', {}, title))), h('div', { class: 'set-body' }, h('div', {}, ...kids)));
+      return [h('div', { class: 'set-grid set-clover' },
+        box('Profile', h('p', {}, `${u.name || u.email}, ${roleName}`), h('p', {}, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-factor authentication is ', h('b', {}, u.twoFactor ? 'on' : 'off')), L('Edit your profile', 'profile')),
+        box('Employees', L('Employee jobs', 'schedule'), L('Employee roles', 'team'), L('Employee permissions', 'team'), L('Device passcode', null)),
+        box('About your business', L('Business information', 'bizinfo'), L('Merchants', async () => { await flush(); go('/app'); }), L('Closeout settings', 'close')),
+        box('Billing and statements', L('Monthly statements', 'r-exports'), L('Service plan', null)),
+        box('Business operations', L('Notification preferences', 'alerts'), L('Online ordering', 'ordering'), L('Customer communication preferences', 'alerts'), L('Reporting', () => reportSettings()), L('Taxes and fees', 'ordering'), L('Additional charges', 'ordering'), L('Tips', 'tips'), L('Business hours', 'hours'), L('Devices and printers', 'devices'), L('Online booking', 'booking'), L('Appearance', 'appearance'), L('Accounting Sync', () => quickbooks()), L('API tokens', null), L('Cellular data', null), L('Inventory', 'items'), L('Enterprise Wi-Fi', null)),
+        box('Transactions', L('Orders', 'orders'), L('Order receipts', 'alerts'), L('Order types', 'ordering'), L('Payments', 'tx'), L('Payment receipts', 'alerts'), L('Virtual Terminal', 'sale'), L('Invoices and estimates', 'invoices')),
+        box('Ecommerce', L('Ecommerce payments', null), L('Ecommerce API tokens', null), L('Hosted checkout', null), L('Custom fields', null), L('Payment links', 'business'), L('Fraud tools', null)))];
     },
     profile() {
       const u = state.user;
@@ -2045,6 +2046,7 @@ export async function editor(id, mount, title, startTab = '') {
       [meta.live && !meta.dirty, meta.live ? 'Publish your changes' : 'Publish your site', meta.live ? (meta.dirty ? 'You have changes that are not live yet.' : `Live at ${meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}`) : 'Nothing is public until you publish. You can keep editing afterwards.', meta.live && !meta.dirty ? ['View live site', () => window.open(meta.url, '_blank', 'noopener')] : [meta.live ? 'Publish changes' : 'Publish', (e) => publish(e)]],
     ];
     if (ordering.enabled) steps.push([!!(orders && orders.length), 'Place a test order', meta.live ? 'Order from your own site to see exactly what customers see, then watch it arrive under Orders.' : 'Once you publish, order from your own site to see the whole flow.', ['Open my order page', () => (meta.live ? window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener') : toast('Publish your site first.', true))]]);
+    setupTodos.total = steps.length;
     return steps.filter(([ok]) => !ok).map(([, name, text, main]) => ({ name, text, act: main }));
   }
   let prevStats = null;
@@ -2437,16 +2439,16 @@ export async function editor(id, mount, title, startTab = '') {
   ].filter(([, k]) => known(k));
   function openSettings() {
     sheet((close) => {
-      const todos = setupTodos(), total = todos.length + 4, doneN = Math.max(0, total - todos.length);
+      const todos = setupTodos(), total = setupTodos.total || todos.length, doneN = total - todos.length;
       const go3 = (k) => () => { close(); goTab(k); };
       const results = h('div', { class: 'ss-list' });
       const freq = h('div', {}, h('p', { class: 'ss-k' }, 'Frequently viewed settings'), h('div', { class: 'ss-list' },
-        [['Business information', 'View and edit your business name, address, phone number and logo.', go3('bizinfo')], ['Reporting settings', 'Which period your reports open on.', () => { close(); reportSettings(); }],
+        [['Business information', 'Edit your business name, address, phone number, and more.', go3('bizinfo')], ['Reporting settings', 'Which period your reports open on.', () => { close(); reportSettings(); }],
           ['Business hours', 'Monday to Sunday, for your website and online ordering.', go3('hours')], ['Online ordering', 'Pickup, curbside and delivery, tax, tips and order limits.', go3('ordering')],
           ['Alerts and emails', 'How you hear about new orders and what customers are sent.', go3('alerts')], ['Profile and sign-in', 'Your name, email, password and two-step sign-in.', go3('profile')]]
-          .map(([t, d, fn]) => h('button', { type: 'button', class: 'ss-row', onclick: fn }, h('b', {}, t)))));
+          .map(([t, d, fn]) => h('button', { type: 'button', class: 'ss-row', onclick: fn }, h('b', {}, t), h('small', {}, d)))));
       const tasks = todos.length ? h('div', {}, h('p', { class: 'ss-k' }, 'Setup tasks'),
-        h('button', { type: 'button', class: 'ss-task', onclick: () => { const open = taskList.hidden; taskList.hidden = !open; } }, h('span', {}, h('b', {}, 'Get ready to take orders')), h('em', {}, `${doneN} of ${total} completed`))) : null;
+        h('button', { type: 'button', class: 'ss-task', onclick: () => { const open = taskList.hidden; taskList.hidden = !open; } }, h('span', {}, h('b', {}, 'Get ready to take orders'), h('small', {}, 'Add items, set default taxes, and configure other important settings.')), h('em', {}, `${doneN} of ${total} completed`))) : null;
       const taskList = h('div', { class: 'ss-list', hidden: true }, todos.map((x) => h('button', { type: 'button', class: 'ss-row', onclick: () => { close(); x.act[1](); } }, h('b', {}, x.name))));
       const search = h('input', { type: 'search', placeholder: 'Search settings', 'aria-label': 'Search settings', oninput: () => { const q = search.value.trim().toLowerCase(); const hits = q ? SETTINGS_INDEX().filter(([t, , d]) => `${t} ${d}`.toLowerCase().includes(q)) : [];
         results.replaceChildren(...(q ? (hits.length ? hits.map(([t, k, d]) => h('button', { type: 'button', class: 'ss-row', onclick: go3(k) }, h('b', {}, t))) : [h('p', { class: 'ss-none' }, 'No settings match that.')]) : []));

@@ -3574,3 +3574,17 @@ html[data-theme=dark] .chg.down{color:#ff8a80}html[data-theme=dark] .chg.up{colo
 .sheet.mmenu::before,.sheet.mmenu::after,.sheet.ss::before,.sheet.ss::after{display:none!important}
 @media (max-width:900px){.ed-top[data-mode=office] .tb-brand .tb-logo,.ed-top[data-mode=office] .tb-brand img{display:block!important;visibility:visible!important;opacity:1!important}}
 @media (max-width:900px){.ed-top[data-mode=office] .tb-biz{justify-content:flex-end!important;padding-right:2px!important;text-align:right}}
+/* Settings page after the reference: plain white cards, light headings, underlined links */
+.set-grid.set-clover{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:22px;align-items:start}
+.set-clover .set-card{padding:30px 32px!important;gap:14px!important;border-radius:4px!important;background:var(--card)!important;box-shadow:0 1px 3px rgba(16,24,40,.14),0 0 0 1px var(--line)!important}
+.set-clover .set-card h3{font-size:32px!important;font-weight:300!important;letter-spacing:-.01em;margin:0 0 6px!important}
+.set-clover .set-head{cursor:default!important;min-height:0!important;padding:0!important}
+.set-clover .set-body{display:block!important}.set-clover .set-body>div{display:grid!important;gap:14px!important;overflow:visible!important}
+.set-clover .set-body a{display:block!important;width:fit-content;min-height:0!important;padding:0!important;border:0!important;font-size:18px!important;color:#3a63a8!important;text-decoration:underline!important;text-underline-offset:4px}
+.set-clover .set-body a::after{display:none!important}
+.set-clover .set-body p{margin:0!important;padding:0!important;font-size:18px;color:var(--ink)}
+.set-clover .set-off{font-size:18px;color:var(--faint,#9aa3b2);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--faint,#9aa3b2) 50%,transparent);text-underline-offset:4px;cursor:not-allowed;width:fit-content}
+.set-clover .set-2fa{display:flex;align-items:center;gap:10px}
+.set-clover .set-2fa i{width:20px;height:20px;border-radius:50%;background:var(--line);flex:none}.set-clover .set-2fa i.on{background:#2e8540}
+html[data-theme=dark] .set-clover .set-body a{color:#9cc0ff!important}
+@media (max-width:700px){.set-grid.set-clover{grid-template-columns:1fr}.set-clover .set-card{padding:28px 26px!important}.set-clover .set-card h3{font-size:30px!important}}
