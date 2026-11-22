@@ -182,7 +182,7 @@ function landing() {
 
       h('section', { class: 'l-sec l-show', id: 'examples' },
         h('div', { class: 'page' }, h('p', { class: 'kicker' }, 'Examples'), h('h2', {}, 'One builder. Any kind of business.'),
-          h('p', { class: 'sub' }, 'Restaurants, salons, shops, gyms, garages. Tap any site to start from it.')),
+          h('p', { class: 'sub' }, 'Restaurants, salons, shops, gyms, garages.')),
         h('div', { class: 'show', 'aria-label': 'Example websites' }, h('div', { class: 'show-row a' }, rowA.map(card)), h('div', { class: 'show-row b' }, rowB.map(card)))),
 
       h('div', { class: 'ticker', 'aria-hidden': 'true' }, h('div', { class: 'ticker-in' }, [0, 1].map(() => h('span', {}, ['Restaurants', 'Cafés', 'Salons', 'Boutiques', 'Gyms', 'Garages', 'Studios', 'Food trucks', 'Bakeries', 'Contractors'].flatMap((w) => [w, h('i', {}, '✦')]))))),
@@ -326,7 +326,7 @@ async function dashboard() {
     installBanner(),
     sites.length
       ? h('div', { class: 'sgrid' }, sites.map(card), h('div', {}, h('button', { class: 'newcard', onclick: () => go('/app/new') }, 'Create another site')))
-      : h('div', { class: 'empty' }, h('h2', {}, 'Let’s build your website.'), h('p', {}, 'It takes about two minutes, and you can change everything later.'), link('/app/new', { class: 'btn lg' }, 'Create your site'))));
+      : h('div', { class: 'empty' }, h('h2', {}, 'Let’s build your website.'), null, link('/app/new', { class: 'btn lg' }, 'Create your site'))));
 }
 
 /* Offered once on phones and tablets, until installed or dismissed. */
@@ -378,7 +378,7 @@ async function admin() {
   };
   drawSites();
   mount(topbar(link('/app', {}, 'My sites'), accountMenu()), h('main', { class: 'page dash' },
-    h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard'), h('p', { class: 'muted', style: 'margin-top:6px' }, 'Everything happening across Processor Freedom Sites.')), h('div', { class: 'row' }, h('input', { class: 'input', type: 'search', placeholder: 'Search sites, owners, orders…', 'aria-label': 'Search', style: 'width:260px;max-width:60vw', oninput: (e) => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('.dash .table tbody tr').forEach((tr) => { tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none'; }); } }), h('button', { class: 'btn soft', onclick: admin }, 'Refresh'))),
+    h('div', { class: 'dash-head' }, h('div', {}, h('h1', {}, 'Staff dashboard')), h('div', { class: 'row' }, h('input', { class: 'input', type: 'search', placeholder: 'Search sites, owners, orders…', 'aria-label': 'Search', style: 'width:260px;max-width:60vw', oninput: (e) => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('.dash .table tbody tr').forEach((tr) => { tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none'; }); } }), h('button', { class: 'btn soft', onclick: admin }, 'Refresh'))),
     h('div', { class: 'sgrid2' },
       stat('', I.globe, 'Sites', st.sites, `${st.live} live`), stat('', I.person, 'Accounts', st.users, `${st.newUsers} this week`),
       stat('', I.bag, 'Orders', st.orders, `${st.ordersToday} today`), stat('', I.cash, 'Sales through sites', money(st.sales), `${money(st.salesToday)} today`),

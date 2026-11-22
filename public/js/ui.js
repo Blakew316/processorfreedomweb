@@ -120,7 +120,7 @@ export function thumb(site, page = 'home', extra = {}, size = null) {
 /* Soft placeholder shapes shown while something loads, in the shape of what is coming. */
 export const skel = (n = 3, kind = 'row') => (kind === 'kpi' ? Array.from({ length: n }, () => h('div', { class: 'skel sk-kpi', 'aria-hidden': 'true' })) : h('div', { class: `skels sk-${kind}s`, 'aria-busy': 'true', 'aria-label': 'Loading' }, Array.from({ length: n }, () => h('div', { class: `skel sk-${kind}` }))));
 /* A friendly "nothing here yet", with the next step when there is one. */
-export const emptyState = (icon, title, text, action) => h('div', { class: 'inv-empty' }, ic(icon, 30), h('b', {}, title), h('p', {}, text), action && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: action[1] }, action[0]));
+export const emptyState = (icon, title, text, action) => h('div', { class: 'inv-empty' }, ic(icon, 30), h('b', {}, title), action && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: action[1] }, action[0]));
 
 /* Images are resized in the browser before upload, so phone photos stay fast.
    `crop` trims to one shape from the centre: { ratio: width / height, max: longest side }. */
