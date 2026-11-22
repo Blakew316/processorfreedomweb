@@ -559,8 +559,10 @@ export async function editor(id, mount, title, startTab = '') {
       const move = async (c, by) => { const i = cats.indexOf(c), j = i + by; if (j < 0 || j >= cats.length) return; const order = [...cats]; [order[i], order[j]] = [order[j], order[i]];
         try { menu = (await api('PUT', `/api/sites/${id}/menu-order`, { ids: order.flatMap((n) => menu.filter((x) => x.category === n).map((x) => x.id)) })).items; const known2 = new Map(ordering.cats.map((x) => [x.name, x])); ordering.cats = order.map((n) => known2.get(n) || { name: n, hidden: false, from: '', to: '' }); await putOrdering(); paintPanel(); paint(true); } catch (e) { toast(e.message, true); } };
       const addTo = async (c) => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: c })).items; paintPanel(); paint(true); openItem(menu.find((x) => !before.has(x.id))?.id); } catch (e) { toast(e.message, true); } };
-      const newCat = h('form', { class: 'inline-add cat-add', onsubmit: async (e) => { e.preventDefault(); const n = newCat.querySelector('input').value.trim(); if (!n) return; if (cats.includes(n)) return toast('That category already exists.', true); const known3 = new Map(ordering.cats.map((x) => [x.name, x])); ordering.cats = [...cats, n].map((m) => known3.get(m) || { name: m, hidden: false, from: '', to: '' }); try { await putOrdering(); paintPanel(); toast('Category added'); } catch (ex) { toast(ex.message, true); } } },
-        h('input', { placeholder: 'New category name', 'aria-label': 'New category name', maxlength: 60 }), h('div', { class: 'inline-acts' }, h('button', { class: 'btn' }, ic('plus', 16), 'Add category')));
+      const catQ = (clState.catQ || '').trim().toLowerCase();
+      const shownCats = catQ ? cats.filter((c) => c.toLowerCase().includes(catQ)) : cats;
+      const newCat = h('div', { class: 'tbar cat-tools' }, cSearch('Search categories', clState.catQ || '', (v) => { clState.catQ = v; }),
+        h('button', { type: 'button', class: 'btn cl-blue', onclick: () => addCategory(cats) }, ic('plus', 18), 'Add category'));
       const catHead = (c) => { const m = metaOf(c), on = clState.catOpen.has(c), n = menu.filter((x) => x.category === c).length; return h('div', { class: 'cathead' }, h('input', { type: 'checkbox', class: 'cat-sel', 'aria-label': `Select ${c}`, checked: clState.catSel.has(c), onchange: (e) => { if (e.target.checked) clState.catSel.add(c); else clState.catSel.delete(c); paintPanel(); } }), h('button', { type: 'button', class: 'cat-tog', 'aria-expanded': String(on), onclick: () => { if (on) clState.catOpen.delete(c); else clState.catOpen.add(c); paintPanel(); } }, h('i', { class: `chv ${on ? 'u' : 'd'}`, 'aria-hidden': 'true' }), h('b', {}, c), h('small', { class: 'muted' }, `${n} item${n === 1 ? '' : 's'}`)), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move up', 'aria-label': `Move ${c} up`, disabled: cats.indexOf(c) === 0, onclick: () => move(c, -1) }, chev('u')), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move down', 'aria-label': `Move ${c} down`, disabled: cats.indexOf(c) === cats.length - 1, onclick: () => move(c, 1) }, chev('dn')), h('button', { class: 'btn soft sm', onclick: () => addTo(c) }, ic('plus', 14), 'Add item'), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
       let dragId = null;
       const dropOn = async (target) => {
@@ -592,7 +594,8 @@ export async function editor(id, mount, title, startTab = '') {
               h('button', { class: 'btn soft sm', type: 'button', onclick: async () => { const v = await ask({ title: `Put ${what} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale.' }); if (v !== null && v !== '') bulk({ set: { sale: v } }, Number(v) > 0 ? `${what} now ${Number(v)}% off` : `Sale ended for ${what}`); } }, 'Sale'),
               h('span', { class: 'grow' }), h('button', { class: 'btn text sm', type: 'button', onclick: () => { clState.catSel.clear(); paintPanel(); } }, 'Clear')]);
         })(),
-        ...cats.map((c) => group('', catHead(c), h('div', { class: 'slist', hidden: !clState.catOpen.has(c) }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
+        catQ && !shownCats.length && group('', h('p', { class: 'hint', style: 'text-align:center;padding:18px 0' }, 'No categories match that search.')),
+        ...shownCats.map((c) => group('', catHead(c), h('div', { class: 'slist', hidden: !clState.catOpen.has(c) }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
           h('span', { class: 'grip', title: 'Drag to reorder' }, ic('grip', 16)),
           h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
           h('button', { class: 't', onclick: () => openItem(x.id) }, h('b', {}, x.name), h('span', {}, [money(itemPrice(x)), stockText(x)].filter(Boolean).join(' · '))),
@@ -1035,7 +1038,8 @@ export async function editor(id, mount, title, startTab = '') {
       const sums = () => { const sub = d.type === 'verify' ? 0 : cents(d.sub), tax = d.type === 'pay' && d.taxSel === 'tax' ? Math.round((sub * rate) / 100) : 0, tip = d.type === 'pay' ? cents(d.tip) : 0; return { sub, tax, tip, total: sub + tax + tip }; };
       const fl = (label, input, help, cls = '') => h('div', { class: `vt-f ${cls}` }, h('label', { class: 'vt-box' }, h('span', { class: 'vt-lab' }, label), input), help && h('small', { class: 'vt-help' }, help));
       const totalEls = [], btn = h('button', { type: 'button', class: 'btn vt-go' });
-      const subErr = h('p', { class: 'vt-err', role: 'alert' }, h('span', { class: 'vt-erri' }, '!'), 'Total must be between $0.01 and $999,999.99');
+      let touched = false;
+      const subErr = h('p', { class: 'vt-err', role: 'alert', hidden: true }, h('span', { class: 'vt-erri' }, '!'), 'Total must be between $0.01 and $999,999.99');
       const subBox = h('div', { class: 'vt-subbox' });
       const ready = () => { const t = sums(), c = d.card; const cardOk = c.number.replace(/\D/g, '').length >= 12 && /^\d{2}\/\d{4}$/.test(c.exp) && /^\d{3,4}$/.test(c.cvv) && c.zip.trim(); return cardOk && (d.type === 'verify' || (t.sub >= 1 && t.sub <= 99999999)); };
       const refresh = () => {
@@ -1043,7 +1047,7 @@ export async function editor(id, mount, title, startTab = '') {
         totalEls.forEach((el) => { el.textContent = money(t.total); });
         taxVal.textContent = `+${money(t.tax)}`;
         const bad = d.type !== 'verify' && !(t.sub >= 1 && t.sub <= 99999999);
-        subErr.hidden = !bad; subBox.classList.toggle('bad', bad);
+        const show = bad && touched; subErr.hidden = !show; subBox.classList.toggle('bad', show);
         btn.disabled = !ready();
       };
       btn.textContent = d.type === 'preauth' ? 'Pre-authorize Payment' : d.type === 'verify' ? 'Verify Card' : 'Complete Payment';
@@ -1055,6 +1059,8 @@ export async function editor(id, mount, title, startTab = '') {
       // Typing works like a register: digits fill in from the right ($0.00, $0.01, $0.12, $1.23).
       const cashIn = (key, label) => h('input', { inputmode: 'numeric', 'aria-label': label, value: money(cents(d[key])), oninput: (e) => { const c = Math.min(99999999, Number(e.target.value.replace(/\D/g, '').slice(-9)) || 0); d[key] = c ? (c / 100).toFixed(2) : ''; e.target.value = money(c); const n = e.target.value.length; e.target.setSelectionRange(n, n); refresh(); }, onfocus: (e) => { const n = e.target.value.length; requestAnimationFrame(() => e.target.setSelectionRange(n, n)); } });
       const subIn = cashIn('sub', 'Subtotal');
+      subIn.addEventListener('input', () => { subIn.dataset.typed = '1'; if (touched) refresh(); });
+      subIn.addEventListener('blur', () => { if (subIn.dataset.typed) { touched = true; refresh(); } });
       subBox.replaceChildren(h('label', {}, h('span', { class: 'vt-lab' }, 'Subtotal *'), subIn));
       const taxVal = h('b', {}, '+$0.00');
       const taxBtn = h('button', { type: 'button', class: 'vt-tax', onclick: () => popover(taxBtn, (close) => h('div', { class: 'cl-menu' }, [['none', 'No tax'], ['tax', rate ? `Sales tax (${rate}%)` : 'Sales tax (no rate set)']].map(([k, l]) => h('button', { type: 'button', class: d.taxSel === k ? 'on' : '', onclick: () => { close(); d.taxSel = k; refresh(); } }, h('span', {}, l), d.taxSel === k && h('i', { class: 'cl-tick' }, '✓')))), 'left') },
@@ -1553,6 +1559,31 @@ export async function editor(id, mount, title, startTab = '') {
   if (ordering.enabled) loadOrders(true);
 
   async function putOrdering() { await sendOrdering(ordering); }
+  function addCategory(cats) {
+    sheet((close) => {
+      const nameIn = h('input', { maxlength: 60, placeholder: 'e.g. Breakfast', autofocus: true });
+      const fromIn = h('input', { type: 'time' }), toIn = h('input', { type: 'time' });
+      const hide = h('input', { type: 'checkbox' });
+      const save = async (btn) => {
+        const name = nameIn.value.trim();
+        if (!name) { nameIn.focus(); return toast('Give the category a name.', true); }
+        if (cats.some((c) => c.toLowerCase() === name.toLowerCase())) return toast('That category already exists.', true);
+        if ((fromIn.value && !toIn.value) || (!fromIn.value && toIn.value)) return toast('Choose both times, or leave both empty.', true);
+        btn.disabled = true;
+        const known = new Map(ordering.cats.map((x) => [x.name, x]));
+        ordering.cats = [...cats.map((m) => known.get(m) || { name: m, hidden: false, from: '', to: '' }), { name, hidden: hide.checked, from: fromIn.value, to: toIn.value }];
+        try { await putOrdering(); close(); clState.catOpen.add(name); clState.catQ = ''; paintPanel(); toast('Category added'); } catch (e) { toast(e.message, true); btn.disabled = false; }
+      };
+      const saveBtn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Add category'); saveBtn.onclick = () => save(saveBtn);
+      nameIn.onkeydown = (e) => { if (e.key === 'Enter') save(saveBtn); };
+      return [h('div', { class: 'swb-h' }, h('h2', {}, 'Add category'), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        h('div', { class: 'cl-promoform' },
+          h('label', { class: 'field cl-field' }, h('span', {}, 'Category name'), nameIn),
+          h('label', { class: 'switch' }, h('span', {}, 'Hide from customers'), hide, h('i')),
+          h('div', { class: 'field cl-field' }, h('span', {}, 'Only available between (optional)'), h('div', { class: 'cl-grid2' }, fromIn, toIn))),
+        h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), saveBtn)];
+    }, 'swb');
+  }
   function editCategory(c, cats) {
     const cur = ordering.cats.find((x) => x.name === c) || { name: c, hidden: false, from: '', to: '' };
     const d = { ...cur, name: c };
@@ -1807,10 +1838,16 @@ export async function editor(id, mount, title, startTab = '') {
 
   /* ---------- simple lists: a table, an Add button, and a pop-up to edit one row ---------- */
   const saveLists = async () => { await putOrdering(); paintPanel(); paint(true); };
-  function listPage({ title, hint, add, heads, rows, cells, empty, edit, remove }) {
+  function listPage({ title, hint, add, heads, rows: all, cells, empty, edit, remove }) {
+    // Every list has a search bar for what is in it, beside the Add button.
+    const key = `list:${title}`, q = (clState.listQ[key] || '').trim().toLowerCase();
+    const rows = q ? all.filter((r) => String(r.name || r).toLowerCase().includes(q)) : all;
+    const noun = title.toLowerCase();
     return [h('div', { class: 'inv' },
-      h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, title)), h('button', { class: 'btn', onclick: () => edit(null) }, ic('plus', 16), add)),
-      rows.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable bills' }, h('thead', {}, h('tr', {}, [...heads, 'Action'].map((x) => h('th', {}, x)))),
+      h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, title))),
+      all.length > 0 && h('div', { class: 'tbar cat-tools' }, cSearch(`Search ${noun}`, clState.listQ[key] || '', (v) => { clState.listQ[key] = v; }), h('button', { type: 'button', class: 'btn cl-blue', onclick: () => edit(null) }, ic('plus', 18), add)),
+      all.length > 0 && !rows.length ? h('div', { class: 'inv-list' }, h('p', { class: 'hint', style: 'text-align:center;padding:28px 0' }, `No ${noun} match that search.`))
+      : rows.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable bills' }, h('thead', {}, h('tr', {}, [...heads, 'Action'].map((x) => h('th', {}, x)))),
         h('tbody', {}, rows.map((r) => h('tr', { onclick: (e) => { if (!e.target.closest('button')) edit(r); } }, cells(r).map((c) => h('td', {}, c)),
           h('td', { style: 'white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: () => edit(r) }, 'Edit'), ' ', h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: `Delete ${r.name || r}?`, text: 'It is removed straight away.', action: 'Delete', danger: true })) return; try { await remove(r); await saveLists(); toast('Deleted'); } catch (e) { toast(e.message, true); } } }, 'Delete'))))))))
         : h('div', { class: 'inv-list' }, emptyState('cube', empty[0], empty[1], [add, () => edit(null)])))];
@@ -2297,7 +2334,7 @@ export async function editor(id, mount, title, startTab = '') {
   /* ---------- Back-office pages laid out like the reference screens ---------- */
   /* ======================= Back-office pages laid out after the reference screens ======================= */
   const CL = {};
-  const clState = { txTab: 'payments', txBy: 'pid', txQ: '', txTender: 'All', txCard: 'All', ordTab: 'orders', ordBy: 'customer', ordQ: '', ordPay: 'All', ordStatus: 'All', itemsTab: 'rev', discTab: 'rev', remTab: 'rev', discQ: '', giftLoad: 'all', viewBy: 'hour', metric: 'net', cmp: 'week', allDay: 'all', type: '', cols: {}, sort: {}, peer: 'prev3', peerShift: 0, stmtYear: new Date().getFullYear(), apptEmp: null, apptAttr: null, empPage: 0, tsMode: 'day', tsDay: '', tsQ: '', tsView: 'all', schedSort: 'first', schedQ: '', schedSearch: false, schedRows: new Set(['events', 'open', 'team']), empEdit: '', empRole: 'All', empStatus: 'All', empQ: '', custKey: '', custQ: '', custShow: 'Everyone', apptDraft: null, giftSetup: false, catOpen: new Set(), catSel: new Set(), bannerOff: false };
+  const clState = { txTab: 'payments', txBy: 'pid', txQ: '', txTender: 'All', txCard: 'All', ordTab: 'orders', ordBy: 'customer', ordQ: '', ordPay: 'All', ordStatus: 'All', itemsTab: 'rev', discTab: 'rev', remTab: 'rev', discQ: '', giftLoad: 'all', viewBy: 'hour', metric: 'net', cmp: 'week', allDay: 'all', type: '', cols: {}, sort: {}, peer: 'prev3', peerShift: 0, stmtYear: new Date().getFullYear(), apptEmp: null, apptAttr: null, empPage: 0, tsMode: 'day', tsDay: '', tsQ: '', tsView: 'all', schedSort: 'first', schedQ: '', schedSearch: false, schedRows: new Set(['events', 'open', 'team']), empEdit: '', empRole: 'All', empStatus: 'All', empQ: '', custKey: '', custQ: '', custShow: 'Everyone', apptDraft: null, giftSetup: false, catOpen: new Set(), catSel: new Set(), salesTab: 'trends', catQ: '', listQ: {}, bannerOff: false };
   const NORES = 'Try again with a different timeframe, filters or search criteria.';
   const NORES2 = 'Try again with a different timeframe, filter, and search combination.';
   const SVG = {
@@ -2324,7 +2361,17 @@ export async function editor(id, mount, title, startTab = '') {
     stars: '<svg viewBox="0 0 200 180" width="200" height="180"><g stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M70 60l8 10 12-2-4 12 8 9-12 2-4 12-8-10-12 2 4-12-8-9 12-2z" fill="var(--brand)"/><path d="M118 34l8 10 12-2-4 12 8 9-12 2-4 12-8-10-12 2 4-12-8-9 12-2z" fill="var(--art-bg)"/><path d="M122 96l8 10 12-2-4 12 8 9-12 2-4 12-8-10-12 2 4-12-8-9 12-2z" fill="var(--brand)" opacity=".55"/></g><path d="M78 80l4 4 7-8M126 54l4 4 7-8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
     bills: '<svg viewBox="0 0 320 220" width="320" height="220" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="70" y="70" width="90" height="70" rx="8"/><path d="M50 160h130l-14-20H64z"/><rect x="92" y="84" width="30" height="40" rx="4"/><path d="M98 96h18M98 106h4M108 106h4M98 114h4M108 114h4"/><path d="M100 28l60-6 6 40-60 6zM100 28l33 22 27-28" /><rect x="220" y="60" width="44" height="54" rx="4"/><path d="M234 78h16M242 72v24M236 90h12" stroke="var(--brand)"/><rect x="214" y="132" width="50" height="22" rx="11" stroke="var(--brand)"/><circle cx="238" cy="186" r="24"/><path d="m226 186 8 8 16-16" stroke="var(--brand)"/></svg>',
   };
-  const clArt = (k) => h('div', { class: 'cl-art', html: CLART[k] });
+  const TILE_SVG = (d) => `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const TILES = {
+    look: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
+    tag: '<path d="M3.5 12.2V4.8c0-.7.6-1.3 1.3-1.3h7.4l8.3 8.3a1.3 1.3 0 0 1 0 1.8l-7.4 7.4a1.3 1.3 0 0 1-1.8 0z"/><circle cx="8.3" cy="8.3" r="1.4"/>',
+    tip: '<circle cx="12" cy="12" r="8.5"/><path d="M14.6 9.2c-.4-.9-1.4-1.5-2.6-1.5-1.5 0-2.6.8-2.6 2s1.1 1.7 2.6 2.1 2.7.9 2.7 2.2-1.2 2.1-2.7 2.1c-1.3 0-2.4-.6-2.8-1.6M12 6.3v1.4M12 16.3v1.4"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    gift: '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v7.5h14V12M12 8v11.5M12 8c-1.5-3-5-3.3-5-1.2C7 8 9 8 12 8zm0 0c1.5-3 5-3.3 5-1.2C17 8 15 8 12 8z"/>',
+    chat: '<path d="M4.5 6.5c0-1.1.9-2 2-2h11c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H10l-4 3.5v-3.5h.5c-1.1 0-2-.9-2-2z"/>',
+    bank: '<path d="m3.5 9.5 8.5-5 8.5 5M5.5 10v7M10 10v7M14 10v7M18.5 10v7M3.5 19.5h17"/>',
+  };
+  const clArt = (k) => h('div', { class: 'cl-tile', html: TILE_SVG(TILES[k] || TILES.look) });
   const fmtD = (d) => longDay(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   function periodOf() {
     const t = isoDay(new Date());
@@ -2440,6 +2487,24 @@ export async function editor(id, mount, title, startTab = '') {
   const inPeriod = (ms) => { const [f, t] = periodOf(), d = dayOfMs(ms); return d >= f && d <= t; };
 
   /* ---------- Reports ---------- */
+  // Sales overview, Full Report: every sales figure for the period beside the comparison period.
+  function fullReport(st, f, to, span) {
+    const pf = clState.cmp === 'week' ? addDays(f, -7) : addDays(f, -span), pt = clState.cmp === 'week' ? addDays(to, -7) : addDays(f, -1);
+    const pv = cmpStats(pf, pt), t = st.totals, p2 = pv ? pv.totals : null;
+    const col = (a, b) => (a || 0) - (b || 0);
+    const rows = [
+      ['Gross sales', (x) => x.gross, money], ['Discounts', (x) => -(x.discounts || 0), money], ['Refunds', (x) => -(x.refunds || 0), money],
+      ['Net sales', (x) => x.net, money, true], ['Taxes', (x) => x.tax, money], ['Fees and service charges', (x) => x.fees, money], ['Tips', (x) => x.tips, money],
+      ['Total', (x) => x.total, money, true], ['Orders', (x) => x.orders, String], ['Average ticket size', (x) => (x.orders ? Math.round(x.total / x.orders) : 0), money], ['Items sold', (x) => x.units, String],
+    ];
+    const pct = (a, b) => (!p2 ? '—' : !b ? (a ? 'New' : '0.00%') : `${(((a - b) / Math.abs(b)) * 100).toFixed(2)}%`);
+    const range = (a, b) => (a === b ? longDay(a, { month: 'short', day: 'numeric', year: 'numeric' }) : `${longDay(a, { month: 'short', day: 'numeric' })} – ${longDay(b, { month: 'short', day: 'numeric', year: 'numeric' })}`);
+    return [h('div', { class: 'scard cl-table cl-fullrep' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Sales'), h('th', { class: 'num' }, range(f, to)), h('th', { class: 'num' }, range(pf, pt)), h('th', { class: 'num' }, 'Change'))),
+      h('tbody', {}, rows.map(([label, get, fmt, strong]) => { const a = get(t), b = p2 ? get(p2) : null; const d = b == null ? null : col(a, b);
+        return h('tr', { class: strong ? 'tot' : '' }, h('td', {}, strong ? h('b', {}, label) : label), h('td', { class: 'num' }, strong ? h('b', {}, fmt(a)) : fmt(a)), h('td', { class: 'num muted' }, b == null ? '—' : fmt(b)),
+          h('td', { class: `num ${d > 0 ? 'up' : d < 0 ? 'down' : ''}` }, b == null ? '—' : pct(a, b))); })))))];
+  }
   CL.sales = () => {
     const st = needStats(); if (!st) return loadingPage('Sales', 'Reports');
     const t = st.totals, [f, to] = periodOf();
@@ -2447,14 +2512,14 @@ export async function editor(id, mount, title, startTab = '') {
     const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])];
     const metricOpts = [['net', 'Net sales'], ['orders', 'Orders'], ['tips', 'Tips'], ['tax', 'Taxes']];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Sales', [exportBtn('sales'), dots('sales')]),
-      cTabs([['trends', 'Trends'], ['full', 'Full Report']], 'trends', (k) => { if (k === 'full') goTab('r-full'); }),
+      cTabs([['trends', 'Trends'], ['full', 'Full Report']], clState.salesTab, (k) => { clState.salesTab = k; }),
       ...cDates(cDrop([['week', span === 1 ? 'This day last week' : 'Same days last week'], ['prev', 'Previous period']], clState.cmp, (k) => { clState.cmp = k; paintPanel(); }, { prefix: 'Compared to:  ' }),
         cFilters(() => rPanel('Filters', () => { let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
-      cFigs([['Net sales', money(t.net), null, true], ['Gross sales', money(t.gross), null, true], ['Amount collected', money(st.money ? st.money.collected : 0), null, true], ['Average ticket size', money(t.average), null, true], ['Orders', String(t.orders), null, true]]),
+      ...(clState.salesTab === 'full' ? fullReport(st, f, to, span) : [cFigs([['Net sales', money(t.net), null, true], ['Gross sales', money(t.gross), null, true], ['Amount collected', money(st.money ? st.money.collected : 0), null, true], ['Average ticket size', money(t.average), null, true], ['Orders', String(t.orders), null, true]]),
       h('div', { class: 'scard cl-card' }, h('div', { class: 'cl-cardh' }, h('button', { type: 'button', class: 'hc-h link', onclick: () => goTab('r-full') }, 'Net sales', h('span', { class: 'chv r' })), cDrop(metricOpts, clState.metric, (k) => { clState.metric = k; paintPanel(); }, { icon: 'list' })),
         t.orders ? cChart(st.series, st.unit, (x) => x[clState.metric] || 0, clState.metric !== 'orders') : cEmpty('No results found', NORES)),
       h('div', { class: 'cl-two' }, top5('Top 5 categories', 'r-items', st.categories, (x) => x.sales, money), top5('Top 5 card types', 'r-tender', (st.money ? st.money.tenders : []).map((x) => ({ name: x.method, amount: x.amount })), (x) => x.amount, money),
-        top5('Top 5 items', 'r-items', st.items, (x) => x.sales, money), top5('Top 5 revenue classes', 'r-items', st.revenue, (x) => x.sales, money)))];
+        top5('Top 5 items', 'r-items', st.items, (x) => x.sales, money), top5('Top 5 revenue classes', 'r-items', st.revenue, (x) => x.sales, money))]))];
   };
   CL['r-full'] = () => {
     const st = needStats(); if (!st) return loadingPage('Sales Report', 'Reports');
@@ -2634,7 +2699,7 @@ export async function editor(id, mount, title, startTab = '') {
   };
   CL.tips = () => {
     const st = needStats(); if (!st) return loadingPage('Tips');
-    if (!st.totals.tips) return [h('div', { class: 'cl cl-center' }, clArt('person'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide a comprehensive overview of employee tips from transactions, detailing key information such as the source of the tips, the associated card, and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
+    if (!st.totals.tips) return [h('div', { class: 'cl cl-center' }, clArt('tip'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide a comprehensive overview of employee tips from transactions, detailing key information such as the source of the tips, the associated card, and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
     return PANELS.sales('tips');
   };
 
@@ -2672,13 +2737,18 @@ export async function editor(id, mount, title, startTab = '') {
       cTable('close', [{ k: 'b', l: 'Batch' }, { k: 's', l: 'Status' }, { k: 't', l: 'Transactions' }, { k: 'c', l: 'Count', r: 1 }, { k: 'a', l: 'Amount', r: 1 }, { k: 'd', l: 'Details' }], rows, null))];
   };
   CL.stmts = () => {
-    const y = clState.stmtYear, nowY = new Date().getFullYear(), nowM = new Date().getMonth();
-    const months = Array.from({ length: y === nowY ? nowM + 1 : 12 }, (_, i) => i).reverse();
+    const nowY = new Date().getFullYear(), nowM = new Date().getMonth();
+    const born = new Date(meta.createdAt || Date.now()), firstY = born.getFullYear(), firstM = born.getMonth();
+    if (clState.stmtYear < firstY) clState.stmtYear = firstY;
+    if (clState.stmtYear > nowY) clState.stmtYear = nowY;
+    const y = clState.stmtYear;
+    const fromM = y === firstY ? firstM : 0, toM = y === nowY ? nowM : 11;
+    const months = Array.from({ length: Math.max(0, toM - fromM + 1) }, (_, i) => fromM + i).reverse();
     const mName = (m) => new Date(Date.UTC(y, m, 15)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
     const dl = async (m) => { try { const f = `${y}-${String(m + 1).padStart(2, '0')}-01`, t = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10); const s2 = await api('GET', `/api/sites/${id}/stats?range=custom&from=${f}&to=${t}`), tt = s2.totals;
       await saveSheetFile(`${meta.slug}-statement-${f.slice(0, 7)}`, [[`Sales statement · ${mName(m)}`], [meta.name], [], ['Orders', tt.orders], ['Gross sales', (tt.gross / 100).toFixed(2)], ['Discounts', (tt.discounts / 100).toFixed(2)], ['Net sales', (tt.net / 100).toFixed(2)], ['Tax', (tt.tax / 100).toFixed(2)], ['Tips', (tt.tips / 100).toFixed(2)], ['Total', (tt.total / 100).toFixed(2)], ['Amount collected', ((s2.money?.collected || 0) / 100).toFixed(2)], ['Refunds', ((s2.money?.refunds || 0) / 100).toFixed(2)]], 'csv'); } catch (e) { toast(e.message, true); } };
     return [h('div', { class: 'cl' }, cHead(null, 'Monthly Statements', null, 'Review all your monthly statements in one place.'),
-      h('div', { class: 'cl-year' }, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous year', onclick: () => { clState.stmtYear--; paintPanel(); } }, chev('l')), h('b', {}, String(y)), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next year', disabled: y >= nowY, onclick: () => { clState.stmtYear++; paintPanel(); } }, chev('r'))),
+      h('div', { class: 'cl-year' }, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous year', disabled: y <= firstY, onclick: () => { clState.stmtYear--; paintPanel(); } }, chev('l')), h('b', {}, String(y)), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next year', disabled: y >= nowY, onclick: () => { clState.stmtYear++; paintPanel(); } }, chev('r'))),
       h('div', { class: 'cl-two' }, h('div', { class: 'scard cl-card' }, h('h3', { class: 'cl-ct' }, 'Sales Statement'), h('p', { class: 'cl-cd' }, 'View your sales, taxes, tips and refunds for each month.'),
         h('div', { class: 'cl-months' }, months.map((m) => h('button', { type: 'button', onclick: () => dl(m) }, h('b', {}, mName(m)), y === nowY && m === nowM && pill('Estimated', 'info'), h('span', { class: 'chv r' }))))),
         h('div', { class: 'scard cl-card' }, h('h3', { class: 'cl-ct' }, 'Merchant Processing Statement'), h('p', { class: 'cl-cd' }, 'View your processing fees and adjustments.'), h('p', { class: 'muted', style: 'margin:18px 0 6px' }, 'No processing statements yet.'))))];
@@ -2689,7 +2759,7 @@ export async function editor(id, mount, title, startTab = '') {
       h('h3', {}, 'Filter Your Disputes'),
       h('div', { class: 'cl-three' }, ...[['Location', ['Any location', meta.name]], ['Date', ['Any date', 'Last 30 days', 'Last 90 days', 'Last 12 months']], ['Amount', ['Any amount', 'Under $50', '$50 – $250', 'Over $250']]].map(([l, opts]) => h('label', { class: 'field' }, h('span', {}, l), h('select', {}, opts.map((o) => h('option', {}, o)))))),
       h('div', { class: 'scard cl-card' }, cEmpty('No disputes', ''))))];
-  CL.capital = () => [h('div', { class: 'cl' }, cHead('Finances', 'Capital'), h('div', { class: 'scard cl-card' }, cEmpty('No funding offers right now', '', 'look')))];
+  CL.capital = () => [h('div', { class: 'cl' }, cHead('Finances', 'Capital'), h('div', { class: 'scard cl-card' }, cEmpty('No funding offers right now', '', 'bank')))];
   const promoPage = (eyebrow, title, brand, headline, text, cta, how, pricing, art) => h('div', { class: 'cl cl-promo' }, cHead(eyebrow, title), brand,
     h('div', { class: 'cl-promo-top' }, h('div', {}, h('h2', { class: 'cl-ph' }, headline), h('p', { class: 'cl-pt' }, text), cta)),
     how && h('h2', { class: 'cl-ph' }, how[0]), how && h('div', { class: 'cl-how' + (art ? ' with-art' : '') }, h('div', {}, how[1].map(([icon, t, d]) => h('div', { class: 'cl-howi' }, h('span', { class: 'cl-howic', html: icon }), h('div', {}, h('b', {}, t), h('p', {}, d))))), art && clArt(art)),
@@ -2706,7 +2776,7 @@ export async function editor(id, mount, title, startTab = '') {
   CL.stax = () => [promoPage('Finances', 'Sales tax', null, 'Put your sales tax on autopilot', 'Run your business as normal. Sales tax is worked out on every order at your rate and kept in your records.', h('button', { type: 'button', class: 'btn cl-dark', onclick: () => goTab('ordering') }, 'Set up now'),
     ['How it works', [[ICO.tax, 'Automated taxes without the added work', 'As you make sales, sales tax is added at your rate and shown on every receipt.'], [ICO.rec, 'Access records quickly', 'Daily reporting for continued oversight, and quick access to your full tax history in the Taxes Report.']]], 'Sales tax tracking is included in your plan at no extra cost.')];
   CL.bills = () => [promoPage('Finances', 'Pay bills', null, 'Pay your vendors with ease, flexibility, and security', 'Get the flexibility to pay any vendor your way—giving you total control over your business cash flow.', h('a', { class: 'btn cl-dark', href: `mailto:support@processorfreedom.com?subject=${encodeURIComponent(`Pay Bills for ${meta.name}`)}` }, 'Try Pay Bills now'),
-    ['Feature highlights', [[ICO.rec, 'Payment flexibility for you and your vendors', 'Pay your usual way. Your vendors get paid their way.'], [ICO.shield, 'Safe and secure online payments', 'We safeguard all transactions using bank-level security.'], [ICO.sync, 'QuickBooks-ready records', 'Download your payments as a file QuickBooks reads, to keep your books accurate.']]], null, 'bills')];
+    ['Feature highlights', [[ICO.rec, 'Payment flexibility for you and your vendors', 'Pay your usual way. Your vendors get paid their way.'], [ICO.shield, 'Safe and secure online payments', 'We safeguard all transactions using bank-level security.'], [ICO.sync, 'QuickBooks-ready records', 'Download your payments as a file QuickBooks reads, to keep your books accurate.']]], null)];
   /* ---------- Appointments ---------- */
   const A_STATUS = { Pending: 'pending', Confirmed: 'confirmed', Completed: 'completed', Canceled: 'cancelled', 'No show': 'noshow' };
   const A_ICON = { Pending: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', Confirmed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>', Completed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m6.5 12 3 3 5-6M11 15l5-6"/></svg>', Canceled: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M6 18 18 6"/></svg>', 'No show': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c4362f" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16v.5"/></svg>', Open: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 7h6M9 17h6M9.5 7c0 3 5 3 5 5s-5 2-5 5"/></svg>', 'Partially paid': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#1d4f9e" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 6v12M14.5 8.5c-1-1.5-5-1.5-5 .5s5 1.5 5 3.5-4 2-5 .5"/></svg>' };
@@ -2730,8 +2800,8 @@ export async function editor(id, mount, title, startTab = '') {
     const dateBtn = h('button', { type: 'button', class: 'cl-date', onclick: () => popover(dateBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(calDate.slice(0, 7), (d) => { calDate = d; close(); paintPanel(); }, () => ({ from: calDate, to: calDate }))), 'left') }, calView === 'month' ? monthName(calDate.slice(0, 7)) : [h('span', { class: 'dl' }, fmtD(calDate)), h('span', { class: 'ds' }, longDay(calDate, { weekday: 'short', month: 'short', day: 'numeric' }))]);
     const cols = people.filter((p) => chosenEmp.has(p)), per = innerWidth < 600 ? 2 : innerWidth < 1000 ? 4 : 6, pages = Math.max(1, Math.ceil(cols.length / per));
     if (clState.empPage >= pages) clState.empPage = 0;
-    const empBtn = h('button', { type: 'button', class: 'cl-chip', onclick: () => rPanel('Employee(s)', () => { const set = new Set(chosenEmp); const all = h('input', { type: 'checkbox', checked: set.size === people.length }); const list = rpChecks('', people, set); all.onchange = () => { list.querySelectorAll('input').forEach((cb, i) => { cb.checked = all.checked; if (all.checked) set.add(people[i]); else set.delete(people[i]); }); }; return { el: h('div', {}, h('label', { class: 'rp-opt rp-all' }, all, h('span', {}, 'All')), list), apply: () => { clState.apptEmp = set.size === people.length ? null : set; } }; }) }, h('span', { class: 'cl-ic', html: SVG.users }), h('em', {}, String(chosenEmp.size)));
-    const attrBtn = h('button', { type: 'button', class: 'cl-chip', onclick: () => rPanel('Appointment attributes', () => { const set = new Set(chosenSt); const keys = [...Object.keys(A_STATUS), 'Open', 'Partially paid']; const all = h('input', { type: 'checkbox', checked: set.size === keys.length }); const g1 = rpChecks('Appointment status', Object.keys(A_STATUS), set, A_ICON), g2 = rpChecks('Order status', ['Open', 'Partially paid'], set, A_ICON); all.onchange = () => { [g1, g2].forEach((g) => g.querySelectorAll('input').forEach((cb) => { cb.checked = all.checked; })); keys.forEach((k) => (all.checked ? set.add(k) : set.delete(k))); }; return { el: h('div', {}, h('label', { class: 'rp-opt rp-all' }, all, h('span', {}, 'All')), g1, g2), apply: () => { clState.apptAttr = set.size === keys.length ? null : set; } }; }) }, ic('sliders', 18), h('em', {}, String(chosenSt.size)));
+    const empBtn = h('button', { type: 'button', class: 'cl-chip', onclick: () => rPanel('Employee(s)', () => { const set = new Set(chosenEmp); const all = h('input', { type: 'checkbox', checked: set.size === people.length }); const list = rpChecks('', people, set); all.onchange = () => { list.querySelectorAll('input').forEach((cb, i) => { cb.checked = all.checked; if (all.checked) set.add(people[i]); else set.delete(people[i]); }); }; return { el: h('div', {}, h('label', { class: 'rp-opt rp-all' }, all, h('span', {}, 'All')), list), apply: () => { clState.apptEmp = set.size === people.length ? null : set; } }; }) }, h('span', { class: 'cl-ic', html: SVG.users }), chosenEmp.size < people.length && h('em', {}, String(chosenEmp.size)));
+    const attrBtn = h('button', { type: 'button', class: 'cl-chip', onclick: () => rPanel('Appointment attributes', () => { const set = new Set(chosenSt); const keys = [...Object.keys(A_STATUS), 'Open', 'Partially paid']; const all = h('input', { type: 'checkbox', checked: set.size === keys.length }); const g1 = rpChecks('Appointment status', Object.keys(A_STATUS), set, A_ICON), g2 = rpChecks('Order status', ['Open', 'Partially paid'], set, A_ICON); all.onchange = () => { [g1, g2].forEach((g) => g.querySelectorAll('input').forEach((cb) => { cb.checked = all.checked; })); keys.forEach((k) => (all.checked ? set.add(k) : set.delete(k))); }; return { el: h('div', {}, h('label', { class: 'rp-opt rp-all' }, all, h('span', {}, 'All')), g1, g2), apply: () => { clState.apptAttr = set.size === keys.length ? null : set; } }; }) }, ic('sliders', 18), chosenSt.size < Object.keys(A_STATUS).length + 2 && h('em', {}, String(chosenSt.size)));
     const bar = h('div', { class: 'cl-calbar' }, cDrop([['day', 'day'], ['week', 'week'], ['month', 'month']], calView, (k) => { calView = k; paintPanel(); }, { cls: 'cl-view' }), dateBtn,
       h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous', onclick: () => move(-1) }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next', onclick: () => move(1) }, chev('r')), h('span', { class: 'grow' }),
       calView === 'day' && h('span', { class: 'cl-pages' }, `${clState.empPage + 1} of ${pages}`), calView === 'day' && h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous people', disabled: clState.empPage === 0, onclick: () => { clState.empPage--; paintPanel(); } }, chev('l')), calView === 'day' && h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'More people', disabled: clState.empPage >= pages - 1, onclick: () => { clState.empPage++; paintPanel(); } }, chev('r')),
@@ -2889,7 +2959,7 @@ export async function editor(id, mount, title, startTab = '') {
       const per = new Map(); for (const x of list) { const r = per.get(x.name) || per.set(x.name, { h: 0, n: 0 }).get(x.name); r.h += hrs(x); r.n++; }
       content = cTable('ts-pay', [{ k: 'n', l: 'Team member' }, { k: 'e', l: 'Time cards', r: 1 }, { k: 'h', l: 'Hours', r: 1 }, { k: 'p', l: 'Estimated pay', r: 1 }], [...per].map(([n, r]) => ({ n: h('b', {}, n), e: String(r.n), h: r.h.toFixed(2), p: rateOf(n) ? money(Math.round(r.h * rateOf(n))) : '—' })), cEmpty('No time cards this pay period', ''));
     } else if (!list.length && !tsAdding) {
-      content = h('div', { class: 'cl-tsempty' }, clArt('stars'), h('b', {}, 'Your team’s day, at a glance'), h('p', {}, 'When your team clocks in, their time cards will show here.'), h('button', { type: 'button', class: 'btn cl-dark', onclick: () => { tsAdding = true; paintPanel(); } }, 'Add a time card'));
+      content = h('div', { class: 'cl-tsempty' }, clArt('clock'), h('b', {}, 'Your team’s day, at a glance'), h('p', {}, 'When your team clocks in, their time cards will show here.'), h('button', { type: 'button', class: 'btn cl-dark', onclick: () => { tsAdding = true; paintPanel(); } }, 'Add a time card'));
     } else {
       content = h('div', {}, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Team member', 'Clocked in', 'Clocked out', 'Hours', ''].map((x) => h('th', {}, x)))),
         h('tbody', {}, tsAdding && editRow(null), list.map((x) => (tsEdit === x.id ? editRow(x) : h('tr', {}, h('td', {}, h('b', {}, x.name)), h('td', {}, when(x.inAt)), h('td', {}, x.outAt ? when(x.outAt) : pill('Working now', 'ok')), h('td', {}, hrs(x).toFixed(2)),
@@ -2928,12 +2998,12 @@ export async function editor(id, mount, title, startTab = '') {
     const evCount = (d) => appts.filter((a) => a.at.slice(0, 10) === d && a.status !== 'cancelled').length;
     const openHrs = week.filter((x) => x.name === OPEN).reduce((a, x) => a + hrs(x), 0);
     const rangeBtn = h('button', { type: 'button', class: 'cl-sel cl-tsdate', onclick: () => popover(rangeBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(schedWeek.slice(0, 7), (dd) => { schedWeek = addDays(dd, -((new Date(`${dd}T12:00:00Z`).getUTCDay() + 6) % 7)); close(); paintPanel(); }, () => ({ from: days[0], to: days[6] }))), 'left') }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', { class: 'grow' }, h('span', { class: 'dl' }, `${longDay(days[0], { month: 'short', day: 'numeric', year: 'numeric' })} - ${longDay(days[6], { month: 'short', day: 'numeric', year: 'numeric' })}`), h('span', { class: 'ds' }, `${longDay(days[0], { month: 'short', day: 'numeric' })} – ${longDay(days[6], days[0].slice(5, 7) === days[6].slice(5, 7) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`)));
-    const fBtn = h('button', { type: 'button', class: 'cl-sel cl-fil', onclick: () => popover(fBtn, () => h('div', { class: 'cl-menu' }, [['events', 'Events'], ['open', 'Open shifts'], ['team', 'Team members']].map(([k, l]) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: clState.schedRows.has(k), onchange: (e) => { if (e.target.checked) clState.schedRows.add(k); else clState.schedRows.delete(k); paintPanel(); } }), h('span', {}, l)))), 'right') }, h('span', {}, `Filters (${clState.schedRows.size})`), caret());
+    const fBtn = h('button', { type: 'button', class: 'cl-sel cl-fil', onclick: () => popover(fBtn, () => h('div', { class: 'cl-menu' }, [['events', 'Events'], ['open', 'Open shifts'], ['team', 'Team members']].map(([k, l]) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: clState.schedRows.has(k), onchange: (e) => { if (e.target.checked) clState.schedRows.add(k); else clState.schedRows.delete(k); paintPanel(); } }), h('span', {}, l)))), 'right') }, h('span', {}, clState.schedRows.size < 3 ? `Filters (${clState.schedRows.size})` : 'Filters'), caret());
     const sortSel = cDrop([['first', 'First name'], ['last', 'Last name']], clState.schedSort, (k) => { clState.schedSort = k; paintPanel(); }, { cls: 'cl-small-sel' });
     const total = (n) => { const hh = week.filter((x) => x.name === n).reduce((a, x) => a + hrs(x), 0); return `${hh.toFixed(2)} hrs / ${money(Math.round(hh * rateOf(n)))}`; };
     return [h('div', { class: 'cl' }, cHead(null, 'Scheduling'),
       h('div', { class: 'scard cl-sched' }, h('div', { class: 'cl-schbar' }, h('button', { type: 'button', class: 'btn soft sm cl-today', disabled: days.includes(today), onclick: () => { schedWeek = ''; paintPanel(); } }, 'Today'), rangeBtn, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous week', onclick: () => { schedWeek = addDays(schedWeek, -7); paintPanel(); } }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next week', onclick: () => { schedWeek = addDays(schedWeek, 7); paintPanel(); } }, chev('r')), h('span', { class: 'grow' }),
-        cDrop([['week', 'Week']], 'week', () => {}, { cls: 'cl-plain' }), fBtn, h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Schedule settings', title: 'Business hours', onclick: () => goTab('hours'), html: SVG.gear }), h('button', { type: 'button', class: 'btn soft sm cl-pub', disabled: true }, h('span', { html: SVG.upload }), 'Publish (0)')),
+        cDrop([['week', 'Week']], 'week', () => {}, { cls: 'cl-plain' }), fBtn, h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Schedule settings', title: 'Business hours', onclick: () => goTab('hours'), html: SVG.gear }), h('button', { type: 'button', class: 'btn soft sm cl-pub', disabled: true }, h('span', { html: SVG.upload }), 'Publish')),
         h('div', { class: 'sh-grid' },
           h('div', { class: 'sh-row sh-headrow' }, h('div', { class: 'sh-who cl-whohead' }, h('span', { class: 'muted' }, 'View'), sortSel, clState.schedSearch ? h('input', { class: 'cl-schq', placeholder: 'Search', value: clState.schedQ, oninput: (e) => { clState.schedQ = e.target.value; paintPanel(); const el = panel.querySelector('.cl-schq'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } } }) : h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Search team members', onclick: () => { clState.schedSearch = true; paintPanel(); setTimeout(() => panel.querySelector('.cl-schq')?.focus()); } }, ic('search', 18))),
             days.map((d) => h('div', { class: 'sh-dh2', 'data-today': d === today ? '1' : null }, h('span', {}, longDay(d, { weekday: 'short', day: 'numeric' }).replace(/(\w+)\s(\d+)/, '$1, $2'))))),
@@ -3008,7 +3078,7 @@ export async function editor(id, mount, title, startTab = '') {
     const create = isOwner && h('button', { type: 'button', class: 'btn cl-blue cl-promobtn', onclick: () => edit(null) }, ic('plus', 18), 'Create promo');
     return [h('div', { class: 'cl cl-promos' }, !isOwner && h('div', { class: 'cl-banner warn' }, h('span', { class: 'cl-bi', html: SVG.tri }), h('div', { class: 'grow' }, h('b', {}, 'Account owner access is required'), h('p', {}, 'Only the account owner can create promotions. Please contact your account owner.'))),
       list.length ? [cHead(null, 'Promos', create && [create]), cTable('promos', [{ k: 'c', l: 'Code' }, { k: 'd', l: 'Discount' }, { k: 's', l: 'Status' }, { k: 'a', l: '' }], rows, null)]
-        : h('div', { class: 'cl-hero' }, clArt('person'), h('h1', {}, 'Boost Sales with Targeted Customer Promotions'), h('p', {}, 'Create promo codes your customers can enter at checkout when they order from your website.'), create))];
+        : h('div', { class: 'cl-hero' }, clArt('tag'), h('h1', {}, 'Boost Sales with Targeted Customer Promotions'), h('p', {}, 'Create promo codes your customers can enter at checkout when they order from your website.'), create))];
   };
   CL.inbox = () => {
     const L = need('leads', 'leads'); if (!L) return loadingPage('Feedback');
@@ -3021,7 +3091,7 @@ export async function editor(id, mount, title, startTab = '') {
       h('div', { class: 'cl-figs cl-fbfigs' }, h('div', { class: 'cl-fig' }, h('span', {}, 'Messages'), h('b', {}, String(leads2.length))), h('div', { class: 'cl-fig' }, h('span', {}, h('i', { class: 'cl-fbh', html: heart }), 'Happy'), h('b', {}, '0')), h('div', { class: 'cl-fig' }, h('span', {}, h('i', { class: 'cl-fbh', html: broken }), 'Unhappy'), h('b', {}, '0'))),
       cTable('feedback', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'c', l: 'Customer' }, { k: 'm', l: 'Mood' }, { k: 'x', l: 'Message' }, { k: 'r', l: 'Reply' }],
         leads2.map((l) => ({ _t: l.createdAt, t: when(l.createdAt), c: h('b', { class: 'cl-fbname' }, l.name || l.email), m: '—', x: h('span', { class: 'cl-fbmsg' }, l.message), r: l.email ? h('a', { class: 'cl-link', href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply') : '' })),
-        h('div', { class: 'cl-empty' }, h('span', { class: 'cl-fbbig', html: SVG.heart }), h('b', {}, 'No messages yet'), h('p', {}, 'Messages customers send you from your website will show here.'))))];
+        h('div', { class: 'cl-empty' }, h('b', {}, 'No messages yet'), h('p', {}, 'Messages customers send you from your website will show here.'))))];
   };
   CL.rewards = () => {
     if (ordering.loyalty && ordering.loyalty.enabled) return [cHead(null, 'Rewards'), ...[PANELS.rewardsDash()].flat()];
@@ -3030,10 +3100,9 @@ export async function editor(id, mount, title, startTab = '') {
     const L = ordering.loyalty || { every: 10, type: 'percent', value: 5 };
     return [h('div', { class: 'cl cl-promo' }, cHead(null, 'Rewards'), pill('Included in plan', 'outline'),
       h('h2', { class: 'cl-ph' }, 'Drive repeat sales with Rewards'), h('p', { class: 'cl-pt' }, 'Get customers spending more, more often. Reward them automatically every time they order from your business.'), act,
-      h('h2', { class: 'cl-ph' }, 'Why rewards?'), h('div', { class: 'cl-figs cl-why' }, [['More frequent customers', '90%'], ['Increased customer spend', '60%'], ['More likely to recommend', '70%']].map(([l, v]) => h('div', { class: 'cl-fig' }, h('span', {}, l), h('b', { class: 'xl' }, v)))),
       h('h2', { class: 'cl-ph' }, 'How it works'),
       h('div', { class: 'cl-hiw' }, h('div', { class: 'cl-hiwl' }, h('div', { class: 'scard cl-hcard' }, h('div', { class: 'cl-howt' }, h('span', { html: ICO.hand }), h('b', {}, 'Simple sign-up')), h('p', {}, 'Activate rewards with a simple process that takes just a few minutes.')),
-        h('div', { class: 'scard cl-hcard cl-hart' }, clArt('stars')),
+        
         h('div', { class: 'scard cl-hcard' }, h('div', { class: 'cl-howt' }, h('span', { html: ICO.phone }), h('b', {}, 'Order more, earn rewards')), h('p', {}, 'Customers earn toward a reward every time they order from you. Progress is counted automatically.')),
         h('div', { class: 'scard cl-hcard' }, h('div', { class: 'cl-howt' }, h('span', { html: ICO.phone }), h('b', {}, 'Easy to redeem')), h('p', {}, 'Customers use their reward code when they order with you.'))),
         h('div', { class: 'cl-hiwr' }, h('div', { class: 'cl-demo' }, h('div', { class: 'cl-demo1' }, h('small', {}, 'You did it!'), h('b', {}, 'You’ve earned a reward'), h('small', {}, 'Don’t miss out—use your reward on your next order!')), h('div', { class: 'cl-demo2' }, h('div', {}, 'Claim my reward'), h('div', {}, 'No thanks')),

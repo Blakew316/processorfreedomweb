@@ -4714,3 +4714,42 @@ html[data-theme=dark]:has(.k),html[data-theme=dark]:has(.k) body{background:#1c1
   .ed-body[data-mode=office] .subnav:not([hidden]),.subnav:not([hidden]){margin:10px 0 0!important;padding:2px 16px 4px!important;min-width:0;max-width:100%;scroll-padding:0 16px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
   .subnav:not([hidden]).at-end{-webkit-mask-image:none;mask-image:none}
 }
+/* Virtual Terminal: compact type box and subtotal */
+.vt-type{padding:6px 12px 7px!important;min-height:0!important;row-gap:1px;align-content:center;width:min(230px,100%)!important}
+.vt-type .vt-lab{font-size:11.5px;line-height:1.2;margin:0}
+.vt-type b{font-size:15px;line-height:1.25;font-weight:500}
+.vt-subwrap{padding:18px 22px 14px!important;gap:6px!important}
+.vt-subbox{padding:5px 12px 4px!important}
+.vt-subbox .vt-lab{font-size:11.5px;line-height:1.2}
+.vt-subbox input{font-size:26px!important;line-height:1.2;padding:1px 0 0!important}
+.vt-taxcol{padding:18px 22px!important}
+.vt-taxrow b{font-size:16px}
+@media (max-width:900px){.vt-subbox input{font-size:24px!important}.vt-subwrap{padding:14px 16px 12px!important}.vt-taxcol{padding:14px 16px!important}}
+@media (max-width:900px){.vt .vt-subbox label input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]){font-size:24px!important}}
+/* One icon style for empty pages and feature lists */
+.cl-tile{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:color-mix(in srgb,var(--blue) 9%,var(--card));color:var(--blue);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--blue) 14%,transparent);margin:0 auto 6px;flex:none}
+.cl-tile svg{width:26px;height:26px}
+.cl-empty .cl-tile{margin-bottom:8px}
+.cl-hero{min-height:0!important;padding:56px 24px 48px!important;gap:12px!important}
+.cl-hero h1{font-size:26px!important;max-width:560px}
+.cl-hero p{font-size:15px!important}
+.cl.cl-center{min-height:0!important;padding:56px 24px 48px!important}
+.cl.cl-center h1{font-size:26px!important}
+.cl-tsempty{padding:40px 16px}
+/* Feature list icons: a small tinted tile, not a big outline drawing */
+.cl-howic,.cl-howt>span:first-child{width:44px;height:44px;border-radius:12px;display:grid!important;place-items:center;flex:none;background:color-mix(in srgb,var(--blue) 9%,var(--card));color:var(--blue)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--blue) 14%,transparent)}
+.cl-howic svg,.cl-howt>span:first-child svg{width:24px!important;height:24px!important;stroke-width:3}
+.cl-howic svg [stroke="var(--brand)"],.cl-howt>span:first-child svg [stroke="var(--brand)"]{stroke:currentColor}
+.cl-howi{align-items:center!important}
+.cl-howt{gap:12px!important}
+.cl-fullrep{min-height:0!important}
+.cl-fullrep td,.cl-fullrep th{padding:13px 18px!important}
+.cl-fullrep tr.tot td{border-top:1px solid var(--line2)}
+.cl-fullrep td.up{color:var(--blue)}.cl-fullrep td.down{color:var(--red)}
+.cl-fullrep td.muted{color:var(--muted)}
+/* Older empty pages use the same icon tile */
+.inv-empty>span:first-child,html:not([data-theme=dark]) .inv-empty>span:first-child,html[data-theme=dark] .inv-empty>span:first-child{width:56px!important;height:56px!important;border-radius:16px!important;background:color-mix(in srgb,var(--blue) 9%,var(--card))!important;color:var(--blue)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--blue) 14%,transparent)!important}
+.inv-empty>span:first-child svg{width:26px!important;height:26px!important}
+.inv-empty b{font-size:17px!important;font-weight:650}
+.cl-hiwl{grid-template-columns:minmax(0,1fr)!important;gap:12px}
+.cl-hcard{padding:16px 18px!important}
