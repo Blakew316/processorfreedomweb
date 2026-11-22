@@ -346,6 +346,34 @@ test('changing the business name (DBA) updates everything and emails the owner',
   } finally { mailer.send = was; await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('a session ends after 16 minutes with no requests at all', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pfidle-'));
+  const { client, stop } = await boot(dir);
+  try {
+    const a = client();
+    await a('POST', '/api/auth/signup', { email: 'idle@shop.test', password: 'long-enough-pw', name: 'Ida' });
+    const who = "(SELECT id FROM users WHERE email = 'idle@shop.test')";
+    const run = (fn) => { const db = new DatabaseSync(join(dir, 'sites.db')); try { return fn(db); } finally { db.close(); } };
+    const setSeen = (ms) => run((db) => db.prepare(`UPDATE sessions SET seen_at = ? WHERE user_id = ${who}`).run(ms));
+    const seen = () => run((db) => db.prepare(`SELECT seen_at FROM sessions WHERE user_id = ${who}`).all());
+    // Ten quiet minutes: still logged in, and the clock starts again.
+    setSeen(Date.now() - 10 * 60000);
+    assert.equal((await a('GET', '/api/sites')).status, 200);
+    assert.ok(Date.now() - seen()[0].seen_at < 5000, 'a request starts the clock again');
+    // Sessions from before this change have no time recorded: they carry on, and are timed from now.
+    setSeen(0);
+    assert.equal((await a('GET', '/api/sites')).status, 200);
+    assert.ok(seen()[0].seen_at > 0);
+    // Seventeen quiet minutes: the session is over and removed.
+    setSeen(Date.now() - 17 * 60000);
+    assert.equal((await a('GET', '/api/sites')).status, 401, 'a quiet session ends');
+    assert.equal(seen().length, 0, 'and is deleted');
+    assert.equal((await a('GET', '/api/me')).data.user, null);
+    assert.equal((await a('POST', '/api/auth/login', { email: 'idle@shop.test', password: 'long-enough-pw' })).status, 200, 'logging in again works');
+    assert.equal((await a('GET', '/api/sites')).status, 200);
+  } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a reset link from the email does not get past two-step sign-in', async () => {
   const { totpCode } = await import('../server/app.js');
   const dir = mkdtempSync(join(tmpdir(), 'pfrs-'));

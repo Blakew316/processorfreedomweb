@@ -17,6 +17,7 @@ const ROOT = resolvePath(fileURLToPath(new URL('..', import.meta.url)));
 const MIME = { '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json' };
 const DAY = 86400000;
 const SESSION_DAYS = 30;
+const IDLE_MS = 16 * 60000;   // no requests for this long ends a session (the app warns at 14 and logs out at 15 minutes)
 const MAX_SITES = 25;
 
 class HttpError extends Error {
@@ -120,7 +121,7 @@ export function createApp(options = {}) {
     }
     if (++rec.n > max) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
   }
-  const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ?', now); }, 10 * 60000);
+  const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ? OR (seen_at > 0 AND seen_at < ?)', now, now - IDLE_MS); }, 10 * 60000);
   sweep.unref();
 
   const ipOf = (req) => String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
@@ -165,14 +166,19 @@ export function createApp(options = {}) {
   }
   function startSession(req, res, userId) {
     const token = randomBytes(32).toString('base64url');
-    db.run('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)', sha(token), userId, Date.now() + SESSION_DAYS * DAY);
+    db.run('INSERT INTO sessions (token_hash, user_id, expires_at, seen_at) VALUES (?, ?, ?, ?)', sha(token), userId, Date.now() + SESSION_DAYS * DAY, Date.now());
     db.run('UPDATE users SET last_seen = ? WHERE id = ?', Date.now(), userId);
     res.setHeader('Set-Cookie', `pf_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${protoOf(req) === 'https' ? '; Secure' : ''}`);
   }
+  // For security a session ends after 16 minutes with no requests at all, for example a closed laptop or a phone app left in the background.
+  // While a page is open, the app itself logs out after 15 minutes without activity, with a warning a minute before.
   function currentUser(req) {
     const token = cookie(req, 'pf_session');
     if (!token) return null;
-    const u = db.get('SELECT u.id, u.email, u.name, u.verified, u.phone, u.totp_on FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', sha(token), Date.now());
+    const now = Date.now(), key = sha(token);
+    const u = db.get('SELECT u.id, u.email, u.name, u.verified, u.phone, u.totp_on, s.seen_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', key, now);
+    if (u && u.seen_at && now - u.seen_at > IDLE_MS) { db.run('DELETE FROM sessions WHERE token_hash = ?', key); return null; }
+    if (u && now - u.seen_at > 30000) db.run('UPDATE sessions SET seen_at = ? WHERE token_hash = ?', now, key);
     return u ? { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone, twoFactor: !!u.totp_on } : null;
   }
   const requireUser = (req) => currentUser(req) || bad(401, 'Please sign in to continue.');

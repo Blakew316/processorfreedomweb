@@ -482,6 +482,56 @@ async function render() {
   }
 }
 
+/* ---------- Automatic log out ----------
+   For security, after 15 minutes with no taps, clicks, typing or scrolling, the back office logs out and goes to the log in page.
+   A minute before, a window asks whether to stay logged in. Activity in any open tab counts, and logging out in one tab logs out the others.
+   The kitchen screen is left alone: it is meant to stay on all day. The server also ends a session after 16 minutes with no requests at all. */
+const IDLE_MS = 15 * 60000, WARN_MS = 60000;
+let lastAct = Date.now(), lastPing = Date.now(), warnClose = null, leaving = false;
+const guarded = () => !!state.user && location.pathname.startsWith('/app') && !/\/kitchen$/.test(location.pathname);
+const lastSeen = () => { let t = lastAct; try { t = Math.max(t, Number(localStorage.getItem('pf-active')) || 0); } catch { /* private mode */ } return t; };
+function wasActive(force = false) {
+  const now = Date.now();
+  if (!force && now - lastAct < 5000) return;
+  lastAct = now;
+  try { localStorage.setItem('pf-active', String(now)); } catch { /* private mode */ }
+  // While someone is working, the server hears from the app at least every few minutes, so it never ends an active session.
+  if (state.user && now - lastPing > 4 * 60000) { lastPing = now; api('GET', '/api/me').catch(() => {}); }
+}
+async function timedOut(chosen = false) {
+  leaving = true; warnClose?.(); warnClose = null;
+  try { await api('POST', '/api/auth/logout'); } catch { /* already ended on the server */ }
+  state.user = null; leaving = false;
+  try { localStorage.setItem('pf-logout', `${Date.now()}:${chosen ? 'chosen' : 'idle'}`); } catch { /* private mode */ }
+  go('/login');
+  if (!chosen) toast('For your security, you were logged out after 15 minutes without activity.');
+}
+function idleWarning() {
+  let tick;
+  return sheet((close) => {
+    const left = h('b', {}, '60');
+    const draw = () => { left.textContent = String(Math.max(0, Math.ceil((IDLE_MS - (Date.now() - lastSeen())) / 1000))); };
+    draw(); tick = setInterval(draw, 1000);
+    return [h('h2', {}, 'Are you still there?'), h('p', { class: 'muted' }, 'For your security, you will be logged out in ', left, ' seconds.'),
+      h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: () => { leaving = true; close(); timedOut(true); } }, 'Log out'), h('button', { class: 'btn cl-blue', autofocus: true, onclick: close }, 'Stay logged in'))];
+  }, 'idle-warn', () => { clearInterval(tick); warnClose = null; if (!leaving) wasActive(true); });
+}
+function checkIdle() {
+  if (!guarded()) { warnClose?.(); return; }
+  const idle = Date.now() - lastSeen();
+  if (idle >= IDLE_MS) { timedOut(); return; }
+  if (idle >= IDLE_MS - WARN_MS) { if (!warnClose) warnClose = idleWarning(); }
+  else if (warnClose) { leaving = true; warnClose(); leaving = false; }   // someone was active in another tab
+}
+for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll', 'mousemove']) window.addEventListener(ev, () => { if (!warnClose) wasActive(); }, { passive: true, capture: true });
+setInterval(checkIdle, 5000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkIdle(); });
+window.addEventListener('storage', (e) => {
+  if (e.key !== 'pf-logout' || !state.user || !location.pathname.startsWith('/app')) return;
+  state.user = null; leaving = true; warnClose?.(); leaving = false; go('/login');
+  if (String(e.newValue).endsWith(':idle')) toast('For your security, you were logged out after 15 minutes without activity.');
+});
+
 window.addEventListener('popstate', render);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
 // When a new version goes live, an open tab picks it up the next time it comes back to the screen.
