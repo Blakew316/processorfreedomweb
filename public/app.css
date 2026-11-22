@@ -4438,3 +4438,43 @@ html[data-theme=dark] .rw-day i.e{background:#9cc0ff}
 .rp-f .btn:not(.soft),.swb-f .btn.cl-dark{background:var(--blue)!important;color:#fff!important}
 .vt-card,.vt-sec,.vt-tipbox{grid-template-columns:minmax(0,1fr);min-width:0}.cl-fbtop{flex-wrap:wrap}@media (max-width:900px){.cathead{flex-wrap:wrap;row-gap:8px}.cat-tog{min-width:0;flex:1 1 140px}.cl-fbtitle h1{font-size:24px}}
 .vt-search{min-width:0;width:100%}.vt-who{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+/* Virtual Terminal sized to the reference: narrower, smaller fields and type */
+.vt{max-width:760px;gap:10px;padding-bottom:96px}
+.vt-title{font-size:26px;margin-top:4px}
+.vt-req{font-size:13px;margin:-4px 0 6px}
+.vt-type{width:min(250px,100%);padding:6px 12px;border-radius:4px}
+.vt-type b{font-size:15px}
+.vt-lab{font-size:12px}
+.vt-menu{min-width:250px}
+.vt-menu button{font-size:15px;padding:11px 14px}
+.vt-h{font-size:23px;margin:16px 0 2px}
+.vt-sec{padding:18px 24px;gap:12px}
+.vt-subwrap{padding:22px 24px 18px;gap:8px}
+.vt-subbox{padding:7px 12px 6px}
+.vt-subbox input{font-size:34px;padding:2px 0 0;line-height:1.15}
+.vt-err{font-size:13px}
+.vt-erri{width:15px;height:15px;font-size:10px}
+.vt-taxcol{padding:22px 24px}
+.vt-taxrow b{font-size:17px}
+.vt-box input{height:50px;padding:18px 12px 4px;font-size:15px}
+.vt-box .vt-lab{left:12px;right:12px;font-size:15px}
+.vt-box:focus-within .vt-lab,.vt-box:has(input:not(:placeholder-shown)) .vt-lab{top:7px;font-size:11px}
+.vt-help{font-size:12px}
+.vt-tipbox{width:min(250px,100%)}
+.vt-tipbox .vt-sec{padding:16px 20px}
+.vt-tiptotal{padding:12px 16px;gap:10px}
+.vt-tiptotal span,.vt-tiptotal b{font-size:22px}
+.vt-custh b{font-size:15px}
+.vt-link{font-size:13px}
+.vt-search{height:50px;padding:0 12px}
+.vt-search input{font-size:15px}
+.vt-row2,.vt-row3{gap:16px}
+.vt-onfile{padding:14px 14px;font-size:15px}
+.vt-radios{padding:20px 26px;gap:26px}
+.vt-radios label{font-size:15px}
+.vt-radios input{width:16px;height:16px}
+.panel[data-tab="sale"] .cl-bar{padding:12px 28px}
+.vt-bartotal span,.vt-bartotal b{font-size:24px}
+.vt-go{height:44px;padding:0 24px;font-size:15px;border-radius:6px}
+@media (max-width:900px){.vt-subbox input{font-size:30px}.vt-bartotal span,.vt-bartotal b{font-size:20px}}
+@media (min-width:901px){.ed-body[data-mode=office] .panel>.vt{max-width:760px!important;margin-left:0!important;margin-right:auto!important}}
