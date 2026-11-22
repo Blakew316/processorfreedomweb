@@ -255,7 +255,7 @@ export function createApp(options = {}) {
     if (LEVEL[role] < LEVEL[need]) bad(403, 'Your login does not allow that. Ask the owner of this site.');
     return { user, site, role };
   }
-  const teamOf = (site) => db.all('SELECT u.id, u.name, u.email, u.phone, (u.last_seen > 0 OR EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id)) AS active, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id);
+  const teamOf = (site) => db.all('SELECT u.id, u.name, u.email, u.phone, m.details, (u.last_seen > 0 OR EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id)) AS active, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id).map((m) => ({ ...m, details: (() => { try { return JSON.parse(m.details || '{}'); } catch { return {}; } })() }));
 
   /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
   const takenSlots = (siteId) => Object.fromEntries(db.all("SELECT scheduled, COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled != '' AND status != 'cancelled' AND created_at > ? GROUP BY scheduled", siteId, Date.now() - 3 * DAY).map((r) => [r.scheduled, r.n]));
@@ -663,6 +663,12 @@ export function createApp(options = {}) {
       link = resetLinkFor(req, person.id, 72);
     }
     db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
+    if (b.details && typeof b.details === 'object') {
+      const d = b.details, pass = str(d.passcode, 4).replace(/\D/g, '');
+      if (pass && (pass.length !== 4 || /^(\d)\1{3}$/.test(pass) || '0123456789'.includes(pass) || '9876543210'.includes(pass))) bad(400, 'The passcode must be 4 digits with no sequence or repeat.');
+      db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify({ nickname: str(d.nickname, 60).trim(), phone: str(d.phone, 40).trim(), payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass }), site.id, person.id);
+      if (str(b.name, 80).trim()) db.run("UPDATE users SET name = ? WHERE id = ? AND name = ''", str(b.name, 80).trim(), person.id);
+    }
     const msg = inviteEmail({ business: site.name, role, link: link || `${appOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
     Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
     json(res, 201, { members: teamOf(site), link, emailed: !!mailer.enabled });
@@ -690,25 +696,26 @@ export function createApp(options = {}) {
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
       const hit = k.email && byEmail.get(k.email.toLowerCase());
-      if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address });
-      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: 0, last: null, first: k.createdAt, favourite: '', contactId: k.id });
+      if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address, more: k.more });
+      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: 0, last: null, first: k.createdAt, favourite: '', contactId: k.id, more: k.more });
     }
     json(res, 200, { customers });
   });
 
   /* Contacts and invoices, for catering and other large orders billed outside the order page. */
-  const contactsOf = (siteId) => db.all('SELECT id, name, company, email, phone, address, created_at AS createdAt FROM contacts WHERE site_id = ? ORDER BY name', siteId);
+  const contactsOf = (siteId) => db.all('SELECT id, name, company, email, phone, address, more, created_at AS createdAt FROM contacts WHERE site_id = ? ORDER BY name', siteId);
   const cleanContact = (b) => {
-    const c = { name: str(b?.name, 120).trim(), company: str(b?.company, 120).trim(), email: str(b?.email, 200).trim().toLowerCase(), phone: str(b?.phone, 40).trim(), address: str(b?.address, 300).trim() };
+    const c = { name: str(b?.name, 120).trim(), company: str(b?.company, 120).trim(), email: str(b?.email, 200).trim().toLowerCase(), phone: str(b?.phone, 40).trim(), address: str(b?.address, 300).trim(), more: JSON.stringify({ emails: (Array.isArray(b?.more?.emails) ? b.more.emails : []).slice(0, 5).map((x) => str(x, 200).trim().toLowerCase()).filter(Boolean), phones: (Array.isArray(b?.more?.phones) ? b.more.phones : []).slice(0, 5).map((x) => str(x, 40).trim()).filter(Boolean), note: str(b?.more?.note, 500).trim() }) };
     if (!c.name && !c.company) bad(400, 'Add the customer’s name or company.');
     if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)) bad(400, 'That email address does not look right.');
     if (!c.name) c.name = c.company;
     return c;
   };
+  const EMPTY_MORE = JSON.stringify({ emails: [], phones: [], note: '' });
   function keepContact(siteId, c) {
     const old = c.email ? db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ?', siteId, c.email) : db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ? AND lower(name) = lower(?)', siteId, '', c.name);
-    if (old) db.run("UPDATE contacts SET name = COALESCE(NULLIF(?, ''), name), company = COALESCE(NULLIF(?, ''), company), phone = COALESCE(NULLIF(?, ''), phone), address = COALESCE(NULLIF(?, ''), address) WHERE id = ?", c.name, c.company, c.phone, c.address, old.id);   // blank fields never wipe what is saved
-    else if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n < 5000) db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, Date.now());
+    if (old) db.run("UPDATE contacts SET name = COALESCE(NULLIF(?, ''), name), company = COALESCE(NULLIF(?, ''), company), phone = COALESCE(NULLIF(?, ''), phone), address = COALESCE(NULLIF(?, ''), address), more = CASE WHEN ? = ? THEN more ELSE ? END WHERE id = ?", c.name, c.company, c.phone, c.address, c.more, EMPTY_MORE, c.more, old.id);   // blank fields never wipe what is saved
+    else if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n < 5000) db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, more, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, c.more || '{}', Date.now());
   }
   // Loyalty rewards earned and used, with how much they took off.
   route('GET', '/api/sites/:id/rewards', (req, res, p) => {
@@ -831,7 +838,7 @@ export function createApp(options = {}) {
   recurring = billPlans;
 
   /* Appointments: customers ask for a time on the booking page; the business confirms or declines. */
-  const toAppt = (r) => ({ id: r.id, service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
+  const toAppt = (r) => ({ id: r.id, employee: r.employee || '', total: r.total || 0, service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
   const apptWhen = (at) => new Date(`${at}:00Z`).toLocaleString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   function makeAppt(site, ordering, b, viaPublic) {
     const svc = ordering.booking.services.find((x) => x.id === b.service) || (viaPublic ? bad(400, 'Choose what you would like to book.') : { name: str(b.serviceName, 80).trim() || 'Booking', minutes: 0 });
@@ -850,6 +857,7 @@ export function createApp(options = {}) {
     }
     const id = newId();
     db.run('INSERT INTO appointments (id, site_id, service, minutes, at, name, email, phone, party, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, svc.name, svc.minutes, at, name, email, phone, Math.max(1, Math.min(100, Math.round(Number(b.party)) || 1)), str(b.notes, 500).trim(), viaPublic ? 'pending' : 'confirmed', Date.now());
+    if (!viaPublic) db.run('UPDATE appointments SET employee = ?, total = ?, minutes = CASE WHEN ? > 0 THEN ? ELSE minutes END WHERE id = ?', str(b.employee, 80).trim(), Math.max(0, Math.min(10000000, Math.round(Number(b.total)) || 0)), Math.round(Number(b.minutes)) || 0, Math.max(0, Math.min(1440, Math.round(Number(b.minutes)) || 0)), id);
     return toAppt(db.get('SELECT * FROM appointments WHERE id = ?', id));
   }
   route('GET', '/api/sites/:id/appointments', (req, res, p) => {
@@ -1045,10 +1053,10 @@ export function createApp(options = {}) {
   function moneyMoves(site, lo, hi) {
     const payments = [], refunds = [];
     for (const o of db.all('SELECT * FROM orders WHERE site_id = ? AND ((paid_at >= ? AND paid_at < ?) OR (refunded_at >= ? AND refunded_at < ?))', site.id, lo, hi, lo, hi)) {
-      if (o.paid_at >= lo && o.paid_at < hi) payments.push({ at: o.paid_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.total, tip: o.tip, by: o.handled_by });
+      if (o.paid_at >= lo && o.paid_at < hi) payments.push({ at: o.paid_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.total, tip: o.tip, tax: (o.tax || 0) + (o.fee || 0), by: o.handled_by });
       if (o.refunded && o.refunded_at >= lo && o.refunded_at < hi) refunds.push({ at: o.refunded_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.refunded, note: o.refund_note });
     }
-    for (const v of db.all("SELECT * FROM invoices WHERE site_id = ? AND status = 'paid' AND paid_at >= ? AND paid_at < ?", site.id, lo, hi)) payments.push({ at: v.paid_at, source: 'Invoice', ref: `INV-${v.number}`, customer: JSON.parse(v.customer).name || '', method: v.paid_method || 'Other', amount: v.total, tip: 0, by: '' });
+    for (const v of db.all("SELECT * FROM invoices WHERE site_id = ? AND status = 'paid' AND paid_at >= ? AND paid_at < ?", site.id, lo, hi)) payments.push({ at: v.paid_at, source: 'Invoice', ref: `INV-${v.number}`, customer: JSON.parse(v.customer).name || '', method: v.paid_method || 'Other', amount: v.total, tip: 0, tax: v.tax || 0, by: '' });
     return { payments, refunds };
   }
   const tally = ({ payments, refunds }) => {
@@ -1279,7 +1287,8 @@ export function createApp(options = {}) {
     const days = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY) + 1;
     const prevTo = shift(from, -1), prevFrom = shift(from, -days);
     // Fetch a little wider than needed, then keep exactly the days asked for.
-    const rows = db.all('SELECT * FROM orders WHERE site_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at', site.id, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY).map(toOrder);
+    const allRows = db.all('SELECT * FROM orders WHERE site_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at', site.id, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY).map(toOrder);
+    const onlyType = str(url.searchParams.get('type'), 20), rows = onlyType ? allRows.filter((o) => o.method === onlyType) : allRows;
     const catOf = Object.fromEntries(db.all('SELECT id, category FROM menu_items WHERE site_id = ?', site.id).map((r) => [r.id, r.category]));
     const blank = () => ({ orders: 0, gross: 0, discounts: 0, net: 0, tax: 0, fees: 0, tips: 0, total: 0, taxable: 0, nontaxable: 0, units: 0, refunds: 0, collected: 0 });
     const add = (t, o) => {
@@ -1323,7 +1332,7 @@ export function createApp(options = {}) {
     const pr = period(url, ordering), mv = moneyMoves(site, pr.lo, pr.hi);
     const moved = tally({ payments: mv.payments.filter((x) => pr.within(x.at)), refunds: mv.refunds.filter((x) => pr.within(x.at)) });
     json(res, 200, {
-      money: { collected: moved.totals.payments, refunds: moved.totals.refunds, tenders: moved.tenders },
+      money: { collected: moved.totals.payments, refunds: moved.totals.refunds, tenders: moved.tenders, count: moved.totals.count, inStore: mv.payments.filter((x) => pr.within(x.at) && x.source === 'Invoice').reduce((a, x) => a + x.amount, 0), tax: mv.payments.filter((x) => pr.within(x.at)).reduce((a, x) => a + (x.tax || 0), 0) },
       range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
       totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax, discounts: prev.discounts, refunds: prev.refunds },

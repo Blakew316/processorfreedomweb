@@ -9,13 +9,16 @@ const TABS = [
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
+  ['r-peer', 'Peer insights', 'chart', 'office'], ['r-gift', 'Gift cards report', 'chart', 'office'], ['fin', 'Finances', 'cash', 'office'], ['stmts', 'Statements', 'doc', 'office'], ['disputes', 'Disputes', 'doc', 'office'], ['capital', 'Capital', 'cash', 'office'], ['stax', 'Sales tax', 'doc', 'office'], ['bills', 'Pay bills', 'doc', 'office'],
+  ['emp-new', 'New employee', 'f_users', 'office'], ['cust-new', 'Add customer', 'person', 'office'], ['appt-new', 'Create appointment', 'clock', 'office'],
   ['promos', 'Promo codes', 'tag', 'office'], ['deals', 'Happy hour', 'tag', 'office'], ['rewards', 'Rewards', 'tag', 'office'],
   ['inbox', 'Feedback', 'inbox', 'office'], ['team', 'Employees', 'f_users', 'office'],
   ['ordering', 'Online ordering', 'sliders', 'office'], ['hours', 'Business hours', 'clock', 'office'], ['alerts', 'Alerts and emails', 'bell', 'office'],
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
-const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices']);
+const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timesheets', 'insights', 'projects', 'plans', 'gift', 'tx', 'cash', 'close', 'est', 'tips', 'r-full', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-exports', 'mods', 'menus', 'labels', 'revs', 'discs', 'start', 'items', 'sales', 'r-items', 'r-types', 'r-taxes', 'customers', 'invoices', 'r-peer', 'r-gift', 'fin', 'stmts', 'disputes', 'capital', 'stax', 'bills', 'emp-new', 'cust-new', 'appt-new', 'promos', 'inbox', 'rewards', 'profile']);
+const TYPE_TABS = new Set(['sales', 'r-full', 'r-items', 'r-types', 'r-disc', 'r-removed', 'r-taxes', 'r-emp', 'r-tender']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
 const SETUP_VIEWS = { ordering: ['Online ordering', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Notifications on this device', 'Alerts and reports', 'Order emails'] };
@@ -28,14 +31,13 @@ const NAV = {
   office: [
     { label: 'Home', icon: 'home', tabs: ['start'] },
     { label: 'Insights', icon: 'insights', tabs: ['insights'] },
-    { label: 'Appointments', icon: 'calendar', tabs: ['appts', 'calendar'], subs: ['Overview', 'Calendar'] },
-    { label: 'Sales activity', short: 'Sales', icon: 'orders', tabs: ['orders', 'tx', 'cash', 'close', 'invoices', 'est', 'projects', 'plans', 'tips'], subs: ['Orders', 'Transactions', 'Cash log', 'Closeout', 'Invoices', 'Estimates', 'Projects', 'Recurring payments', 'Tips'] },
-    { label: 'Reports', icon: 'sales', tabs: ['sales', 'r-full', 'r-items', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-types', 'r-taxes'], subs: ['Sales overview', 'Sales report', 'Item sales', 'Employee sales', 'Tender types', 'Discounts', 'Removed items', 'Order types', 'Taxes'] },
-    { label: 'Inventory', short: 'Items', icon: 'menu', tabs: ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs'], subs: ['Items', 'Categories', 'Modifier groups', 'Menus', 'Printer labels', 'Revenue classes', 'Discounts'] },
-    { label: 'Employees', icon: 'team', tabs: ['team', 'schedule', 'timesheets'], subs: ['Employees', 'Scheduling', 'Timesheets'] },
-    { label: 'Customers', icon: 'customers', tabs: ['customers'] },
-    { label: 'Promotions', icon: 'promo', tabs: ['deals', 'rewards', 'gift'], subs: ['Happy hour', 'Rewards', 'Gift cards'] },
-    { label: 'Feedback', icon: 'feedback', tabs: ['inbox'] },
+    { label: 'Appointments', icon: 'calendar', tabs: ['calendar', 'appts'], subs: ['Calendar', 'Overview'] },
+    { label: 'Sales activity', short: 'Sales', icon: 'orders', tabs: ['orders', 'tx', 'cash', 'invoices', 'est', 'projects', 'plans'], subs: ['Orders', 'Transactions', 'Cash log', 'Invoices', 'Estimates', 'Projects', 'Recurring payments'] },
+    { label: 'Reports', icon: 'sales', tabs: ['sales', 'r-full', 'r-items', 'r-peer', 'r-emp', 'r-tender', 'r-disc', 'r-removed', 'r-gift', 'r-types'], subs: ['Sales overview', 'Sales report', 'Item and Service sales', 'Peer insights', 'Employee sales', 'Tender & card types', 'Discounts', 'Removed items', 'Gift cards', 'Order types'] },
+    { label: 'Finances', icon: 'invoice', tabs: ['fin', 'close', 'stmts', 'r-taxes', 'disputes', 'capital', 'stax', 'bills'], subs: ['Overview', 'Closeout', 'Statements', 'Taxes', 'Disputes', 'Capital', 'Sales tax', 'Pay Bills'] },
+    { label: 'Items and services', short: 'Items', icon: 'menu', tabs: ['items', 'menu', 'mods', 'menus', 'labels', 'revs', 'discs'], subs: ['Items', 'Categories', 'Modifier groups', 'Menus', 'Printer labels', 'Revenue classes', 'Discounts'] },
+    { label: 'Employees', icon: 'team', tabs: ['team', 'timesheets', 'schedule', 'tips'], subs: ['Employees list', 'Timesheets', 'Scheduling', 'Tips'] },
+    { label: 'Customers', icon: 'customers', tabs: ['customers', 'promos', 'inbox', 'rewards', 'gift'], subs: ['Customers list', 'Promos', 'Feedback', 'Rewards', 'Gift cards'] },
   ],
   site: [
     { label: 'Design', icon: 'design', tabs: ['design', 'history'], subs: ['Look and feel', 'Earlier versions'] },
@@ -76,7 +78,7 @@ export async function editor(id, mount, title, startTab = '') {
   // Kitchen logins only work with orders, so they go straight to the kitchen screen.
   if (loaded.role === 'kitchen') { setTimeout(() => go(`/app/site/${id}/kitchen`)); return () => {}; }
   const isOwner = loaded.role === 'owner';
-  const tabs = TABS.filter(([k]) => k !== 'team' || isOwner);
+  const tabs = TABS.filter(([k]) => (k !== 'team' && k !== 'emp-new') || isOwner);
   const draft = loaded.draft;
   let meta = { ...loaded, draft: undefined };
   title(meta.name);
@@ -559,7 +561,7 @@ export async function editor(id, mount, title, startTab = '') {
       const addTo = async (c) => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: c })).items; paintPanel(); paint(true); openItem(menu.find((x) => !before.has(x.id))?.id); } catch (e) { toast(e.message, true); } };
       const newCat = h('form', { class: 'inline-add cat-add', onsubmit: async (e) => { e.preventDefault(); const n = newCat.querySelector('input').value.trim(); if (!n) return; if (cats.includes(n)) return toast('That category already exists.', true); const known3 = new Map(ordering.cats.map((x) => [x.name, x])); ordering.cats = [...cats, n].map((m) => known3.get(m) || { name: m, hidden: false, from: '', to: '' }); try { await putOrdering(); paintPanel(); toast('Category added'); } catch (ex) { toast(ex.message, true); } } },
         h('input', { placeholder: 'New category name', 'aria-label': 'New category name', maxlength: 60 }), h('div', { class: 'inline-acts' }, h('button', { class: 'btn' }, ic('plus', 16), 'Add category')));
-      const catHead = (c) => { const m = metaOf(c); return h('div', { class: 'cathead' }, h('b', {}, c), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move up', 'aria-label': `Move ${c} up`, disabled: cats.indexOf(c) === 0, onclick: () => move(c, -1) }, chev('u')), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move down', 'aria-label': `Move ${c} down`, disabled: cats.indexOf(c) === cats.length - 1, onclick: () => move(c, 1) }, chev('dn')), h('button', { class: 'btn soft sm', onclick: () => addTo(c) }, ic('plus', 14), 'Add item'), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
+      const catHead = (c) => { const m = metaOf(c), on = clState.catOpen.has(c), n = menu.filter((x) => x.category === c).length; return h('div', { class: 'cathead' }, h('button', { type: 'button', class: 'cat-tog', 'aria-expanded': String(on), onclick: () => { if (on) clState.catOpen.delete(c); else clState.catOpen.add(c); paintPanel(); } }, h('i', { class: `chv ${on ? 'u' : 'd'}`, 'aria-hidden': 'true' }), h('b', {}, c), h('small', { class: 'muted' }, `${n} item${n === 1 ? '' : 's'}`)), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move up', 'aria-label': `Move ${c} up`, disabled: cats.indexOf(c) === 0, onclick: () => move(c, -1) }, chev('u')), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move down', 'aria-label': `Move ${c} down`, disabled: cats.indexOf(c) === cats.length - 1, onclick: () => move(c, 1) }, chev('dn')), h('button', { class: 'btn soft sm', onclick: () => addTo(c) }, ic('plus', 14), 'Add item'), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
       let dragId = null;
       const dropOn = async (target) => {
         const moved = menu.find((x) => x.id === dragId);
@@ -575,7 +577,7 @@ export async function editor(id, mount, title, startTab = '') {
       const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : `${x.stock} in stock`);
       return [
         group('', newCat),
-        ...cats.map((c) => group('', catHead(c), h('div', { class: 'slist' }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
+        ...cats.map((c) => group('', catHead(c), h('div', { class: 'slist', hidden: !clState.catOpen.has(c) }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
           h('span', { class: 'grip', title: 'Drag to reorder' }, ic('grip', 16)),
           h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
           h('button', { class: 't', onclick: () => openItem(x.id) }, h('b', {}, x.name), h('span', {}, [money(itemPrice(x)), stockText(x)].filter(Boolean).join(' · '))),
@@ -1461,7 +1463,7 @@ export async function editor(id, mount, title, startTab = '') {
         edit: (x) => formSheet(x ? 'Edit discount' : 'Add discount', [['name', 'Discount name', { maxlength: 60 }], ['type', 'Type', { options: { percent: 'Percent off', amount: 'Dollars off' } }], ['value', 'Amount', { inputmode: 'decimal', hint: 'A percent such as 10, or dollars such as 5.00.' }]],
           x ? { name: x.name, type: x.type, value: x.type === 'amount' ? (x.value / 100).toFixed(2) : String(x.value) } : { name: '', type: 'percent', value: '10' },
           (v) => { if (!v.name.trim()) throw new Error('Give the discount a name.'); const value = v.type === 'amount' ? parsePrice(v.value || '0') : Math.round(Number(v.value)); if (value === null || !(value > 0)) throw new Error('Enter an amount above zero.'); const row = { id: x?.id || uid('d'), name: v.name.trim(), type: v.type, value }; ordering.discounts = x ? ordering.discounts.map((y) => (y.id === x.id ? row : y)) : [...ordering.discounts, row]; }),
-        remove: (x) => { ordering.discounts = ordering.discounts.filter((y) => y.id !== x.id); } }), PANELS.ordering('promos')];
+        remove: (x) => { ordering.discounts = ordering.discounts.filter((y) => y.id !== x.id); } })];
     },
 
     history() {
@@ -1712,7 +1714,7 @@ export async function editor(id, mount, title, startTab = '') {
   }
 
   /* ---------- payments recorded at the counter ---------- */
-  const rq = () => new URLSearchParams(salesRange === 'custom' && salesFrom && salesTo ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange === 'custom' ? 'today' : salesRange });
+  const rq = () => { const q = new URLSearchParams(salesRange === 'custom' && salesFrom && salesTo ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange === 'custom' ? 'today' : salesRange }); if (TYPE_TABS.has(tab) && clState.type) q.set('type', clState.type); return q; };
   const rangeBar = () => h('div', { class: 'inv-bar' }, dateFilter());
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const addDays = (d0, n) => new Date(Date.parse(`${d0}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
@@ -1727,7 +1729,7 @@ export async function editor(id, mount, title, startTab = '') {
     if (salesBusy && statsFor === want) return;
     salesBusy = true; statsFor = want;
     api('GET', `/api/sites/${id}/stats?${want}`).then((r) => { if (statsFor === want) stats = r; }).catch((e) => { if (statsFor === want) { toast(e.message, true); stats = { failed: true }; } })
-      .finally(() => { if (statsFor !== want) return; salesBusy = false; if (SALES_TABS[tab] || tab === 'start') paintPanel(); });
+      .finally(() => { if (statsFor !== want) return; salesBusy = false; if (SALES_TABS[tab] || tab === 'start' || CL[tab]) paintPanel(); });
   }
   function setRange(k, from = '', to = '') { salesRange = k; salesFrom = from; salesTo = to; stats = null; txData = null; cashData = null; paintPanel(); }
   // A real month to click through: press a day, or a start day then an end day.
@@ -2292,6 +2294,766 @@ export async function editor(id, mount, title, startTab = '') {
     // Lists open and close with a short glide; follow them as they move.
     if (settle) for (const ms of [120, 260, 420]) setTimeout(() => placeGlow(false), ms);
   }
+  /* ---------- Back-office pages laid out like the reference screens ---------- */
+  /* ======================= Back-office pages laid out after the reference screens ======================= */
+  const CL = {};
+  const clState = { txTab: 'payments', txBy: 'pid', txQ: '', txTender: 'All', txCard: 'All', ordTab: 'orders', ordBy: 'customer', ordQ: '', ordPay: 'All', ordStatus: 'All', itemsTab: 'rev', discTab: 'rev', remTab: 'rev', discQ: '', giftLoad: 'all', viewBy: 'hour', metric: 'net', cmp: 'week', allDay: 'all', type: '', cols: {}, sort: {}, peer: 'prev3', peerShift: 0, stmtYear: new Date().getFullYear(), apptEmp: null, apptAttr: null, empPage: 0, tsMode: 'day', tsDay: '', tsQ: '', tsView: 'all', schedSort: 'first', schedQ: '', schedSearch: false, schedRows: new Set(['events', 'open', 'team']), empEdit: '', empRole: 'All', empStatus: 'All', empQ: '', custKey: '', custQ: '', custShow: 'Everyone', apptDraft: null, giftSetup: false, catOpen: new Set(), bannerOff: false };
+  const NORES = 'Try again with a different timeframe, filters or search criteria.';
+  const NORES2 = 'Try again with a different timeframe, filter, and search combination.';
+  const SVG = {
+    cols: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M14.5 4.5v15"/></svg>',
+    users: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="16.5" cy="9" r="2.6"/><path d="M15.5 14.2c2.4-.3 4.5 1.3 5 4.8"/></svg>',
+    find: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M14 3.5H6.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2H9"/><path d="M14 3.5 18.5 8v2"/><circle cx="15" cy="15" r="3.5"/><path d="m17.6 17.6 2.9 2.9"/></svg>',
+    list: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h3l1.5 4-2 1.3a11 11 0 0 0 6.2 6.2l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z"/></svg>',
+    plusc: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.4v.1"/></svg>',
+    tri: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8 2.8 19.5h18.4z"/><path d="M12 9.5v4.5M12 16.8v.1"/></svg>',
+    heart: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#fff"><path d="M12 20s-7.5-4.6-7.5-10.1A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>',
+    back: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
+    cal: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+    half: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg>',
+    upload: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/></svg>',
+  };
+  // Line drawings for empty pages, drawn for this app.
+  const CLART = {
+    look: '<svg viewBox="0 0 220 180" width="220" height="180" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="110" cy="92" r="70" fill="var(--art-bg)" stroke="none"/><circle cx="98" cy="84" r="30"/><path d="m120 106 26 26"/><path d="M90 76c2-6 14-7 16 0 1 5-8 7-8 13M98 98v1"/><path d="M40 40h10M45 35v10M170 140h10M175 135v10" stroke="var(--brand)"/></svg>',
+    person: '<svg viewBox="0 0 240 200" width="240" height="200" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="120" cy="104" r="78" fill="var(--art-bg)" stroke="none"/><circle cx="112" cy="84" r="20"/><path d="M78 158c4-28 20-44 34-44s30 16 34 44"/><path d="M150 72l18-22 20 14 22-30" stroke="var(--brand)"/><rect x="58" y="96" width="26" height="24" rx="3"/><path d="M71 102v12M66 106h10" stroke="var(--brand)"/></svg>',
+    stars: '<svg viewBox="0 0 200 180" width="200" height="180"><g stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M70 60l8 10 12-2-4 12 8 9-12 2-4 12-8-10-12 2 4-12-8-9 12-2z" fill="var(--brand)"/><path d="M118 34l8 10 12-2-4 12 8 9-12 2-4 12-8-10-12 2 4-12-8-9 12-2z" fill="var(--art-bg)"/><path d="M122 96l8 10 12-2-4 12 8 9-12 2-4 12-8-10-12 2 4-12-8-9 12-2z" fill="var(--brand)" opacity=".55"/></g><path d="M78 80l4 4 7-8M126 54l4 4 7-8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    bills: '<svg viewBox="0 0 320 220" width="320" height="220" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="70" y="70" width="90" height="70" rx="8"/><path d="M50 160h130l-14-20H64z"/><rect x="92" y="84" width="30" height="40" rx="4"/><path d="M98 96h18M98 106h4M108 106h4M98 114h4M108 114h4"/><path d="M100 28l60-6 6 40-60 6zM100 28l33 22 27-28" /><rect x="220" y="60" width="44" height="54" rx="4"/><path d="M234 78h16M242 72v24M236 90h12" stroke="var(--brand)"/><rect x="214" y="132" width="50" height="22" rx="11" stroke="var(--brand)"/><circle cx="238" cy="186" r="24"/><path d="m226 186 8 8 16-16" stroke="var(--brand)"/></svg>',
+  };
+  const clArt = (k) => h('div', { class: 'cl-art', html: CLART[k] });
+  const fmtD = (d) => longDay(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  function periodOf() {
+    const t = isoDay(new Date());
+    if (salesRange === 'custom' && salesFrom && salesTo) return [salesFrom, salesTo];
+    if (salesRange === 'yesterday') { const y = addDays(t, -1); return [y, y]; }
+    if (salesRange === 'week') return [addDays(t, -new Date(`${t}T12:00:00Z`).getUTCDay()), t];
+    if (salesRange === 'month') return [`${t.slice(0, 8)}01`, t];
+    if (salesRange === 'last30') return [addDays(t, -29), t];
+    return [t, t];
+  }
+  const rangeText = () => { const [f, t] = periodOf(); return f === t ? `${fmtD(f)}, 12:00 AM - 11:59 PM` : `${fmtD(f)} - ${fmtD(t)}`; };
+  const isTodayOnly = () => { const [f, t] = periodOf(); return f === t && t === isoDay(new Date()); };
+  const caret = () => h('i', { class: 'chv d', 'aria-hidden': 'true' });
+  // The date row: a period drop-down, any other controls, then the exact dates with arrows underneath.
+  function cDates(...extra) {
+    const t = isoDay(new Date()), [f, to] = periodOf();
+    const label = salesRange === 'custom' && salesFrom ? (salesFrom === salesTo ? longDay(salesFrom, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Custom') : RANGE_NAMES[salesRange] || 'Today';
+    const btn = h('button', { type: 'button', class: 'cl-sel', 'aria-haspopup': 'dialog', onclick: () => calPop(btn, t) }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', { class: 'grow' }, label), caret());
+    const span = Math.round((Date.parse(to) - Date.parse(f)) / 86400000) + 1;
+    const shift = (dir) => { let a = addDays(f, dir * span), b = addDays(to, dir * span); if (b > t) { b = t; a = addDays(t, 1 - span); } setRange('custom', a, b); };
+    return [h('div', { class: 'cl-ctrls' }, btn, ...extra.filter(Boolean)),
+      h('div', { class: 'cl-range' }, h('b', {}, rangeText()), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Earlier', onclick: () => shift(-1) }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Later', disabled: to >= t, onclick: () => shift(1) }, chev('r')))];
+  }
+  function cDrop(options, value, onPick, o = {}) {
+    const cur = options.find(([k]) => k === value) || options[0];
+    const b = h('button', { type: 'button', class: `cl-sel ${o.cls || ''}`, 'aria-haspopup': 'menu', onclick: () => popover(b, (close) => h('div', { class: 'cl-menu' }, options.map(([k, l]) => h('button', { type: 'button', class: k === value ? 'on' : '', onclick: () => { close(); onPick(k); } }, h('span', {}, l), k === value && h('i', { class: 'cl-tick' }, '✓')))), 'left') },
+      o.icon && h('span', { class: 'cl-ic', html: SVG[o.icon] || '' }), h('span', { class: 'grow' }, `${o.prefix || ''}${cur ? cur[1] : ''}`), caret());
+    return b;
+  }
+  const cFilters = (onclick, n) => h('button', { type: 'button', class: 'fbtn', onclick }, ic('sliders', 18), h('span', {}, 'Filters'), n > 0 && h('em', {}, String(n)));
+  const cHead = (eyebrow, title, tools, desc) => h('div', { class: 'cl-head' }, h('div', { class: 'cl-titles' }, eyebrow && h('small', { class: 'cl-eyebrow' }, eyebrow), h('h1', {}, title), desc && h('p', { class: 'cl-desc' }, desc)), tools && h('div', { class: 'cl-tools' }, tools));
+  const exportBtn = (k) => h('button', { type: 'button', class: 'btn soft cl-btn', onclick: () => exportReport(k) }, ic('dl', 18), 'Export');
+  const printBtn = () => h('button', { type: 'button', class: 'btn soft cl-btn', onclick: () => printLight() }, ic('print', 18), 'Print');
+  const dots = (k) => moreBtn([['Print', () => printLight()], ['Export to Excel or CSV', () => exportReport(k)], ['Report settings', () => reportSettings()], ['Sync with QuickBooks', () => quickbooks()]]);
+  const cFigs = (items) => h('div', { class: 'cl-figs' }, items.filter(Boolean).map(([l, v, sub, dotted]) => h('div', { class: 'cl-fig' }, h('span', { class: dotted ? 'dot' : '' }, l), h('b', {}, v), sub != null && sub !== false && h('small', {}, sub))));
+  const cTabs = (opts, val, set) => h('div', { class: 'cl-tabs', role: 'tablist' }, opts.map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === val), onclick: () => { set(k); paintPanel(); } }, l)));
+  const cEmpty = (title, text, art) => h('div', { class: 'cl-empty' }, art && clArt(art), h('b', {}, title), text && h('p', {}, text));
+  const cH2 = (t, right) => h('div', { class: 'cl-h2' }, h('h2', {}, t), right);
+  // Typing in a search box repaints the page; the box keeps focus and the cursor stays at the end.
+  function cSearch(ph, val, onq) {
+    return h('label', { class: 'tsearch cl-search' }, ic('search', 18), h('input', { type: 'search', placeholder: ph, value: val, 'aria-label': ph, oninput: (e) => { onq(e.target.value); paintPanel(); const el = panel.querySelector(`input[placeholder="${ph}"]`); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } } }));
+  }
+  function cTable(key, cols, rows, empty) {
+    const hidden = clState.cols[key] || new Set();
+    const vis = cols.filter((c) => !hidden.has(c.k));
+    const s = clState.sort[key];
+    let rs = rows;
+    if (s) { const c = cols.find((x) => x.k === s.k); if (c && c.sort) rs = [...rows].sort((a, b) => { const x = c.sort(a), y = c.sort(b); return (x > y ? 1 : x < y ? -1 : 0) * s.dir; }); }
+    const th = (c) => h('th', { class: `${c.sort ? 'srt' : ''} ${c.r ? 'num' : ''}`, onclick: c.sort ? () => { clState.sort[key] = { k: c.k, dir: s && s.k === c.k ? -s.dir : 1 }; paintPanel(); } : null }, c.l, c.sort && h('span', { class: 'srt-ic' }, s && s.k === c.k ? (s.dir > 0 ? '↑' : '↓') : '↕'));
+    return h('div', { class: 'scard cl-table' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, vis.map(th))),
+      h('tbody', {}, rs.map((r) => h('tr', { class: r.onclick ? 'click' : '', onclick: r.onclick || null }, vis.map((c) => h('td', { class: c.r ? 'num' : '' }, r[c.k] ?? ''))))))), !rs.length && empty);
+  }
+  function colsBtn(key, cols) {
+    const b = h('button', { type: 'button', class: 'fbtn', onclick: () => popover(b, () => { const hid = (clState.cols[key] ||= new Set()); return h('div', { class: 'cl-menu' }, h('p', { class: 'tb-k' }, 'Columns'), cols.map((c) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: !hid.has(c.k), onchange: (e) => { if (e.target.checked) hid.delete(c.k); else hid.add(c.k); paintPanel(); } }), h('span', {}, c.l)))); }, 'right') }, h('span', { class: 'cl-ic', html: SVG.cols }), h('span', {}, 'Columns'));
+    return b;
+  }
+  // Right-hand panels for filters and choices.
+  function rPanel(title, build) {
+    sheet((close) => { const body = build(close); return [h('div', { class: 'rp-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))), h('div', { class: 'rp-b' }, body.el), h('div', { class: 'rp-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { body.apply(); close(); paintPanel(); } }, 'Apply'))]; }, 'drawer rpanel');
+  }
+  function rpRadios(title, opts, val, set, search) {
+    let v = val; const list = h('div', { class: 'rp-opts' });
+    const draw = (q = '') => list.replaceChildren(...opts.filter((o) => !q || o.toLowerCase().includes(q)).map((o) => h('label', { class: 'rp-opt' }, h('input', { type: 'radio', name: title, checked: o === v, onchange: () => { v = o; set(o); } }), h('span', {}, o))));
+    draw();
+    return rpSec(title, [search && h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: search, oninput: (e) => draw(e.target.value.trim().toLowerCase()) })), list]);
+  }
+  function rpChecks(title, opts, chosen, icons) {
+    const boxes = opts.map((o) => { const cb = h('input', { type: 'checkbox', checked: chosen.has(o) }); cb.onchange = () => { if (cb.checked) chosen.add(o); else chosen.delete(o); }; return h('label', { class: 'rp-opt' }, cb, icons && icons[o] && h('span', { class: 'rp-oi', html: icons[o] }), h('span', {}, o)); });
+    return title ? h('div', { class: 'rp-group' }, h('h3', { class: 'rp-gt' }, title), h('div', { class: 'rp-opts' }, boxes)) : h('div', { class: 'rp-opts' }, boxes);
+  }
+  function rpSec(title, kids) {
+    const body = h('div', { class: 'rp-body' }, ...kids.filter(Boolean));
+    const head = h('button', { type: 'button', class: 'rp-head', 'aria-expanded': 'true', onclick: () => { const o = head.getAttribute('aria-expanded') !== 'true'; head.setAttribute('aria-expanded', String(o)); body.hidden = !o; } }, h('b', {}, title), h('i', { class: 'chv u' }));
+    return h('div', { class: 'rp-sec' }, head, body);
+  }
+  // Data the pages share.
+  const needStats = () => { if (!stats || (!stats.failed && statsFor && statsFor !== rq().toString())) { stats = null; loadStats(); } return stats && !stats.failed ? stats : null; };
+  const needTx = () => { if (!txData) { txData = { loading: true }; api('GET', `/api/sites/${id}/transactions?${rq()}`).then((r) => { txData = r; if (CL[tab]) paintPanel(); }).catch(() => { txData = { payments: [], refunds: [], totals: { payments: 0, count: 0, refunds: 0, refundCount: 0, net: 0 }, tenders: [] }; if (CL[tab]) paintPanel(); }); } return txData.loading ? null : txData; };
+  const clCache = {};
+  const NEED_FB = { shifts: () => ({ today: isoDay(new Date()), people: [], shifts: [] }), gift: () => ({ cards: [] }), leads: () => ({ leads: [] }) };
+  function need(key, path) {
+    const c = clCache[key];
+    if (!c) { clCache[key] = { loading: true }; api('GET', `/api/sites/${id}/${path}`).then((r) => { clCache[key] = { data: r }; if (CL[tab]) paintPanel(); }).catch(() => { clCache[key] = { data: NEED_FB[key] ? NEED_FB[key]() : {} }; if (CL[tab]) paintPanel(); }); return null; }
+    return c.loading ? null : c.data;
+  }
+  const forget = (...keys) => keys.forEach((k) => delete clCache[k]);
+  const cmpCache = {};
+  function cmpStats(f, t) {
+    const key = `${f}|${t}`;
+    if (!cmpCache[key]) { cmpCache[key] = { loading: true }; api('GET', `/api/sites/${id}/stats?range=custom&from=${f}&to=${t}`).then((r) => { cmpCache[key] = r; if (CL[tab]) paintPanel(); }).catch(() => { cmpCache[key] = { failed: true }; }); }
+    const c = cmpCache[key]; return c.loading || c.failed ? null : c;
+  }
+  const loadingPage = (title, eyebrow) => [h('div', { class: 'cl' }, cHead(eyebrow, title), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))];
+  const shortMoney = (c) => { const d = c / 100; return d >= 1000 ? `$${(d / 1000).toFixed(2)}K` : `$${Math.round(d)}`; };
+  const niceTop = (v, isMoney) => { if (v <= 0) return isMoney ? 400000 : 4; const u = 10 ** Math.floor(Math.log10(v)); return [1, 2, 2.5, 4, 5, 10].map((m) => m * u).find((x) => x >= v * 1.08) || 10 * u; };
+  function cChart(ser, unit, val, isMoney) {
+    const vals = ser.map(val), top = niceTop(Math.max(0, ...vals), isMoney);
+    const lab = (x) => (unit === 'hour' ? `${Number(x.key) % 12 || 12} ${Number(x.key) < 12 ? 'AM' : 'PM'}` : longDay(x.key, { month: 'short', day: 'numeric' }));
+    const every = unit === 'hour' ? 3 : Math.max(1, Math.ceil(ser.length / 8));
+    const nowAt = unit === 'hour' && isTodayOnly() && ser.length === 24 ? ((new Date().getHours() + new Date().getMinutes() / 60) / 24) * 100 : null;
+    const yl = (v) => (isMoney ? shortMoney(v) : String(Math.round(v)));
+    return h('div', { class: 'chart g2 cl-chart' },
+      h('div', { class: 'chart-y', 'aria-hidden': 'true' }, [4, 3, 2, 1, 0].map((i) => h('span', { style: `bottom:${i * 25}%` }, yl((top * i) / 4)))),
+      h('div', { class: 'chart-plot' }, [1, 2, 3, 4].map((i) => h('i', { class: 'gl', style: `bottom:${i * 25}%` })), nowAt != null && h('div', { class: 'now', style: `left:${nowAt}%` }, h('span', {}, 'Now')),
+        h('div', { class: 'chart-bars' }, ser.map((x, i) => h('div', { class: 'cbar', title: `${lab(x)}: ${isMoney ? money(vals[i]) : vals[i]}` }, vals[i] > 0 && h('i', { class: 'on', style: `height:${Math.max(3, (vals[i] / top) * 100)}%` }))))),
+      h('span'), h('div', { class: 'chart-x' }, ser.map((x, i) => h('span', {}, i % every === 0 ? lab(x) : ''))));
+  }
+  const top5 = (title, k, list, val, fmt) => { const ls = [...list].sort((a, b) => val(b) - val(a)).filter((x) => val(x) > 0); const mx = ls.length ? val(ls[0]) : 1;
+    return h('div', { class: 'scard cl-card' }, h('button', { type: 'button', class: 'hc-h link', onclick: () => k && goTab(k) }, title, h('span', { class: 'chv r' })),
+      ls.length ? h('div', { class: 'cl-top' }, ls.slice(0, 5).map((x) => h('div', { class: 'cl-topr' }, h('span', {}, x.name), h('i', {}, h('b', { style: `width:${(val(x) / mx) * 100}%` })), h('em', {}, fmt(val(x)))))) : cEmpty('No results found', NORES)); };
+  const pill = (t, cls = '') => h('span', { class: `cl-pill ${cls}` }, t);
+  const dayOfMs = (ms) => isoDay(new Date(ms));
+  const inPeriod = (ms) => { const [f, t] = periodOf(), d = dayOfMs(ms); return d >= f && d <= t; };
+
+  /* ---------- Reports ---------- */
+  CL.sales = () => {
+    const st = needStats(); if (!st) return loadingPage('Sales', 'Reports');
+    const t = st.totals, [f, to] = periodOf();
+    const span = Math.round((Date.parse(to) - Date.parse(f)) / 86400000) + 1;
+    const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])];
+    const metricOpts = [['net', 'Net sales'], ['orders', 'Orders'], ['tips', 'Tips'], ['tax', 'Taxes']];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Sales', [exportBtn('sales'), dots('sales')]),
+      cTabs([['trends', 'Trends'], ['full', 'Full Report']], 'trends', (k) => { if (k === 'full') goTab('r-full'); }),
+      ...cDates(cDrop([['week', span === 1 ? 'This day last week' : 'Same days last week'], ['prev', 'Previous period']], clState.cmp, (k) => { clState.cmp = k; paintPanel(); }, { prefix: 'Compared to:  ' }),
+        cFilters(() => rPanel('Filters', () => { let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      cFigs([['Net sales', money(t.net), null, true], ['Gross sales', money(t.gross), null, true], ['Amount collected', money(st.money ? st.money.collected : 0), null, true], ['Average ticket size', money(t.average), null, true], ['Orders', String(t.orders), null, true]]),
+      h('div', { class: 'scard cl-card' }, h('div', { class: 'cl-cardh' }, h('button', { type: 'button', class: 'hc-h link', onclick: () => goTab('r-full') }, 'Net sales', h('span', { class: 'chv r' })), cDrop(metricOpts, clState.metric, (k) => { clState.metric = k; paintPanel(); }, { icon: 'list' })),
+        t.orders ? cChart(st.series, st.unit, (x) => x[clState.metric] || 0, clState.metric !== 'orders') : cEmpty('No results found', NORES)),
+      h('div', { class: 'cl-two' }, top5('Top 5 categories', 'r-items', st.categories, (x) => x.sales, money), top5('Top 5 card types', 'r-tender', (st.money ? st.money.tenders : []).map((x) => ({ name: x.method, amount: x.amount })), (x) => x.amount, money),
+        top5('Top 5 items', 'r-items', st.items, (x) => x.sales, money), top5('Top 5 revenue classes', 'r-items', st.revenue, (x) => x.sales, money)))];
+  };
+  CL['r-full'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Sales Report', 'Reports');
+    const t = st.totals;
+    const win = { all: [0, 24], morning: [5, 11], midday: [11, 16], evening: [16, 24] }[clState.allDay];
+    const ser = st.unit === 'hour' ? st.series.map((x) => (Number(x.key) >= win[0] && Number(x.key) < win[1] ? x : { ...x, net: 0, orders: 0, tax: 0, tips: 0 })) : st.series;
+    const hourly = st.unit === 'hour';
+    const viewOpts = hourly ? [['hour', 'Hourly sales'], ['type', 'Order type']] : [['day', 'Daily sales'], ['type', 'Order type']];
+    if (!viewOpts.some(([k]) => k === clState.viewBy)) clState.viewBy = viewOpts[0][0];
+    const lab = (x) => (hourly ? `${Number(x.key) % 12 || 12}:00 ${Number(x.key) < 12 ? 'AM' : 'PM'}` : longDay(x.key, { weekday: 'short', month: 'short', day: 'numeric' }));
+    const salesRows = clState.viewBy === 'type' ? st.methods.filter((m) => m.orders).map((m) => ({ when: ORDER_METHODS[m.method]?.name || m.method, orders: String(m.orders), net: money(m.net), total: money(m.total), _n: m.net }))
+      : ser.filter((x) => x.orders).map((x) => ({ when: lab(x), orders: String(x.orders), net: money(x.net), tax: money(x.tax), tips: money(x.tips), _n: x.net }));
+    const tenders = st.money ? st.money.tenders : [];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Sales Report', [exportBtn('r-full'), dots('r-full')]),
+      ...cDates(cDrop([['all', 'All day'], ['morning', 'Morning (5 AM – 11 AM)'], ['midday', 'Midday (11 AM – 4 PM)'], ['evening', 'Evening (4 PM – midnight)']], clState.allDay, (k) => { clState.allDay = k; paintPanel(); }, { icon: 'clock' }), cFilters(() => rPanel('Filters', () => { const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      h('div', { class: 'scard cl-card cl-sum' }, h('div', { class: 'cl-sumL' },
+        h('div', { class: 'cl-fig big' }, h('span', { class: 'dot' }, 'Net sales'), h('b', {}, money(t.net)), h('small', { class: 'strong' }, `from ${t.orders} order${t.orders === 1 ? '' : 's'}`)),
+        h('div', { class: 'cl-sumrow' }, h('div', { class: 'cl-fig' }, h('span', { class: 'dot' }, 'Amount collected'), h('b', {}, money(st.money ? st.money.collected : 0))), h('div', { class: 'cl-fig' }, h('span', { class: 'dot' }, 'Gross sales'), h('b', {}, money(t.gross))))),
+        h('div', { class: 'cl-sumR' }, h('h3', { class: 'cl-sub' }, hourly ? 'Hourly view' : 'Daily view'), cChart(ser, st.unit, (x) => x.net, true))),
+      cH2('Sales'), h('label', { class: 'cl-lab' }, 'View by'), h('div', {}, cDrop(viewOpts, clState.viewBy, (k) => { clState.viewBy = k; paintPanel(); })),
+      cTable('r-full-sales', clState.viewBy === 'type' ? [{ k: 'when', l: 'Order type' }, { k: 'orders', l: 'Orders', r: 1 }, { k: 'net', l: 'Net sales', r: 1, sort: (r) => r._n }, { k: 'total', l: 'Total', r: 1 }] : [{ k: 'when', l: hourly ? 'Hour' : 'Day' }, { k: 'orders', l: 'Orders', r: 1 }, { k: 'net', l: 'Net sales', r: 1, sort: (r) => r._n }, { k: 'tax', l: 'Tax', r: 1 }, { k: 'tips', l: 'Tips', r: 1 }], salesRows, cEmpty('No results found', NORES2)),
+      cH2('Tender types'),
+      cTable('r-full-tender', [{ k: 'm', l: 'Tender' }, { k: 'c', l: 'Payments', r: 1 }, { k: 'a', l: 'Amount', r: 1 }, { k: 'rf', l: 'Refunds', r: 1 }], tenders.map((x) => ({ m: x.method, c: String(x.count), a: money(x.amount), rf: money(x.refunds || 0) })), cEmpty('No results found', NORES2)))];
+  };
+  CL['r-items'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Item sales', 'Reports');
+    const cols = [{ k: 'n', l: 'Item', sort: (r) => r._name }, { k: 'c', l: 'Category' }, { k: 'q', l: 'Sold', r: 1, sort: (r) => r._q }, { k: 's', l: 'Net sales', r: 1, sort: (r) => r._s }, { k: 'p', l: '% of sales', r: 1 }];
+    const rows = clState.itemsTab === 'rev' ? st.items.map((x) => ({ n: h('b', {}, x.name), c: x.category, q: String(x.qty), s: money(x.sales), p: `${st.totals.gross ? Math.round((x.sales / st.totals.gross) * 100) : 0}%`, _name: x.name, _q: x.qty, _s: x.sales })) : [];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Item sales', [exportBtn('r-items'), dots('r-items')]), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      cTabs([['rev', 'Revenue items'], ['non', 'Non revenue items']], clState.itemsTab, (k) => { clState.itemsTab = k; }),
+      rows.length ? cTable('r-items', cols, rows, null) : cEmpty('No results found', NORES, 'look'))];
+  };
+  CL['r-peer'] = () => {
+    const months = { prev3: 3, prev6: 6, prev12: 12 }[clState.peer];
+    const now = new Date(), endM = new Date(Date.UTC(now.getFullYear(), now.getMonth() - clState.peerShift * months, 0)), startM = new Date(Date.UTC(endM.getUTCFullYear(), endM.getUTCMonth() - months + 1, 1));
+    const f = startM.toISOString().slice(0, 10), t = endM.toISOString().slice(0, 10);
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Peer insights', null, 'Compare your sales with local businesses similar to you in gross sales and business type. This aggregated peer group data helps you compare your business performance to your peers and identify growth opportunities.'),
+      h('div', { class: 'cl-ctrls' }, cDrop([['prev3', 'Previous 3 months'], ['prev6', 'Previous 6 months'], ['prev12', 'Previous 12 months']], clState.peer, (k) => { clState.peer = k; clState.peerShift = 0; paintPanel(); }, { icon: 'cal' })),
+      h('div', { class: 'cl-range' }, h('b', {}, `${fmtD(f)} - ${fmtD(t)}`), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Earlier', onclick: () => { clState.peerShift++; paintPanel(); } }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Later', disabled: clState.peerShift === 0, onclick: () => { clState.peerShift--; paintPanel(); } }, chev('r'))),
+      h('div', { class: 'scard cl-card' }, cEmpty('Not enough businesses to compare yet', 'Peer comparisons appear once enough similar businesses near you use Processor Freedom.', 'look')))];
+  };
+  CL['r-emp'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Employee sales', 'Reports');
+    const e = st.employees;
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Employee sales', [exportBtn('r-emp'), dots('r-emp')]), ...cDates(),
+      cFigs([['Net sales', money(st.totals.net), null, true], ['Orders', String(st.totals.orders), null, true], ['Tips', money(st.totals.tips), null, true], ['Employees', String(e.filter((x) => x.name !== 'Not recorded').length), null, true]]),
+      cH2('Employee detail', colsBtn('r-emp', [{ k: 'n', l: 'Employee' }, { k: 'o', l: 'Orders' }, { k: 's', l: 'Net sales' }, { k: 't', l: 'Tips' }, { k: 'a', l: 'Total' }])),
+      cTable('r-emp', [{ k: 'n', l: 'Employee', sort: (r) => r._n }, { k: 'o', l: 'Orders', r: 1, sort: (r) => r._o }, { k: 's', l: 'Net sales', r: 1, sort: (r) => r._s }, { k: 't', l: 'Tips', r: 1 }, { k: 'a', l: 'Total', r: 1 }], e.map((x) => ({ n: h('b', {}, x.name), o: String(x.orders), s: money(x.net), t: money(x.tips), a: money(x.total), _n: x.name, _o: x.orders, _s: x.net })), cEmpty('No results found', NORES)))];
+  };
+  CL['r-tender'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Tender & card types', 'Reports');
+    const m = st.money || { collected: 0, refunds: 0, tenders: [], count: 0 };
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Tender & card types', [exportBtn('r-tender'), dots('r-tender')]), ...cDates(),
+      cFigs([['Amount collected', money(m.collected), `from ${m.count || 0} payment${m.count === 1 ? '' : 's'}`, true], ['Refunds', money(m.refunds), null, true], ['Net', money(m.collected - m.refunds), null, true]]),
+      cH2('Tender detail', colsBtn('r-tender', [{ k: 't', l: 'Tender type' }, { k: 'c', l: 'Payments' }, { k: 'a', l: 'Amount' }, { k: 'r', l: 'Refunds' }, { k: 'n', l: 'Net' }])),
+      cTable('r-tender', [{ k: 't', l: 'Tender type' }, { k: 'c', l: 'Payments', r: 1 }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }, { k: 'r', l: 'Refunds', r: 1 }, { k: 'n', l: 'Net', r: 1 }], m.tenders.map((x) => ({ t: h('b', {}, x.method), c: String(x.count), a: money(x.amount), r: money(x.refunds || 0), n: money(x.amount - (x.refunds || 0)), _a: x.amount })), cEmpty('No results found', NORES)))];
+  };
+  CL['r-disc'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Discounts', 'Reports');
+    const uses = st.promos.reduce((a, x) => a + x.uses, 0);
+    const kind = (n) => (/^THANKS/.test(n) ? 'Reward' : /^GIFT|^GC/i.test(n) ? 'Gift card' : n === 'Other discount' ? 'Discount' : 'Promo code');
+    const q = clState.discQ.trim().toLowerCase();
+    const rows = clState.discTab === 'rev' ? st.promos.filter((x) => !q || x.name.toLowerCase().includes(q)).map((x) => ({ n: h('b', {}, x.name), k: kind(x.name), u: String(x.uses), a: money(x.amount), _a: x.amount, _u: x.uses })) : [];
+    const cols = [{ k: 'n', l: 'Discount name' }, { k: 'k', l: 'Type' }, { k: 'u', l: 'Times applied', r: 1, sort: (r) => r._u }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Discounts', [exportBtn('r-disc'), dots('r-disc')]), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m2]) => [k, m2.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      cTabs([['rev', 'Revenue items'], ['non', 'Non revenue items']], clState.discTab, (k) => { clState.discTab = k; }),
+      cFigs(clState.discTab === 'rev' ? [['Discounts on orders', money(st.totals.discounts), `${uses} discount${uses === 1 ? '' : 's'} applied`], ['Discounts on items', money(0), '0 discounts applied'], ['Total discounts', money(st.totals.discounts), `${uses} discount${uses === 1 ? '' : 's'} applied`]] : [['Discounts on orders', money(0), '0 discounts applied'], ['Discounts on items', money(0), '0 discounts applied'], ['Total discounts', money(0), '0 discounts applied']]),
+      cH2('Discount Detail'), h('div', { class: 'tbar' }, cSearch('Search by discount name', clState.discQ, (v) => { clState.discQ = v; }), colsBtn('r-disc', cols)),
+      cTable('r-disc', cols, rows, cEmpty('No results found', NORES)))];
+  };
+  CL['r-removed'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Removed Items', 'Reports');
+    const qty = st.removed.reduce((a, x) => a + x.qty, 0), val = st.removed.reduce((a, x) => a + x.value, 0);
+    const cols = [{ k: 'n', l: 'Item' }, { k: 'q', l: 'Quantity', r: 1, sort: (r) => r._q }, { k: 'v', l: 'Value', r: 1, sort: (r) => r._v }, { k: 'w', l: 'Reason' }];
+    const rows = clState.remTab === 'rev' ? st.removed.map((x) => ({ n: h('b', {}, x.name), q: String(x.qty), v: money(x.value), w: 'Order cancelled', _q: x.qty, _v: x.value })) : [];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Removed Items', [exportBtn('r-removed'), dots('r-removed')]), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m2]) => [k, m2.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      cTabs([['rev', 'Revenue items'], ['non', 'Non revenue items']], clState.remTab, (k) => { clState.remTab = k; }),
+      cFigs(clState.remTab === 'rev' ? [['Printed Items', '0', null, true], ['Unprinted Items', String(qty), null, true], ['Deleted Orders', String(st.totals.cancelled)], ['Total Value Removed', money(val), null, true]] : [['Printed Items', '0', null, true], ['Unprinted Items', '0', null, true], ['Deleted Orders', '0'], ['Total Value Removed', money(0), null, true]]),
+      cH2('Removed items detail', colsBtn('r-removed', cols)), cTable('r-removed', cols, rows, cEmpty('No results found', NORES)))];
+  };
+  CL['r-gift'] = () => {
+    const g = need('gift', 'gift-cards'); if (!g) return loadingPage('Gift cards', 'Reports');
+    const cards = (g.cards || []).filter((c) => inPeriod(c.createdAt) && (clState.giftLoad === 'all' || clState.giftLoad === 'person'));
+    const total = cards.reduce((a, c) => a + c.initial, 0);
+    const cols = [{ k: 'c', l: 'Gift card' }, { k: 'n', l: 'Customer' }, { k: 'd', l: 'Issued' }, { k: 'm', l: 'Load method' }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }, { k: 'b', l: 'Balance', r: 1 }];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Gift cards', [exportBtn('r-gift'), dots('r-gift')]),
+      ...cDates(h('div', { class: 'cl-labelled' }, h('label', { class: 'cl-lab' }, 'Load method'), cDrop([['all', 'All'], ['person', 'In person'], ['online', 'Online']], clState.giftLoad, (k) => { clState.giftLoad = k; paintPanel(); }))),
+      cFigs([['Total', money(total)], ['Paid', money(total)], ['Complimentary', money(0)]]),
+      cH2('Gift card reporting', colsBtn('r-gift', cols)),
+      cTable('r-gift', cols, cards.map((c) => ({ c: h('b', {}, c.code), n: c.name || '—', d: fmtDate(c.createdAt), m: 'In person', a: money(c.initial), b: money(c.balance), _a: c.initial })), cEmpty('No results found', NORES)))];
+  };
+  CL['r-types'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Order types', 'Reports');
+    const typeOpts = [['', 'Order Types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])];
+    const inStore = st.money ? st.money.inStore : 0;
+    const rows = [...st.methods.filter((m) => m.orders).map((m) => ({ t: h('b', {}, ORDER_METHODS[m.method]?.name || m.method), o: String(m.orders), n: money(m.net), a: money(m.total), _n: m.net })), ...(inStore && !clState.type ? [{ t: h('b', {}, 'In-store'), o: '—', n: money(inStore), a: money(inStore), _n: inStore }] : [])];
+    return [h('div', { class: 'cl' }, cHead('Reports', 'Order types', [exportBtn('r-types'), dots('r-types')]),
+      ...cDates(cDrop(typeOpts, clState.type, (k) => { clState.type = k; stats = null; paintPanel(); }, { icon: 'list' }), cFilters(() => rPanel('Filters', () => { let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[0] ? x[1] : 'All order types'), (typeOpts.find((x) => x[0] === v) || [0, 'All order types'])[1].replace('Order Types', 'All order types'), (o) => { v = (typeOpts.find((x) => x[1] === o) || [''])[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      cFigs([['Online Net Sales', money(st.totals.net), null, true], ['In-store Net Sales', money(clState.type ? 0 : inStore), null, true]]),
+      cTable('r-types', [{ k: 't', l: 'Order type' }, { k: 'o', l: 'Orders', r: 1 }, { k: 'n', l: 'Net sales', r: 1, sort: (r) => r._n }, { k: 'a', l: 'Total', r: 1 }], rows, cEmpty('No results found', NORES)))];
+  };
+  CL['r-taxes'] = () => {
+    const st = needStats(); if (!st) return loadingPage('Taxes Report', 'Finances');
+    const t = st.totals;
+    const rows = t.orders ? [{ r: `${st.taxRate || 0}%`, a: money(t.taxable), n: money(t.nontaxable), x: money(t.tax) }] : [];
+    return [h('div', { class: 'cl' }, cHead('Finances', 'Taxes Report', [exportBtn('r-taxes'), dots('r-taxes')], 'A table view of taxes and fees collected from your customers.'), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      cFigs([['Applicable sales', money(t.taxable), null, true], ['Net taxes', money(t.tax), null, true]]),
+      cH2('Tax details'), cTable('r-taxes', [{ k: 'r', l: 'Tax rate' }, { k: 'a', l: 'Taxable sales', r: 1 }, { k: 'n', l: 'Non-taxable sales', r: 1 }, { k: 'x', l: 'Tax collected', r: 1 }], rows, cEmpty('No results found', NORES)))];
+  };
+  SVG.clock = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+
+  /* ---------- Sales activity ---------- */
+  function orderSheet(row) {
+    const x = (orders || []).find((o) => o.number === row.number);
+    if (!x) return toast('That order is no longer in the recent list.', true);
+    const next = { new: ['confirmed', 'Confirm order'], confirmed: ['ready', 'Mark ready'], ready: ['completed', 'Complete'] };
+    const set = async (status, close) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); putOrder(x, r.order); stats = null; close(); paintPanel(); } catch (e) { toast(e.message, true); } };
+    sheet((close) => [h('h2', {}, `#${x.number} · ${x.name}`), h('p', { class: 'muted' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status]}`),
+      h('div', { class: 'cl-lines' }, x.items.map((l) => h('div', {}, h('span', {}, `${l.qty} × ${l.name}`, l.opts?.length > 0 && h('small', {}, l.opts.join(', '))), h('b', {}, money(l.price * l.qty)))),
+        x.discount > 0 && h('div', {}, h('span', {}, 'Discount'), h('b', {}, `−${money(x.discount)}`)), x.tax > 0 && h('div', {}, h('span', {}, 'Tax'), h('b', {}, money(x.tax))), x.fee > 0 && h('div', {}, h('span', {}, 'Delivery fee'), h('b', {}, money(x.fee))), x.tip > 0 && h('div', {}, h('span', {}, 'Tip'), h('b', {}, money(x.tip))), h('div', { class: 'tot' }, h('span', {}, 'Total'), h('b', {}, money(x.total)))),
+      h('p', { class: 'small' }, h('a', { href: `tel:${(x.phone || '').replace(/[^\d+]/g, '')}` }, x.phone), ' · ', h('a', { href: `mailto:${x.email}` }, x.email)), x.address && h('p', { class: 'small' }, h('b', {}, 'Deliver to '), x.address), x.notes && h('p', { class: 'small' }, h('b', {}, 'Notes '), x.notes),
+      h('div', { class: 'acts' }, x.status !== 'cancelled' && x.status !== 'completed' && h('button', { class: 'btn text', style: 'color:var(--red);margin-right:auto', onclick: () => set('cancelled', close) }, 'Cancel order'),
+        !x.paidAt && x.status !== 'cancelled' && h('button', { class: 'btn soft', onclick: () => { close(); takePayment(x); } }, 'Record payment'), x.paidAt && x.refunded < x.total && h('button', { class: 'btn soft', onclick: () => { close(); refundOrder(x); } }, 'Refund'),
+        next[x.status] && h('button', { class: 'btn', onclick: () => set(next[x.status][0], close) }, next[x.status][1]))], 'wide');
+  }
+  CL.orders = () => {
+    const st = needStats(); if (!orders) loadOrders(true);
+    if (!st) return loadingPage('Orders');
+    const list = st.orders.map((r) => ({ r, o: (orders || []).find((x) => x.number === r.number) }));
+    const done = list.filter((x) => x.r.status === 'completed'), open = list.filter((x) => !['completed', 'cancelled'].includes(x.r.status));
+    const q = clState.ordQ.trim().toLowerCase();
+    const hit = ({ r, o }) => !q || (clState.ordBy === 'customer' ? `${r.name} ${o?.email || ''} ${o?.phone || ''}`.toLowerCase().includes(q) : clState.ordBy === 'number' ? String(r.number).includes(q.replace('#', '')) : (o?.items || []).some((l) => l.name.toLowerCase().includes(q)));
+    const pay = ({ r, o }) => clState.ordPay === 'All' || (clState.ordPay === 'Paid' ? !!(o?.paidAt || r.paidAt) : !(o?.paidAt || r.paidAt));
+    const sts = ({ r }) => clState.ordStatus === 'All' || (r.status === 'ready' ? 'Ready' : ORDER_STATUSES[r.status]) === clState.ordStatus;
+    const shown = list.filter((x) => hit(x) && pay(x) && sts(x));
+    const t12 = (hm) => { const [hh, mm] = hm.split(':').map(Number); return `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+    const when = (r) => (periodOf()[0] === periodOf()[1] ? t12(r.time) : `${longDay(r.date, { month: 'short', day: 'numeric' })}, ${t12(r.time)}`);
+    const nFilters = (clState.ordPay !== 'All') + (clState.ordStatus !== 'All');
+    const empty = cEmpty(isTodayOnly() ? 'No orders yet today' : 'No orders found', 'Find orders with a different search, date range and filter combination.');
+    const orderRows = shown.map(({ r, o }) => ({ t: when(r), c: r.name, tot: money(r.total), p: o?.paidAt || r.paidAt ? pill(`Paid · ${o?.paidMethod || r.paidMethod || ''}`.replace(/ · $/, ''), 'ok') : r.status === 'cancelled' ? pill('Cancelled', 'bad') : pill('Open', 'wait'), i: String((o?.items || []).reduce((a, l) => a + l.qty, 0) || '—'), id: `#${r.number}`, e: o?.handledBy || r.handledBy || '—', _t: `${r.date} ${r.time}`, _tot: r.total, onclick: () => orderSheet(r) }));
+    const lineRows = shown.flatMap(({ r, o }) => (o?.items || []).map((l) => ({ t: when(r), n: h('b', {}, l.name), q: String(l.qty), pr: money(l.price), a: money(l.price * l.qty), id: `#${r.number}`, onclick: () => orderSheet(r) })));
+    return [h('div', { class: 'cl' }, cHead(null, 'Orders', [printBtn(), dots('orders')]), ...cDates(),
+      cFigs([['All orders', String(list.length)], ['Completed orders', String(done.length), null, true], ['Incomplete orders', String(open.length), null, true], ['Incomplete order value', money(open.reduce((a, x) => a + x.r.total, 0)), null, true]]),
+      cTabs([['orders', 'Orders'], ['lines', 'Line items']], clState.ordTab, (k) => { clState.ordTab = k; }),
+      cH2('Order History'),
+      h('div', { class: 'tbar' }, cDrop([['customer', 'Customers'], ['number', 'Order ID'], ['item', 'Items']], clState.ordBy, (k) => { clState.ordBy = k; paintPanel(); }, { icon: 'find', cls: 'cl-by' }), cSearch('Search orders', clState.ordQ, (v) => { clState.ordQ = v; }),
+        cFilters(() => rPanel('Filters', () => { let p = clState.ordPay, s2 = clState.ordStatus; return { el: h('div', {}, rpRadios('Payment status', ['All', 'Paid', 'Not paid'], p, (v) => { p = v; }), rpRadios('Order status', ['All', 'Received', 'Confirmed', 'Ready', 'Completed', 'Cancelled'], s2, (v) => { s2 = v; })), apply: () => { clState.ordPay = p; clState.ordStatus = s2; } }; }), nFilters)),
+      clState.ordTab === 'orders'
+        ? cTable('orders', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'c', l: 'Customer' }, { k: 'tot', l: 'Order total', r: 1, sort: (r) => r._tot }, { k: 'p', l: 'Payment status' }, { k: 'i', l: 'Items', r: 1 }, { k: 'id', l: 'Order ID' }, { k: 'e', l: 'Employee' }], orderRows, empty)
+        : cTable('orders-lines', [{ k: 't', l: 'Time' }, { k: 'n', l: 'Item' }, { k: 'q', l: 'Qty', r: 1 }, { k: 'pr', l: 'Price', r: 1 }, { k: 'a', l: 'Amount', r: 1 }, { k: 'id', l: 'Order ID' }], lineRows, empty))];
+  };
+  const TENDER_OPTS = ['All', 'Cash', 'Credit Card', 'Check', 'External Gift Card', 'External PIN Debit', 'Debit Card'];
+  const tenderMatch = (opt, m) => opt === 'All' || (opt === 'Credit Card' || opt === 'Debit Card' ? m === 'Card' : opt === 'External Gift Card' ? m === 'Gift card' : opt === 'External PIN Debit' ? false : m === opt);
+  CL.tx = () => {
+    const d = needTx(); if (!d) return loadingPage('Transactions');
+    const byOpts = [['last4', 'Last 4 digits on card'], ['pid', 'Payment ID'], ['ext', 'External Id'], ['inv', 'Invoice Id'], ['custom', 'Custom field value']];
+    const byName = byOpts.find(([k]) => k === clState.txBy)[1];
+    const q = clState.txQ.trim().toLowerCase();
+    const match = (x) => tenderMatch(clState.txTender, x.method) && (!q || (clState.txBy === 'pid' ? x.ref.toLowerCase().includes(q) : clState.txBy === 'inv' ? x.source === 'Invoice' && x.ref.toLowerCase().includes(q) : false));
+    const pays = clState.txTab === 'payments' ? d.payments.filter(match) : [], refs = clState.txTab === 'refunds' ? d.refunds.filter(match) : [];
+    const sum = (l, k) => l.reduce((a, x) => a + (x[k] || 0), 0);
+    const t12 = (hm) => { const [hh, mm] = hm.split(':').map(Number); return `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+    const when = (x) => (periodOf()[0] === periodOf()[1] ? t12(x.time) : `${longDay(x.date, { month: 'short', day: 'numeric' })}, ${t12(x.time)}`);
+    const src = (x) => (x.source === 'Invoice' ? 'Invoice' : 'Online order');
+    const rows = [...pays.map((x) => ({ ...x, kind: 'Payment' })), ...refs.map((x) => ({ ...x, kind: 'Refund' }))].map((x) => ({ t: when(x), y: x.kind, a: money(x.kind === 'Refund' ? -x.amount : x.amount), m: x.method, e: x.by || '—', c: x.customer || '—', s: `${src(x)} ${x.ref}`, _t: x.at, _a: x.amount,
+      onclick: () => sheet((close) => [h('h2', {}, `${x.kind} ${money(x.amount)}`), h('div', { class: 'cl-lines' }, h('div', {}, h('span', {}, 'Payment ID'), h('b', {}, x.ref)), h('div', {}, h('span', {}, 'Time'), h('b', {}, `${fmtD(x.date)}, ${t12(x.time)}`)), h('div', {}, h('span', {}, 'Tender type'), h('b', {}, x.method)), h('div', {}, h('span', {}, 'Customer'), h('b', {}, x.customer || '—')), h('div', {}, h('span', {}, 'Employee'), h('b', {}, x.by || '—')), x.tip > 0 && h('div', {}, h('span', {}, 'Tip'), h('b', {}, money(x.tip))), x.note && h('div', {}, h('span', {}, 'Note'), h('b', {}, x.note))), h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: close }, 'Done'))]) }));
+    const figs = { payments: [['Payments total', money(sum(pays, 'amount')), `from ${pays.length} payment${pays.length === 1 ? '' : 's'}`, true], ['Tips', money(sum(pays, 'tip')), sum(pays, 'tip') ? `on ${pays.filter((x) => x.tip).length} payments` : '--'], ['Taxes and Fees', money(sum(pays, 'tax')), sum(pays, 'tax') ? `on ${pays.filter((x) => x.tax).length} payments` : '--']],
+      refunds: [['Refunds total', money(sum(refs, 'amount')), `from ${refs.length} refund${refs.length === 1 ? '' : 's'}`, true]], manual: [['Manual refunds total', money(0), 'from 0 manual refunds', true]], voids: [['Voids total', money(0), 'from 0 voids', true]], auth: [['Authorizations total', money(0), 'from 0 authorizations', true]] }[clState.txTab];
+    const nF = (clState.txTender !== 'All') + (clState.txCard !== 'All');
+    return [h('div', { class: 'cl' }, cHead(null, 'Transactions', [printBtn(), dots('tx')]), ...cDates(),
+      cTabs([['payments', 'Payments'], ['refunds', 'Refunds'], ['manual', 'Manual Refunds'], ['voids', 'Voids'], ['auth', 'Authorizations']], clState.txTab, (k) => { clState.txTab = k; }),
+      cFigs(figs),
+      h('div', { class: 'tbar' }, cDrop(byOpts, clState.txBy, (k) => { clState.txBy = k; paintPanel(); }, { icon: 'find', cls: 'cl-by' }), cSearch(`Search by ${byName}`, clState.txQ, (v) => { clState.txQ = v; }),
+        cFilters(() => rPanel('Filters', () => { let tn = clState.txTender, cd = clState.txCard; return { el: h('div', {}, rpRadios('Tender type', TENDER_OPTS, tn, (v) => { tn = v; }, 'Search tender type'), rpRadios('Card type', ['All', 'Visa', 'Mastercard', 'American Express', 'Discover'], cd, (v) => { cd = v; }, 'Search card type')), apply: () => { clState.txTender = tn; clState.txCard = cd; } }; }), nF)),
+      cTable('tx', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'y', l: 'Type' }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }, { k: 'm', l: 'Tender Type' }, { k: 'e', l: 'Employee' }, { k: 'c', l: 'Customer' }, { k: 's', l: 'Payment Source' }], rows,
+        cEmpty(isTodayOnly() ? 'No transactions yet today' : 'No transactions found', 'Find transactions with a different search, timeframe and filter combination.')))];
+  };
+  CL.tips = () => {
+    const st = needStats(); if (!st) return loadingPage('Tips');
+    if (!st.totals.tips && !ordering.tips) return [h('div', { class: 'cl cl-center' }, clArt('person'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide a comprehensive overview of employee tips from transactions, detailing key information such as the source of the tips, the associated card, and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
+    return PANELS.sales('tips');
+  };
+
+  /* ---------- Finances ---------- */
+  CL.fin = () => {
+    const st = needStats(); if (!st) return loadingPage('Finances');
+    const [f, to] = periodOf(), span = Math.round((Date.parse(to) - Date.parse(f)) / 86400000) + 1;
+    const pf = span === 1 ? addDays(f, -7) : addDays(f, -span), pt = span === 1 ? addDays(to, -7) : addDays(f, -1);
+    const pv = cmpStats(pf, pt);
+    const m = st.money || { collected: 0, tenders: [], count: 0, tax: 0 }, pm = pv && pv.money ? pv.money : null;
+    const pct = (now, was) => (!pm ? '—' : !was ? (now ? 'New' : '0.00%') : `${(((now - was) / was) * 100).toFixed(2)}%`);
+    const by = (k) => m.tenders.filter((x) => (k === 'card' ? /card/i.test(x.method) : k === 'cash' ? /cash/i.test(x.method) : !/card|cash/i.test(x.method))).reduce((a, x) => a + x.amount, 0);
+    const vs = span === 1 ? `last ${longDay(pf, { weekday: 'long' })}` : 'the period before';
+    return [h('div', { class: 'cl' }, cHead(null, 'Finances', null, 'Stay on top of your business finances with snapshots of your receivables and payables.'),
+      cH2('Financial activity', cDates()[0].firstChild),
+      h('div', { class: 'scard cl-card cl-sum' }, h('div', { class: 'cl-sumL' },
+        h('button', { type: 'button', class: 'hc-h link', onclick: () => goTab('tx') }, 'Amount Collected', h('span', { class: 'chv r' })), h('p', { class: 'cl-when' }, f === to ? longDay(f, { weekday: 'short', month: 'short', day: 'numeric' }) : `${longDay(f, { month: 'short', day: 'numeric' })} – ${longDay(to, { month: 'short', day: 'numeric' })}`),
+        h('div', { class: 'cl-fig big' }, h('span', {}, 'Total'), h('b', {}, money(m.collected)), h('small', {}, h('strong', {}, pct(m.collected, pm?.collected)), ` compared to ${vs}`)),
+        h('p', { class: 'cl-strongline' }, `${money(by('card'))} card, ${money(by('cash'))} cash, and ${money(by('other'))} other`),
+        h('div', { class: 'cl-sumrow' }, h('div', { class: 'hm' }, h('button', { type: 'button', class: 'hm-l', onclick: () => goTab('r-taxes') }, 'Taxes', h('span', { class: 'chv r' })), h('b', {}, money(m.tax || 0)), h('small', { class: 'hm-d' }, h('b', {}, pct(m.tax || 0, pm?.tax)))),
+          h('div', { class: 'hm' }, h('button', { type: 'button', class: 'hm-l', onclick: () => goTab('tx') }, 'Transactions', h('span', { class: 'chv r' })), h('b', {}, String(m.count || 0)), h('small', { class: 'hm-d' }, h('b', {}, pct(m.count || 0, pm?.count)))))),
+        h('div', { class: 'cl-sumR' }, cChart(st.series, st.unit, (x) => x.net, true))))];
+  };
+  CL.close = () => {
+    if (!closeData) { api('GET', `/api/sites/${id}/closeouts`).then((r) => { closeData = r; if (tab === 'close') paintPanel(); }).catch((e) => { toast(e.message, true); closeData = { open: { tenders: [], totals: { payments: 0, count: 0, refunds: 0, refundCount: 0, net: 0 }, number: 1, since: 0 }, history: [] }; if (tab === 'close') paintPanel(); }); return loadingPage('Closeout'); }
+    const o = closeData.open, when = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const line = (a, b) => h('div', {}, h('span', {}, a), h('b', {}, b));
+    const current = () => sheet((close) => [h('h2', {}, `Current batch ${o.number}`), h('p', { class: 'muted' }, o.since ? `Since ${when(o.since)}` : 'Since you started'),
+      h('div', { class: 'cl-lines' }, o.tenders.map((x) => line(`${x.method} · ${x.count}`, money(x.amount - x.refunds))), line('Payments', money(o.totals.payments)), line('Refunds', `−${money(o.totals.refunds)}`), h('div', { class: 'tot' }, h('span', {}, 'Batch total'), h('b', {}, money(o.totals.net)))),
+      h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Close'), h('button', { class: 'btn', disabled: !o.totals.count && !o.totals.refundCount, onclick: async () => { try { await api('POST', `/api/sites/${id}/closeouts`); closeData = null; close(); toast('Batch closed'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Close out batch'))]);
+    const past = (b) => sheet((close) => [h('h2', {}, `Batch ${b.number}`), h('p', { class: 'muted' }, `Closed ${when(b.createdAt)}${b.by ? ` by ${b.by}` : ''}`), h('div', { class: 'cl-lines' }, (b.totals.tenders || []).map((x) => line(`${x.method} · ${x.count}`, money(x.amount - (x.refunds || 0)))), line('Payments', money(b.totals.payments)), line('Refunds', `−${money(b.totals.refunds)}`), h('div', { class: 'tot' }, h('span', {}, 'Batch total'), h('b', {}, money(b.totals.net)))), h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: close }, 'Done'))]);
+    const rows = [{ b: 'Current Batch', s: pill('Open', 'warn'), t: 'Standard transactions', c: String(o.totals.count), a: money(o.totals.net), d: h('button', { type: 'button', class: 'cl-link', onclick: current }, 'View Current Batch') },
+      ...closeData.history.map((b) => ({ b: when(b.createdAt), s: pill('Closed', 'ok'), t: 'Standard transactions', c: String(b.totals.count), a: money(b.totals.net), d: h('button', { type: 'button', class: 'cl-link', onclick: () => past(b) }, `BATCH${String(b.number).padStart(6, '0')}`) }))];
+    return [h('div', { class: 'cl' }, cHead(null, 'Closeout', null, 'A batch consists of your transactions from a given time period. Your open batch consists of all transactions since your last closeout.'), cH2('Batch history'),
+      cTable('close', [{ k: 'b', l: 'Batch' }, { k: 's', l: 'Status' }, { k: 't', l: 'Transactions' }, { k: 'c', l: 'Count', r: 1 }, { k: 'a', l: 'Amount', r: 1 }, { k: 'd', l: 'Details' }], rows, null))];
+  };
+  CL.stmts = () => {
+    const y = clState.stmtYear, nowY = new Date().getFullYear(), nowM = new Date().getMonth();
+    const months = Array.from({ length: y === nowY ? nowM + 1 : 12 }, (_, i) => i).reverse();
+    const mName = (m) => new Date(Date.UTC(y, m, 15)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const dl = async (m) => { try { const f = `${y}-${String(m + 1).padStart(2, '0')}-01`, t = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10); const s2 = await api('GET', `/api/sites/${id}/stats?range=custom&from=${f}&to=${t}`), tt = s2.totals;
+      await saveSheetFile(`${meta.slug}-statement-${f.slice(0, 7)}`, [[`Sales statement · ${mName(m)}`], [meta.name], [], ['Orders', tt.orders], ['Gross sales', (tt.gross / 100).toFixed(2)], ['Discounts', (tt.discounts / 100).toFixed(2)], ['Net sales', (tt.net / 100).toFixed(2)], ['Tax', (tt.tax / 100).toFixed(2)], ['Tips', (tt.tips / 100).toFixed(2)], ['Total', (tt.total / 100).toFixed(2)], ['Amount collected', ((s2.money?.collected || 0) / 100).toFixed(2)], ['Refunds', ((s2.money?.refunds || 0) / 100).toFixed(2)]], 'csv'); } catch (e) { toast(e.message, true); } };
+    return [h('div', { class: 'cl' }, cHead(null, 'Monthly Statements', null, 'Review all your monthly statements in one place.'),
+      h('div', { class: 'cl-year' }, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous year', onclick: () => { clState.stmtYear--; paintPanel(); } }, chev('l')), h('b', {}, String(y)), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next year', disabled: y >= nowY, onclick: () => { clState.stmtYear++; paintPanel(); } }, chev('r'))),
+      h('div', { class: 'cl-two' }, h('div', { class: 'scard cl-card' }, h('h3', { class: 'cl-ct' }, 'Sales Statement'), h('p', { class: 'cl-cd' }, 'View your sales, taxes, tips and refunds for each month.'),
+        h('div', { class: 'cl-months' }, months.map((m) => h('button', { type: 'button', onclick: () => dl(m) }, h('b', {}, mName(m)), y === nowY && m === nowM && pill('Estimated', 'info'), h('span', { class: 'chv r' }))))),
+        h('div', { class: 'scard cl-card' }, h('h3', { class: 'cl-ct' }, 'Merchant Processing Statement'), h('p', { class: 'cl-cd' }, 'View your processing fees and adjustments.'), h('p', { class: 'muted', style: 'margin:18px 0 6px' }, 'No processing statements yet.'))))];
+  };
+  CL.disputes = () => [h('div', { class: 'cl' }, cHead(null, 'Disputes', [h('button', { type: 'button', class: 'cl-link up', onclick: () => goTab('alerts') }, 'SETTINGS'), moreBtn([['Print', () => printLight()]])]),
+    h('div', { class: 'cl-dsp' }, h('h3', {}, 'Search for a Dispute'), h('label', { class: 'cl-lab' }, 'Case Number'),
+      h('form', { class: 'cl-case', onsubmit: (e) => { e.preventDefault(); const v = e.currentTarget.querySelector('input').value.trim(); if (!v) return; toast('No dispute found with that case number.', true); } }, h('input', { placeholder: 'Case number', 'aria-label': 'Case number' }), h('button', { class: 'btn cl-green' }, 'Search')),
+      h('h3', {}, 'Filter Your Disputes'),
+      h('div', { class: 'cl-three' }, ...[['Location', ['Any location', meta.name]], ['Date', ['Any date', 'Last 30 days', 'Last 90 days', 'Last 12 months']], ['Amount', ['Any amount', 'Under $50', '$50 – $250', 'Over $250']]].map(([l, opts]) => h('label', { class: 'field' }, h('span', {}, l), h('select', {}, opts.map((o) => h('option', {}, o)))))),
+      h('div', { class: 'scard cl-card' }, cEmpty('No disputes', ''))))];
+  CL.capital = () => [h('div', { class: 'cl' }, cHead('Finances', 'Capital'), h('div', { class: 'scard cl-card' }, cEmpty('No funding offers right now', '', 'look')))];
+  const promoPage = (eyebrow, title, brand, headline, text, cta, how, pricing, art) => h('div', { class: 'cl cl-promo' }, cHead(eyebrow, title), brand,
+    h('div', { class: 'cl-promo-top' }, h('div', {}, h('h2', { class: 'cl-ph' }, headline), h('p', { class: 'cl-pt' }, text), cta)),
+    how && h('h2', { class: 'cl-ph' }, how[0]), how && h('div', { class: 'cl-how' + (art ? ' with-art' : '') }, h('div', {}, how[1].map(([icon, t, d]) => h('div', { class: 'cl-howi' }, h('span', { class: 'cl-howic', html: icon }), h('div', {}, h('b', {}, t), h('p', {}, d))))), art && clArt(art)),
+    pricing && h('h2', { class: 'cl-ph' }, 'Pricing'), pricing && h('p', { class: 'cl-pt' }, pricing));
+  const ICO = { tax: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6h18l8 8v28H12z"/><path d="M30 6v8h8"/><rect x="17" y="26" width="16" height="10"/><path d="M17 31h16M22 26v10M28 26v10"/><path d="M19 12v8M22 14c-1-2-5-2-5 0s5 2 5 4-4 2-5 0" stroke="var(--brand)"/></svg>',
+    rec: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="6" width="28" height="22" rx="2"/><path d="M14 40h8l6-6V24M30 28l6 6v6"/><path d="M16 12v8M19 14c-1-2-5-2-5 0s5 2 5 4-4 2-5 0" stroke="var(--brand)"/></svg>',
+    shield: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><path d="M24 5 9 11v12c0 9 6 16 15 20 9-4 15-11 15-20V11z"/><path d="M24 16v12M27 19c-1-2-6-2-6 0s6 2 6 4-5 2-6 0" stroke="var(--brand)"/></svg>',
+    sync: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><circle cx="14" cy="12" r="4"/><path d="M8 24c1-4 3-6 6-6M28 12h10l-4-4M36 32H26l4 4"/><circle cx="34" cy="38" r="4"/><path d="M24 20v10M27 22c-1-2-6-2-6 0s6 2 6 4-5 2-6 0" stroke="var(--brand)"/></svg>',
+    card: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="12" width="38" height="24" rx="3"/><circle cx="15" cy="24" r="5" stroke="var(--brand)"/><path d="M25 20h12M25 26h8"/></svg>',
+    redeem: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="6" width="22" height="18" rx="2"/><path d="M6 30h26M12 24v6"/><rect x="24" y="30" width="18" height="12" rx="2" stroke="var(--brand)"/><path d="M28 36h10" stroke="var(--brand)"/></svg>',
+    manage: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="24" height="26" rx="2"/><path d="M12 40l4-8h10l6 8M34 20v14"/><path d="M16 12v10M19 14c-1-2-5-2-5 0s5 2 5 4-4 2-5 0" stroke="var(--brand)"/></svg>',
+    hand: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 14c3-4 6-4 8 0s5 4 7-1" stroke="var(--brand)"/><path d="M22 40V22a3 3 0 0 1 6 0v8l7 2c3 1 4 3 3 6l-2 6"/></svg>',
+    phone: '<svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="4" width="22" height="34" rx="3"/><path d="M18 42l6-6c2-2 6-1 6 2v6"/><rect x="15" y="12" width="12" height="9" rx="1" stroke="var(--brand)"/><path d="M21 12v9M15 16h12" stroke="var(--brand)"/></svg>' };
+  CL.stax = () => [promoPage('Finances', 'Sales tax', null, 'Put your sales tax on autopilot', 'Run your business as normal. Sales tax is worked out on every order at your rate and kept in your records.', h('button', { type: 'button', class: 'btn cl-dark', onclick: () => goTab('ordering') }, 'Set up now'),
+    ['How it works', [[ICO.tax, 'Automated taxes without the added work', 'As you make sales, sales tax is added at your rate and shown on every receipt.'], [ICO.rec, 'Access records quickly', 'Daily reporting for continued oversight, and quick access to your full tax history in the Taxes Report.']]], 'Sales tax tracking is included in your plan at no extra cost.')];
+  CL.bills = () => [promoPage('Finances', 'Pay bills', null, 'Pay your vendors with ease, flexibility, and security', 'Get the flexibility to pay any vendor your way—giving you total control over your business cash flow.', h('a', { class: 'btn cl-dark', href: `mailto:support@processorfreedom.com?subject=${encodeURIComponent(`Pay Bills for ${meta.name}`)}` }, 'Try Pay Bills now'),
+    ['Feature highlights', [[ICO.rec, 'Payment flexibility for you and your vendors', 'Pay your usual way. Your vendors get paid their way.'], [ICO.shield, 'Safe and secure online payments', 'We safeguard all transactions using bank-level security.'], [ICO.sync, 'QuickBooks-ready records', 'Download your payments as a file QuickBooks reads, to keep your books accurate.']]], null, 'bills')];
+  /* ---------- Appointments ---------- */
+  const A_STATUS = { Pending: 'pending', Confirmed: 'confirmed', Completed: 'completed', Canceled: 'cancelled', 'No show': 'noshow' };
+  const A_ICON = { Pending: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', Confirmed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>', Completed: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m6.5 12 3 3 5-6M11 15l5-6"/></svg>', Canceled: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M6 18 18 6"/></svg>', 'No show': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c4362f" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16v.5"/></svg>', Open: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9 7h6M9 17h6M9.5 7c0 3 5 3 5 5s-5 2-5 5"/></svg>', 'Partially paid': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2e8540" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 6v12M14.5 8.5c-1-1.5-5-1.5-5 .5s5 1.5 5 3.5-4 2-5 .5"/></svg>' };
+  const peopleList = () => { const s = need('shifts', 'shifts'); return s ? s.people : []; };
+  function apptSheet(a) {
+    const t = a.at.slice(11, 16), [hh, mm] = t.split(':').map(Number), tl = `${hh % 12 || 12}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`;
+    const set = async (status, close) => { try { await api('POST', `/api/sites/${id}/appointments/${a.id}`, { status }); apptData = null; close(); paintPanel(); } catch (e) { toast(e.message, true); } };
+    sheet((close) => [h('h2', {}, a.name), h('p', { class: 'muted' }, `${fmtD(a.at.slice(0, 10))} · ${tl}${a.minutes ? ` · ${a.minutes} min` : ''}`),
+      h('div', { class: 'cl-lines' }, h('div', {}, h('span', {}, 'Service'), h('b', {}, a.service || 'Booking')), h('div', {}, h('span', {}, 'Employee'), h('b', {}, a.employee || 'Any available')), a.total > 0 && h('div', {}, h('span', {}, 'Total'), h('b', {}, money(a.total))), a.phone && h('div', {}, h('span', {}, 'Phone'), h('b', {}, a.phone)), a.email && h('div', {}, h('span', {}, 'Email'), h('b', {}, a.email)), a.notes && h('div', {}, h('span', {}, 'Notes'), h('b', {}, a.notes))),
+      h('div', { class: 'acts' }, ['pending', 'confirmed'].includes(a.status) && h('button', { class: 'btn text', style: 'color:var(--red);margin-right:auto', onclick: () => set('cancelled', close) }, 'Cancel'), a.status === 'confirmed' && h('button', { class: 'btn soft', onclick: () => set('noshow', close) }, 'No show'), a.status === 'pending' && h('button', { class: 'btn', onclick: () => set('confirmed', close) }, 'Confirm'), a.status === 'confirmed' && h('button', { class: 'btn', onclick: () => set('completed', close) }, 'Complete'), !['pending', 'confirmed'].includes(a.status) && h('button', { class: 'btn', onclick: close }, 'Done'))]);
+  }
+  CL.calendar = () => {
+    if (!apptData) { api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; if (tab === 'calendar') paintPanel(); }).catch(() => { apptData = { today: isoDay(new Date()), appointments: [] }; if (tab === 'calendar') paintPanel(); }); return loadingPage('Appointments'); }
+    const today = apptData.today; if (!calDate) calDate = today;
+    const people = ['Any available', ...peopleList()];
+    const chosenEmp = clState.apptEmp || new Set(people), chosenSt = clState.apptAttr || new Set([...Object.keys(A_STATUS), 'Open', 'Partially paid']);
+    const live = apptData.appointments.filter((a) => [...chosenSt].some((k) => A_STATUS[k] === a.status));
+    const noHours = !ordering.hours || ordering.hours.every((x) => x.closed);
+    const banner = noHours && !clState.bannerOff && h('div', { class: 'cl-banner bad' }, h('span', { class: 'cl-bi', html: SVG.warn }), h('div', { class: 'grow' }, h('b', {}, 'Hours of operation are required for an appointment'), h('p', {}, 'You haven’t set your hours of operation. ', h('button', { type: 'button', class: 'cl-link', onclick: () => goTab('hours') }, 'Schedule your operating hours'), ' in order to create an appointment.')), h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Dismiss', onclick: () => { clState.bannerOff = true; paintPanel(); } }, ic('x', 18)));
+    const move = (n) => { if (calView === 'month') calDate = new Date(Date.UTC(Number(calDate.slice(0, 4)), Number(calDate.slice(5, 7)) - 1 + n, 1)).toISOString().slice(0, 10); else calDate = addDays(calDate, n * (calView === 'week' ? 7 : 1)); paintPanel(); };
+    const dateBtn = h('button', { type: 'button', class: 'cl-date', onclick: () => popover(dateBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(calDate.slice(0, 7), (d) => { calDate = d; close(); paintPanel(); }, () => ({ from: calDate, to: calDate }))), 'left') }, calView === 'month' ? monthName(calDate.slice(0, 7)) : fmtD(calDate));
+    const cols = people.filter((p) => chosenEmp.has(p)), per = 6, pages = Math.max(1, Math.ceil(cols.length / per));
+    if (clState.empPage >= pages) clState.empPage = 0;
+    const empBtn = h('button', { type: 'button', class: 'cl-chip', onclick: () => rPanel('Employee(s)', () => { const set = new Set(chosenEmp); const all = h('input', { type: 'checkbox', checked: set.size === people.length }); const list = rpChecks('', people, set); all.onchange = () => { list.querySelectorAll('input').forEach((cb, i) => { cb.checked = all.checked; if (all.checked) set.add(people[i]); else set.delete(people[i]); }); }; return { el: h('div', {}, h('label', { class: 'rp-opt rp-all' }, all, h('span', {}, 'All')), list), apply: () => { clState.apptEmp = set.size === people.length ? null : set; } }; }) }, h('span', { class: 'cl-ic', html: SVG.users }), h('em', {}, String(chosenEmp.size)));
+    const attrBtn = h('button', { type: 'button', class: 'cl-chip', onclick: () => rPanel('Appointment attributes', () => { const set = new Set(chosenSt); const keys = [...Object.keys(A_STATUS), 'Open', 'Partially paid']; const all = h('input', { type: 'checkbox', checked: set.size === keys.length }); const g1 = rpChecks('Appointment status', Object.keys(A_STATUS), set, A_ICON), g2 = rpChecks('Order status', ['Open', 'Partially paid'], set, A_ICON); all.onchange = () => { [g1, g2].forEach((g) => g.querySelectorAll('input').forEach((cb) => { cb.checked = all.checked; })); keys.forEach((k) => (all.checked ? set.add(k) : set.delete(k))); }; return { el: h('div', {}, h('label', { class: 'rp-opt rp-all' }, all, h('span', {}, 'All')), g1, g2), apply: () => { clState.apptAttr = set.size === keys.length ? null : set; } }; }) }, ic('sliders', 18), h('em', {}, String(chosenSt.size)));
+    const bar = h('div', { class: 'cl-calbar' }, cDrop([['day', 'day'], ['week', 'week'], ['month', 'month']], calView, (k) => { calView = k; paintPanel(); }, { cls: 'cl-view' }), dateBtn,
+      h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous', onclick: () => move(-1) }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next', onclick: () => move(1) }, chev('r')), h('span', { class: 'grow' }),
+      calView === 'day' && h('span', { class: 'cl-pages' }, `${clState.empPage + 1} of ${pages}`), calView === 'day' && h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous people', disabled: clState.empPage === 0, onclick: () => { clState.empPage--; paintPanel(); } }, chev('l')), calView === 'day' && h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'More people', disabled: clState.empPage >= pages - 1, onclick: () => { clState.empPage++; paintPanel(); } }, chev('r')),
+      empBtn, attrBtn, h('button', { type: 'button', class: 'cl-add', 'aria-label': 'Create appointment', onclick: () => { clState.apptDraft = null; goTab('appt-new'); } }, ic('plus', 22)));
+    let body;
+    if (calView !== 'day') {
+      const old = PANELS.appts(true); const grid = old[0].querySelector('.c2-month, .c2-grid');
+      body = h('div', { class: 'scard cl-cal' }, grid);
+    } else {
+      const HOUR = 64, shown = cols.slice(clState.empPage * per, clState.empPage * per + per);
+      const mins = (a) => { const [hh, mm] = a.at.slice(11, 16).split(':').map(Number); return hh * 60 + mm; };
+      const day = live.filter((a) => a.at.slice(0, 10) === calDate);
+      const toMin = (t) => { const [hh, mm] = String(t || '0:0').split(':').map(Number); return hh * 60 + (mm || 0); };
+      const x = ordering.hours && ordering.hours[new Date(`${calDate}T12:00:00Z`).getUTCDay()];
+      const bands = !x || x.closed ? [[0, 1440]] : toMin(x.close) > toMin(x.open) ? [[0, toMin(x.open)], [toMin(x.close), 1440]] : [[toMin(x.close), toMin(x.open)]];
+      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+      const column = (p) => h('div', { class: 'cl-ccol', style: `height:${24 * HOUR}px`, onclick: (e) => { if (e.target.closest('.c2-ev')) return; const r = e.currentTarget.getBoundingClientRect(); const m = Math.max(0, Math.min(1410, Math.floor(((e.clientY - r.top) / HOUR) * 2) * 30)); clState.apptDraft = null; clState.apptPre = { date: calDate, time: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, employee: p === 'Any available' ? '' : p }; goTab('appt-new'); } },
+        bands.filter(([a, b]) => b > a).map(([a, b]) => h('i', { class: 'cl-hatch', style: `top:${(a / 60) * HOUR}px;height:${((b - a) / 60) * HOUR}px` })),
+        calDate === today && h('i', { class: 'cl-nowl', style: `top:${(nowMin / 60) * HOUR}px` }),
+        day.filter((a) => (a.employee || 'Any available') === p).map((a) => h('button', { type: 'button', class: `c2-ev ${a.status}`, style: `top:${(mins(a) / 60) * HOUR + 2}px;height:${Math.max(24, ((a.minutes || 60) / 60) * HOUR - 4)}px;left:4px;right:4px`, onclick: () => apptSheet(a) }, h('b', {}, a.name), h('small', {}, a.service || 'Booking'))));
+      const gut = h('div', { class: 'c2-gut', style: `height:${24 * HOUR}px` }, Array.from({ length: 23 }, (_, i) => i + 1).map((hh) => h('span', { style: `top:${hh * HOUR}px` }, `${hh % 12 || 12}:00 ${hh < 12 ? 'AM' : 'PM'}`)));
+      const scroller = h('div', { class: 'cl-cbody', style: `--n:${shown.length}` }, gut, shown.map(column));
+      requestAnimationFrame(() => { scroller.scrollTop = Math.max(0, ((calDate === today ? nowMin : 8 * 60) / 60 - 1.5) * HOUR); });
+      body = h('div', { class: 'scard cl-cal' }, h('div', { class: 'cl-chead', style: `--n:${shown.length}` }, h('span'), shown.map((p) => h('div', { class: 'cl-who' }, h('i', { class: 'sh-av' }, p === 'Any available' ? '…' : p.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()), h('b', {}, p)))), scroller);
+    }
+    return [h('div', { class: 'cl' }, cHead(null, 'Appointments'), banner, bar, body)];
+  };
+  CL['appt-new'] = () => {
+    const pre = clState.apptPre || {}; clState.apptPre = null;
+    const d = clState.apptDraft ||= { customer: null, q: '', newCust: false, nc: { first: '', last: '', email: '', phone: '' }, services: [{ svc: '', price: '', employee: pre.employee || '' }], date: pre.date || isoDay(new Date()), time: pre.time || (() => { const n = new Date(); const m = Math.ceil((n.getHours() * 60 + n.getMinutes()) / 30) * 30; return `${String(Math.min(23, Math.floor(m / 60))).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; })(), xh: '00', xm: '00', lines: [], discount: 0, charge: 0, notes: '', open: { cust: true, det: true, pay: true, notes: false, hist: false } };
+    if (!customers) api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'appt-new') paintPanel(); }).catch(() => { customers = []; });
+    if (!apptData) api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; }).catch(() => {});
+    const svcs = (ordering.booking && ordering.booking.services) || [], people = peopleList(), rate = Number(ordering.taxRate) || 0;
+    const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
+    const sub = d.services.reduce((a, s) => a + cents(s.price), 0) + d.lines.reduce((a, l) => a + l.price * l.qty, 0);
+    const tax = Math.round((Math.max(0, sub - d.discount) * rate) / 100), total = Math.max(0, sub - d.discount + d.charge + tax);
+    const totalEl = h('b', {}, `Total: ${money(total)}`), save = h('button', { type: 'button', class: 'btn cl-dark' }, 'Save');
+    const ready = () => (d.customer || (d.newCust && (d.nc.first || d.nc.last))) && d.services.some((s) => s.svc) && d.date && d.time;
+    const refresh = () => { save.disabled = !ready(); };
+    const sec = (key, title, kids) => h('div', { class: 'scard cl-sec' }, h('div', { class: 'cl-sech' }, h('h2', {}, title), h('button', { type: 'button', class: 'cl-tog', 'aria-expanded': String(d.open[key]), 'aria-label': d.open[key] ? 'Collapse' : 'Expand', onclick: () => { d.open[key] = !d.open[key]; paintPanel(); } }, h('i', { class: `chv ${d.open[key] ? 'u' : 'dn'}` }))), d.open[key] && h('div', { class: 'cl-secb' }, kids));
+    const custBox = (() => {
+      if (d.customer) return h('div', { class: 'vt-picked' }, h('div', {}, h('b', {}, d.customer.name), h('div', { class: 'small muted' }, [d.customer.email, d.customer.phone].filter(Boolean).join(' · '))), h('button', { type: 'button', class: 'btn text sm', onclick: () => { d.customer = null; paintPanel(); } }, 'Change'));
+      if (d.newCust) return h('div', { class: 'cl-grid2' }, ...[['first', 'First name'], ['last', 'Last name'], ['email', 'Email address'], ['phone', 'Phone number']].map(([k, l]) => h('label', { class: 'field' }, h('span', {}, l), h('input', { value: d.nc[k], oninput: (e) => { d.nc[k] = e.target.value; refresh(); } }))));
+      const res = h('div', { class: 'ns-hits' });
+      const find = () => { const q = d.q.toLowerCase(); res.replaceChildren(...(q ? (customers || []).filter((c) => `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q)).slice(0, 6) : []).map((c) => h('button', { type: 'button', onclick: () => { d.customer = c; d.q = ''; paintPanel(); } }, h('span', {}, c.name), h('small', {}, c.email || c.phone || '')))); };
+      setTimeout(find);
+      return h('div', {}, h('label', { class: 'cl-lab' }, 'Select customer*'), h('label', { class: 'tsearch cl-csearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search by email, phone or name', value: d.q, oninput: (e) => { d.q = e.target.value; find(); } })), res);
+    })();
+    const svcCard = (s, i) => h('div', { class: 'cl-svc' },
+      h('label', { class: 'field' }, h('span', {}, 'Service'), h('select', { onchange: (e) => { s.svc = e.target.value; const m = svcs.find((x) => x.name === s.svc); if (m && !s.price) s.price = ((m.price || 0) / 100).toFixed(2); paintPanel(); } }, h('option', { value: '' }, svcs.length ? 'Choose a service' : 'No services yet'), svcs.map((x) => h('option', { value: x.name, selected: s.svc === x.name }, `${x.name}${x.minutes ? ` · ${x.minutes} min` : ''}`)))),
+      h('label', { class: 'field' }, h('span', {}, 'Price'), h('div', { class: 'ns-price cl-pr' }, h('span', {}, '$'), h('input', { inputmode: 'decimal', value: s.price || '0', onchange: (e) => { s.price = e.target.value; paintPanel(); } }))),
+      h('label', { class: 'field' }, h('span', {}, 'Employee'), h('select', { onchange: (e) => { s.employee = e.target.value; } }, h('option', { value: '' }, 'Any available'), people.map((p) => h('option', { value: p, selected: s.employee === p }, p)))),
+      d.services.length > 1 && h('button', { type: 'button', class: 'btn text sm', style: 'color:var(--red);justify-self:start', onclick: () => { d.services.splice(i, 1); paintPanel(); } }, 'Remove service'));
+    const findAvail = () => { const t0 = new Date(); for (let k = 0; k < 14 * 48; k++) { const dt = new Date(Math.ceil(t0.getTime() / 1800000) * 1800000 + k * 1800000); const ds = isoDay(dt), x = ordering.hours && ordering.hours[dt.getDay()], m = dt.getHours() * 60 + dt.getMinutes(); if (!x || x.closed) continue; const [oh, om] = x.open.split(':').map(Number), [ch, cm] = x.close.split(':').map(Number); if (m >= oh * 60 + om && m < ch * 60 + cm && !(apptData?.appointments || []).some((a) => a.at === `${ds}T${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`)) { d.date = ds; d.time = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`; return paintPanel(); } } toast('No open times in the next two weeks. Set your business hours first.', true); };
+    const addInv = (btn) => popover(btn, (close) => { const list = h('div', { class: 'ns-hits' }); const draw = (q = '') => list.replaceChildren(...menu.filter((x) => !q || x.name.toLowerCase().includes(q)).slice(0, 12).map((x) => h('button', { type: 'button', onclick: () => { d.lines.push({ name: x.name, price: itemPrice(x), qty: 1 }); close(); paintPanel(); } }, h('span', {}, x.name), h('b', {}, money(itemPrice(x)))))); draw(); return h('div', { class: 'cl-menu' }, h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', oninput: (e) => draw(e.target.value.trim().toLowerCase()) })), list); }, 'left');
+    const hist = d.customer ? (apptData?.appointments || []).filter((a) => (d.customer.email && a.email === d.customer.email) || a.name === d.customer.name) : [];
+    save.onclick = async () => {
+      if (!ready()) return; save.disabled = true;
+      try {
+        const c = d.customer || { name: `${d.nc.first} ${d.nc.last}`.trim(), email: d.nc.email, phone: d.nc.phone };
+        if (!d.customer) await api('POST', `/api/sites/${id}/contacts`, { name: c.name, email: c.email, phone: c.phone });
+        const names = d.services.filter((s) => s.svc).map((s) => s.svc), minutes = d.services.reduce((a, s) => a + ((svcs.find((x) => x.name === s.svc) || {}).minutes || 0), 0) + Number(d.xh) * 60 + Number(d.xm);
+        await api('POST', `/api/sites/${id}/appointments`, { serviceName: names.join(', '), date: d.date, time: d.time, name: c.name, email: c.email || '', phone: c.phone || '', party: 1, notes: d.notes, employee: (d.services.find((s) => s.employee) || {}).employee || '', minutes, total });
+        apptData = null; clState.apptDraft = null; customers = null; toast('Appointment created'); goTab('calendar');
+      } catch (e) { toast(e.message, true); save.disabled = false; }
+    };
+    refresh();
+    return [h('div', { class: 'cl cl-form' }, h('button', { type: 'button', class: 'cl-back', onclick: () => goTab('calendar') }, h('span', { html: SVG.back }), 'Calendar'), h('h1', { class: 'cl-ftitle' }, 'Create appointment'),
+      !svcs.length && h('div', { class: 'cl-banner bad' }, h('span', { class: 'cl-bi', html: SVG.warn }), h('div', { class: 'grow' }, h('b', {}, 'Services are required for an appointment'), h('p', {}, 'You have no services. ', h('button', { type: 'button', class: 'cl-link', onclick: () => goTab('booking') }, 'Add at least one bookable service'), ' in order to create an appointment.'))),
+      sec('cust', 'Customer information', [h('div', { class: 'cl-req' }, h('b', {}, '* Required:'), h('button', { type: 'button', class: 'cl-link u', onclick: () => { d.newCust = !d.newCust; d.customer = null; paintPanel(); } }, d.newCust ? 'Select an existing customer' : '+ Add new customer')), custBox]),
+      sec('det', 'Appointment details', [h('p', { class: 'cl-small' }, '*Required'), h('b', { class: 'cl-k' }, 'Services*'), ...d.services.map(svcCard), h('button', { type: 'button', class: 'btn soft cl-pillbtn', onclick: () => { d.services.push({ svc: '', price: '', employee: '' }); paintPanel(); } }, 'Add another service'), h('hr'),
+        h('div', { class: 'cl-req' }, h('b', { class: 'cl-k' }, 'Date and time*'), h('button', { type: 'button', class: 'cl-link', onclick: findAvail }, 'Find availability')),
+        h('div', { class: 'cl-grid2' }, h('label', { class: 'field' }, h('span', {}, 'Date* (mm/dd/yyyy)'), h('input', { type: 'date', value: d.date, onchange: (e) => { d.date = e.target.value; refresh(); } })), h('label', { class: 'field' }, h('span', {}, 'Time* HH:MM AM/PM'), h('input', { type: 'time', value: d.time, onchange: (e) => { d.time = e.target.value; refresh(); } }))), h('hr'),
+        h('b', { class: 'cl-k' }, 'Extra time (optional)'), h('p', { class: 'cl-small' }, 'Add additional time to the end of an appointment.'),
+        h('div', { class: 'cl-grid2' }, h('label', { class: 'field' }, h('span', {}, 'Hours'), h('select', { onchange: (e) => { d.xh = e.target.value; } }, Array.from({ length: 9 }, (_, i) => String(i).padStart(2, '0')).map((v) => h('option', { selected: d.xh === v }, v)))), h('label', { class: 'field' }, h('span', {}, 'Minutes'), h('select', { onchange: (e) => { d.xm = e.target.value; } }, ['00', '15', '30', '45'].map((v) => h('option', { selected: d.xm === v }, v))))), h('hr'),
+        ...d.lines.map((l, i) => h('div', { class: 'ns-row' }, h('div', { class: 'ns-name' }, h('b', {}, l.name)), h('div', { class: 'ns-qty' }, h('button', { type: 'button', class: 'icon-btn sm', onclick: () => { l.qty--; if (l.qty < 1) d.lines.splice(i, 1); paintPanel(); } }, ic('minus', 16)), h('span', {}, String(l.qty)), h('button', { type: 'button', class: 'icon-btn sm', onclick: () => { l.qty++; paintPanel(); } }, ic('plus', 16))), h('b', { class: 'ns-amt' }, money(l.price * l.qty)), h('button', { type: 'button', class: 'icon-btn sm', onclick: () => { d.lines.splice(i, 1); paintPanel(); } }, ic('x', 16)))),
+        h('div', { class: 'cl-req' }, (() => { const b = h('button', { type: 'button', class: 'btn soft cl-pillbtn', onclick: () => addInv(b) }, 'Add inventory item'); return b; })(), h('button', { type: 'button', class: 'cl-link plain', onclick: async () => { const v = await ask({ title: 'Add custom item', label: 'Item name', value: '' }); if (!v) return; const p = await ask({ title: v, label: 'Price', type: 'text', value: '' }); const c = parsePrice(p || ''); if (!c) return; d.lines.push({ name: v, price: c, qty: 1 }); paintPanel(); } }, h('span', { html: SVG.plusc }), 'Add custom item')), h('hr'),
+        h('div', { class: 'cl-tot' }, h('div', {}, h('span', {}, 'Subtotal'), h('b', {}, money(sub))), h('div', {}, h('button', { type: 'button', class: 'cl-link u', onclick: async () => { const v = await ask({ title: 'Order discount', label: 'Amount off', value: d.discount ? (d.discount / 100).toFixed(2) : '' }); if (v !== null) { d.discount = cents(v); paintPanel(); } } }, 'Order discount'), h('b', { class: 'neg' }, `-${money(d.discount)}`)), h('div', {}, h('button', { type: 'button', class: 'cl-link u', onclick: async () => { const v = await ask({ title: 'Service charge', label: 'Amount', value: d.charge ? (d.charge / 100).toFixed(2) : '' }); if (v !== null) { d.charge = cents(v); paintPanel(); } } }, 'Service charge'), h('b', {}, money(d.charge))), h('div', {}, h('span', {}, 'Taxes and fees'), h('b', {}, money(tax))))]),
+      sec('pay', 'Payment information', [h('p', {}, d.customer || d.newCust ? 'Payment is taken when the appointment is completed.' : 'Select an existing customer or add a new customer to add payment information.')]),
+      sec('notes', 'Notes', [h('label', { class: 'field' }, h('span', {}, 'Notes'), h('textarea', { rows: 4, maxlength: 200, placeholder: 'Add information about the customer or appointment.', value: d.notes, oninput: (e) => { d.notes = e.target.value; e.target.parentElement.nextSibling.textContent = `${d.notes.length}/200 characters`; } })), h('small', { class: 'cl-small' }, `${d.notes.length}/200 characters`)]),
+      sec('hist', 'Appointment History', [hist.length ? h('div', { class: 'cl-lines' }, hist.map((a) => h('div', {}, h('span', {}, `${fmtD(a.at.slice(0, 10))} · ${a.service}`), h('b', {}, a.status)))) : h('p', {}, 'There is no appointment history.')]),
+      h('div', { class: 'cl-bar' }, totalEl, h('span', { class: 'grow' }), h('button', { type: 'button', class: 'btn soft', onclick: () => { clState.apptDraft = null; goTab('calendar'); } }, 'Cancel'), save))];
+  };
+  /* ---------- Employees ---------- */
+  const needTeam = () => { if (!team) { team = { loading: true }; api('GET', `/api/sites/${id}/team`).then((r) => { team = r; if (CL[tab]) paintPanel(); }).catch(() => { team = { members: [], owner: { email: state.user.email, name: state.user.name } }; if (CL[tab]) paintPanel(); }); } return team.loading ? null : team; };
+  const ROLE_NAME = { owner: 'Owner', manager: 'Manager', kitchen: 'Employee' };
+  CL.team = () => {
+    const tm = needTeam(); if (!tm) return loadingPage('Employees');
+    const people = [{ id: '', name: tm.owner.name, email: tm.owner.email, role: 'owner', active: 1, details: {} }, ...tm.members];
+    const q = clState.empQ.trim().toLowerCase();
+    const rows = people.filter((p) => (!q || `${p.name} ${p.email} ${p.details?.nickname || ''}`.toLowerCase().includes(q)) && (clState.empRole === 'All' || ROLE_NAME[p.role] === clState.empRole) && (clState.empStatus === 'All' || (p.active ? 'Claimed' : 'Invited') === clState.empStatus))
+      .map((p) => ({ n: h('div', {}, h('button', { type: 'button', class: 'cl-name', onclick: () => { if (p.role === 'owner') return goTab('profile'); clState.empEdit = p.id; goTab('emp-new'); } }, p.name || p.email.split('@')[0]), h('div', { class: 'small muted' }, p.details?.nickname || p.email)), j: '- -', r: pill(ROLE_NAME[p.role] || p.role, 'info'), s: pill(p.active ? 'Claimed' : 'Invited', p.active ? 'ok' : 'wait'), v: h('button', { type: 'button', class: 'cl-link dark', onclick: () => goTab('r-emp') }, 'View report'), _n: p.name || p.email }));
+    const nF = (clState.empRole !== 'All') + (clState.empStatus !== 'All');
+    return [h('div', { class: 'cl' }, cHead(null, 'Employees', [moreBtn([['Export employee list', () => saveSheetFile(`${meta.slug}-employees`, [['Name', 'Email', 'Role', 'Status'], ...people.map((p) => [p.name, p.email, ROLE_NAME[p.role], p.active ? 'Claimed' : 'Invited'])], 'csv')]])]),
+      h('div', { class: 'tbar' }, cSearch('Search employee', clState.empQ, (v) => { clState.empQ = v; }), cFilters(() => rPanel('Filters', () => { let r = clState.empRole, s = clState.empStatus; return { el: h('div', {}, rpRadios('Role', ['All', 'Owner', 'Manager', 'Employee'], r, (v) => { r = v; }), rpRadios('Status', ['All', 'Claimed', 'Invited'], s, (v) => { s = v; })), apply: () => { clState.empRole = r; clState.empStatus = s; } }; }), nF),
+        h('button', { type: 'button', class: 'btn cl-green', onclick: () => { clState.empEdit = ''; goTab('emp-new'); } }, ic('plus', 18), 'Add employee')),
+      cTable('team', [{ k: 'n', l: 'Name', sort: (r) => r._n }, { k: 'j', l: 'Jobs' }, { k: 'r', l: 'Role' }, { k: 's', l: 'Status' }, { k: 'v', l: '' }], rows, cEmpty('No employees match', '')))];
+  };
+  CL['emp-new'] = () => {
+    const tm = needTeam(); if (!tm) return loadingPage('New employee');
+    const ex = clState.empEdit ? tm.members.find((m) => m.id === clState.empEdit) : null;
+    const dt = ex ? ex.details || {} : {};
+    const v = { name: ex ? ex.name : '', nickname: dt.nickname || '', phone: dt.phone || '', email: ex ? ex.email : '', role: ex ? ex.role : 'kitchen', payType: dt.payType || 'hourly', rate: dt.rate ? (dt.rate / 100).toFixed(2) : '', customId: dt.customId || '', passcode: dt.passcode || '' };
+    const f = (label, el, note) => h('label', { class: 'field cl-field' }, h('span', {}, label), el, note && h('small', {}, note));
+    const inp = (k, a = {}) => h('input', { value: v[k], oninput: (e) => { v[k] = e.target.value; if (k === 'passcode') drawRules(); }, ...a });
+    const rules = h('div', { class: 'cl-rules' });
+    const bad = () => { const p = v.passcode; return { len: p && !/^\d{4}$/.test(p), pat: p && (/^(\d)\1{3}$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p)) }; };
+    const drawRules = () => { const b = bad(), p = v.passcode; rules.replaceChildren(...(p ? [h('div', { class: b.len ? 'no' : 'ok' }, b.len ? '✕' : '✓', ' Must be 4 digits long'), h('div', { class: b.pat ? 'no' : 'ok' }, b.pat ? '✕' : '✓', ' No sequential or repeating patterns (e.g., 1111, 1234, 5678)')] : [])); pass.classList.toggle('bad', !!(b.len || b.pat)); };
+    const pass = h('input', { type: 'password', inputmode: 'numeric', maxlength: 4, value: v.passcode, oninput: (e) => { v.passcode = e.target.value.replace(/\D/g, ''); e.target.value = v.passcode; drawRules(); } });
+    const eye = h('button', { type: 'button', class: 'cl-eye', 'aria-label': 'Show passcode', html: SVG.eye, onclick: () => { pass.type = pass.type === 'password' ? 'text' : 'password'; } });
+    setTimeout(drawRules);
+    const randomPass = () => { for (;;) { const p = String(Math.floor(1000 + Math.random() * 9000)); if (!/^(\d)\1{3}$/.test(p) && !'0123456789'.includes(p) && !'9876543210'.includes(p)) return p; } };
+    const save = async (btn) => {
+      if (!v.name.trim()) return toast('Enter the full name.', true);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email.trim())) return toast('Enter an email address so they can sign in.', true);
+      const b = bad(); if (b.len || b.pat) return toast('Fix the device passcode first.', true);
+      btn.disabled = true;
+      try {
+        const r = await api('POST', `/api/sites/${id}/team`, { name: v.name, email: v.email, role: v.role, details: { nickname: v.nickname, phone: v.phone, payType: v.payType, rate: parsePrice(v.rate || '0') || 0, customId: v.customId, passcode: v.passcode || randomPass() } });
+        team = null; toast(ex ? 'Employee saved' : 'Employee added'); goTab('team');
+        if (r.link) sheet((close) => [h('h2', {}, 'Login created'), h('p', { class: 'muted' }, `Send this link to ${v.email} so they can choose a password. It works once and lasts 3 days.`), h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, r.link), h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
+      } catch (e) { toast(e.message, true); btn.disabled = false; }
+    };
+    const saveBtn = h('button', { type: 'button', class: 'btn cl-green' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
+    return [h('div', { class: 'cl cl-form' }, h('button', { type: 'button', class: 'cl-back', onclick: () => goTab('team') }, h('span', { html: SVG.back }), 'Employees'), h('h1', { class: 'cl-ftitle' }, ex ? 'Edit employee' : 'New employee'),
+      h('div', { class: 'scard cl-sec cl-emp' }, h('h2', {}, 'Employee details'), h('p', { class: 'cl-req0' }, '*Indicates a required field'),
+        h('h3', {}, 'Personal'), f('Full name*', inp('name', { maxlength: 80 })), f('Nickname', inp('nickname', { maxlength: 60 }), 'Nickname appears wherever the employee is listed. For example, on receipts.'),
+        h('div', { class: 'cl-phone' }, f('Country code', h('select', { disabled: true }, h('option', {}, '🇺🇸  +1'))), f('Phone number', inp('phone', { type: 'tel', placeholder: '201 555 0123', maxlength: 40 }))),
+        f('Email address', inp('email', { type: 'email', disabled: !!ex }), 'Email address is required to give the employee access to the dashboard.'),
+        f('Role*', h('select', { onchange: (e) => { v.role = e.target.value; } }, [['kitchen', 'Employee'], ['manager', 'Manager']].map(([k, l]) => h('option', { value: k, selected: v.role === k }, l))), 'Roles allow you to control employee permissions.'),
+        h('h3', {}, 'Jobs and wages'), h('h4', {}, 'Jobs'), h('p', { class: 'cl-small' }, 'No jobs created yet.'), h('h4', {}, 'Wages'),
+        f('Default pay type', h('select', { onchange: (e) => { v.payType = e.target.value; paintPanel(); } }, [['hourly', 'Hourly'], ['salary', 'Salary']].map(([k, l]) => h('option', { value: k, selected: v.payType === k }, l)))),
+        f(v.payType === 'salary' ? 'Default annual salary' : 'Default hourly rate', inp('rate', { inputmode: 'decimal' })),
+        h('h3', {}, 'Security'), f('Custom ID', inp('customId', { maxlength: 40 }), 'Custom IDs allow you to group employees by their location or their function.'),
+        h('label', { class: 'field cl-field' }, h('span', {}, 'Device passcode (4 digits)'), h('div', { class: 'cl-passw' }, pass, eye), h('small', {}, 'If you do not enter a passcode, one will be assigned.'), rules),
+        h('div', { class: 'cl-formf' }, h('button', { type: 'button', class: 'btn soft', onclick: () => goTab('team') }, 'Cancel'), saveBtn)))];
+  };
+  CL.timesheets = () => {
+    if (!clockData) { api('GET', `/api/sites/${id}/timeclock`).then((r) => { clockData = r; if (tab === 'timesheets') paintPanel(); }).catch(() => { clockData = { entries: [] }; if (tab === 'timesheets') paintPanel(); }); return loadingPage('Timesheets'); }
+    if (!clState.tsDay) clState.tsDay = isoDay(new Date());
+    const tm = isOwner ? needTeam() : null, rateOf = (n) => { const m = tm && tm.members ? tm.members.find((x) => x.name === n) : null; return m && m.details && m.details.payType !== 'salary' ? m.details.rate || 0 : 0; };
+    const hrs = (x) => ((x.outAt || Date.now()) - x.inAt) / 3600000;
+    const q = clState.tsQ.trim().toLowerCase();
+    const day = clState.tsDay, wd = (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7, ps = addDays(day, -wd - (Math.floor((Date.parse(`${day}T12:00:00Z`) / 86400000 + 3) / 7) % 2) * 7), pe = addDays(ps, 13);
+    const list = clockData.entries.filter((x) => (!q || x.name.toLowerCase().includes(q)) && (clState.tsView === 'all' || !x.outAt) && (clState.tsMode === 'day' ? dayOfMs(x.inAt) === day : dayOfMs(x.inAt) >= ps && dayOfMs(x.inAt) <= pe));
+    const step = (n) => { clState.tsDay = addDays(day, n * (clState.tsMode === 'day' ? 1 : 14)); paintPanel(); };
+    const dbtn = h('button', { type: 'button', class: 'cl-sel cl-tsdate', onclick: () => popover(dbtn, (close) => h('div', { class: 'dpop one' }, monthPicker(day.slice(0, 7), (dd) => { clState.tsDay = dd; close(); paintPanel(); }, () => ({ from: day, to: day }))), 'left') }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', { class: 'grow' }, clState.tsMode === 'day' ? longDay(day, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }) : `${longDay(ps, { month: 'short', day: 'numeric' })} – ${longDay(pe, { month: 'short', day: 'numeric', year: 'numeric' })}`));
+    const local = (ms) => { if (!ms) return ''; const d = new Date(ms); return `${isoDay(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const when = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const editRow = (x) => { const nm = h('input', { value: x ? x.name : '', placeholder: 'Name', 'aria-label': 'Name', maxlength: 80 }), i1 = h('input', { type: 'datetime-local', value: local(x ? x.inAt : Date.parse(`${day}T09:00`)), 'aria-label': 'Clocked in' }), o1 = h('input', { type: 'datetime-local', value: local(x ? x.outAt : Date.parse(`${day}T17:00`)), 'aria-label': 'Clocked out' });
+      const save = async () => { try { const body = { name: nm.value, inAt: Date.parse(i1.value), outAt: o1.value ? Date.parse(o1.value) : null }; clockData = x ? await api('PUT', `/api/sites/${id}/timeclock/${x.id}`, body) : await api('POST', `/api/sites/${id}/timeclock/entries`, body); tsEdit = ''; tsAdding = false; toast('Saved'); paintPanel(); } catch (e) { toast(e.message, true); } };
+      return h('tr', { class: 'inline-tr' }, h('td', {}, nm), h('td', {}, i1), h('td', {}, o1), h('td', {}, ''), h('td', { style: 'text-align:right;white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: () => { tsEdit = ''; tsAdding = false; paintPanel(); } }, 'Cancel'), ' ', h('button', { class: 'btn sm', onclick: save }, 'Save'))); };
+    let content;
+    if (clState.tsMode === 'pay') {
+      const per = new Map(); for (const x of list) { const r = per.get(x.name) || per.set(x.name, { h: 0, n: 0 }).get(x.name); r.h += hrs(x); r.n++; }
+      content = cTable('ts-pay', [{ k: 'n', l: 'Team member' }, { k: 'e', l: 'Time cards', r: 1 }, { k: 'h', l: 'Hours', r: 1 }, { k: 'p', l: 'Estimated pay', r: 1 }], [...per].map(([n, r]) => ({ n: h('b', {}, n), e: String(r.n), h: r.h.toFixed(2), p: rateOf(n) ? money(Math.round(r.h * rateOf(n))) : '—' })), cEmpty('No time cards this pay period', ''));
+    } else if (!list.length && !tsAdding) {
+      content = h('div', { class: 'cl-tsempty' }, clArt('stars'), h('b', {}, 'Your team’s day, at a glance'), h('p', {}, 'When your team clocks in, their time cards will show here.'), h('button', { type: 'button', class: 'btn cl-dark', onclick: () => { tsAdding = true; paintPanel(); } }, 'Add a time card'));
+    } else {
+      content = h('div', {}, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Team member', 'Clocked in', 'Clocked out', 'Hours', ''].map((x) => h('th', {}, x)))),
+        h('tbody', {}, tsAdding && editRow(null), list.map((x) => (tsEdit === x.id ? editRow(x) : h('tr', {}, h('td', {}, h('b', {}, x.name)), h('td', {}, when(x.inAt)), h('td', {}, x.outAt ? when(x.outAt) : pill('Working now', 'ok')), h('td', {}, hrs(x).toFixed(2)),
+          h('td', { style: 'text-align:right;white-space:nowrap' }, h('button', { class: 'btn text sm', onclick: () => { tsEdit = x.id; tsAdding = false; paintPanel(); } }, 'Edit'), h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Delete this time card?', text: `${x.name}, ${when(x.inAt)}`, action: 'Delete', danger: true })) return; try { clockData = await api('DELETE', `/api/sites/${id}/timeclock/${x.id}`); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Delete')))))))),
+        h('div', { class: 'cl-tsadd' }, h('button', { type: 'button', class: 'btn soft sm', onclick: () => { tsAdding = true; tsEdit = ''; paintPanel(); } }, ic('plus', 16), 'Add a time card')));
+    }
+    return [h('div', { class: 'cl cl-ts' }, h('div', { class: 'cl-tshead' }, h('h1', {}, 'Timesheets'), h('div', { class: 'cl-dseg' }, [['day', 'Day'], ['pay', 'Pay period']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(clState.tsMode === k), onclick: () => { clState.tsMode = k; paintPanel(); } }, l)))),
+      h('div', { class: 'scard cl-tscard' }, h('div', { class: 'cl-tsbar' }, cSearch('Search team members', clState.tsQ, (vv) => { clState.tsQ = vv; }), h('div', { class: 'cl-tsnav' }, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Earlier', onclick: () => step(-1) }, chev('l')), dbtn, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Later', onclick: () => step(1) }, chev('r'))),
+        cDrop([['all', 'View: All time cards'], ['open', 'View: Clocked in now']], clState.tsView, (k) => { clState.tsView = k; paintPanel(); }, { cls: 'cl-plain' })),
+        h('div', { class: 'cl-tsf' }, cDrop([['all', 'Filters']], 'all', () => {}, { cls: 'cl-plain' })), h('div', { class: 'cl-tsbody' }, content)))];
+  };
+  CL.schedule = () => {
+    const sd = need('shifts', 'shifts'); if (!sd) return loadingPage('Scheduling');
+    if (apptData === null) api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; if (tab === 'schedule') paintPanel(); }).catch(() => {});
+    const today = sd.today;
+    if (!schedWeek) schedWeek = addDays(today, -((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7));
+    const days = Array.from({ length: 7 }, (_, i) => addDays(schedWeek, i));
+    const tm = isOwner ? needTeam() : null, rateOf = (n) => { const m = tm && tm.members ? tm.members.find((x) => x.name === n) : null; return m && m.details && m.details.payType !== 'salary' ? m.details.rate || 0 : 0; };
+    const hrs = (x) => { const m = (Number(x.finish.slice(0, 2)) * 60 + Number(x.finish.slice(3))) - (Number(x.start.slice(0, 2)) * 60 + Number(x.start.slice(3))); return (m <= 0 ? m + 1440 : m) / 60; };
+    const t12 = (t) => { const [hh, mm] = t.split(':').map(Number); return `${hh % 12 || 12}${mm ? `:${String(mm).padStart(2, '0')}` : ''}${hh < 12 ? 'a' : 'p'}`; };
+    const week = sd.shifts.filter((x) => days.includes(x.day));
+    const OPEN = 'Open shift';
+    let people = [...new Set([...sd.people, ...week.map((x) => x.name)].filter((n) => n !== OPEN))];
+    const q = clState.schedQ.trim().toLowerCase(); if (q) people = people.filter((n) => n.toLowerCase().includes(q));
+    people.sort((a, b) => (clState.schedSort === 'last' ? (a.split(' ').pop() || '').localeCompare(b.split(' ').pop() || '') : a.localeCompare(b)));
+    const reload2 = () => { forget('shifts'); paintPanel(); };
+    const cellPop = (cell, name, d, x) => popover(cell, (close) => {
+      const st2 = h('input', { type: 'time', value: x ? x.start : '09:00', 'aria-label': 'Starts' }), en = h('input', { type: 'time', value: x ? x.finish : '17:00', 'aria-label': 'Ends' }), note = h('input', { placeholder: 'Note', 'aria-label': 'Note', maxlength: 120, value: x ? x.note || '' : '' });
+      const save = async () => { try { if (x) await api('DELETE', `/api/sites/${id}/shifts/${x.id}`); await api('POST', `/api/sites/${id}/shifts`, { name, day: d, start: st2.value, finish: en.value, note: note.value }); close(); reload2(); } catch (e) { toast(e.message, true); } };
+      return h('div', { class: 'sh-pop' }, h('b', {}, `${name} · ${longDay(d, { weekday: 'short', month: 'short', day: 'numeric' })}`), h('div', { class: 'sh-times' }, st2, h('span', {}, 'to'), en), note,
+        h('div', { class: 'inline-acts' }, x && h('button', { type: 'button', class: 'btn text sm', style: 'color:var(--red);margin-right:auto', onclick: async () => { try { await api('DELETE', `/api/sites/${id}/shifts/${x.id}`); close(); reload2(); } catch (e) { toast(e.message, true); } } }, 'Remove'), h('button', { type: 'button', class: 'btn soft sm', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn sm', onclick: save }, x ? 'Save' : 'Add shift')));
+    }, 'left');
+    const cells = (name) => days.map((d) => { const xs = week.filter((x) => x.name === name && x.day === d); const c = h('div', { class: 'sh-cell', 'data-today': d === today ? '1' : null });
+      c.append(...xs.map((x) => h('button', { type: 'button', class: 'sh-chip', title: x.note || '', onclick: (e) => { e.stopPropagation(); cellPop(e.currentTarget, name, d, x); } }, `${t12(x.start)}–${t12(x.finish)}`)), h('button', { type: 'button', class: 'sh-add', 'aria-label': `Add a shift for ${name}`, onclick: (e) => cellPop(e.currentTarget, name, d, null) }, ic('plus', 14))); return c; });
+    const appts = (apptData && apptData.appointments) || [];
+    const evCount = (d) => appts.filter((a) => a.at.slice(0, 10) === d && a.status !== 'cancelled').length;
+    const openHrs = week.filter((x) => x.name === OPEN).reduce((a, x) => a + hrs(x), 0);
+    const rangeBtn = h('button', { type: 'button', class: 'cl-sel cl-tsdate', onclick: () => popover(rangeBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(schedWeek.slice(0, 7), (dd) => { schedWeek = addDays(dd, -((new Date(`${dd}T12:00:00Z`).getUTCDay() + 6) % 7)); close(); paintPanel(); }, () => ({ from: days[0], to: days[6] }))), 'left') }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', { class: 'grow' }, `${longDay(days[0], { month: 'short', day: 'numeric', year: 'numeric' })} - ${longDay(days[6], { month: 'short', day: 'numeric', year: 'numeric' })}`));
+    const fBtn = h('button', { type: 'button', class: 'cl-sel cl-fil', onclick: () => popover(fBtn, () => h('div', { class: 'cl-menu' }, [['events', 'Events'], ['open', 'Open shifts'], ['team', 'Team members']].map(([k, l]) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: clState.schedRows.has(k), onchange: (e) => { if (e.target.checked) clState.schedRows.add(k); else clState.schedRows.delete(k); paintPanel(); } }), h('span', {}, l)))), 'right') }, h('span', {}, `Filters (${clState.schedRows.size})`), caret());
+    const sortSel = cDrop([['first', 'First name'], ['last', 'Last name']], clState.schedSort, (k) => { clState.schedSort = k; paintPanel(); }, { cls: 'cl-small-sel' });
+    const total = (n) => { const hh = week.filter((x) => x.name === n).reduce((a, x) => a + hrs(x), 0); return `${hh.toFixed(2)} hrs / ${money(Math.round(hh * rateOf(n)))}`; };
+    return [h('div', { class: 'cl' }, cHead(null, 'Scheduling'),
+      h('div', { class: 'scard cl-sched' }, h('div', { class: 'cl-schbar' }, h('button', { type: 'button', class: 'btn soft sm cl-today', disabled: days.includes(today), onclick: () => { schedWeek = ''; paintPanel(); } }, 'Today'), rangeBtn, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous week', onclick: () => { schedWeek = addDays(schedWeek, -7); paintPanel(); } }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next week', onclick: () => { schedWeek = addDays(schedWeek, 7); paintPanel(); } }, chev('r')), h('span', { class: 'grow' }),
+        cDrop([['week', 'Week']], 'week', () => {}, { cls: 'cl-plain' }), fBtn, h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Schedule settings', title: 'Business hours', onclick: () => goTab('hours'), html: SVG.gear }), h('button', { type: 'button', class: 'btn soft sm cl-pub', disabled: true }, h('span', { html: SVG.upload }), 'Publish (0)')),
+        h('div', { class: 'sh-grid' },
+          h('div', { class: 'sh-row sh-headrow' }, h('div', { class: 'sh-who cl-whohead' }, h('span', { class: 'muted' }, 'View'), sortSel, clState.schedSearch ? h('input', { class: 'cl-schq', placeholder: 'Search', value: clState.schedQ, oninput: (e) => { clState.schedQ = e.target.value; paintPanel(); const el = panel.querySelector('.cl-schq'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } } }) : h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Search team members', onclick: () => { clState.schedSearch = true; paintPanel(); setTimeout(() => panel.querySelector('.cl-schq')?.focus()); } }, ic('search', 18))),
+            days.map((d) => h('div', { class: 'sh-dh2', 'data-today': d === today ? '1' : null }, h('span', {}, longDay(d, { weekday: 'short', day: 'numeric' }).replace(/(\w+)\s(\d+)/, '$1, $2'))))),
+          clState.schedRows.has('events') && h('div', { class: 'sh-row' }, h('div', { class: 'sh-who' }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', {}, `Events (${days.reduce((a, d) => a + evCount(d), 0)})`)), days.map((d) => h('div', { class: 'sh-cell sh-ev', 'data-today': d === today ? '1' : null }, evCount(d) > 0 && h('button', { type: 'button', class: 'sh-chip ev', onclick: () => { calDate = d; calView = 'day'; goTab('calendar'); } }, `${evCount(d)} appointment${evCount(d) === 1 ? '' : 's'}`)))),
+          clState.schedRows.has('open') && h('div', { class: 'sh-row' }, h('div', { class: 'sh-who' }, h('span', { class: 'cl-ic', html: SVG.half }), h('div', {}, h('span', {}, `Open shifts (${week.filter((x) => x.name === OPEN).length})`), h('small', { class: 'muted' }, `${openHrs.toFixed(2)} Hrs`))), cells(OPEN)),
+          clState.schedRows.has('team') && [h('div', { class: 'sh-sub' }, `Team members (${people.length}/${sd.people.length})`),
+            ...people.map((n) => h('div', { class: 'sh-row' }, h('div', { class: 'sh-who' }, h('i', { class: 'sh-av' }, n.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()), h('div', {}, h('b', {}, n), h('small', { class: 'muted' }, total(n)))), cells(n)))])))];
+  };
+
+  /* ---------- Customers ---------- */
+  CL.customers = () => {
+    if (!customers) { api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'customers') paintPanel(); }).catch((e) => { toast(e.message, true); customers = []; if (tab === 'customers') paintPanel(); }); return loadingPage('Customers'); }
+    const q = clState.custQ.trim().toLowerCase();
+    const show = { Everyone: () => true, Regulars: (c) => c.orders > 1, 'One order': (c) => c.orders <= 1, 'Has email': (c) => !!c.email, 'Has phone': (c) => !!c.phone }[clState.custShow];
+    const rows = customers.filter((c) => show(c) && (!q || `${c.name} ${c.email} ${c.phone} ${c.company || ''}`.toLowerCase().includes(q))).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 1000)
+      .map((c) => ({ n: c.name, e: c.email || '', p: c.phone || '', _n: c.name, onclick: () => { clState.custKey = c.email || c.name; goTab('cust-new'); } }));
+    return [h('div', { class: 'cl' }, cHead(null, 'Customers', [moreBtn([['Import customers (Excel or CSV)', importCustomers], ['Export customers', exportCustomers]])]),
+      h('div', { class: 'tbar' }, cSearch('Search', clState.custQ, (v) => { clState.custQ = v; }), cFilters(() => rPanel('Filters', () => { let s = clState.custShow; return { el: rpRadios('Show', ['Everyone', 'Regulars', 'One order', 'Has email', 'Has phone'], s, (v) => { s = v; }), apply: () => { clState.custShow = s; } }; }), clState.custShow !== 'Everyone' ? 1 : 0),
+        h('button', { type: 'button', class: 'btn cl-green', onclick: () => { clState.custKey = ''; goTab('cust-new'); } }, ic('plus', 18), 'Add customer')),
+      cTable('customers', [{ k: 'n', l: 'Name', sort: (r) => r._n }, { k: 'e', l: 'Email address' }, { k: 'p', l: 'Phone number' }], rows, cEmpty(customers.length ? 'Nobody matches that search' : 'No customers yet', '')))];
+  };
+  CL['cust-new'] = () => {
+    if (!customers) { api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'cust-new') paintPanel(); }).catch(() => { customers = []; }); return loadingPage('Add customer'); }
+    const ex = clState.custKey ? customers.find((c) => (c.email || c.name) === clState.custKey) : null;
+    const more = (() => { try { return JSON.parse(ex?.more || '{}'); } catch { return {}; } })();
+    const parts = (ex?.name || '').split(' ');
+    const v = clState.custDraft && clState.custDraft.key === clState.custKey ? clState.custDraft : (clState.custDraft = { key: clState.custKey, first: parts[0] || '', last: parts.slice(1).join(' '), company: ex?.company || '', emails: [ex?.email || '', ...(more.emails || [])], phones: [ex?.phone || '', ...(more.phones || [])], address: ex?.address || '', note: more.note || '' });
+    const f = (label, el) => h('label', { class: 'field cl-field' }, h('span', {}, label), el);
+    const inp = (get, set, a = {}) => h('input', { value: get(), oninput: (e) => set(e.target.value), ...a });
+    const save = async (btn) => {
+      const name = `${v.first} ${v.last}`.trim();
+      if (!name && !v.company.trim()) return toast('Add a name or a business name.', true);
+      btn.disabled = true;
+      try { await api('POST', `/api/sites/${id}/contacts`, { name, company: v.company, email: v.emails[0] || '', phone: v.phones[0] || '', address: v.address, more: { emails: v.emails.slice(1), phones: v.phones.slice(1), note: v.note } }); customers = null; bills = null; clState.custDraft = null; toast(ex ? 'Customer saved' : 'Customer added'); goTab('customers'); } catch (e) { toast(e.message, true); btn.disabled = false; }
+    };
+    const saveBtn = h('button', { type: 'button', class: 'btn cl-green' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
+    return [h('div', { class: 'cl cl-form cl-cust' }, h('button', { type: 'button', class: 'cl-back', onclick: () => { clState.custDraft = null; goTab('customers'); } }, h('span', { html: SVG.back }), 'Customers'), h('h1', { class: 'cl-ftitle' }, ex ? 'Edit customer' : 'Add customer'),
+      h('div', { class: 'cl-grid2' }, f('First name', inp(() => v.first, (x) => { v.first = x; }, { maxlength: 60 })), f('Last name', inp(() => v.last, (x) => { v.last = x; }, { maxlength: 60 }))),
+      f('Business name', inp(() => v.company, (x) => { v.company = x; }, { maxlength: 120 })), h('hr'),
+      ...v.emails.map((e, i) => h('div', { class: 'cl-multi' }, f(`Email address ${i + 1}`, inp(() => v.emails[i], (x) => { v.emails[i] = x; }, { type: 'email', maxlength: 200 })), i === v.emails.length - 1 && v.emails.length < 6 ? h('button', { type: 'button', class: 'cl-addc', 'aria-label': 'Add another email address', html: SVG.plusc, onclick: () => { v.emails.push(''); paintPanel(); } }) : h('span'))), h('hr'),
+      ...v.phones.map((p, i) => h('div', { class: 'cl-multi' }, f(`Phone number ${i + 1}`, h('div', { class: 'cl-phonein' }, h('span', { html: SVG.phone }), inp(() => v.phones[i], (x) => { v.phones[i] = x; }, { type: 'tel', maxlength: 40 }))), i === v.phones.length - 1 && v.phones.length < 6 ? h('button', { type: 'button', class: 'cl-addc', 'aria-label': 'Add another phone number', html: SVG.plusc, onclick: () => { v.phones.push(''); paintPanel(); } }) : h('span'))), h('hr'),
+      f('Address', inp(() => v.address, (x) => { v.address = x; }, { maxlength: 300 })), h('hr'),
+      f('Note', h('textarea', { rows: 3, maxlength: 500, value: v.note, oninput: (e) => { v.note = e.target.value; } })),
+      h('div', { class: 'cl-bar' }, h('span', { class: 'grow' }), ex && h('button', { type: 'button', class: 'btn text', onclick: () => openInvoice(null, ex) }, 'Send invoice'), h('button', { type: 'button', class: 'btn soft', onclick: () => { clState.custDraft = null; goTab('customers'); } }, 'Cancel'), saveBtn))];
+  };
+  CL.promos = () => [h('div', { class: 'cl' }, !isOwner && h('div', { class: 'cl-banner warn' }, h('span', { class: 'cl-bi', html: SVG.tri }), h('div', { class: 'grow' }, h('b', {}, 'Account owner access is required'), h('p', {}, 'Only the account owner can change promotions. Please contact your account owner.'))),
+    h('div', { class: 'cl-center' }, clArt('person'), h('h1', { class: 'cl-big' }, 'Boost Sales with Targeted Customer Promotions'), h('p', { class: 'cl-lead' }, 'Create promo codes your customers can use when they order online.')), isOwner && PANELS.ordering('promos'))];
+  CL.inbox = () => {
+    const L = need('leads', 'leads'); if (!L) return loadingPage('Feedback');
+    const leads2 = L.leads || [];
+    const setBtn = h('button', { type: 'button', class: 'cl-fbset', onclick: () => popover(setBtn, (close) => h('div', { class: 'cl-menu' }, h('button', { type: 'button', onclick: () => { close(); goTab('alerts'); } }, h('span', {}, 'Manage notifications')), h('button', { type: 'button', onclick: () => { close(); goTab('devices'); } }, h('span', {}, 'Manage printing'))), 'right') }, h('span', { html: SVG.gear }), 'Settings', h('i', { class: 'cl-tri' }, '▾'));
+    const t12 = (ms) => new Date(ms).toLocaleString(undefined, isoDay(new Date(ms)) === isoDay(new Date()) ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return [h('div', { class: 'cl cl-fb' }, h('div', { class: 'cl-fbhead' }, h('span', { class: 'cl-fbic', html: SVG.heart }), h('b', {}, 'Feedback'), h('span', { class: 'grow' }), setBtn),
+      h('div', { class: 'cl-fbcount' }, h('b', {}, String(leads2.length)), h('div', {}, h('span', {}, 'Messages'), h('small', {}, `0 ♥  0 ♡`))),
+      h('div', { class: 'cl-fbtable' }, h('table', {}, h('thead', {}, h('tr', {}, ['Time', 'Customer', 'Mood', 'Message', 'Reply'].map((x) => h('th', {}, x)))),
+        h('tbody', {}, leads2.map((l) => h('tr', {}, h('td', {}, t12(l.createdAt)), h('td', { class: 'cl-fbname' }, l.name || l.email), h('td', { class: 'center' }, '—'), h('td', {}, l.message), h('td', {}, l.email && h('a', { href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply'))))))), !leads2.length && h('p', { class: 'muted', style: 'padding:18px 14px' }, 'No messages yet.'))];
+  };
+  CL.rewards = () => {
+    if (ordering.loyalty && ordering.loyalty.enabled) return PANELS.rewardsDash();
+    const act = h('button', { type: 'button', class: 'btn cl-dark', onclick: async () => { ordering.loyalty = { ...(ordering.loyalty || {}), enabled: true }; try { await putOrdering(); toast('Rewards are on'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Activate rewards');
+    const faq = [['How does the Rewards program benefit my business?', 'Regulars come back more often when every visit counts toward a reward, and they spend more when a reward is close.'], ['What kinds of rewards can I offer?', 'A percentage off or a fixed amount off their next order. You choose the amount and how many orders earn it.'], ['How many orders do rewards members need?', 'You decide, from 2 to 50 orders. The default is a reward every 10 orders.'], ['How do my customers join?', 'Automatically. Orders are counted by the customer’s email, and the reward code appears on their order page when they earn it.']];
+    const L = ordering.loyalty || { every: 10, type: 'percent', value: 5 };
+    return [h('div', { class: 'cl cl-promo' }, cHead(null, 'Rewards'), pill('Included in plan', 'outline'),
+      h('h2', { class: 'cl-ph' }, 'Drive repeat sales with Rewards'), h('p', { class: 'cl-pt' }, 'Get customers spending more, more often. Reward them automatically every time they order from your business.'), act,
+      h('h2', { class: 'cl-ph' }, 'Why rewards?'), h('div', { class: 'cl-figs cl-why' }, [['More frequent customers', '90%'], ['Increased customer spend', '60%'], ['More likely to recommend', '70%']].map(([l, v]) => h('div', { class: 'cl-fig' }, h('span', {}, l), h('b', { class: 'xl' }, v)))),
+      h('h2', { class: 'cl-ph' }, 'How it works'),
+      h('div', { class: 'cl-hiw' }, h('div', { class: 'cl-hiwl' }, h('div', { class: 'scard cl-hcard' }, h('div', { class: 'cl-howt' }, h('span', { html: ICO.hand }), h('b', {}, 'Simple sign-up')), h('p', {}, 'Activate rewards with a simple process that takes just a few minutes.')),
+        h('div', { class: 'scard cl-hcard cl-hart' }, clArt('stars')),
+        h('div', { class: 'scard cl-hcard' }, h('div', { class: 'cl-howt' }, h('span', { html: ICO.phone }), h('b', {}, 'Order more, earn rewards')), h('p', {}, 'Customers earn toward a reward every time they order from you. Progress is counted automatically.')),
+        h('div', { class: 'scard cl-hcard' }, h('div', { class: 'cl-howt' }, h('span', { html: ICO.phone }), h('b', {}, 'Easy to redeem')), h('p', {}, 'Customers use their reward code when they order with you.'))),
+        h('div', { class: 'cl-hiwr' }, h('div', { class: 'cl-demo' }, h('div', { class: 'cl-demo1' }, h('small', {}, 'You did it!'), h('b', {}, 'You’ve earned a reward'), h('small', {}, 'Don’t miss out—use your reward on your next order!')), h('div', { class: 'cl-demo2' }, h('div', {}, 'Claim my reward'), h('div', {}, 'No thanks')),
+          h('div', { class: 'cl-demo3' }, h('b', {}, L.type === 'percent' ? `${L.value}% off` : `${money(L.value)} off`), h('small', {}, `When you place ${L.every} orders`), h('i', {}, h('em', { style: `width:${Math.round(((L.every - 1) / L.every) * 100)}%` })), h('small', { class: 'r' }, `${L.every - 1}/${L.every}`))))),
+      h('h2', { class: 'cl-ph' }, 'Pricing'), h('p', { class: 'cl-pt' }, 'Rewards are included in your plan at no extra cost.'),
+      h('h2', { class: 'cl-ph' }, 'Rewards FAQs'), h('div', { class: 'cl-faq' }, faq.map(([qq, a]) => { const body = h('p', { hidden: true }, a); const b = h('button', { type: 'button', 'aria-expanded': 'false', onclick: () => { const o = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(o)); body.hidden = !o; } }, h('i', { class: 'chv d' }), h('b', {}, qq)); return h('div', { class: 'cl-faqi' }, b, body); })),
+      h('p', { class: 'cl-pt' }, 'Have additional questions? Visit our ', h('a', { href: '/contact', target: '_blank', rel: 'noopener' }, 'help center'), ' to learn more about rewards.'),
+      h('h2', { class: 'cl-ph' }, 'Ready to get started?'), h('p', { class: 'cl-pt' }, 'With a few clicks, your rewards program will be live and available for immediate use.'), (() => { const b = act.cloneNode(true); b.onclick = act.onclick; return b; })())];
+  };
+  CL.gift = () => {
+    if (giftData === null) { api('GET', `/api/sites/${id}/gift-cards`).then((r) => { giftData = r; if (tab === 'gift') paintPanel(); }).catch(() => { giftData = { cards: [] }; if (tab === 'gift') paintPanel(); }); return loadingPage('Gift cards'); }
+    if ((giftData.cards || []).length || clState.giftSetup) return PANELS.gift();
+    return [promoPage(null, 'Gift cards', pill('Included in plan', 'info'), 'Grow your business with gift cards', 'Sell gift cards online and in person. Set up digital cards in minutes and issue cards for your customers.', h('button', { type: 'button', class: 'btn cl-dark', onclick: () => { clState.giftSetup = true; paintPanel(); } }, 'Set up now'),
+      ['How it works', [[ICO.card, 'Offer digital and in-store cards', 'Give your customers the flexibility to buy digital cards online or in-store cards in person.'], [ICO.redeem, 'Easy redemptions', 'Customers can redeem gift cards at your store or on your website.'], [ICO.manage, 'Manage it all in one place', 'Issue new cards, check balances and view reports directly from your dashboard.']]], 'Gift cards are included in your plan at no extra cost.')];
+  };
+
+  /* ---------- Switch business, profile ---------- */
+  function switchBusiness() {
+    let pick = '';
+    sheet((close) => {
+      const list = h('div', { class: 'swb-list' }, skel(3, 'row')), go2 = h('button', { type: 'button', class: 'btn cl-dark', disabled: true, onclick: async () => { const s = (sitesData || []).find((x) => x.id === pick); if (!s) return; close(); await flush(); go(s.role === 'kitchen' ? `/app/site/${s.id}/kitchen` : `/app/site/${s.id}`); } }, 'Switch business');
+      let q = '';
+      const draw = () => list.replaceChildren(...(sitesData || []).filter((s) => !q || s.name.toLowerCase().includes(q)).map((s) => h('label', { class: 'swb-item' }, h('input', { type: 'radio', name: 'swb', checked: pick === s.id, disabled: s.id === id, onchange: () => { pick = s.id; go2.disabled = false; } }), h('b', {}, s.name.toUpperCase()), s.id === id && h('small', {}, 'Current'))));
+      if (sitesData) draw(); else api('GET', '/api/sites').then((r) => { sitesData = r.sites; draw(); }).catch((e) => toast(e.message, true));
+      return [h('div', { class: 'swb-h' }, h('h2', {}, 'Switch your business'), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        h('label', { class: 'tsearch swb-s' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search', oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } })), list,
+        h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'cl-link', style: 'margin-right:auto', onclick: async () => { close(); await flush(); go('/app/new'); } }, '+ Create another site'), h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), go2)];
+    }, 'swb');
+  }
+  CL.profile = () => {
+    const u = state.user, v = { name: u.name || '', phone: u.phone || '', email: u.email, pw: '', cur: '', next: '' };
+    const f = (label, el, note) => h('label', { class: 'field cl-field' }, h('span', {}, label), el, note && h('small', {}, note));
+    const inp = (k, a = {}) => h('input', { value: v[k], oninput: (e) => { v[k] = e.target.value; if (k === 'email') pwWrap.hidden = v.email.trim().toLowerCase() === u.email; }, ...a });
+    const pwWrap = f('Your password, to change your email', inp('pw', { type: 'password', autocomplete: 'current-password' })); pwWrap.hidden = true;
+    const save = async (btn) => {
+      btn.disabled = true;
+      try {
+        let user = (await api('PUT', '/api/me', { name: v.name, phone: v.phone })).user;
+        if (v.email.trim().toLowerCase() !== u.email) user = (await api('POST', '/api/me/email', { email: v.email, password: v.pw })).user;
+        if (v.next) { if (v.next.length < 8) throw new Error('The new password needs at least 8 characters.'); await api('POST', '/api/auth/password', { current: v.cur, next: v.next }); }
+        state.user = { ...state.user, ...user }; toast('Saved'); paintPanel();
+      } catch (e) { toast(e.message, true); btn.disabled = false; }
+    };
+    const twoFa = () => { const old = PANELS.profile(); const card = [...old[0].querySelectorAll('.prof-card')].find((c) => /Two-step/.test(c.textContent)); card?.querySelector('button')?.click(); };
+    const saveBtn = h('button', { type: 'button', class: 'btn cl-dark' }, 'Save'); saveBtn.onclick = () => save(saveBtn);
+    return [h('div', { class: 'cl cl-form' }, h('h1', { class: 'cl-ftitle' }, 'Profile'),
+      h('div', { class: 'scard cl-sec cl-emp' }, h('h3', {}, 'Personal'), f('Full name', inp('name', { maxlength: 80, autocomplete: 'name' })), f('Mobile number', inp('phone', { type: 'tel', maxlength: 40, autocomplete: 'tel' })), f('Email address', inp('email', { type: 'email', autocomplete: 'email' })), pwWrap,
+        h('h3', {}, 'Password'), h('div', { class: 'cl-grid2' }, f('Current password', inp('cur', { type: 'password', autocomplete: 'current-password' })), f('New password', inp('next', { type: 'password', autocomplete: 'new-password', minlength: 8 }))),
+        h('h3', {}, 'Two-step sign-in'), h('label', { class: 'switch' }, h('span', {}, u.twoFactor ? 'On' : 'Off'), h('input', { type: 'checkbox', checked: !!u.twoFactor, onchange: (e) => { e.target.checked = !!u.twoFactor; twoFa(); } }), h('i')),
+        h('div', { class: 'cl-formf' }, saveBtn)))];
+  };
+
   function paintPanel() {
     const y = panel.scrollTop;
     const cur = tabs.find(([k]) => k === tab) || tabs[0];
@@ -2300,7 +3062,7 @@ export async function editor(id, mount, title, startTab = '') {
     lastTab[mode] = cur[0];
     noteVisit(cur[0]);
     if (body.dataset.mode !== mode) { body.dataset.mode = mode; if (mode === 'office') body.dataset.view = 'edit'; paintTop(); requestAnimationFrame(fit); }
-    panel.classList.toggle('narrow', mode === 'office' && !WIDE.has(cur[0]));
+    panel.classList.toggle('narrow', mode === 'office' && !WIDE.has(cur[0]) && !CL[cur[0]]);
     const has = (k) => tabs.some(([t]) => t === k);
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
     const group = groups.find((g) => g.tabs.includes(cur[0])) || (SETUP.tabs.includes(cur[0]) ? { ...SETUP, tabs: SETUP.tabs.filter(has), subs: SETUP.subs.filter((_, i) => has(SETUP.tabs[i])) } : { label: cur[1], icon: cur[2], tabs: [cur[0]], subs: [cur[1]] });   // Settings and Profile are reached from the top right, not the sidebar
@@ -2317,7 +3079,7 @@ export async function editor(id, mount, title, startTab = '') {
       ];
     }).filter(Boolean),
       h('span', { class: 'grow' }),
-      mode === 'office' && h('div', { class: 'rail-tools' }, has('booking') && h('button', { class: 'nav-row', 'aria-current': cur[0] === 'booking' ? 'page' : null, onclick: () => goTab('booking') }, navTile('calendar', 30), h('b', {}, 'Booking tools'))),
+      mode === 'office' && h('div', { class: 'rail-tools' }, h('button', { class: 'nav-row', onclick: () => goTab(lastTab.site) }, navTile('address', 30), h('b', {}, 'Website')), has('booking') && h('button', { class: 'nav-row', 'aria-current': cur[0] === 'booking' ? 'page' : null, onclick: () => goTab('booking') }, navTile('calendar', 30), h('b', {}, 'Booking tools'))),
       mode === 'site' && railPub,
       h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].filter(Boolean));
     placeGlow(true);
@@ -2327,9 +3089,10 @@ export async function editor(id, mount, title, startTab = '') {
     subnav.hidden = group.tabs.length < 2;
     tabsEl.replaceChildren(h('b', {}, cur[1]));
     body.dataset.wide = String(mode === 'office');
-    panel.replaceChildren(...[crumbs(), HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
+    panel.replaceChildren(...[!CL[cur[0]] && crumbs(), !CL[cur[0]] && HEAD[cur[0]] && h('div', { class: 'inv-top page-head' }, h('div', {}, h('h2', {}, HEAD[cur[0]][0]))), CL[cur[0]] ? CL[cur[0]]() : cur[0] === 'start' ? startPanel() : cur[0] === 'est' ? PANELS.invoices('estimate') : cur[0] === 'bizinfo' ? PANELS.business() : cur[0] === 'calendar' ? PANELS.appts(true) : SALES_TABS[cur[0]] ? PANELS.sales(SALES_TABS[cur[0]]) : cur[0] === 'rewards' ? PANELS.rewardsDash() : SETUP_VIEWS[cur[0]] ? PANELS.ordering(cur[0]) : PANELS[cur[0]]()].flat(Infinity).filter(Boolean));
     panel.dataset.tab = cur[0];
-    if (REPORT_TABS.has(cur[0])) addReportTools(cur[0]);
+    if (cur[0] === 'appt-new' || cur[0] === 'cust-new') requestAnimationFrame(() => panel.style.setProperty('--cl-left', `${Math.round(panel.getBoundingClientRect().left)}px`));
+    if (REPORT_TABS.has(cur[0]) && !CL[cur[0]]) addReportTools(cur[0]);
     labelTables(panel);
     panel.scrollTop = y;
     const title2 = top.querySelector('.m-title b');
@@ -2548,7 +3311,6 @@ export async function editor(id, mount, title, startTab = '') {
       h('button', { class: 'tb-who', type: 'button', onclick: () => { close(); goTab('profile'); } }, tIcon('user', 22), h('span', {}, h('b', {}, state.user.name || state.user.email), h('small', {}, roleName))),
       h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('profile'); } }, 'Profile and sign-in'),
       h('button', { class: 'tb-item', type: 'button', onclick: () => { close(); goTab('settings'); } }, 'Settings'),
-      h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); go('/app'); } }, 'All my sites'),
       h('button', { class: 'tb-item', type: 'button', onclick: async () => { close(); await flush(); await api('POST', '/api/auth/logout'); state.user = null; go('/'); } }, 'Log out'),
     ]);
   }
@@ -2584,7 +3346,7 @@ export async function editor(id, mount, title, startTab = '') {
         results.replaceChildren(...(q ? (hits.length ? hits.map(([t, k, d]) => h('button', { type: 'button', class: 'ss-row', onclick: go3(k) }, h('b', {}, t))) : [h('p', { class: 'ss-none' }, 'No settings match that.')]) : []));
         freq.hidden = !!q; tasks.hidden = !!q; } });
       return [h('div', { class: 'ss-head' }, h('h2', {}, tIcon('gear', 24), 'Settings'), h('button', { class: 'ss-x', type: 'button', 'aria-label': 'Close', onclick: close }, tIcon('x', 20))),
-        h('div', { class: 'ss-body' }, h('label', { class: 'tsearch ss-search' }, ic('search', 18), search), results, tasks, taskList, freq),
+        h('div', { class: 'ss-body' }, tasks, taskList, freq),
         h('div', { class: 'ss-foot' }, h('button', { class: 'btn', type: 'button', onclick: go3('settings') }, 'View all settings'))];
     }, 'drawer ss');
   }
@@ -2612,8 +3374,8 @@ export async function editor(id, mount, title, startTab = '') {
           h('button', { type: 'button', class: 'rail-new mm-new', onclick: go4('sale') }, ic('plus', 18), 'New sale'),
           h('nav', { class: 'mm-nav', 'aria-label': 'Back office' }, groups.map(row)),
           h('hr', { class: 'mm-hr' }),
-          h('nav', { class: 'mm-nav' }, has('booking') && h('button', { type: 'button', class: 'mm-row', 'aria-current': tab === 'booking' ? 'page' : null, onclick: go4('booking') }, navIcon('calendar', 24), h('b', {}, 'Booking tools'))),
-          h('div', { class: 'mm-foot' }, h('small', {}, `© ${new Date().getFullYear()} Processor Freedom`), h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), h('a', { href: '/contact', target: '_blank', rel: 'noopener' }, 'Contact'), h('button', { type: 'button', class: 'mm-link', onclick: async () => { close(); await flush(); go('/app'); } }, 'All my sites')))];
+          h('nav', { class: 'mm-nav' }, h('button', { type: 'button', class: 'mm-row', onclick: () => { close(); goTab(lastTab.site); } }, navIcon('address', 24), h('b', {}, 'Website')), has('booking') && h('button', { type: 'button', class: 'mm-row', 'aria-current': tab === 'booking' ? 'page' : null, onclick: go4('booking') }, navIcon('calendar', 24), h('b', {}, 'Booking tools'))),
+          h('div', { class: 'mm-foot' }, h('small', {}, `© ${new Date().getFullYear()} Processor Freedom`), h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), h('a', { href: '/contact', target: '_blank', rel: 'noopener' }, 'Contact')))];
     }, 'mmenu');
   }
   const topRight = () => {
@@ -2658,7 +3420,7 @@ export async function editor(id, mount, title, startTab = '') {
     top.replaceChildren(...[
       modeOf(tab) === 'site' ? h('button', { class: 'icon-btn', title: 'Back to back office', 'aria-label': 'Back to back office', onclick: () => goTab(lastTab.office) }, ic('back')) : h('button', { class: 'icon-btn rail-tog', title: body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-label': body.dataset.rail === 'shut' ? 'Show menu' : 'Hide menu', 'aria-expanded': String(body.dataset.rail !== 'shut'), onclick: () => { if (matchMedia('(max-width:900px)').matches) return mobileMenu(); if (body.dataset.rail === 'shut') delete body.dataset.rail; else body.dataset.rail = 'shut'; try { localStorage.setItem('pf-rail', body.dataset.rail || ''); } catch { /* private mode */ } paintTop(); requestAnimationFrame(fit); } }, h('span', { class: 'tog-ic', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
       h('a', { class: 'tb-brand', href: pathFor('start'), title: 'Home', onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, h('img', { class: 'tb-logo', src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 })),
-      modeOf(tab) === 'office' && h('button', { class: 'tb-biz', type: 'button', title: 'My sites', onclick: () => goTab('sites') }, h('b', {}, meta.name), h('span', { class: 'swap', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>' })),
+      modeOf(tab) === 'office' && h('button', { class: 'tb-biz', type: 'button', title: 'Switch business', onclick: () => switchBusiness() }, h('b', {}, meta.name), h('span', { class: 'swap', 'aria-hidden': 'true', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>' })),
       h('span', { class: 'm-title' }, h('b', {}, body.dataset.view === 'preview' && modeOf(tab) === 'site' ? 'Preview' : (tabs.find(([k]) => k === tab) || [])[1] || ''), modeOf(tab) === 'office' && h('small', { class: 'm-biz' }, meta.name)),
       h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Which side to work on' }, Object.entries(MODES).map(([k, l]) => h('button', { 'aria-pressed': String(modeOf(tab) === k), title: k === 'office' ? 'Orders, menu, sales and settings' : 'How your website looks', onclick: () => { if (modeOf(tab) !== k) goTab(lastTab[k]); } }, ic(k === 'office' ? 'store' : 'brush', 15), h('span', {}, l)))),
       modeOf(tab) === 'site' && [h('button', { class: 'icon-btn', title: 'Undo', 'aria-label': 'Undo', disabled: at === 0 && JSON.stringify(draft) === history[0], onclick: () => travel(-1) }, ic('undo')), h('button', { class: 'icon-btn redo-btn', title: 'Redo', 'aria-label': 'Redo', disabled: at >= history.length - 1, onclick: () => travel(1) }, ic('redo')), h('span', { class: `status ${saveState === 'error' ? 'bad' : saveState === 'saved' ? 'ok' : ''}`, 'aria-live': 'polite' }, label)],

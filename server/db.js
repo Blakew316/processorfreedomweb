@@ -117,6 +117,10 @@ export function openDb(dataDir) {
     CREATE TABLE IF NOT EXISTS timeclock (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL, name TEXT NOT NULL, in_at INTEGER NOT NULL, out_at INTEGER);
     CREATE INDEX IF NOT EXISTS timeclock_site ON timeclock(site_id, in_at);
   `);
+  addColumn('appointments', 'employee', "TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'total', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('members', 'details', "TEXT NOT NULL DEFAULT '{}'");
+  addColumn('contacts', 'more', "TEXT NOT NULL DEFAULT '{}'");
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
