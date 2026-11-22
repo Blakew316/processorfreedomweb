@@ -3791,3 +3791,8 @@ html[data-theme=dark] .ss-step em{color:#9cc0ff}
 html[data-theme=dark] .rw-day i.e{background:#9cc0ff}
 .panel[data-tab=rewards] .scard:not(.hcard){padding:20px 24px!important}
 .panel[data-tab=discs] .group{margin-top:22px}
+.chv.u{transform:rotate(-135deg) translate(-2px,-2px)}.chv.dn{transform:rotate(45deg) translate(-2px,-2px)}
+.cat-add{grid-template-columns:minmax(0,1fr) auto!important}
+.cathead{gap:6px!important}.cathead .icon-btn:disabled{opacity:.3}
+/* Pop-overs never run off the edge of the window */
+.tb-pop{max-width:calc(100vw - 24px)}

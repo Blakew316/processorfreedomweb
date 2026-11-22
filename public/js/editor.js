@@ -550,9 +550,16 @@ export async function editor(id, mount, title, startTab = '') {
     },
 
     menu() {
-      const cats = [...new Set(menu.map((x) => x.category))];
+      const itemCats = [...new Set(menu.map((x) => x.category))], saved = ordering.cats.map((x) => x.name);
+      // Use the saved order once it lists every category; until then, item order with any empty categories after.
+      const cats = itemCats.every((c) => saved.includes(c)) ? [...new Set([...saved, ...itemCats])] : [...new Set([...itemCats, ...saved])];
       const metaOf = (c) => ordering.cats.find((x) => x.name === c);
-      const catHead = (c) => { const m = metaOf(c); return h('div', { class: 'cathead' }, h('b', {}, c), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
+      const move = async (c, by) => { const i = cats.indexOf(c), j = i + by; if (j < 0 || j >= cats.length) return; const order = [...cats]; [order[i], order[j]] = [order[j], order[i]];
+        try { menu = (await api('PUT', `/api/sites/${id}/menu-order`, { ids: order.flatMap((n) => menu.filter((x) => x.category === n).map((x) => x.id)) })).items; const known2 = new Map(ordering.cats.map((x) => [x.name, x])); ordering.cats = order.map((n) => known2.get(n) || { name: n, hidden: false, from: '', to: '' }); await putOrdering(); paintPanel(); paint(true); } catch (e) { toast(e.message, true); } };
+      const addTo = async (c) => { try { const before = new Set(menu.map((x) => x.id)); menu = (await api('POST', `/api/sites/${id}/menu`, { name: 'New item', price: 0, category: c })).items; paintPanel(); paint(true); openItem(menu.find((x) => !before.has(x.id))?.id); } catch (e) { toast(e.message, true); } };
+      const newCat = h('form', { class: 'inline-add cat-add', onsubmit: async (e) => { e.preventDefault(); const n = newCat.querySelector('input').value.trim(); if (!n) return; if (cats.includes(n)) return toast('That category already exists.', true); const known3 = new Map(ordering.cats.map((x) => [x.name, x])); ordering.cats = [...cats, n].map((m) => known3.get(m) || { name: m, hidden: false, from: '', to: '' }); try { await putOrdering(); paintPanel(); toast('Category added'); } catch (ex) { toast(ex.message, true); } } },
+        h('input', { placeholder: 'New category name', 'aria-label': 'New category name', maxlength: 60 }), h('div', { class: 'inline-acts' }, h('button', { class: 'btn' }, ic('plus', 16), 'Add category')));
+      const catHead = (c) => { const m = metaOf(c); return h('div', { class: 'cathead' }, h('b', {}, c), m?.hidden && h('span', { class: 'tag' }, 'Hidden'), m?.from && h('span', { class: 'tag' }, `${m.from} – ${m.to}`), h('span', { class: 'grow' }), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move up', 'aria-label': `Move ${c} up`, disabled: cats.indexOf(c) === 0, onclick: () => move(c, -1) }, chev('u')), h('button', { class: 'icon-btn sm', type: 'button', title: 'Move down', 'aria-label': `Move ${c} down`, disabled: cats.indexOf(c) === cats.length - 1, onclick: () => move(c, 1) }, chev('dn')), h('button', { class: 'btn soft sm', onclick: () => addTo(c) }, ic('plus', 14), 'Add item'), h('button', { class: 'btn text sm', onclick: () => editCategory(c, cats) }, 'Edit')); };
       let dragId = null;
       const dropOn = async (target) => {
         const moved = menu.find((x) => x.id === dragId);
@@ -567,6 +574,7 @@ export async function editor(id, mount, title, startTab = '') {
       };
       const stockText = (x) => (x.available === false ? 'Hidden' : x.stock === 0 ? 'Sold out' : `${x.stock} in stock`);
       return [
+        group('', newCat),
         ...cats.map((c) => group('', catHead(c), h('div', { class: 'slist' }, menu.filter((x) => x.category === c).map((x) => h('div', { class: `srow mrow ${x.available === false ? 'off' : ''}`, draggable: 'true', ondragstart: (e) => { dragId = x.id; e.dataTransfer.effectAllowed = 'move'; }, ondragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); }, ondragleave: (e) => e.currentTarget.classList.remove('over'), ondrop: (e) => { e.preventDefault(); dropOn(x); } },
           h('span', { class: 'grip', title: 'Drag to reorder' }, ic('grip', 16)),
           h('div', { class: 'pv', style: x.image ? `background-image:url("${x.image}")` : '' }),
@@ -2519,6 +2527,8 @@ export async function editor(id, mount, title, startTab = '') {
     el._close = close; el.append(...[build(close)].flat(Infinity).filter(Boolean));
     document.body.append(el); popEl = el; anchor.setAttribute('aria-expanded', 'true');
     const r = anchor.getBoundingClientRect(); el.style.top = `${Math.round(r.bottom + 8)}px`; if (side === 'left') { el.classList.add('left'); el.style.left = `${Math.max(12, Math.min(Math.round(r.left), window.innerWidth - 300))}px`; } else el.style.right = `${Math.max(12, Math.round(window.innerWidth - r.right))}px`;
+    // Keep it inside the window: slide it left or flip it above the button if it would run off the edge.
+    requestAnimationFrame(() => { const b = el.getBoundingClientRect(); if (b.right > window.innerWidth - 12) { el.style.right = ''; el.style.left = `${Math.max(12, window.innerWidth - 12 - b.width)}px`; } if (b.left < 12) el.style.left = '12px'; if (b.bottom > window.innerHeight - 12 && r.top - b.height - 8 > 12) el.style.top = `${Math.round(r.top - b.height - 8)}px`; });
     setTimeout(() => { document.addEventListener('mousedown', away); document.addEventListener('keydown', esc); });
   }
   const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'Just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`; };
@@ -2626,13 +2636,10 @@ export async function editor(id, mount, title, startTab = '') {
     const g = [...NAV.office, SETUP].find((x) => x.tabs.includes(tab));
     const inSettings = g === SETUP || tab === 'profile';
     const home = h('a', { class: 'crumb', href: pathFor('start'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, 'Home');
-    const jump = (anchor, section) => popover(anchor, (close) => {
-      const item = (k) => h('button', { class: `tb-item${k === tab ? ' here' : ''}`, type: 'button', onclick: () => { close(); goTab(k); } }, nameOf(k), null);
-      const lately = recent().filter((k) => k !== tab && !(section && section.tabs.includes(k))).slice(0, 4);
-      return [section && h('p', { class: 'tb-k' }, section.label), section && section.tabs.filter(known).map(item), lately.length > 0 && h('p', { class: 'tb-k' }, 'Recently opened'), lately.map(item)];
-    }, 'left');
-    const sec = g && g.tabs.length > 1 && h('button', { class: 'crumb', type: 'button', 'aria-haspopup': 'dialog', onclick: (e) => jump(e.currentTarget, g) }, g.label, h('span', { class: 'crumb-v', 'aria-hidden': 'true' }, '⌄'));
-    const here = h('button', { class: 'crumb now', type: 'button', 'aria-current': 'page', 'aria-haspopup': 'dialog', title: 'Recently opened pages', onclick: (e) => jump(e.currentTarget, null) }, nameOf(tab), recent().some((k) => k !== tab) && h('span', { class: 'crumb-v', 'aria-hidden': 'true' }, '⌄'));
+    const back = (k, label) => h('a', { class: 'crumb', href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, label);
+    const prev = recent().find((k) => k !== tab && g && g.tabs.includes(k));
+    const sec = g && g.tabs.length > 1 && (g === SETUP ? back('settings', g.label) : back(prev || g.tabs.find((k) => k !== tab && known(k)) || g.tabs[0], g.label));
+    const here = h('b', { class: 'crumb now', 'aria-current': 'page' }, nameOf(tab));
     const settingsLink = inSettings && h('a', { class: 'crumb', href: pathFor('settings'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('settings'); } }, 'Settings');
     const steps = [home, settingsLink, sec, here].filter(Boolean);
     return h('nav', { class: 'crumbs', 'aria-label': 'You are here' }, steps.flatMap((x, i) => (i ? [h('i', { 'aria-hidden': 'true' }, '›'), x] : [x])));
