@@ -3589,3 +3589,67 @@ html[data-theme=dark] .chg.down{color:#ff8a80}html[data-theme=dark] .chg.up{colo
 html[data-theme=dark] .set-clover .set-body a{color:#9cc0ff!important}
 @media (max-width:700px){.set-grid.set-clover{grid-template-columns:1fr}.set-clover .set-card{padding:28px 26px!important}.set-clover .set-card h3{font-size:30px!important}}
 .set-clover .set-2fa{display:block!important}.set-clover .set-2fa i{display:inline-block;vertical-align:-4px;margin-right:10px}.set-clover .set-2fa b{margin-left:4px}
+
+/* ======================= Polish pass: calmer, more even ======================= */
+/* One card style everywhere: hairline edge, soft shadow, same radius */
+.ed-body[data-mode=office] .panel>.group,.ed-body[data-mode=office] .scard:not(.hcard):not(.c2),.ed-body[data-mode=office] .inv-kpis,.ed-body[data-mode=office] .inv-list,.ed-body[data-mode=office] .scard.hcard,.ed-body[data-mode=office] .scard.c2{
+  background:var(--card)!important;border:1px solid var(--line)!important;border-radius:18px!important;box-shadow:0 1px 2px rgba(16,24,40,.04)!important}
+html[data-theme=dark] .ed-body[data-mode=office] .panel>.group,html[data-theme=dark] .ed-body[data-mode=office] .scard,html[data-theme=dark] .ed-body[data-mode=office] .inv-kpis,html[data-theme=dark] .ed-body[data-mode=office] .inv-list{box-shadow:none!important}
+/* Section headings sit on the same left edge as the page title and cards */
+.ed-body[data-mode=office] .panel>.group>h3{position:static!important;left:auto!important;top:auto!important;margin:0 0 6px!important;padding:0!important;font-size:16px!important;font-weight:600!important;letter-spacing:-.01em!important}
+.ed-body[data-mode=office] .panel>.group:has(>h3:not(:empty)){padding-top:18px!important}
+/* Figures: plain labels, no dotted underline */
+.ed-body[data-mode=office] .inv-kpis .kpi>span:first-of-type:not(.kico),.ed-body[data-mode=office] .inv-kpis .kpi>.kico+span{border-bottom:0!important;font-size:14px!important}
+.ed-body[data-mode=office] .inv-kpis .kpi b{font-weight:500!important}
+/* Changes: coloured text with an arrow, no pill */
+.delta,.delta.up,.delta.down,html:not([data-theme=dark]) .inv-kpis .kpi:nth-child(n) .delta.up{background:none!important;padding:0 0 0 6px!important;font-size:13px!important;font-weight:600!important}
+.delta.up{color:#2e8540!important}.delta.down{color:#c4362f!important}
+.delta.up::before{content:"↑ ";font-weight:400}.delta.down::before{content:"↓ ";font-weight:400}
+html[data-theme=dark] .delta.up{color:#7bd88f!important}html[data-theme=dark] .delta.down{color:#ff8a80!important}
+/* Tables: one header style, quieter rows */
+.ed-body[data-mode=office] table.table th,.ed-body[data-mode=office] .inv-head,.ed-body[data-mode=office] .inv-head>*{font-size:12px!important;font-weight:600!important;letter-spacing:.05em!important;text-transform:uppercase!important;color:var(--muted)!important}
+.ed-body[data-mode=office] table.table td{border-color:color-mix(in srgb,var(--line) 75%,transparent)!important}
+.ed-body[data-mode=office] table.table tbody tr{transition:background .15s}
+.ed-body[data-mode=office] table.table tbody tr:hover{background:color-mix(in srgb,var(--ink) 2.5%,transparent)}
+/* Item names read as text, not links */
+.ed-body[data-mode=office] .inv-name b,.ed-body[data-mode=office] button.inv-name b{color:var(--ink)!important;font-weight:550}
+.ed-body[data-mode=office] button.inv-name:hover b{color:var(--blue)!important}
+/* Page trail: even spacing */
+.crumbs{gap:8px!important;font-size:13px!important;margin:0 0 -4px!important}
+.crumbs i{opacity:.35!important}
+.crumbs .chv,.crumbs svg{opacity:.6}
+/* Page title and its tools line up on one baseline */
+.ed-body[data-mode=office] .page-head,.ed-body[data-mode=office] .inv-top{align-items:center!important}
+.ed-body[data-mode=office] .page-head h2,.ed-body[data-mode=office] .inv-top h2{font-size:30px!important;letter-spacing:-.025em!important}
+/* Buttons: one height, one radius */
+.ed-body[data-mode=office] .page-head .btn,.ed-body[data-mode=office] .inv-top .btn{height:42px;padding:0 18px;border-radius:12px;font-size:14.5px}
+.ed-body[data-mode=office] .page-head .rep-more,.ed-body[data-mode=office] .inv-top .rep-more{width:42px;height:42px;border-radius:12px}
+.ed-body[data-mode=office] .tbar .btn,.ed-body[data-mode=office] .tbar .fbtn,.ed-body[data-mode=office] .tsearch{height:44px;border-radius:12px}
+/* Chips: lighter */
+.ed-body[data-mode=office] .inv-chips .chip{height:36px;padding:0 14px;font-size:13.5px;border-radius:10px}
+/* Status tags: softer */
+.ed-body[data-mode=office] .status,.ed-body[data-mode=office] .tag{font-weight:600;letter-spacing:0}
+/* Sidebar: quieter section labels and steadier rows */
+.rail .nav-row b{font-weight:500}
+.rail .nav-kids button{font-size:14px}
+/* Phone */
+@media (max-width:900px){
+  .ed-body[data-mode=office] .subnav{margin:12px 16px 0!important}
+  .ed-body[data-mode=office] .subnav button,.ed-body[data-mode=office] .subnav .chip{height:36px!important;padding:0 14px!important;font-size:14px!important}
+  .ed-body[data-mode=office] .page-head,.ed-body[data-mode=office] .inv-top{gap:10px!important}
+  .ed-body[data-mode=office] .page-head .btn,.ed-body[data-mode=office] .inv-top .btn{height:38px;padding:0 14px;font-size:14px}
+  .ed-body[data-mode=office] .page-head .rep-more,.ed-body[data-mode=office] .inv-top .rep-more{width:38px;height:38px}
+  .ed-body[data-mode=office] .page-head:not(:has(h2)) {justify-content:flex-end}
+  .ed-body[data-mode=office] .panel>.group>h3{font-size:15px!important}
+  .ed-body[data-mode=office] .panel>.group,.ed-body[data-mode=office] .scard{border-radius:16px!important}
+}
+@media (max-width:900px){
+  .ed-body[data-mode=office] .panel>.page-head{justify-content:flex-end!important;margin:4px 0 -6px!important;min-height:0!important}
+  .ed-body[data-mode=office] .panel>.page-head>div:first-child{display:none!important}
+  .ed-body[data-mode=office] .panel>.page-head .row{gap:8px!important}
+}
+@media (max-width:900px){
+  .ed-body[data-mode=office] .panel>.page-head{margin:2px 0 4px!important}
+  .ed-body[data-mode=office] .inv-kpis .kpi:nth-child(odd){border-left:0!important}
+  .ed-body[data-mode=office] [data-l]::before{text-transform:none!important;letter-spacing:0!important;font-weight:500!important}
+}
