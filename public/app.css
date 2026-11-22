@@ -3573,3 +3573,4 @@ html[data-theme=dark] .chg.down{color:#ff8a80}html[data-theme=dark] .chg.up{colo
 .ss [hidden],.mmenu [hidden]{display:none!important}
 .sheet.mmenu::before,.sheet.mmenu::after,.sheet.ss::before,.sheet.ss::after{display:none!important}
 @media (max-width:900px){.ed-top[data-mode=office] .tb-brand .tb-logo,.ed-top[data-mode=office] .tb-brand img{display:block!important;visibility:visible!important;opacity:1!important}}
+@media (max-width:900px){.ed-top[data-mode=office] .tb-biz{justify-content:flex-end!important;padding-right:2px!important;text-align:right}}
