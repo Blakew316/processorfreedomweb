@@ -239,7 +239,7 @@ function authShell(form) {
       h('footer', { class: 'lg-foot' },
         h('p', { class: 'lg-legal' }, 'By using Processor Freedom you agree to our ', h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms of Service'), ' and ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
         h('div', { class: 'lg-meta' }, h('span', { class: 'lg-loc' }, h('i', { html: US_FLAG }), 'United States (English)'), link('/contact', {}, 'Help Center')))),
-    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/login.jpg', alt: '', decoding: 'async', loading: 'lazy' })));
+    h('div', { class: 'lg-photo', 'aria-hidden': 'true' }, h('img', { src: '/assets/demo/login-restaurant.jpg', alt: '', decoding: 'async', loading: 'lazy' })));
 }
 const lgField = (label, attrs) => h('label', { class: 'lg-field' }, h('span', {}, label), h('input', attrs));
 // A password box with the eye that shows what was typed.
