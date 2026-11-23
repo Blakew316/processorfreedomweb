@@ -8,7 +8,7 @@ export const ORDER_CSS = `
 .ord-head p{color:var(--muted);font-size:19px;margin-top:12px}
 .closed{background:var(--bg2);border-radius:var(--r-sm);padding:16px 20px;margin-top:24px;font-size:16px}
 .ord-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:48px;align-items:start;margin-top:40px}
-.cats{display:flex;gap:8px;overflow-x:auto;padding:10px 0;position:sticky;top:56px;background:var(--bg);z-index:5;scrollbar-width:none;border-bottom:1px solid var(--line)}
+.cats{display:flex;gap:8px;overflow-x:auto;padding:10px 0;position:sticky;top:var(--head-h,56px);background:var(--bg);z-index:5;scrollbar-width:none;border-bottom:1px solid var(--line)}
 .cats::-webkit-scrollbar{display:none}
 .cats a{flex:none;color:var(--ink);font-size:14px;font-weight:500;background:var(--bg2);border-radius:980px;padding:7px 15px}
 .cats a:hover{text-decoration:none;opacity:.8}
@@ -21,7 +21,7 @@ export const ORDER_CSS = `
 .add:hover{background:var(--bg2)}
 .soldout{font-size:14px;color:var(--muted);font-weight:500}
 .tile.off h3,.tile.off p,.tile.off .price{opacity:.5}
-.cart{position:sticky;top:76px;background:var(--bg2);border-radius:var(--r);padding:26px;display:grid;gap:18px;max-height:calc(100vh - 96px);overflow:auto}
+.cart{position:sticky;top:calc(var(--head-h,56px) + 20px);background:var(--bg2);border-radius:var(--r);padding:26px;display:grid;gap:18px;max-height:calc(100vh - var(--head-h,56px) - 40px);overflow:auto}
 .cart h2{font-size:22px}
 .cart .none{color:var(--muted);font-size:15px}
 .line{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:15px;padding-bottom:14px;border-bottom:1px solid var(--line)}
@@ -244,7 +244,7 @@ function orderClient() {
     var disc = !S.promo || giftOn ? 0 : S.promo.type === 'amount' ? Math.min(sub, S.promo.value) : Math.round(sub * S.promo.value / 100);
     var zone = c.zones && S.method === 'delivery' ? c.zones.filter(function (z) { return z[0].indexOf(((S.f.zip || '').match(/\d{5}/) || [''])[0]) >= 0; })[0] : null;
     var txs = L.reduce(function (s, l) { return s + (l.tx ? l.price * l.qty : 0); }, 0);
-    var tax = sub ? Math.round((txs - disc * txs / sub) * c.tax / 100) : 0, fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
+    var tax = sub ? Math.round((txs - disc * txs / sub) * c.tax / 100) : 0, fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.zones ? 0 : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
     var gift = giftOn ? Math.min(S.promo.value, total) : 0, due = total - gift; S.total = total;
     var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(due) + '</span>'; }
     var out = '<div class="cart-h"><h2>' + h(T.yourOrder) + '</h2><button type="button" class="cart-x" data-cart-close="1" aria-label="' + h(T.close) + '">×</button></div>';
@@ -262,7 +262,7 @@ function orderClient() {
     if (c.notes) out += '<label class="f">' + h(T.notes) + '<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
     if (c.promos) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.promo) + '</div><div class="prow"><input name="promo" maxlength="24" autocomplete="off" value="' + h(S.promo ? S.promo.code : S.f.promo) + '"><button type="button" data-promo="1">' + h(T.apply) + '</button></div>' + (S.perr ? '<p class="oerr" style="margin-top:6px">' + h(S.perr) + '</p>' : '') + '</div>';
     if (c.tips) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.tip) + '</div><div class="oseg" role="group">' + [0, 10, 15, 20].map(function (t) { return '<button type="button" data-tip="' + t + '" aria-pressed="' + (S.tip === t) + '">' + (t ? t + '%' : h(T.none)) + '</button>'; }).join('') + '</div></div>';
-    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span>' + (gift ? '<span>' + h(T.giftCard) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(gift) + '</span><span class="g">' + h(T.toPay) + '</span><span class="g">' + fmt(due) + '</span>' : '') + '</div>';
+    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : S.method === 'delivery' && c.zones && !zone ? '<span>' + h(T.delivery) + '</span><span>' + h(T.enterZip) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span>' + (gift ? '<span>' + h(T.giftCard) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(gift) + '</span><span class="g">' + h(T.toPay) + '</span><span class="g">' + fmt(due) + '</span>' : '') + '</div>';
     var short = S.method === 'delivery' && (sub < c.min || (c.zones && (S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone));
     if (S.method === 'delivery' && sub < c.min) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
     if (S.err) out += '<p class="oerr" role="alert">' + h(S.err) + '</p>';
@@ -293,8 +293,11 @@ function orderClient() {
   d.addEventListener('keydown', function (e) { if (e.key === 'Escape') d.documentElement.classList.remove('cart-open'); });
   // The category chips follow along as the menu scrolls.
   function spy() {
+    // The cart and the category bar stick just under the header, whatever its height, or at the top when it does not stick.
+    var head = d.querySelector('.hdr');
+    var place = function () { d.documentElement.style.setProperty('--head-h', head && head.classList.contains('sticky') ? head.offsetHeight + 'px' : '0px'); };
+    place(); if (!S.placed) { S.placed = 1; window.addEventListener('resize', place); }
     var nav = d.querySelector('.cats'); if (!nav || !('IntersectionObserver' in window)) return;
-    var head = d.querySelector('.header'); if (head) d.documentElement.style.setProperty('--head-h', head.offsetHeight + 'px');
     var links = {}; [].forEach.call(nav.querySelectorAll('a'), function (a) { links[a.getAttribute('href').slice(1)] = a; });
     var io = new IntersectionObserver(function (es) {
       es.forEach(function (en) {
@@ -356,7 +359,7 @@ function orderClient() {
     S.busy = true; S.err = ''; draw();
     var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', expect: S.total, name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, zip: S.f.zip, vehicle: S.f.vehicle, notes: S.f.notes };
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) { var er = new Error(j.error || 'x'); er.code = j.code; throw er; } return j; }); })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var er = new Error(j.error || 'x'); er.code = j.code; throw er; } return j; }); })
       .then(function (j) { S.lines = []; keep(c); location.href = j.url; })
       .catch(function (x) {
         // A price changed while the page was open: keep the cart and load the page again, so the new prices show before anything is sent.
@@ -372,8 +375,10 @@ export const ORDER_JS = `(${orderClient.toString()})();`;
 const tile = (x, { ordering, button, T }) => {
   const out = x.available === false || x.stock === 0 || !!x.blocked;
   const src = safeImg(x.image);
-  const from = arr(x.options).some((g) => { const open = g.choices.filter((c) => !c.hidden); return g.required && open.length > 0 && open.every((c) => c.price > 0); });
-  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? '+' : ''}${money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
+  // The lowest price anyone can pay: the item plus the cheapest open choice in every required group.
+  const extra = arr(x.options).reduce((sum, g) => { const open = g.choices.filter((c) => !c.hidden && !c.soldOut); return g.required && open.length ? sum + Math.min(...open.map((c) => c.price || 0)) : sum; }, 0);
+  const from = extra > 0;
+  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? esc(fill((T && T.from) || 'From {price}', { price: money(itemPrice(x) + extra) })) : money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
 export function groupMenu(menu) {
@@ -440,11 +445,14 @@ export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, 
   const row = (k, v) => (v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : '');
   const again = JSON.stringify({ key: siteKey, lines: arr(order.items).map((l) => ({ id: l.id, o: l.picks || [], q: l.qty })) });
   const methodName = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery }[order.method] || T.order;
+  // What is still owed: the total less the gift card's part, unless it was paid at the counter or the order was cancelled.
+  const paid = !!order.paidAt, refunded = order.refunded || 0, due = cancelled || paid ? 0 : order.total - (order.gift || 0);
+  const tender = (m) => (lang === 'es' ? { Cash: 'Efectivo', Card: 'Tarjeta', 'Online payment': 'Pago en línea', Check: 'Cheque', 'Gift card': 'Tarjeta de regalo', 'Bank transfer': 'Transferencia', Other: 'Otro' }[m] : m) || m || '';
   return `<section class="ostat"><div class="wrap"><p class="eyebrow">${esc(T.order)} #${esc(order.number)}</p><h1>${esc(headline)}</h1><p class="lede">${esc(sub)}</p>
 ${cancelled ? '' : `<div class="track" role="img" aria-label="${esc(label(order.status))}">${steps.map((s, i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div><div class="trackl">${steps.map((s, i) => (i === at ? `<b>${esc(label(s))}</b>` : `<span>${esc(label(s))}</span>`)).join('')}</div>`}
 <div class="box"><h2>${esc(methodName)} · ${esc(T.details)}</h2><dl class="kv">${row(T.scheduledFor, order.scheduled ? slotLabel(order.scheduled, ordering || {}, lang) : '')}${row(T.name, order.name)}${row(T.phone, order.phone)}${row(T.deliverTo, order.address)}${row(T.vehicleShort, order.vehicle)}${row(T.notesShort, order.notes)}</dl></div>
 ${loyalty && !cancelled ? `<div class="box">${loyalty.code ? `<h2>${esc(T.rewardEarned)}</h2><p style="font-size:17px">${esc(fill(T.rewardUse, { code: loyalty.code, value: loyalty.value }))}</p>` : ''}<div class="stamps" role="img" aria-label="${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}">${Array.from({ length: loyalty.every }, (_, i) => `<i class="${i < loyalty.have ? 'on' : ''}"></i>`).join('')}</div><p class="note">${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}</p></div>` : ''}
-<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span>${order.gift ? `<span>${esc(T.giftCard)}${order.giftCode ? ` (${esc(order.giftCode)})` : ''}</span><span>−${money(order.gift)}</span><span class="g">${esc(T.toPay)}</span><span class="g">${money(order.total - order.gift)}</span>` : ''}</div>
-${order.gift && order.gift >= order.total && !cancelled ? `<p class="note">${esc(T.giftPaid)}</p>` : payUrl && !cancelled ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
-<div class="actions">${phoneHtml}<a class="btn${phoneHtml ? ' ghost' : ''}" ${orderHref} data-reorder="${esc(again)}">${esc(T.orderAgain)}</a><a class="btn ghost" ${homeHref}>${esc(T.backHome)}</a></div></div></section>`;
+<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span>${order.gift && !cancelled ? `<span>${esc(T.giftCard)}${order.giftCode ? ` (${esc(order.giftCode)})` : ''}</span><span>−${money(order.gift)}</span>` : ''}${refunded && !cancelled ? `<span>${esc(T.refunded)}</span><span>−${money(refunded)}</span>` : ''}${due > 0 && order.gift ? `<span class="g">${esc(T.toPay)}</span><span class="g">${money(due)}</span>` : ''}</div>
+${cancelled ? `<p class="note">${esc(order.gift ? T.giftBack : T.nothingOwed)}</p>` : paid ? `<p class="note">${esc(fill(T.paidWith, { method: tender(order.paidMethod) }))}</p>` : payUrl ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
+<div class="actions">${phoneHtml}${ordering?.enabled ? `<a class="btn${phoneHtml ? ' ghost' : ''}" ${orderHref} data-reorder="${esc(again)}">${esc(T.orderAgain)}</a>` : ''}<a class="btn ghost" ${homeHref}>${esc(T.backHome)}</a></div></div></section>`;
 }

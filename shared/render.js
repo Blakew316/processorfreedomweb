@@ -339,10 +339,13 @@ export function renderPage(site, page = 'home', opts = {}) {
     const s = safeUrl(u);
     if (!s) return '';
     if (s === '/order') return ordering?.enabled ? pageHref('order') : '';
+    if (s === '/book') return ordering?.booking?.enabled && arr(ordering.booking.services).length ? pageHref('book') : '';
+    if (/^\/(privacy|terms|policies|accessibility)$/.test(s)) return pageHref(s.slice(1));
     if (s[0] === '#') return isHome ? `href="${esc(s)}"` : `href="${esc(home + s)}" data-page="home" data-hash="${esc(s.slice(1))}"`;
     return /^https?:/i.test(s) ? `href="${esc(s)}" target="_blank" rel="noopener"` : `href="${esc(s)}"`;
   };
   const pageHref = (p) => `href="${esc(p === 'home' ? home : `${base}/${p}`)}" data-page="${p}"`;
+  const bookOn = !!(ordering?.booking?.enabled && arr(ordering.booking.services).length);
   const btn = (l, cls = '') => (l && str(l.label).trim() && href(l.href) ? `<a class="btn ${cls}" ${href(l.href)}>${esc(l.label)}</a>` : '');
   const img = (src, alt, eager) => `<img src="${esc(safeImg(src))}" alt="${esc(alt || '')}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async">`;
   const head = (d) => (str(d.title).trim() || str(d.subtitle).trim() ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : '');
@@ -465,11 +468,11 @@ export function renderPage(site, page = 'home', opts = {}) {
   const payUrl = safeUrl(biz.payUrl);
   const footCols = `<div class="top">
 <div><a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}</div>
-<div><h3>${esc(T.explore)}</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>${esc(T.payOnline)}</a></li>` : ''}</ul></div>
+<div><h3>${esc(T.explore)}</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : ''}${bookOn ? `<li><a ${pageHref('book')}>${esc(ordering.booking.title || 'Book online')}</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>${esc(T.payOnline)}</a></li>` : ''}</ul></div>
 <div><h3>${esc(T.contact)}</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
 <div><h3>${esc(T.legal)}</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`).join('')}</ul></div>
 </div>`;
-  const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`)].join('');
+  const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : '', bookOn ? `<li><a ${pageHref('book')}>${esc(ordering.booking.title || 'Book online')}</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`)].join('');
   const footSimple = `<a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}<ul class="links">${footLinks}</ul>`;
   const footCls = `${ft.style === 'simple' ? ' simple' : ''}${ft.color === 'brand' ? ' on-brand' : ft.color === 'dark' ? ' on-dark' : ft.color === 'plain' ? ' plain' : ''}`;
   const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. ${esc(T.rights)}</span><span>${ft.showPayments !== false ? esc(T.cards) : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `${esc(T.websiteBy)} <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}${ft.showMode !== false ? `<button class="mode" type="button" aria-label="Light or dark" title="Light / dark"><svg class="sun" viewBox="0 0 512 512" width="18" height="18" fill="currentColor">${ION.moon}</svg><svg class="moon" viewBox="0 0 512 512" width="18" height="18" fill="currentColor">${ION.sun}</svg></button>` : ''}</span></div></div></footer>`;

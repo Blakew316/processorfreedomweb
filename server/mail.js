@@ -25,20 +25,20 @@ export function createMailer(env) {
 }
 
 const WORDS = {
-  en: { order: 'Order', sub: 'Subtotal', disc: 'Discount', tax: 'Tax', del: 'Delivery', tip: 'Tip', total: 'Total', gift: 'Gift card', due: 'Left to pay', view: 'View your order', about: (n) => `About ${n} minutes`, sched: (w) => `Scheduled for ${w}`, to: 'Deliver to', car: 'Vehicle', notes: 'Notes', pickup: 'Pickup', curbside: 'Curbside', delivery: 'Delivery' },
-  es: { order: 'Pedido', sub: 'Subtotal', disc: 'Descuento', tax: 'Impuesto', del: 'Entrega', tip: 'Propina', total: 'Total', gift: 'Tarjeta de regalo', due: 'Por pagar', view: 'Ver tu pedido', about: (n) => `Unos ${n} minutos`, sched: (w) => `Programado para ${w}`, to: 'Entregar en', car: 'Vehículo', notes: 'Notas', pickup: 'Para recoger', curbside: 'En la acera', delivery: 'Entrega' },
+  en: { order: 'Order', sub: 'Subtotal', disc: 'Discount', tax: 'Tax', del: 'Delivery', tip: 'Tip', total: 'Total', gift: 'Gift card', due: 'Left to pay', view: 'View your order', about: (n) => `About ${n} minutes`, sched: (w) => `Scheduled for ${w}`, asap: 'As soon as possible', to: 'Deliver to', car: 'Vehicle', notes: 'Notes', pickup: 'Pickup', curbside: 'Curbside', delivery: 'Delivery' },
+  es: { order: 'Pedido', sub: 'Subtotal', disc: 'Descuento', tax: 'Impuesto', del: 'Entrega', tip: 'Propina', total: 'Total', gift: 'Tarjeta de regalo', due: 'Por pagar', view: 'Ver tu pedido', about: (n) => `Unos ${n} minutos`, sched: (w) => `Programado para ${w}`, asap: 'Lo antes posible', to: 'Entregar en', car: 'Vehículo', notes: 'Notas', pickup: 'Para recoger', curbside: 'En la acera', delivery: 'Entrega' },
 };
 const HEAD = {
   en: {
     placed: (o) => ['We have your order', `Thanks, ${o.name.split(' ')[0]}. We received your order and will confirm it shortly.`],
-    confirmed: () => ['Your order is confirmed', 'We are preparing your order now.'],
+    confirmed: (o, when) => ['Your order is confirmed', when ? `We will have it ready for ${when}.` : 'We are preparing your order now.'],
     ready: (o) => [o.method === 'delivery' ? 'Your order is on its way' : `Your order is ${readyLabel(o.method).toLowerCase()}`, o.method === 'delivery' ? 'Your order has left and will be with you soon.' : o.method === 'curbside' ? 'Pull up and let us know you are here. We will bring it out.' : 'Come on in. Your order is waiting at the counter.'],
     cancelled: () => ['Your order was cancelled', 'Your order has been cancelled. Please contact us if you have any questions.'],
     merchant: (o) => [`New ${(ORDER_METHODS[o.method]?.name ?? 'online').toLowerCase()} order`, `${o.name} placed an order for ${money(o.total)}.`],
   },
   es: {
     placed: (o) => ['Recibimos tu pedido', `Gracias, ${o.name.split(' ')[0]}. Recibimos tu pedido y lo confirmaremos en breve.`],
-    confirmed: () => ['Tu pedido está confirmado', 'Estamos preparando tu pedido.'],
+    confirmed: (o, when) => ['Tu pedido está confirmado', when ? `Lo tendremos listo para ${when}.` : 'Estamos preparando tu pedido.'],
     ready: (o) => [o.method === 'delivery' ? 'Tu pedido va en camino' : 'Tu pedido está listo', o.method === 'delivery' ? 'Tu pedido ya salió y llegará pronto.' : o.method === 'curbside' ? 'Acércate y avísanos que llegaste. Te lo llevamos al auto.' : 'Pasa cuando quieras. Tu pedido te espera en el mostrador.'],
     cancelled: () => ['Tu pedido fue cancelado', 'Tu pedido ha sido cancelado. Contáctanos si tienes alguna pregunta.'],
   },
@@ -48,14 +48,14 @@ const HEAD = {
 export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta, when, lang = 'en' }) {
   const L = kind !== 'merchant' && lang === 'es' ? 'es' : 'en';
   const W = WORDS[L];
-  const [title, intro] = HEAD[L][kind](order);
+  const [title, intro] = HEAD[L][kind](order, when);
   const forMerchant = kind === 'merchant';
   const rows = order.items.map((l) => [`${l.qty} × ${l.name}${l.opts?.length ? ` (${l.opts.join(', ')})` : ''}`, money(l.price * l.qty)]);
   const totals = [[W.sub, order.subtotal], [`${W.disc}${order.promo ? ` (${order.promo})` : ''}`, -order.discount], [W.tax, order.tax], [W.del, order.fee], [W.tip, order.tip]].filter(([, v]) => v).map(([k, v]) => [k, v < 0 ? `−${money(-v)}` : money(v)]);
   // Paid with a gift card when ordering: shown after the total, with what is left to pay.
   const paidBy = order.gift > 0 ? [[`${W.gift}${order.giftCode ? ` (${order.giftCode})` : ''}`, `−${money(order.gift)}`], [W.due, money(order.total - order.gift)]] : [];
   const details = [
-    [(Object.hasOwn(W, order.method) && W[order.method]) || ORDER_METHODS[order.method]?.name || '', when ? W.sched(when) : kind === 'placed' && eta ? W.about(eta) : ''],
+    [(Object.hasOwn(W, order.method) && W[order.method]) || ORDER_METHODS[order.method]?.name || '', when ? W.sched(when) : kind === 'placed' && eta ? W.about(eta) : W.asap],
     forMerchant && ['Customer', `${order.name} · ${order.phone} · ${order.email}`],
     order.address && [W.to, order.address], order.vehicle && [W.car, order.vehicle], order.notes && [W.notes, order.notes],
   ].filter(Boolean);
@@ -116,6 +116,15 @@ export function nameChangeEmail({ before, after, by, when, manageUrl }) {
   return { subject: `${title} to ${after}`, html, text };
 }
 
+/** A loyalty reward code, sent when an order earns one. */
+export function rewardEmail({ business, code, value, lang = 'en', url }) {
+  const es = lang === 'es';
+  const title = es ? 'Ganaste una recompensa' : 'You earned a reward';
+  const intro = es ? `Gracias por volver a ${business}. Usa este código en tu próximo pedido para obtener ${value} de descuento.` : `Thanks for coming back to ${business}. Use this code on your next order for ${value} off.`;
+  const html = shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business)}</p><h1 style="margin:0 0 10px;font-size:28px;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p><p style="margin:0;font-size:26px;font-weight:600;letter-spacing:.08em;background:#f5f5f7;border-radius:14px;padding:18px;text-align:center">${esc(code)}</p>${button(url, es ? 'Ordenar en línea' : 'Order online')}`);
+  return { subject: `${title} · ${business}`, html, text: [title, '', intro, '', code, '', url || ''].join('\n') };
+}
+
 /** A short security notice to the account's own address. */
 export function noticeEmail({ title, intro, warn, manageUrl }) {
   const html = shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">Processor Freedom</p><h1 style="margin:0 0 10px;font-size:26px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1><p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p><p style="margin:0;font-size:15px;line-height:1.5">${esc(warn)}</p>${button(manageUrl, 'Open your account')}`);
@@ -149,8 +158,8 @@ export function invoiceEmail({ business, invoice, url, reminder, estimate }) {
 export function giftEmail({ business, code, amount, name, url }) {
   return {
     subject: `Your ${money(amount)} gift card for ${business}`,
-    text: `${name ? `Hi ${name.split(' ')[0]}, here` : 'Here'} is your ${money(amount)} gift card for ${business}.\n\nCode: ${code}\n\nEnter it in the promo code box when you order online, or show it at the counter.\n\n${url || ''}`,
-    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business)} · Gift card</p><h1 style="margin:0 0 10px;font-size:34px;letter-spacing:-.025em;font-weight:600">${money(amount)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(name ? `Hi ${name.split(' ')[0]}, here` : 'Here')} is your gift card. Enter the code in the promo code box when you order online, or show it at the counter.</p><p style="margin:0;font-size:26px;font-weight:600;letter-spacing:.08em;background:#f5f5f7;border-radius:14px;padding:18px;text-align:center">${esc(code)}</p>${button(url, 'Order online')}`),
+    text: `${name ? `Hi ${name.split(' ')[0]}, here` : 'Here'} is your ${money(amount)} gift card for ${business}.\n\nCode: ${code}\n\n${url ? 'Enter it in the promo code box when you order online, or show it at the counter.' : 'Show it at the counter when you pay.'}\n\n${url || ''}`,
+    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business)} · Gift card</p><h1 style="margin:0 0 10px;font-size:34px;letter-spacing:-.025em;font-weight:600">${money(amount)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(name ? `Hi ${name.split(' ')[0]}, here` : 'Here')} is your gift card. ${url ? 'Enter the code in the promo code box when you order online, or show it at the counter.' : 'Show the code at the counter when you pay.'}</p><p style="margin:0;font-size:26px;font-weight:600;letter-spacing:.08em;background:#f5f5f7;border-radius:14px;padding:18px;text-align:center">${esc(code)}</p>${button(url, 'Order online')}`),
   };
 }
 

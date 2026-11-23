@@ -7,7 +7,7 @@ import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
 import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail } from './mail.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail, rewardEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -342,8 +342,8 @@ export function createApp(options = {}) {
   }
   function mail(kind, req, site, order, to) {
     const business = businessOf(site);
-    const when = order.scheduled ? slotLabel(order.scheduled, orderingOf(site)) : '';
     const lang = kind === 'merchant' ? 'en' : JSON.parse(site.published || site.draft).lang === 'es' ? 'es' : 'en';
+    const when = order.scheduled ? slotLabel(order.scheduled, orderingOf(site), lang) : '';
     const msg = orderEmail(kind, { business, order, when, lang, statusUrl: `${siteUrl(req, site).replace(/\/$/, '')}/order/${order.token}`, manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=orders`, eta: order.method === 'delivery' ? orderingOf(site).deliveryMinutes : orderingOf(site).prepMinutes });
     Promise.resolve().then(() => mailer.send({ to, ...msg, fromName: business.name, replyTo: kind === 'merchant' ? order.email : business.email })).catch((e) => console.error('Order email failed:', e.message));
   }
@@ -1095,7 +1095,7 @@ export function createApp(options = {}) {
     db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, name, email, str(b.note, 200).trim(), now);
     giftMove(site, code, 'issue', amount, paidWith, '', now);
     if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: user.name || user.email, at: now });
-    if (email && mailOk(site)) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: `${siteUrl(req, site).replace(/\/$/, '')}/order` }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
+    if (email && mailOk(site)) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: orderingOf(site).enabled && site.published ? `${siteUrl(req, site).replace(/\/$/, '')}/order` : '' }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
     json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site), loads: giftLoads(site) });
   });
   // Spend from a card at the counter, or top it up. The balance check is part of the write, so two at once can never take a card below zero.
@@ -1205,8 +1205,13 @@ export function createApp(options = {}) {
       if (!(wall > now)) bad(400, 'Please choose a time in the future.');
       if (wall > now + 90 * DAY) bad(400, 'Please choose a date in the next three months.');
       // Bookings always follow Business hours; the 'only take orders during business hours' switch is about online orders.
-      if (!openAtWall({ ...ordering, useHours: true }, wall)) bad(409, 'We are closed at that time. Please choose another.');
-      if (db.get("SELECT COUNT(*) AS n FROM appointments WHERE site_id = ? AND at = ? AND status IN ('pending','confirmed')", site.id, at).n >= ordering.booking.perSlot) bad(409, 'That time is fully booked. Please choose another.');
+      const len = Math.max(30, svc.minutes || 0), hours = { ...ordering, useHours: true };
+      if (!openAtWall(hours, wall)) bad(409, 'We are closed at that time. Please choose another.');
+      if (!openAtWall(hours, wall + (len - 1) * 60000)) bad(409, 'That booking would run past closing time. Please choose an earlier time.');
+      const startMin = Date.parse(`${at}:00Z`) / 60000;
+      const overlapping = db.all("SELECT at, minutes FROM appointments WHERE site_id = ? AND substr(at, 1, 10) IN (?, ?) AND status IN ('pending','confirmed')", site.id, day, new Date(wall - DAY).toISOString().slice(0, 10))
+        .filter((x) => { const s0 = Date.parse(`${x.at}:00Z`) / 60000; return s0 < startMin + len && startMin < s0 + Math.max(30, x.minutes || 0); }).length;
+      if (overlapping >= ordering.booking.perSlot) bad(409, 'That time is fully booked. Please choose another.');
     }
     const id = newId();
     db.run('INSERT INTO appointments (id, site_id, service, minutes, at, name, email, phone, party, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, svc.name, svc.minutes, at, name, email, phone, Math.max(1, Math.min(100, Math.round(Number(b.party)) || 1)), str(b.notes, 500).trim(), viaPublic ? 'pending' : 'confirmed', Date.now());
@@ -1414,11 +1419,19 @@ export function createApp(options = {}) {
     db.run('DELETE FROM rewards WHERE site_id = ? AND earned_order = ? AND used_order IS NULL', site.id, o.id);
   }
   // Every Nth completed order earns a one-time reward code for next time. Orders only placed, or cancelled, never count.
-  function earnReward(site, o, now) {
-    const L = orderingOf(site).loyalty;
+  function earnReward(site, o, now, req) {
+    const ordering = orderingOf(site), L = ordering.loyalty;
     if (!L.enabled || db.get('SELECT 1 FROM rewards WHERE site_id = ? AND earned_order = ?', site.id, o.id)) return;
     const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status = 'completed'", site.id, o.email).n;
-    if (count > 0 && count % L.every === 0) db.run('INSERT INTO rewards (code, site_id, email, type, value, earned_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', `THANKS${randomBytes(4).toString('hex').toUpperCase()}`, site.id, o.email.toLowerCase(), L.type, L.value, o.id, now);
+    if (!(count > 0 && count % L.every === 0)) return;
+    const code = `THANKS${randomBytes(4).toString('hex').toUpperCase()}`;
+    db.run('INSERT INTO rewards (code, site_id, email, type, value, earned_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', code, site.id, o.email.toLowerCase(), L.type, L.value, o.id, now);
+    // The customer hears about it, so the code is not only on a page they may never open again.
+    if (req && mailOk(site)) {
+      const business = businessOf(site), lang = JSON.parse(site.published || site.draft).lang || 'en';
+      const msg = rewardEmail({ business: business.name, code, value: rewardText(L), lang, url: ordering.enabled && site.published ? `${siteUrl(req, site).replace(/\/$/, '')}/order` : '' });
+      Promise.resolve().then(() => mailer.send({ to: o.email, ...msg, fromName: business.name, replyTo: business.email })).catch((e) => console.error('Reward email failed:', e.message));
+    }
   }
 
   /* Payments taken at the counter are recorded here, so the books add up. Nothing is charged by this system. */
@@ -1907,7 +1920,7 @@ export function createApp(options = {}) {
       if (status === 'cancelled' && counter > 0 && row.refunded < counter) bad(409, `This order has a payment of ${money(counter)} recorded. Refund it first, then cancel the order.`);
       if (!db.run('UPDATE orders SET status = ?, handled_by = ?, updated_at = ? WHERE id = ? AND status = ?', status, by, now, row.id, row.status).changes) bad(409, 'This order was just changed on another device. Refresh to see it.');
       if (status === 'cancelled') cancelled(site, row, by, now);
-      if (status === 'completed') earnReward(site, row, now);
+      if (status === 'completed') earnReward(site, row, now, req);
       const order = toOrder({ ...row, status });
       if (['confirmed', 'ready', 'cancelled'].includes(status)) mail(status, req, site, order, order.email);
     }
@@ -2002,9 +2015,11 @@ export function createApp(options = {}) {
   const simplePage = (title, text) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:#fff;color:#1d1d1f;text-align:center;padding:24px;-webkit-font-smoothing:antialiased}h1{font-size:40px;letter-spacing:-.025em;margin:0 0 10px;font-weight:600}p{color:#6e6e73;font-size:19px;margin:0}@media(prefers-color-scheme:dark){body{background:#000;color:#f5f5f7}p{color:#a1a1a6}}</style></head><body><div><h1>${esc(title)}</h1><p>${esc(text)}</p></div></body></html>`;
 
   async function serveSite(req, res, site, base, sub, origin, draft = false) {
-    const config = site && JSON.parse(draft ? site.draft : site.published || 'null');
-    if (!config) return html(res, 404, simplePage('Coming soon', 'This website has not been published yet.'));
     const path = sub.replace(/\/+$/, '') || '/';
+    let config = site && JSON.parse(draft ? site.draft : site.published || 'null');
+    // An invoice or an order's tracking page does not depend on the website being live, so links already sent keep working.
+    if (!config && site && /^\/(invoice|order)\/[\w-]{10,40}$/.test(path)) config = JSON.parse(site.draft);
+    if (!config) return html(res, 404, simplePage('Coming soon', 'This website has not been published yet.'));
     const home = `${origin}${base}/`;
 
     if (path === '/_forms/contact' && req.method === 'POST' && !draft) {
@@ -2033,7 +2048,7 @@ export function createApp(options = {}) {
       notifySite(site, { title: 'New booking request', body: `${site.name} · ${appt.name} · ${apptWhen(appt.at)}`, url: `/app/site/${site.id}?tab=appts`, tag: `appt-${appt.id}` });
       return json(res, 201, { ok: true });
     }
-    if (path === '/_promo' && req.method === 'GET' && !draft) {
+    if (path === '/_promo' && req.method === 'GET') {
       limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000); limit(`promo:${site.id}`, 300, 10 * 60000);
       const promo = ordering.enabled && promoFor(site, ordering, new URL(req.url, 'http://x').searchParams.get('code'));
       return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
@@ -2119,6 +2134,7 @@ export function createApp(options = {}) {
       }
       return json(res, 201, { number: order.number, url: `${base}/order/${order.token}` });
     }
+    if (draft && req.method === 'POST' && ['/_order', '/_book', '/_forms/contact'].includes(path)) return json(res, 409, { error: 'This is a preview. Orders, bookings and messages can be sent once your site is published.' });
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
 
     const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? applyMods(pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering),
@@ -2222,6 +2238,12 @@ export function createApp(options = {}) {
     const hosted = siteForHost(hostOf(req));
     if (hosted !== undefined) {
       if (hosted === null) return html(res, 404, simplePage('Nothing here yet', 'There is no website at this address.'));
+      // A site with its own domain has one address: the free address and www send page visits there, so search engines
+      // see one site, not three. Form posts and anything under /_ are answered where they arrive.
+      const host = hostOf(req).split(':')[0];
+      if (hosted.custom_domain && hosted.domain_verified && host !== hosted.custom_domain && (req.method === 'GET' || req.method === 'HEAD') && !path.startsWith('/_')) {
+        return redirect(res, `https://${hosted.custom_domain}${req.url.startsWith('/') ? req.url : path}`, 301);
+      }
       return serveSite(req, res, hosted, '', path, `${protoOf(req)}://${hostOf(req)}`);
     }
 

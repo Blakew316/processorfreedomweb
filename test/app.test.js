@@ -202,7 +202,13 @@ test('sign up, build, publish, serve, collect a message, connect a domain', asyn
   assert.equal(r.data.ok, true);
   assert.equal(r.data.site.domainProof, null);
   assert.equal(r.data.site.url, 'https://joespizza.com');
-  assert.equal((await anon('GET', '/privacy', null, { host: 'www.joespizza.com' })).status, 200);
+  assert.equal((await anon('GET', '/privacy', null, { host: 'joespizza.com' })).status, 200);
+  // One address per site: www and the free address send visitors to the connected domain; form posts are answered where they arrive.
+  let moved = await anon('GET', '/privacy?x=1', null, { host: 'www.joespizza.com' });
+  assert.deepEqual([moved.status, moved.headers.get('location')], [301, 'https://joespizza.com/privacy?x=1']);
+  moved = await anon('GET', '/', null, { host: 'joes-pizzeria.pfsites.test' });
+  assert.deepEqual([moved.status, moved.headers.get('location')], [301, 'https://joespizza.com/']);
+  assert.notEqual((await anon('POST', '/_forms/contact', { name: 'A', email: 'a@b.test', message: 'Hi' }, { host: 'joes-pizzeria.pfsites.test' })).status, 301);
 
   // Domain requests reach staff, who can attach a domain directly
   r = await me('POST', '/api/sites', { name: 'Second Shop', template: 'retail' });

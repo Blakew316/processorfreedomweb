@@ -1,6 +1,6 @@
 // The public booking page: a customer asks for a time, the business confirms it.
 
-import { esc, arr, money } from './core.js';
+import { esc, arr, money, wallNow } from './core.js';
 
 const CSS = `
 .book{padding:64px 0 96px}
@@ -30,23 +30,26 @@ function bookClient() {
   var day = f.elements.date, time = f.elements.time, err = f.querySelector('.err');
   var mins = function (t) { return Number(t.slice(0, 2)) * 60 + Number(t.slice(3)); };
   function fill() {
+    if (!day.value) { time.innerHTML = ''; return; }
     var wd = new Date(day.value + 'T12:00:00Z').getUTCDay(), h = c.hours[wd], out = '';
+    if (!h) { time.innerHTML = ''; return; }
+    var len = Math.max(30, c.len[f.elements.service.value] || 0), end = mins(h.close) > mins(h.open) ? mins(h.close) : 1440;
     for (var m = 0; m < 1440; m += 30) {
-      var open = !h.closed && (mins(h.close) > mins(h.open) ? m >= mins(h.open) && m < mins(h.close) : m >= mins(h.open));
-      if (!open) continue;
+      var open = !h.closed && m >= mins(h.open) && m + len <= end;
+      if (!open || (day.value === c.today && m <= c.now)) continue;
       var hh = Math.floor(m / 60), label = (hh % 12 || 12) + ':' + (m % 60 ? '30' : '00') + (hh < 12 ? ' AM' : ' PM');
       out += '<option value="' + String(hh).padStart(2, '0') + ':' + (m % 60 ? '30' : '00') + '">' + label + '</option>';
     }
     time.innerHTML = out || '<option value="">' + c.t.closed + '</option>';
   }
-  day.addEventListener('change', fill); fill();
+  day.addEventListener('change', fill); f.elements.service.addEventListener('change', fill); fill();
   f.addEventListener('submit', function (e) {
     e.preventDefault(); err.textContent = '';
     if (d.documentElement.hasAttribute('data-preview')) { err.textContent = c.t.preview; return; }
     var b = {}; [].forEach.call(f.elements, function (el) { if (el.name) b[el.name] = el.value; });
     var btn = f.querySelector('button'); btn.disabled = true;
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(b) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'x'); return j; }); })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'x'); return j; }); })
       .then(function () { location.href = c.done; })
       .catch(function (x) { btn.disabled = false; err.textContent = x.message && x.message !== 'x' ? x.message : c.t.failed; });
   });
@@ -56,7 +59,8 @@ export function bookingPage({ ordering, base, done, today, lang }) {
   const b = ordering.booking;
   const T = WORDS[lang] || WORDS.en;
   if (done) return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${T.sent}</h1><div class="done">${T.thanks}</div></div></section>`;
-  const conf = { post: `${base}/_book`, done: `${base}/book?done=1`, hours: ordering.hours, t: { closed: T.closed, preview: T.preview, failed: T.failed } };
+  const wall = new Date(wallNow(ordering));
+  const conf = { post: `${base}/_book`, done: `${base}/book?done=1`, hours: ordering.hours, today: wall.toISOString().slice(0, 10), now: wall.getUTCHours() * 60 + wall.getUTCMinutes(), len: Object.fromEntries(arr(b.services).map((s) => [s.id, s.minutes || 0])), t: { closed: T.closed, preview: T.preview, failed: T.failed } };
   return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${esc(b.title && b.title !== WORDS.en.title ? b.title : T.title)}</h1>${b.note ? `<p class="lede">${esc(b.note)}</p>` : ''}
 <form id="pf-book" novalidate>
 <label>${T.what}<select name="service">${arr(b.services).map((s) => `<option value="${esc(s.id)}">${esc(s.name)}${s.minutes ? ` · ${s.minutes} min` : ''}${s.price ? ` · ${money(s.price)}` : ''}</option>`).join('')}</select></label>
