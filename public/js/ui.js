@@ -344,12 +344,13 @@ const NAV_ICONS = {
   more: '<circle cx="6" cy="12" r="1.300"/><circle cx="12" cy="12" r="1.300"/><circle cx="18" cy="12" r="1.300"/>',
   preview: '<path d="M2.800 12S6.200 5.800 12 5.800 21.200 12 21.200 12 17.800 18.200 12 18.200 2.800 12 2.800 12z"/><circle cx="12" cy="12" r="2.700"/>',
   ordering: '<path d="M7.500 4v6.500M5.500 4v4a2 2 0 004 0V4M7.500 10.500V20"/><path d="M16.500 4c-1.900 1.600-2.500 4-2.500 6.200 0 1.500 1 2.300 2.500 2.300V20M16.500 4v8.500"/>',
+  booking: '<path d="M12.500 14.500H5A1.500 1.500 0 013.500 13V6A1.500 1.500 0 015 4.500h12A1.500 1.500 0 0118.500 6v2.500"/><path d="M6.500 18.500h5M9 14.500v4"/><rect x="14.500" y="11" width="6" height="9.500" rx="1.300"/><path d="M17 18h1"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
   back: '<path d="M15 6l-6 6 6 6"/>',
 };
 /* The same icons the way an iPhone shows them in Settings: a white glyph on a small rounded tile.
    The tiles stay within one family of navy, blue and slate, so a list reads as calm rather than as a rainbow. */
-const TILE = { home: 'navy', insights: 'navy', design: 'navy', orders: 'blue', calendar: 'blue', promo: 'blue', business: 'blue', menu: 'steel', invoice: 'steel', page: 'steel', sales: 'ink', team: 'ink', preview: 'ink', customers: 'slate', feedback: 'slate', ordering: 'blue', address: 'slate', settings: 'grey', swap: 'grey', more: 'grey', back: 'grey' };
+const TILE = { home: 'navy', insights: 'navy', design: 'navy', orders: 'blue', calendar: 'blue', promo: 'blue', business: 'blue', menu: 'steel', invoice: 'steel', page: 'steel', sales: 'ink', team: 'ink', preview: 'ink', customers: 'slate', feedback: 'slate', ordering: 'blue', booking: 'blue', address: 'slate', settings: 'grey', swap: 'grey', more: 'grey', back: 'grey' };
 export function navTile(name, size = 30) {
   const el = h('span', { class: `tile-ic t-${TILE[name] || 'steel'}`, style: `width:${size}px;height:${size}px`, 'aria-hidden': 'true', html: `<svg viewBox="0 0 24 24" width="${Math.round(size * 0.62)}" height="${Math.round(size * 0.62)}" fill="none" stroke="currentColor" stroke-width="2.050" stroke-linecap="round" stroke-linejoin="round">${NAV_ICONS[name] || NAV_ICONS.page}</svg>` });
   // Each drawing is nudged so its ink, not its canvas, sits in the middle of the tile.

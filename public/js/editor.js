@@ -16,6 +16,7 @@ const TABS = [
   ['inbox', 'Feedback', 'inbox', 'office'], ['team', 'Employees', 'f_users', 'office'],
   ['ordering', 'Online ordering', 'sliders', 'office'], ['hours', 'Business hours', 'clock', 'office'], ['alerts', 'Alerts and emails', 'bell', 'office'],
   ['online', 'Online ordering', 'bag', 'office'], ['outreach', 'Customer outreach', 'person', 'office'],
+  ['obook', 'Online booking', 'clock', 'office'], ['boutreach', 'Customer outreach', 'person', 'office'],
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
@@ -23,12 +24,13 @@ const WIDE = new Set(['team', 'sale', 'appts', 'calendar', 'schedule', 'timeshee
 const TYPE_TABS = new Set(['sales', 'r-full', 'r-items', 'r-types', 'r-disc', 'r-removed', 'r-taxes', 'r-emp', 'r-tender']);
 const SALES_TABS = { sales: 'overview', 'r-items': 'items', 'r-types': 'types', 'r-taxes': 'taxes', 'r-full': 'full', 'r-emp': 'emp', 'r-tender': 'tender', 'r-disc': 'disc', 'r-removed': 'removed', tips: 'tips' };
 // Which settings cards belong on which screen.
-const SETUP_VIEWS = { ordering: ['Online ordering', 'Food preparation time', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], hours: ['Opening hours', 'Kitchen capacity', 'Dayparts'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Notifications on this device', 'Alerts and reports', 'Order emails'] };
+const SETUP_VIEWS = { ordering: ['Online ordering', 'Food preparation time', 'Order times', 'Kitchen capacity', 'Pickup', 'Curbside', 'Delivery', 'Checkout'], promos: ['Promo codes'], deals: ['Happy hour and timed prices'], rewards: ['Loyalty rewards'], alerts: ['Notifications on this device', 'Alerts and reports', 'Order emails'] };
 const MODES = { office: 'Back office', site: 'Website' };
 const NAV_NAMES = new Set(['calendar', 'insights', 'home', 'orders', 'menu', 'sales', 'customers', 'settings', 'design', 'page', 'business', 'address', 'invoice', 'promo', 'feedback', 'team']);
 // Setup lives behind the gear at the top right, in its own section of Settings, not in the sidebar.
 const SETUP = { label: 'Setup', icon: 'settings', tabs: ['bizinfo', 'hours', 'ordering', 'booking', 'alerts', 'devices', 'appearance'], subs: ['Business information', 'Business hours', 'Online ordering', 'Online booking', 'Alerts and emails', 'Devices', 'Appearance'] };
-// Ordering tools sit at the bottom of the sidebar, under Booking tools.
+// Booking tools and Ordering tools sit at the bottom of the sidebar; each opens to show its pages underneath, like any section.
+const BOOKTOOLS = { label: 'Booking tools', icon: 'booking', tabs: ['obook', 'boutreach'], subs: ['Online booking', 'Customer outreach'] };
 const TOOLS = { label: 'Ordering tools', icon: 'ordering', tabs: ['online', 'outreach'], subs: ['Online ordering', 'Customer outreach'] };
 // The sidebar: a short list of sections. A section with more than one screen opens to show them underneath it.
 const NAV = {
@@ -236,6 +238,26 @@ export async function editor(id, mount, title, startTab = '') {
     return h('div', {}, grid,
       h('div', { class: 'wk-tools' }, h('button', { type: 'button', class: 'btn text sm', onclick: () => { const m = week[1]; for (const d of [2, 3, 4, 5]) Object.assign(week[d], { closed: m.closed, open: m.open, close: m.close }); draw(); onChange(); } }, 'Copy Monday to Tuesday–Friday'), h('button', { type: 'button', class: 'btn text sm', onclick: () => { const m = week[1]; for (const d of [2, 3, 4, 5, 6, 0]) Object.assign(week[d], { closed: m.closed, open: m.open, close: m.close }); draw(); onChange(); } }, 'Copy Monday to every day')),
       null);
+  }
+  // Dayparts: named times of day a menu can be shown in. Menus pick them under Menu availability.
+  function daypartsEditor(o, saveSoon) {
+    // Each change looks its daypart up by ID, because a save swaps in the server's copy of the list.
+    const dp = (pid) => o.dayparts.find((x) => x.id === pid);
+    const dpTime = (pid, k) => (e) => {
+      const cur = dp(pid); if (!cur) return;
+      const v = e.target.value, other = k === 'from' ? cur.to : cur.from;
+      if (!v) { e.target.value = cur[k]; return toast('Choose a time.', true); }
+      if (v === other) { e.target.value = cur[k]; return toast('The start and end times must be different.', true); }
+      cur[k] = v; saveSoon();
+    };
+    return h('div', { class: 'stack' }, h('div', { class: 'stack' }, o.dayparts.map((p) => h('div', { class: 'deal' },
+        h('div', { class: 'row' }, h('input', { class: 'grow', value: p.name, maxlength: 40, placeholder: 'Lunch', 'aria-label': 'Daypart name', oninput: (e) => { const cur = dp(p.id), v = e.target.value.trim(); if (cur && v) { cur.name = v; saveSoon(); } }, onblur: (e) => { const cur = dp(p.id); if (cur && !e.target.value.trim()) { e.target.value = cur.name; toast('A daypart needs a name.', true); } } }),
+          h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Remove ${p.name || 'daypart'}`, onclick: () => { o.dayparts = o.dayparts.filter((x) => x.id !== p.id); for (const m of o.menus) m.dayparts = m.dayparts.filter((x) => x !== p.id); saveSoon(); paintPanel(); } }, ic('trash', 16))),
+        h('div', { class: 'deal-grid dp-grid' },
+          h('label', { class: 'field' }, h('span', {}, 'From'), h('input', { type: 'time', value: p.from, required: true, onchange: dpTime(p.id, 'from') })),
+          h('label', { class: 'field' }, h('span', {}, 'Until'), h('input', { type: 'time', value: p.to, required: true, onchange: dpTime(p.id, 'to') }))),
+        h('div', { class: 'daypick', role: 'group', 'aria-label': 'Days' }, DAYS.map((day, di) => h('button', { type: 'button', title: day, 'aria-label': day, 'aria-pressed': String(p.days[di] !== false), onclick: (e) => { const cur = dp(p.id); if (!cur) return; cur.days[di] = cur.days[di] === false; e.currentTarget.setAttribute('aria-pressed', String(cur.days[di])); saveSoon(); } }, day.slice(0, 2))))))),
+      h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { if (o.dayparts.length >= 20) return toast('You can have up to 20 dayparts.', true); o.dayparts.push({ id: uid('p'), name: 'Lunch', days: DAYS.map(() => true), from: '11:00', to: '14:00' }); saveSoon(); paintPanel(); } }, ic('plus', 14), 'Add daypart'));
   }
   const saveHoursSoon = debounce(() => { putOrdering().catch((e) => toast(e.message, true)); }, 500);
 
@@ -570,25 +592,6 @@ export async function editor(id, mount, title, startTab = '') {
         o.methods[k] = e.target.checked; saveOrdering(); redraw();
       } }), h('i')), o.methods[k] && fields);
       // Dayparts: named times of day a menu can be shown in. Menus pick them under Menu availability.
-      // Dayparts: named times of day a menu can be shown in. Menus pick them under Menu availability.
-      // Each change looks its daypart up by ID, because a save swaps in the server's copy of the list.
-      const dp = (pid) => o.dayparts.find((x) => x.id === pid);
-      const dpTime = (pid, k) => (e) => {
-        const cur = dp(pid); if (!cur) return;
-        const v = e.target.value, other = k === 'from' ? cur.to : cur.from;
-        if (!v) { e.target.value = cur[k]; return toast('Choose a time.', true); }
-        if (v === other) { e.target.value = cur[k]; return toast('The start and end times must be different.', true); }
-        cur[k] = v; saveOrdering();
-      };
-      const dayparts = group('Dayparts', null,
-        h('div', { class: 'stack' }, o.dayparts.map((p) => h('div', { class: 'deal' },
-          h('div', { class: 'row' }, h('input', { class: 'grow', value: p.name, maxlength: 40, placeholder: 'Lunch', 'aria-label': 'Daypart name', oninput: (e) => { const cur = dp(p.id), v = e.target.value.trim(); if (cur && v) { cur.name = v; saveOrdering(); } }, onblur: (e) => { const cur = dp(p.id); if (cur && !e.target.value.trim()) { e.target.value = cur.name; toast('A daypart needs a name.', true); } } }),
-            h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Remove ${p.name || 'daypart'}`, onclick: () => { o.dayparts = o.dayparts.filter((x) => x.id !== p.id); for (const m of o.menus) m.dayparts = m.dayparts.filter((x) => x !== p.id); saveOrdering(); redraw(); } }, ic('trash', 16))),
-          h('div', { class: 'deal-grid dp-grid' },
-            h('label', { class: 'field' }, h('span', {}, 'From'), h('input', { type: 'time', value: p.from, required: true, onchange: dpTime(p.id, 'from') })),
-            h('label', { class: 'field' }, h('span', {}, 'Until'), h('input', { type: 'time', value: p.to, required: true, onchange: dpTime(p.id, 'to') }))),
-          h('div', { class: 'daypick', role: 'group', 'aria-label': 'Days' }, DAYS.map((day, di) => h('button', { type: 'button', title: day, 'aria-label': day, 'aria-pressed': String(p.days[di] !== false), onclick: (e) => { const cur = dp(p.id); if (!cur) return; cur.days[di] = cur.days[di] === false; e.currentTarget.setAttribute('aria-pressed', String(cur.days[di])); saveOrdering(); } }, day.slice(0, 2))))))),
-        h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { if (o.dayparts.length >= 20) return toast('You can have up to 20 dayparts.', true); o.dayparts.push({ id: uid('p'), name: 'Lunch', days: DAYS.map(() => true), from: '11:00', to: '14:00' }); saveOrdering(); redraw(); } }, ic('plus', 14), 'Add daypart'));
       const out = [
         group('Online ordering', toggle('Take orders on my website', o, 'enabled', (v) => v === true, () => { if (o.enabled && !openMethods(o).length) o.methods.pickup = true; redraw(); }),
           o.enabled && toggle('Accepting orders right now', o, 'accepting', undefined, redraw),
@@ -609,12 +612,9 @@ export async function editor(id, mount, title, startTab = '') {
           group('Checkout', wrap('Sales tax (%)', h('input', { type: 'number', min: 0, max: 30, step: '0.001', value: o.taxRate, oninput: (e) => { o.taxRate = Number(e.target.value) || 0; saveOrdering(); } }), 'Added to every order. Enter 0 if your prices include tax.'),
             toggle('Let customers add a tip', o, 'tips'), toggle('Let customers add notes', o, 'allowNotes'),
             null),
-          group('Opening hours', wrap('Time zone', h('select', { onchange: (e) => { o.timezone = e.target.value; saveOrdering(); } }, Object.entries(TIMEZONES).map(([k, l]) => h('option', { value: k, selected: o.timezone === k }, l)))),
-            hoursGrid(o.hours, () => { draft.business.hours = hoursText(o.hours); saveOrdering(); changed(); }),
-            toggle('Only take orders during set hours', o, 'useHours', (v) => v === true, redraw),
+          group('Order times', toggle('Only take orders during business hours', o, 'useHours', (v) => v === true, redraw),
             toggle('Let customers order ahead for a later time', o, 'scheduling', (v) => v === true), null),
           group('Kitchen capacity', wrap('Most orders in any 15 minutes', h('input', { type: 'number', min: 0, max: 500, value: o.slotLimit || '', placeholder: 'No limit', style: 'max-width:160px', oninput: (e) => { o.slotLimit = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'Stops the kitchen being overbooked. Once a time is full, customers are offered the next one. Leave empty for no limit.')),
-          dayparts,
           group('Happy hour and timed prices', null,
             h('div', { class: 'stack' }, o.deals.map((dl, i) => h('div', { class: 'deal' },
               h('div', { class: 'row' }, h('input', { class: 'grow', value: dl.name, maxlength: 40, placeholder: 'Happy hour', 'aria-label': 'Name', oninput: (e) => { dl.name = e.target.value; saveOrdering(); } }),
@@ -649,7 +649,7 @@ export async function editor(id, mount, title, startTab = '') {
         ] : []),
       ];
       notify = null;
-      if (!o.enabled && view !== 'ordering') return [emptyState('sliders', 'Online ordering is off', 'Online ordering is off.', ['Open online ordering', () => goTab('ordering')]), view === 'hours' && dayparts];
+      if (!o.enabled && view !== 'ordering') return [emptyState('sliders', 'Online ordering is off', 'Online ordering is off.', ['Open online ordering', () => goTab('ordering')])];
       const want = SETUP_VIEWS[view];
       return out.flat(Infinity).filter(Boolean).filter((el) => { const t = el.querySelector?.(':scope > h3')?.textContent; return t ? want.includes(t) : view === 'ordering'; });
     },
@@ -1938,7 +1938,7 @@ export async function editor(id, mount, title, startTab = '') {
   /* Quick find: one box that jumps to any screen, setting, item or order. */
   const SETTINGS = [['Logo', 'design'], ['Brand colour', 'design'], ['Page background', 'design'], ['Typeface and corners', 'design'], ['Header', 'design'], ['Footer', 'design'], ['Announcement bar', 'design'], ['Site language', 'design'], ['Quick style', 'design'],
     ['Phone, address and email', 'business'], ['Social profiles', 'business'], ['Online payment link', 'business'],
-    ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'hours'], ['Order ahead and scheduling', 'hours'], ['Kitchen capacity', 'hours'], ['Happy hour and timed prices', 'deals'], ['Promo codes', 'promos'], ['Loyalty rewards', 'rewards'], ['Low stock alerts', 'alerts'], ['Daily summary email', 'alerts'], ['Order emails', 'alerts'], ['Pause ordering', 'ordering'],
+    ['Pickup, curbside and delivery', 'ordering'], ['Delivery fee and zones', 'ordering'], ['Sales tax rate', 'ordering'], ['Tips', 'ordering'], ['Opening hours for orders', 'hours'], ['Order ahead and scheduling', 'ordering'], ['Kitchen capacity', 'ordering'], ['Happy hour and timed prices', 'deals'], ['Promo codes', 'promos'], ['Loyalty rewards', 'rewards'], ['Low stock alerts', 'alerts'], ['Daily summary email', 'alerts'], ['Order emails', 'alerts'], ['Pause ordering', 'ordering'],
     ['Notifications on this device', 'orders'], ['Sales tax collected', 'r-taxes'], ['Best sellers', 'r-items'], ['Export sales', 'sales'], ['Export customers', 'customers'], ['Send an invoice', 'invoices'], ['Catering and bulk orders', 'invoices'], ['Unpaid invoices', 'invoices'],
     ['Free web address', 'domain'], ['Connect my own domain', 'domain'], ['Privacy policy and terms', 'policies'], ['Google search description', 'seo'], ['Sharing image', 'seo'], ['Earlier versions', 'history'], ['Staff logins', 'team'], ['Daily refill', 'items'], ['Upload item list', 'menu'], ['Categories', 'menu']];
   let finding = false;
@@ -2970,14 +2970,14 @@ export async function editor(id, mount, title, startTab = '') {
     pen: SV('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', 18),
     plus: SV('<path d="M12 5v14M5 12h14"/>', 18),
     dl: SV('<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/>', 18),
-    check: SV('<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12 2.4 2.4 4.6-4.8"/>', 16),
+    check: SV('<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12 2.4 2.4 4.6-4.8"/>', 72),
     info: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>', 18),
     ext: SV('<path d="M14 4.5h5.5V10M19.5 4.5 11 13M18 14v4.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H10"/>', 15),
     clock: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', 18),
     manage: SV('<path d="M8 4v4M8 12v8M16 4v9M16 17v3"/><path d="M5.5 10h5M13.5 15h5"/>', 17),
     trophy: SV('<path d="M7.5 4.5h9V9a4.5 4.5 0 0 1-9 0z"/><path d="M7.5 6.5H5a2.5 2.5 0 0 0 2.6 3.4M16.5 6.5H19a2.5 2.5 0 0 1-2.6 3.4M12 13.5V17M8.5 19.5h7M9.5 17h5v2.5h-5z"/>', 24),
     tag: SV('<path d="M3.5 12.2V4.8c0-.7.6-1.3 1.3-1.3h7.4l8.3 8.3a1.3 1.3 0 0 1 0 1.8l-7.4 7.4a1.3 1.3 0 0 1-1.8 0z"/><circle cx="8.3" cy="8.3" r="1.4"/>', 20),
-    store: SV('<path d="M4.5 9.5 6 4.5h12l1.5 5"/><path d="M5.5 9.5v10h13v-10M4.5 9.5h15"/><path d="M10 19.5v-5h4v5"/>', 34),
+    store: SV('<path d="M4.5 9.5 6 4.5h12l1.5 5"/><path d="M5.5 9.5v10h13v-10M4.5 9.5h15"/><path d="M10 19.5v-5h4v5"/>', 64),
     burst: SV('<path d="M12 3.5v7M12 13.5v7M3.5 12h7M13.5 12h7M6 6l4.9 4.9M13.1 13.1 18 18M18 6l-4.9 4.9M10.9 13.1 6 18"/>', 34),
     megaphone: SV('<path d="M4 10v4a1 1 0 0 0 1 1h2l6 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16.5 9a4 4 0 0 1 0 6M7.5 15l1.2 4.5"/>', 34),
     prep: SV('<path d="M4 5.5h16v2.2H4z"/><path d="M6.3 7.7 7 16.5M17.7 7.7 17 16.5M5 16.5h14M8 19.5h8"/><path class="ac" d="M10 11v2.6M12 10.5v3.1M14 11v2.6"/>', 34),
@@ -3901,6 +3901,205 @@ export async function editor(id, mount, title, startTab = '') {
       itTable({ key: 'discs', cols: [{ k: 'name', l: 'Discount name', cls: 'it-dname', w: '30%' }, { k: 'value', l: 'Discount value' }], rows, empty: h('div', { class: 'it-none' }, 'No discounts found') }))];
   };
 
+
+  /* ---------- Booking tools: Online booking and Customer outreach, laid out like the owner's photos.
+     Partners we are not connected to (Reserve with Google) are greyed out; so is anything about online card payments, which are not available. ---------- */
+  const BI = {
+    svc: SV('<circle cx="11" cy="11" r="7.5"/><path d="M7 8.3h1.2l1.3 5h4.3l1-3.6H8.8"/><circle cx="10" cy="15.2" r=".7"/><circle cx="13.3" cy="15.2" r=".7"/><path class="ac" d="m16.2 16.2 4.3 1.6-1.9.8-.8 1.9z"/>', 34),
+    pickup: SV('<circle cx="7" cy="5.5" r="1.9"/><path d="M5.2 21v-5.4H4.4V11a2.6 2.6 0 0 1 5.2 0v4.6h-.8V21"/><path d="M12 4.5h4.5a2.5 2.5 0 0 1 0 5H14.5M14.5 7.8 12.8 9.5l1.7 1.7"/><path class="ac" d="M17.5 21s-3.2-3.3-3.2-5.6a3.2 3.2 0 0 1 6.4 0c0 2.3-3.2 5.6-3.2 5.6z"/><circle class="ac" cx="17.5" cy="15.4" r="1"/>', 34),
+    fb: '<svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="currentColor"/><path d="M26.4 47V30.6h5.2l.8-6.2h-6v-4c0-1.8.5-3 3.1-3h3.2v-5.5a43 43 0 0 0-4.7-.2c-4.6 0-7.8 2.8-7.8 8v4.6h-5.3v6.2h5.3V47z" fill="var(--card,#fff)"/></svg>',
+    x: '<svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="8" fill="currentColor"/><path d="M12.5 12.5h7.2l6.1 8.4 7.4-8.4h2.5l-8.7 9.9 10.5 13.1h-7.2l-6.6-8.9-7.8 8.9h-2.5l9.1-10.4z" fill="var(--card,#fff)"/></svg>',
+    share: SV('<circle cx="6.5" cy="12" r="2.3"/><circle cx="17.5" cy="6" r="2.3"/><circle cx="17.5" cy="18" r="2.3"/><path d="m8.6 10.9 6.8-3.7M8.6 13.1l6.8 3.7"/>', 18),
+    qr: SV('<path d="M3.5 8V5a1.5 1.5 0 0 1 1.5-1.5h3M16 3.5h3A1.5 1.5 0 0 1 20.5 5v3M20.5 16v3a1.5 1.5 0 0 1-1.5 1.5h-3M8 20.5H5A1.5 1.5 0 0 1 3.5 19v-3M12 6.5v3M12 14.5v3M6.5 12h3M14.5 12h3"/><path class="ac" d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z"/>', 48),
+    search: SV('<rect x="1.5" y="8" width="21" height="8" rx="4"/><circle class="ac" cx="17.2" cy="11.6" r="1.7"/><path class="ac" d="m18.4 12.8 1.4 1.4"/>', 140),
+    store: SV('<rect x="3" y="4" width="18" height="12" rx="1.3"/><path d="M9 20h6M12 16v4"/><path class="ac" d="M6 7h8v5H6zM8.5 9.5h3M16.5 7.5v4M15.6 12.4l3.3 1.3-1.5.6-.6 1.5z"/>', 46),
+    shop: SV('<path d="M4.5 9.5 6 4.5h12l1.5 5"/><path d="M5.5 9.5v10h13v-10M4.5 9.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5"/><path class="ac" d="M7 19.5v-3.8l1.6-3c.5 0 1 .5.9 1.2l-.3 1.6h2.6c.6 0 1 .5.9 1.1l-.6 2.4c-.1.4-.5.6-.9.6H8.2"/>', 64),
+    paid: SV('<rect x="2.5" y="4.5" width="17" height="11.5" rx="1.2"/><path d="M8 20h6M11 16v4"/><path class="ac" d="M7.2 12.4V8.2h1.4a1.1 1.1 0 0 1 0 2.2H7.2M10.6 12.4l1-4.2 1 4.2M10.9 11.2h1.4M14.4 8.2v4.2M15.9 8.2v4.2h.6a2.1 2.1 0 0 0 0-4.2z"/>', 84),
+    receipt: SV('<path d="M4.5 12.5h15V21h-15z"/><path class="ac" d="M8 13V3.5h8V13M10 6.5h4M10 9h4"/>', 84),
+    gears: SV('<rect x="3" y="4" width="18" height="12.5" rx="1.3"/><path d="M9 20.5h6M12 16.5v4"/><circle class="ac" cx="9.4" cy="10.2" r="2.2"/><circle class="ac" cx="14.8" cy="8.8" r="1.6"/><path class="ac" d="M9.4 6.9v1M9.4 12.4v1M6.1 10.2h1M11.6 10.2h1M14.8 6.3v.8M14.8 10.5v.8M16.8 13.5l-1.2-2.6 2.6 1.1-1 .4z"/>', 84),
+    free: SV('<path d="M3.5 9.5 6 5.5l13.5 4-2.5 9-13.5-4z"/><path class="ac" d="M7.5 11.3l.9.3M7.5 11.3l-.5 1.8M7.3 12.2l.8.2M10 12l-.5 1.8M10 12l.8.2c.5.1.5.9-.1.9l-.8-.2M11.4 12.9l.6.8M12.3 12.6l-.5 1.8 1 .3M12.3 12.6l1 .3M12.1 13.5l.7.2M14.6 13.3l-.5 1.8 1 .3M14.6 13.3l1 .3M14.4 14.2l.7.2"/>', 40),
+    coin: SV('<circle cx="12" cy="12" r="8.5"/><path class="ac" d="M9.2 16.5c1-3.5 1.4-6.8 4.9-9M10.6 9.6l3.5-2.1.5 3.6"/>', 40),
+    card: SV('<path d="M5.5 6.5h13l-2 11h-13z"/><path class="ac" d="M8.5 10.5h7M7.5 14h4.5"/>', 40),
+    check: SV('<circle cx="12" cy="12" r="10"/><path class="ac" d="m7.5 12.3 3 3 6-6.6"/>', 56),
+    help: SV('<circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.6a2.3 2.3 0 0 1 4.4.9c0 1.5-2.2 1.8-2.2 3.2M12 16.6v.1"/>', 18),
+  };
+  const minsText = (n) => { n = Math.round(Number(n) || 0); if (n < 60) return `${n} minute${n === 1 ? '' : 's'}`; const hh = Math.floor(n / 60), mm = n % 60; return `${hh} hour${hh === 1 ? '' : 's'}${mm ? ` ${mm} minute${mm === 1 ? '' : 's'}` : ''}`; };
+  const siteLive = () => !!(meta.live && meta.url);
+  const bookPageOn = () => !!(ordering.booking.enabled && ordering.booking.services.length);
+  const shareUrl = () => (bookPageOn() ? `${meta.url.replace(/\/$/, '')}/book` : meta.url);
+
+  // "How does online booking work?": six steps, with back and next, and the dots underneath.
+  function bookingHelp() {
+    let at = 0;
+    const steps = (rows) => h('ol', { class: 'obh-steps' }, rows.map(([t, p], i) => h('li', {}, h('span', { class: 'obh-num' }, String(i + 1)), h('div', {}, h('b', {}, t), h('p', {}, p)))));
+    const lines = (rows) => h('ul', { class: 'obh-lines' }, rows.map(([icon, text, off, tip]) => h('li', { class: off ? 'off' : '', title: off ? 'Not available yet' : null }, h('span', { class: 'obh-ill', html: icon }), h('p', {}, text, tip && h('span', { class: 'obh-help', html: BI.help })))));
+    const SLIDES = [
+      () => [h('h2', {}, 'How does online booking work?'), steps([
+        ['Review and edit your information', 'Your business, operational, and service list information have been filled out already. Review them for accuracy and make any changes necessary.'],
+        ['Start accepting online orders', 'Turn on the toggle next to the online booking partner(s) you want to use to start accepting appointments.'],
+        ['Promote your sites', 'Share your online storefront with your clients so they can start booking appointments. You can share links to your sites via email, social media, or print outs.']])],
+      () => [h('h2', {}, 'How will my customers book an appointment?'), h('div', { class: 'obh-flow' },
+        ...[[BI.search, '1. Find your storefront online or through your promotions.'], [BI.store, '2. Book directly through the online storefront personalized for your business.'], [BI.shop, '3. Arrive at your business for your scheduled appointment.']]
+          .flatMap(([icon, text], i) => [i > 0 && h('span', { class: 'obh-arrow', 'aria-hidden': 'true' }), h('div', { class: 'obh-col' }, h('span', { class: 'obh-ill big', html: icon }), h('p', {}, text))]).filter(Boolean))],
+      () => [h('h2', {}, 'How do my customers pay?'), h('p', { class: 'obh-p' }, 'Customers pay at your business once the service is complete. You will be notified on your devices when clients book an appointment online. All appointments will appear in Appointments.'),
+        h('div', { class: 'obh-pair' }, h('span', { class: 'obh-ill off', title: 'Paying online is not available yet', html: BI.paid }), h('span', { class: 'obh-arrow', 'aria-hidden': 'true' }), h('span', { class: 'obh-ill', html: BI.receipt }))],
+      () => [h('h2', {}, 'What if my business is too busy?'), h('p', { class: 'obh-p' }, 'On your dashboard, you can pause accepting bookings by going to the ', h('b', {}, 'Online Booking settings page'), ' and selecting the toggle next to “Take booking requests on my website”.'),
+        h('div', { class: 'obh-pair' }, h('span', { class: 'obh-ill', html: BI.gears }))],
+      () => [h('h2', {}, 'What about fees and payments?'), lines([
+        [BI.free, 'Bookings from Processor Freedom Online Booking are always free.'],
+        [BI.coin, 'Payments from your customers will be funded the same way as your credit card sales.', true],
+        [BI.card, 'Card not present rate applies.', true, true]])],
+      (close) => [h('div', { class: 'obh-done' }, h('span', { class: 'obh-ill', html: BI.check }), h('p', {}, 'That’s it!'), h('button', { type: 'button', class: 'obh-ok', onclick: close }, 'OK'))],
+    ];
+    sheet((close) => {
+      const box = h('div', { class: 'obh' });
+      const draw = (focusNext) => {
+        box.replaceChildren(...[
+          h('button', { type: 'button', class: 'obh-x', 'aria-label': 'Close', onclick: close }, ic('x', 20)),
+          h('div', { class: 'obh-body', 'aria-live': 'polite' }, ...SLIDES[at](close)),
+          at > 0 && h('button', { type: 'button', class: 'obh-nav prev', 'aria-label': 'Back', html: II.chevL, onclick: () => { at -= 1; draw('prev'); } }),
+          at < SLIDES.length - 1 && h('button', { type: 'button', class: 'obh-nav next', 'aria-label': 'Next', html: II.chevR, onclick: () => { at += 1; draw('next'); } }),
+          h('div', { class: 'obh-dots' }, SLIDES.map((_, i) => h('button', { type: 'button', 'aria-label': `Step ${i + 1} of ${SLIDES.length}`, 'aria-current': i === at ? 'step' : null, onclick: () => { at = i; draw(); } })))].filter(Boolean));
+        if (focusNext) (box.querySelector(`.obh-nav.${focusNext}`) || box.querySelector('.obh-ok') || box.querySelector('.obh-nav'))?.focus();
+      };
+      box.onkeydown = (e) => { if (e.key === 'ArrowRight' && at < SLIDES.length - 1) { at += 1; draw('next'); } else if (e.key === 'ArrowLeft' && at > 0) { at -= 1; draw('prev'); } };
+      draw();
+      return [box];
+    }, 'obh-sheet');
+  }
+  // "Edit order pickup time": how long an order takes to get ready.
+  function editPickup() {
+    const cur = Number(ordering.prepMinutes) || 0;
+    const opts = [...new Set([5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, cur].filter((n) => n > 0))].sort((a, b) => a - b);
+    sheet((close) => {
+      const sel = h('select', { 'aria-label': 'Pickup time' }, opts.map((n) => h('option', { value: n, selected: n === cur }, minsText(n))));
+      const save = h('button', { type: 'button', class: 'it-btn fill ob-save', disabled: true }, 'Save');
+      sel.onchange = () => { save.disabled = Number(sel.value) === cur; };
+      save.onclick = async () => {
+        const was = ordering.prepMinutes; ordering.prepMinutes = Number(sel.value); save.disabled = true;
+        try { await putOrdering(); close(); toast('Pickup time saved'); paintPanel(); } catch (e) { ordering.prepMinutes = was; toast(e.message, true); save.disabled = false; }
+      };
+      return [h('div', { class: 'obp-h' }, h('h2', {}, 'Edit order pickup time'), h('button', { type: 'button', class: 'obp-x', 'aria-label': 'Close', onclick: close }, ic('x', 18))),
+        h('p', { class: 'obp-q' }, 'How long will it take for you to prepare the order?'),
+        h('label', { class: 'obp-f' }, h('span', {}, 'Pickup time'), sel),
+        h('div', { class: 'obp-acts' }, h('button', { type: 'button', class: 'it-btn grey', onclick: close }, 'Cancel'), save)];
+    }, 'obp');
+  }
+  // The online phone number is the business phone customers see.
+  function editPhone() {
+    const b = draft.business;
+    nameSheet({ title: 'Edit online phone number', label: 'Phone number', value: b.phone || '', save: async (v) => { b.phone = v; changed(); await flush(); toast('Phone number saved'); paintPanel(); } });
+  }
+  function shareTo(where) {
+    const u = encodeURIComponent(shareUrl()), t = encodeURIComponent(`Book with ${bizOf().name}`);
+    window.open(where === 'fb' ? `https://www.facebook.com/sharer/sharer.php?u=${u}` : `https://twitter.com/intent/tweet?url=${u}&text=${t}`, '_blank', 'noopener');
+  }
+  async function shareNative() {
+    const url = shareUrl();
+    try { if (navigator.share) await navigator.share({ title: bizOf().name, url }); else { await navigator.clipboard.writeText(url); toast('Link copied'); } } catch { /* the share sheet was closed */ }
+  }
+  function downloadQr() {
+    qrCanvas(shareUrl()).then((c) => h('a', { href: c.toDataURL('image/png'), download: `${meta.slug}-${bookPageOn() ? 'booking-' : ''}qr.png` }).click()).catch(() => toast('The QR code could not be made. Check your connection and try again.', true));
+  }
+  // The logo, or a grey square with our mark when there is none.
+  const bookLogo = (logo, name) => (logo ? h('img', { class: 'oo-logo oo-big ob-logo', src: logo, alt: '' }) : h('span', { class: 'ob-logo ob-noimg', 'aria-hidden': 'true' }, (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()));
+
+  CL.obook = () => {
+    const { b, name, logo, addr } = bizOf();
+    const bk = ordering.booking;
+    const live = siteLive();
+    const launch = h('div', { class: 'scard oo-launch' }, h('div', { class: 'oo-launchtx' }, h('h2', {}, 'Launch your online presence with Processor Freedom'), h('p', {}, 'Create a new branded website or link an online booking site to your existing website.')), pfAct('Manage', PI.manage, () => goTab(lastTab.site || 'design')));
+    // Shown until there is something to book.
+    const banner = !bk.services.length && !banOff('svcmenu') && h('div', { class: 'oo-ban ob-ban', role: 'note' }, h('span', { class: 'oo-bi', html: PI.info }),
+      h('div', { class: 'ob-bantx' }, h('b', {}, 'Create your online service menu now'), h('p', {}, h('button', { type: 'button', class: 'oo-inl', onclick: () => goTab('booking') }, 'Create an online service menu'), ' to easily set custom prices for your services and more.')),
+      h('button', { type: 'button', class: 'it-banx', 'aria-label': 'Dismiss', onclick: () => banHide('svcmenu') }, ic('x', 20)));
+    const tabsBar = cTabs([['partners', 'Partners'], ['settings', 'Settings']], clState.obTab ||= 'settings', (k) => { clState.obTab = k; });
+    let body;
+    if (clState.obTab === 'partners') {
+      body = [h('p', { class: 'oo-plabel' }, 'Third-Party Marketplaces'), h('div', { class: 'scard oo-prow ob-prow off', ...OFF },
+        h('div', { class: 'oo-plogo' }, h('span', { class: 'oo-mono lg' }, 'G'), h('small', {}, 'Reserve with Google')),
+        h('div', { class: 'ob-psup' }, h('b', {}, 'Get more bookings with Google'), h('p', {}, 'Turn searches into sales by letting customers book your services directly from Google Search and Maps.')),
+        h('button', { type: 'button', class: 'oo-pill', disabled: true }, 'Get started'))];
+    } else {
+      const biz = h('section', { class: 'oo-biz' }, h('h2', { class: 'oo-h' }, 'Business information'),
+        h('div', { class: 'scard oo-bizcard' },
+          h('div', { class: 'oo-bizrow' }, bookLogo(logo, name),
+            h('div', { class: 'oo-bizinfo' }, h('b', { class: 'oo-bizname' }, name), addr && h('p', {}, addr),
+              h('button', { type: 'button', class: 'oo-link ob-phone', onclick: editPhone }, b.phone || 'Add your online phone number'),
+              b.email ? h('p', {}, b.email) : h('p', { class: 'ob-email' }, 'Customer contact email'))),
+          h('div', { class: 'oo-bizfoot' }, h('span', { class: 'oo-fi', html: PI.info }), h('p', {}, 'You can update your online phone number here. The rest of this information mirrors your customer-facing business information. To correct any out-of-date details, edit them in the ', h('button', { type: 'button', class: 'oo-inl', onclick: () => goTab('bizinfo') }, 'Business information settings'), ' page.'))));
+      const side = h('aside', { class: 'oo-side' },
+        h('div', { class: 'oo-st' }, h('div', { class: 'oo-sthead' }, h('img', { class: 'oo-stlogo', src: '/assets/logo-dark.svg', alt: '', width: 26, height: 26 }), h('div', {}, h('b', {}, 'Processor Freedom Online Booking'), h('p', {}, 'Reach more customers with Processor Freedom Online Booking.'))),
+          h('div', { class: 'oo-stbody' }, pfAct('Manage', PI.manage, () => goTab('booking'), 'ob-manage'))),
+        h('h3', { class: 'oo-sh' }, 'Third-Party Marketplaces'),
+        h('div', { class: 'oo-st off', ...OFF }, h('div', { class: 'oo-sthead' }, h('span', { class: 'oo-mono' }, 'G'), h('div', {}, h('b', {}, 'Reserve with Google'), h('p', {}, 'Turn searches into sales by letting customers book your services directly from Google Search and Maps.'))),
+          h('div', { class: 'oo-stbody' }, h('button', { type: 'button', class: 'oo-pill', disabled: true }, 'Get started'))));
+      const hoursOn = (ordering.hours || []).some((d) => !d.closed);
+      const svcN = bk.services.length;
+      const op = (icon, title, value, onEdit) => h('div', { class: 'scard oo-op' }, h('div', { class: 'oo-optop' }, h('span', { class: 'oo-opic', html: icon }), pfAct('Edit', PI.pen, onEdit)), h('div', { class: 'oo-optx' }, h('b', {}, title), h('p', {}, value)));
+      const ops = h('section', { class: 'oo-ops' }, h('h2', { class: 'oo-h' }, 'Operational information'), h('div', { class: 'oo-opgrid' },
+        op(PI.hours, 'Business hours', hoursOn ? todayHours().text : 'Add business hours', () => goTab('hours')),
+        op(BI.svc, 'Online service menu', svcN ? `${svcN} service${svcN === 1 ? '' : 's'}` : 'Edit your online service menu', () => goTab('booking')),
+        op(BI.pickup, 'Pickup time', minsText(ordering.prepMinutes), editPickup)));
+      // Sharing needs a published website; until then the tools are greyed out and say so.
+      const first = () => !live && h('p', { class: 'ob-kitnote' }, 'Create a ', h('button', { type: 'button', class: 'oo-inl ob-web', onclick: () => goTab(lastTab.site || 'design') }, 'website'), ' first in order to share on your social media');
+      const kit = h('section', { class: 'oo-ops ob-kit' }, h('h2', { class: 'oo-h' }, 'Toolkit'), h('div', { class: 'oo-opgrid' },
+        h('div', { class: 'scard ob-tool' },
+          h('div', { class: 'ob-icons' }, h('button', { type: 'button', class: 'ob-sico', 'aria-label': 'Share on Facebook', disabled: !live, onclick: () => shareTo('fb'), html: BI.fb }), h('button', { type: 'button', class: 'ob-sico', 'aria-label': 'Share on X', disabled: !live, onclick: () => shareTo('x'), html: BI.x })),
+          h('button', { type: 'button', class: 'ob-toolbtn', disabled: !live, onclick: shareNative }, h('span', { html: BI.share }), 'Share on social media'), first()),
+        h('div', { class: 'scard ob-tool' },
+          h('div', { class: 'ob-icons' }, h('span', { class: 'ob-qr', html: BI.qr })),
+          h('button', { type: 'button', class: 'ob-toolbtn', disabled: !live, onclick: downloadQr }, h('span', { html: PI.dl }), 'Download QR code'), first())));
+      body = [h('div', { class: 'oo-grid ob-grid' }, biz, side, ops, kit)];
+    }
+    return [h('div', { class: 'cl oo ob' }, cHead('Booking tools', 'Online booking', null, h('span', {}, 'Manage your online booking partners and settings. See ', h('button', { type: 'button', class: 'oo-inl', onclick: bookingHelp }, 'how online booking works'), ' for more information.')),
+      banner, tabsBar, launch, ...body)];
+  };
+  CL.boutreach = () => CL.outreach();
+
+  /* Business hours, from Settings and from Online booking: the opening hours and the time zone, each with Edit; dayparts for menus underneath. */
+  const tzName = (tz) => {
+    const city = String(tz).split('/').pop().replace(/_/g, ' ');
+    let off = '';
+    try { off = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date()).find((x) => x.type === 'timeZoneName').value.replace('GMT', '').trim(); } catch { off = ''; }
+    return `GMT ${off || '+00:00'} ${city}`;
+  };
+  function editHours() {
+    const copy = ordering.hours.map((d) => ({ ...d }));
+    sheet((close) => {
+      const save = h('button', { type: 'button', class: 'btn cl-blue', disabled: true }, 'Save');
+      save.onclick = async () => {
+        const was = ordering.hours; ordering.hours = copy; save.disabled = true;
+        try { await putOrdering(); draft.business.hours = hoursText(copy); changed(); close(); toast('Business hours saved'); paintPanel(); paint(true); } catch (e) { ordering.hours = was; toast(e.message, true); save.disabled = false; }
+      };
+      return [h('div', { class: 'swb-h' }, h('h2', {}, 'Hours of operation'), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        hoursGrid(copy, () => { save.disabled = false; }),
+        h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), save)];
+    }, 'swb bh-sheet');
+  }
+  function editZone() {
+    let v = ordering.timezone;
+    sheet((close) => {
+      const save = h('button', { type: 'button', class: 'btn cl-blue', disabled: true }, 'Save');
+      const sel = h('select', { 'aria-label': 'Time zone', onchange: (e) => { v = e.target.value; save.disabled = v === ordering.timezone; } }, Object.keys(TIMEZONES).map((k) => h('option', { value: k, selected: k === v }, tzName(k))));
+      save.onclick = async () => { const was = ordering.timezone; ordering.timezone = v; save.disabled = true; try { await putOrdering(); close(); toast('Time zone saved'); paintPanel(); } catch (e) { ordering.timezone = was; toast(e.message, true); save.disabled = false; } };
+      return [h('div', { class: 'swb-h' }, h('h2', {}, 'Time zone'), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        h('label', { class: 'field cl-field' }, h('span', {}, 'Time zone'), sel),
+        h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), save)];
+    }, 'swb');
+  }
+  CL.hours = () => {
+    const o = ordering;
+    const save = debounce(async () => { try { await putOrdering(); } catch (e) { toast(e.message, true); } }, 450);
+    const card = (title, action, ...rest) => h('div', { class: 'scard pf-card bh-card' }, h('div', { class: 'pf-top' }, h('div', { class: 'pf-main' }, h('h2', {}, title)), action), ...rest);
+    return [h('div', { class: 'cl pf bi bh' },
+      h('button', { type: 'button', class: 'bi-back', onclick: () => goTab('settings') }, h('span', { html: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 20) }), 'Settings'),
+      h('h1', { class: 'pf-title' }, 'Business hours'),
+      card('Hours of operation', pfAct('Edit', PI.pen, editHours), h('div', { class: 'bh-list' }, WEEK.map((d) => { const x = o.hours[d]; return h('div', { class: 'bh-row' }, h('b', {}, DAYS[d]), h('span', {}, x.closed ? 'Closed' : `${clock12(x.open)} - ${clock12(x.close)}`)); }))),
+      card('Time zone', pfAct('Edit', PI.pen, editZone), h('p', { class: 'bh-zone' }, tzName(o.timezone))),
+      card('Dayparts', null, daypartsEditor(o, save)))];
+  };
+
   function paintPanel() {
     const y = panel.scrollTop;
     const cur = tabs.find(([k]) => k === tab) || tabs[0];
@@ -3913,14 +4112,15 @@ export async function editor(id, mount, title, startTab = '') {
     const has = (k) => tabs.some(([t]) => t === k);
     const groups = NAV[mode].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: (g.subs || []).filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length);
     const tools = { ...TOOLS, tabs: TOOLS.tabs.filter(has), subs: TOOLS.subs.filter((_, i) => has(TOOLS.tabs[i])) };
+    const books = { ...BOOKTOOLS, tabs: BOOKTOOLS.tabs.filter(has), subs: BOOKTOOLS.subs.filter((_, i) => has(BOOKTOOLS.tabs[i])) };
     const here = navOf(cur[0]);
-    const group = groups.find((g) => g.tabs.includes(here)) || (mode === 'office' && tools.tabs.includes(cur[0]) ? tools : null) || (SETUP.tabs.includes(cur[0]) ? { ...SETUP, tabs: SETUP.tabs.filter(has), subs: SETUP.subs.filter((_, i) => has(SETUP.tabs[i])) } : { label: cur[1], icon: cur[2], tabs: [cur[0]], subs: [cur[1]] });   // Settings and Profile are reached from the top right, not the sidebar
+    const group = groups.find((g) => g.tabs.includes(here)) || (mode === 'office' && tools.tabs.includes(cur[0]) ? tools : null) || (mode === 'office' && books.tabs.includes(cur[0]) ? books : null) || (SETUP.tabs.includes(cur[0]) ? { ...SETUP, tabs: SETUP.tabs.filter(has), subs: SETUP.subs.filter((_, i) => has(SETUP.tabs[i])) } : { label: cur[1], icon: cur[2], tabs: [cur[0]], subs: [cur[1]] });   // Settings and Profile are reached from the top right, not the sidebar
     const pick = (g) => goTab(g.tabs.includes(lastIn[g.label]) ? lastIn[g.label] : g.tabs[0]);
     // A section with several pages only opens or closes when pressed; choosing a page underneath is what takes you there.
     if (navFor !== here) { navFor = here; openNav.add(group.label); }
     rail.replaceChildren(...[mode === 'site' && h('button', { class: 'nav-row nav-back', onclick: () => goTab(lastTab.office) }, navTile('back', 30), h('b', {}, 'Back office')), mode === 'office' ? h('button', { class: 'rail-new', 'aria-current': cur[0] === 'sale' ? 'page' : null, onclick: () => goTab('sale') }, ic('plus', 16), 'New sale') : h('button', { class: 'rail-new', onclick: async () => { const w = window.open('', '_blank'); await flush(); if (w) w.location = `/preview/${id}/`; } }, ic('eye', 16), 'Preview site'), ...groups.flatMap(navGroup).filter(Boolean),
       h('span', { class: 'grow' }),
-      mode === 'office' && h('div', { class: 'rail-tools' }, has('booking') && h('button', { class: 'nav-row', 'aria-current': cur[0] === 'booking' ? 'page' : null, onclick: () => goTab('booking') }, navTile('calendar', 30), h('b', {}, 'Booking tools')), tools.tabs.length > 0 && navGroup(tools)),
+      mode === 'office' && h('div', { class: 'rail-tools' }, books.tabs.length > 0 && navGroup(books), tools.tabs.length > 0 && navGroup(tools)),
       mode === 'site' && railPub,
       h('small', { class: 'rail-foot' }, h('b', {}, meta.name), h('br'), `© ${new Date().getFullYear()} Processor Freedom`)].flat().filter(Boolean));
     function navGroup(g) {
@@ -3994,7 +4194,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'more-group' }, h('div', { class: 'more-list' }, NAV[mode].map(fold))),
         h('div', { class: 'more-group' }, h('div', { class: 'more-list' },
           mode === 'office' && row('address', 'Website', open(lastTab.site)),
-          mode === 'office' && has('booking') && row('calendar', 'Booking tools', open('booking')),
+          mode === 'office' && has('obook') && row('calendar', 'Booking tools', open('obook')),
           mode === 'office' && row('settings', 'Settings', open('settings')),
           mode === 'office' && row('customers', 'Profile and sign-in', open('profile')),
           mode === 'site' && row('home', 'Back office', open(lastTab.office)),
@@ -4228,7 +4428,7 @@ export async function editor(id, mount, title, startTab = '') {
           h('button', { type: 'button', class: 'rail-new mm-new', onclick: go4('sale') }, ic('plus', 18), 'New sale'),
           h('nav', { class: 'mm-nav', 'aria-label': 'Back office' }, groups.map(row)),
           h('hr', { class: 'mm-hr' }),
-          h('nav', { class: 'mm-nav' }, has('booking') && h('button', { type: 'button', class: 'mm-row', 'aria-current': tab === 'booking' ? 'page' : null, onclick: go4('booking') }, navIcon('calendar', 24), h('b', {}, 'Booking tools')), ...[TOOLS].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: g.subs.filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length).map(row)),
+          h('nav', { class: 'mm-nav' }, ...[BOOKTOOLS, TOOLS].map((g) => ({ ...g, tabs: g.tabs.filter(has), subs: g.subs.filter((_, i) => has(g.tabs[i])) })).filter((g) => g.tabs.length).map(row)),
           h('div', { class: 'mm-foot' }, h('small', {}, `© ${new Date().getFullYear()} Processor Freedom`), h('a', { href: '/terms', target: '_blank', rel: 'noopener' }, 'Terms'), h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), h('a', { href: '/contact', target: '_blank', rel: 'noopener' }, 'Contact')))];
     }, 'mmenu');
   }
