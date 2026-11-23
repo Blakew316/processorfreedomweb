@@ -223,6 +223,8 @@ function orderClient() {
   function load(c) { try { var v = JSON.parse(localStorage.getItem(key(c)) || '{}'); S.lines = Array.isArray(v.lines) ? v.lines : []; S.method = v.method || ''; S.f = v.f || {}; } catch (e) {} }
   function keep(c) { try { localStorage.setItem(key(c), JSON.stringify({ lines: S.lines, method: S.method, f: S.f })); } catch (e) {} }
   function price(it, o) { var p = it.p; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) p += g.c[ci][1]; }); }); return p; }
+  // Groups with something to choose, in the order the owner arranged them; choices keep their positions.
+  function shownGroups(it) { return (it.g || []).map(function (g, gi) { return gi; }).filter(function (gi) { return it.g[gi].c.some(Boolean); }).sort(function (a, b) { return ((it.g[a].k == null ? -1 : it.g[a].k) - (it.g[b].k == null ? -1 : it.g[b].k)) || a - b; }); }
   function labels(it, o) { var out = []; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) out.push(g.c[ci][0]); }); }); return out.join(', '); }
   function lines(c) { return S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; }).map(function (l, i) { var it = c.items[l.id]; return { i: i, id: l.id, o: l.o || [], name: it.n, opt: labels(it, l.o), price: price(it, l.o), qty: Math.min(l.q, it.max), tx: it.t !== 0 }; }); }
   function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it) return; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q = Math.min(hit.q + 1, it.max); else S.lines.push({ id: id, o: o || [], q: 1 }); }
@@ -268,7 +270,7 @@ function orderClient() {
   }
   function choose(c, id) {
     var it = c.items[id], T = c.T, box = d.createElement('div'); box.className = 'osheet';
-    box.innerHTML = '<div role="dialog" aria-modal="true"><h2>' + h(it.n) + '</h2><form>' + it.g.map(function (g, gi) { return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + g.c.map(function (ch, ci) { var first = g.c.findIndex(function (x) { return !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
+    box.innerHTML = '<div role="dialog" aria-modal="true"><h2>' + h(it.n) + '</h2><form>' + shownGroups(it).map(function (gi) { var g = it.g[gi]; return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + g.c.map(function (ch, ci) { if (!ch) return ''; var first = g.c.findIndex(function (x) { return x && !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
     var close = function () { box.remove(); };
     box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('[data-x]')) close(); });
     box.querySelector('form').addEventListener('submit', function (e) {
@@ -305,7 +307,7 @@ function orderClient() {
     if (re) { try { var r = JSON.parse(re.getAttribute('data-reorder')); localStorage.setItem('pf-cart-' + r.key, JSON.stringify({ lines: r.lines, f: {} })); } catch (x) {} return; }
     var c = conf(); if (!c) return;
     var t = e.target.closest('[data-add],[data-qty],[data-method],[data-tip],[data-promo]'); if (!t) return;
-    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (it.g && it.g.length) { choose(c, t.dataset.add); return; } put(c, t.dataset.add, []); }
+    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (shownGroups(it).length) { choose(c, t.dataset.add); return; } put(c, t.dataset.add, []); }
     if (t.dataset.qty) { var l = S.lines[Number(t.dataset.i)]; if (l) { l.q += Number(t.dataset.qty); if (l.q <= 0) S.lines.splice(Number(t.dataset.i), 1); else l.q = Math.min(l.q, c.items[l.id] ? c.items[l.id].max : l.q); } }
     if (t.dataset.method) S.method = t.dataset.method;
     if (t.dataset.tip) S.tip = Number(t.dataset.tip);
@@ -363,7 +365,7 @@ export const ORDER_JS = `(${orderClient.toString()})();`;
 const tile = (x, { ordering, button, T }) => {
   const out = x.available === false || x.stock === 0;
   const src = safeImg(x.image);
-  const from = arr(x.options).some((g) => g.required && g.choices.every((c) => c.price > 0));
+  const from = arr(x.options).some((g) => { const open = g.choices.filter((c) => !c.hidden); return g.required && open.length > 0 && open.every((c) => c.price > 0); });
   return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? '+' : ''}${money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
@@ -399,7 +401,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
   const items = {};
-  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price, c.soldOut ? 1 : 0]) })) };
+  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, k: g.rank ?? -1, c: g.choices.map((c) => (c.hidden ? 0 : [c.name, c.price, c.soldOut ? 1 : 0])) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,

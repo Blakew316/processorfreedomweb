@@ -5089,6 +5089,9 @@ html[data-theme=dark] .it-btn.outline{box-shadow:inset 0 0 0 1px var(--it-edge)}
 .it-table th.srt{cursor:pointer;user-select:none}
 .it-th{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .it-th.next{justify-content:flex-start;gap:8px}
+.it-thb{width:100%;margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.it-thb:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:4px}
+.it-table th.it-c .it-thb{display:block}
 .it-sort{display:inline-flex;flex:none;color:#727272}
 html[data-theme=dark] .it-sort{color:var(--muted)}
 .it-th.next .it-sort{color:var(--ink)}
@@ -5209,11 +5212,11 @@ html[data-theme=dark] .it-seg button[aria-selected=true]{background:#f5f5f7;colo
 .itd-az{height:48px;padding:0 20px;gap:10px}
 .itd-h3{margin:56px 32px 0;padding-bottom:18px;font-size:20px;font-weight:700;letter-spacing:-.01em}
 .itd-list{display:grid;border-top:1px solid var(--line)}
-.itd-row{display:flex;align-items:center;gap:12px;min-height:77px;padding:0 32px;border-bottom:1px solid var(--line);font-size:18px;background:var(--card);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.itd-row{display:flex;align-items:center;gap:12px;min-height:77px;padding:0 32px;border-bottom:1px solid var(--line);font-size:18px;background:var(--card);cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .itd-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
 .itd-row.picked{background:color-mix(in srgb,var(--blue) 8%,var(--card));box-shadow:inset 3px 0 0 var(--blue)}
 .itd-row.dragging{position:relative;z-index:2;cursor:grabbing;box-shadow:0 10px 30px -10px rgba(0,0,0,.35);background:var(--card)}
-.itd-hd{display:inline-flex;color:var(--ink)}
+.itd-hd{display:inline-flex;color:var(--ink);padding:14px;margin:-14px -14px -14px 0;touch-action:none}
 .itd-f{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:96px;padding:0 32px env(safe-area-inset-bottom);border-top:1px solid color-mix(in srgb,var(--ink) 22%,transparent);background:var(--card)}
 .itd-f .it-btn{height:48px;border-radius:8px;min-width:100px}
 .itd-f .it-btn.fill:disabled{background:#f9f9f9;color:#c4c4c4}

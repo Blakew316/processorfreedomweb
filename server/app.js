@@ -1337,9 +1337,15 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const from = str(b.from, 60).trim(), to = str(b.to, 60).trim();
     if (!from || !to) bad(400, 'Give the category a name.');
-    db.run('UPDATE menu_items SET category = ? WHERE site_id = ? AND category = ?', to, site.id, from);
     const o = orderingOf(site);
+    // Renaming onto another category's name would merge the two and lose its settings.
+    const taken = new Set([...db.all('SELECT DISTINCT category FROM menu_items WHERE site_id = ?', site.id).map((r) => r.category), ...o.cats.map((c) => c.name)].map((n) => n.toLowerCase()));
+    if (to.toLowerCase() !== from.toLowerCase() && taken.has(to.toLowerCase())) bad(409, 'That category already exists.');
+    db.run('UPDATE menu_items SET category = ? WHERE site_id = ? AND category = ?', to, site.id, from);
     o.cats = o.cats.filter((c) => c.name !== to).map((c) => (c.name === from ? { ...c, name: to } : c));
+    // Menus and timed prices follow the new name.
+    o.menus = o.menus.map((m2) => ({ ...m2, cats: [...new Set(m2.cats.map((c) => (c === from ? to : c)))] }));
+    o.deals = o.deals.map((x) => (x.category === from ? { ...x, category: to } : x));
     db.run('UPDATE sites SET ordering = ? WHERE id = ?', JSON.stringify(normalizeOrdering(o)), site.id);
     const saved = db.get('SELECT * FROM sites WHERE id = ?', site.id);
     json(res, 200, { items: menuOf(site.id), ordering: orderingOf(saved), orderingRev: revOf(saved.ordering) });

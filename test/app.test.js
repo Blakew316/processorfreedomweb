@@ -1011,11 +1011,16 @@ test('items pages: cost, modifier switches, dayparts, category IDs', async () =>
     { id: 'g3', name: 'Later', choices: [] }] });
   assert.deepEqual(o.modGroups.map((g) => [g.id, g.name, g.choices.length]), [['g2', 'Milk', 3], ['g1', 'Size', 1], ['g3', 'Later', 0]]);
   assert.deepEqual(o.modGroups[0].choices.map((c) => [c.online, c.inStock]), [[true, true], [false, true], [true, false]]);
+  // Carts remember choices by position, so positions never move: groups keep the item's order, hidden modifiers stay as hidden, and rank is the layout order.
   const [latte] = core.applyMods([{ id: 'a', name: 'Latte', category: 'Coffee', price: 450, options: [], mods: ['g1', 'g3', 'g2'] }], o);
-  assert.deepEqual(latte.options.map((g) => g.name), ['Choose your milk', 'Size'], 'in the saved order; an empty group is left out');
-  assert.deepEqual(latte.options[0].choices.map((c) => [c.name, !!c.soldOut]), [['Oat', false], ['Almond', true]], 'hidden online is left out; sold out is marked');
-  assert.match(core.resolveOptions(latte, [[1]]).error, /Almond is sold out/);
-  assert.equal(core.resolveOptions(latte, [[0]]).price, 525);
+  assert.deepEqual(latte.options.map((g) => [g.name, g.rank]), [['Size', 1], ['Later', 2], ['Choose your milk', 0]]);
+  assert.deepEqual(latte.options[2].choices.map((c) => [c.name, !!c.hidden, !!c.soldOut]), [['Oat', false, false], ['Soy', true, false], ['Almond', false, true]]);
+  assert.match(core.resolveOptions(latte, [[], [], [2]]).error, /Almond is sold out/);
+  assert.match(core.resolveOptions(latte, [[], [], [1]]).error, /Soy is not available/);
+  assert.equal(core.resolveOptions(latte, [[0], [], [0]]).price, 525);
+  const allHidden = core.applyMods([{ id: 'b', name: 'Tea', price: 300, options: [], mods: ['g9'] }], core.normalizeOrdering({ modGroups: [{ id: 'g9', name: 'Sweetener', required: true, choices: [{ name: 'Honey', online: false }] }] }))[0];
+  assert.equal(allHidden.options[0].required, false, 'a group with nothing left to choose is not required');
+  assert.equal(core.resolveOptions(allHidden, []).price, 300);
   // Dayparts: a menu with dayparts is shown during any of them; its old times no longer apply.
   const od = core.normalizeOrdering({ timezone: 'America/Chicago', dayparts: [{ id: 'p1', name: 'Lunch', from: '11:00', to: '14:00' }, { id: 'p2', name: 'Weekend', days: [true, false, false, false, false, false, true], from: '17:00', to: '20:00' }, { id: 'px', name: '' }],
     menus: [{ id: 'm1', name: 'Lunch menu', cats: ['Sandwiches'], from: '06:00', to: '07:00', dayparts: ['p1', 'p2', 'gone'] }] });
@@ -1027,6 +1032,13 @@ test('items pages: cost, modifier switches, dayparts, category IDs', async () =>
   assert.deepEqual(core.visibleMenu(items, od, at(16, '18:00')).map((x) => x.name), ['Latte'], 'the weekend daypart is not on Monday');
   assert.deepEqual(core.visibleMenu(items, od, at(21, '18:00')).map((x) => x.name), ['Club', 'Latte']);
   assert.deepEqual(core.visibleMenu(items, { ...od, menus: [{ ...od.menus[0], active: false }] }, at(16, '12:00')).map((x) => x.name), ['Latte'], 'an unpublished menu hides its categories');
+  const late = core.normalizeOrdering({ timezone: 'America/Chicago', dayparts: [{ id: 'n', name: 'Late night', days: [false, false, false, false, false, true, true], from: '22:00', to: '02:00' }], menus: [{ id: 'm', name: 'Late', cats: ['Sandwiches'], dayparts: ['n'] }] });
+  assert.deepEqual(core.visibleMenu(items, late, at(22, '01:00')).map((x) => x.name), ['Club', 'Latte'], 'after midnight on Saturday night is still Saturday');
+  assert.deepEqual(core.visibleMenu(items, late, at(20, '01:00')).map((x) => x.name), ['Latte'], 'after midnight on Thursday night is not Friday');
+  assert.deepEqual(core.normalizeOrdering({ dayparts: [], menus: [{ id: 'm', name: 'M', dayparts: ['gone'] }] }).menus[0].dayparts, [], 'a menu forgets dayparts that no longer exist');
+  const ids = core.normalizeOrdering({ cats: [{ name: 'Drinks', id: 'ABCDEFGHJKMNPQRSTV' }, { name: 'DRINKS' }, { name: 'Tea', id: 5 }] }).cats.map((c) => c.id);
+  assert.ok(ids.every((x) => /^[A-Z0-9]{13}$/.test(x)) && new Set(ids).size === 3, 'IDs are checked and never shared');
+  assert.deepEqual(core.parseMenuCsv('Item,Category,Cost\nLatte,Coffee,4.50').items.map((x) => [x.name, x.category, x.price, x.cost]), [['Latte', 'Coffee', 450, null]], 'a sheet with only a Cost column uses it as the price');
   // The item list file: Cost is read back, and a Cost column never takes the place of Price.
   const csv = core.parseMenuCsv('Category,Item name,Price,Cost\nCoffee,Latte,4.50,0.90\nCoffee,Tea,3.00,');
   assert.deepEqual(csv.items.map((x) => [x.name, x.price, x.cost]), [['Latte', 450, 90], ['Tea', 300, null]]);
@@ -1057,17 +1069,22 @@ test('items pages: cost, modifier switches, dayparts, category IDs', async () =>
     const page = (await anon('GET', '/order', null, host)).data;
     assert.match(page, /Choose your milk/);
     assert.match(page, /"Almond",75,1/);
-    assert.doesNotMatch(page, /"Soy"/);
+    assert.doesNotMatch(page, /"Soy"/, 'a hidden modifier is not on the page');
     const who = { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
-    const no = await anon('POST', '/_order', { ...who, items: [{ id: latte.id, qty: 1, opts: [[1]] }] }, host);
+    const no = await anon('POST', '/_order', { ...who, items: [{ id: latte.id, qty: 1, opts: [[2]] }] }, host);
     assert.equal(no.status, 400);
     assert.match(no.data.error, /Almond is sold out/);
+    assert.match((await anon('POST', '/_order', { ...who, items: [{ id: latte.id, qty: 1, opts: [[1]] }] }, host)).data.error, /Soy is not available/);
     assert.equal((await anon('POST', '/_order', { ...who, items: [{ id: latte.id, qty: 1, opts: [[0]] }] }, host)).status, 201);
     // Renaming a category keeps its ID.
     const before = (await me('GET', `/api/sites/${site.id}`)).data.site.ordering.cats.find((c) => c.name === 'Coffee').id;
     assert.match(before, /^[A-Z0-9]{13}$/);
+    const cur = (await me('GET', `/api/sites/${site.id}`)).data.site.ordering;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...cur, cats: [...cur.cats, { name: 'Tea' }], menus: [{ id: 'm1', name: 'Day', cats: ['Coffee'] }], deals: [{ name: 'Early', percent: 10, from: '06:00', to: '09:00', category: 'Coffee' }] } });
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/category`, { from: 'Coffee', to: 'tea' })).status, 409, 'renaming onto another category is refused');
     const r = (await me('POST', `/api/sites/${site.id}/menu/category`, { from: 'Coffee', to: 'Hot drinks' })).data;
     assert.equal(r.ordering.cats.find((c) => c.name === 'Hot drinks').id, before);
+    assert.deepEqual([r.ordering.menus[0].cats, r.ordering.deals[0].category], [['Hot drinks'], 'Hot drinks'], 'menus and timed prices follow the new name');
   } finally { base = saved; srv.close(); app5.close(); rmSync(d5, { recursive: true, force: true }); }
 });
 

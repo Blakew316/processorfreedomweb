@@ -635,6 +635,7 @@ export function parseMenuCsv(text) {
   let map = {};
   const head = rows[0];
   head.forEach((h, i) => { const hit = COLS.find(([key, re]) => map[key] === undefined && re.test(h)); if (hit) map[hit[0]] = i; });
+  if (map.price === undefined && map.cost !== undefined) { map.price = map.cost; delete map.cost; }
   let body = rows.slice(1);
   let offset = 2;
   if (map.name === undefined || map.price === undefined) {
@@ -712,6 +713,11 @@ export function normalizeOrdering(input) {
   const o = input && typeof input === 'object' ? input : {};
   const m = o.methods && typeof o.methods === 'object' ? o.methods : d.methods;
   const rate = Number(o.taxRate);
+  const dayparts = arr(o.dayparts).slice(0, 20).map((x, i) => ({ id: str(x?.id, 24) || `p${i}`, name: str(x?.name, 40).trim(), days: DAYS.map((_, dd) => arr(x?.days)[dd] !== false), from: hhmm(x?.from, ''), to: hhmm(x?.to, '') })).filter((x) => x.name);
+  const partIds = new Set(dayparts.map((x) => x.id));
+  const catIds = new Set();
+  // A stored category ID is kept only if it looks like one; two categories never share an ID.
+  const catId = (c, name) => { let cid = typeof c?.id === 'string' && /^[A-Z0-9]{13}$/.test(c.id) ? c.id : steadyId(name.toLowerCase()); for (let n = 2; catIds.has(cid); n++) cid = steadyId(`${name.toLowerCase()}#${n}`); catIds.add(cid); return cid; };
   return {
     enabled: o.enabled === true, accepting: o.accepting !== false,
     methods: { pickup: m.pickup === true, curbside: m.curbside === true, delivery: m.delivery === true },
@@ -723,7 +729,7 @@ export function normalizeOrdering(input) {
     useHours: o.useHours === true, timezone: TIMEZONES[o.timezone] ? o.timezone : d.timezone, scheduling: o.scheduling === true,
     hours: DAYS.map((_, i) => { const h = arr(o.hours)[i] || {}; return { closed: h.closed === true, open: hhmm(h.open, '11:00'), close: hhmm(h.close, '21:00') }; }),
     promos: arr(o.promos).slice(0, 30).map((x) => ({ code: str(x?.code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_00, 0) : int(x?.value, 0, 100, 10), active: x?.active !== false })).filter((x) => x.code),
-    cats: arr(o.cats).slice(0, 60).map((c) => ({ id: /^[A-Z0-9]{13}$/.test(str(c?.id, 13)) ? c.id : steadyId(str(c?.name, 60).trim().toLowerCase()), name: str(c?.name, 60).trim(), hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })).filter((c) => c.name),   // kept even when plain, so a new empty category stays until items are added
+    cats: arr(o.cats).slice(0, 200).map((c) => ({ name: str(c?.name, 60).trim(), c })).filter((x) => x.name).map(({ name, c }) => ({ id: catId(c, name), name, hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })),   // kept even when plain, so a new empty category stays until items are added
     zones: arr(o.zones).slice(0, 30).map((z) => ({ zips: [...new Set((Array.isArray(z?.zips) ? z.zips.join(' ') : str(z?.zips, 2000)).match(/\b\d{5}\b/g) || [])].slice(0, 200), fee: int(z?.fee, 0, 1_000_00, 0) })).filter((z) => z.zips.length),
     loyalty: { enabled: o.loyalty?.enabled === true, every: int(o.loyalty?.every, 2, 50, 10), type: o.loyalty?.type === 'percent' ? 'percent' : 'amount', value: o.loyalty?.type === 'percent' ? int(o.loyalty?.value, 1, 100, 10) : int(o.loyalty?.value, 1, 1_000_00, 500) },
     slotLimit: int(o.slotLimit, 0, 500, 0),
@@ -731,8 +737,8 @@ export function normalizeOrdering(input) {
     dailySummary: o.dailySummary !== false, lowStockAt: int(o.lowStockAt, 0, 9999, 5),
     // Inventory lists: reusable modifier groups, menus, printer labels, revenue classes and named discounts.
     modGroups: arr(o.modGroups).slice(0, 100).map((g, i) => ({ id: str(g?.id, 24) || `g${i}`, name: str(g?.name, 60).trim(), onlineName: str(g?.onlineName, 60).trim(), required: g?.required === true, multi: g?.multi === true, choices: cleanChoices(g?.choices) })).filter((g) => g.name),
-    menus: arr(o.menus).slice(0, 30).map((m2, i) => ({ id: str(m2?.id, 24) || `m${i}`, name: str(m2?.name, 60).trim(), cats: [...new Set(arr(m2?.cats).map((c) => str(c, 60).trim()).filter(Boolean))].slice(0, 100), from: hhmm(m2?.from, ''), to: hhmm(m2?.to, ''), days: DAYS.map((_, d) => arr(m2?.days)[d] !== false), dayparts: [...new Set(arr(m2?.dayparts).map((x) => str(x, 24)).filter(Boolean))].slice(0, 20), active: m2?.active !== false })).filter((m2) => m2.name),
-    dayparts: arr(o.dayparts).slice(0, 20).map((x, i) => ({ id: str(x?.id, 24) || `p${i}`, name: str(x?.name, 40).trim(), days: DAYS.map((_, d) => arr(x?.days)[d] !== false), from: hhmm(x?.from, ''), to: hhmm(x?.to, '') })).filter((x) => x.name),
+    menus: arr(o.menus).slice(0, 30).map((m2, i) => ({ id: str(m2?.id, 24) || `m${i}`, name: str(m2?.name, 60).trim(), cats: [...new Set(arr(m2?.cats).map((c) => str(c, 60).trim()).filter(Boolean))].slice(0, 100), from: hhmm(m2?.from, ''), to: hhmm(m2?.to, ''), days: DAYS.map((_, d) => arr(m2?.days)[d] !== false), dayparts: [...new Set(arr(m2?.dayparts).map((x) => str(x, 24)).filter((x) => partIds.has(x)))], active: m2?.active !== false })).filter((m2) => m2.name),
+    dayparts,
     labels: [...new Set(arr(o.labels).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     revClasses: [...new Set(arr(o.revClasses).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     discounts: arr(o.discounts).slice(0, 60).map((x, i) => ({ id: str(x?.id, 24) || `d${i}`, name: str(x?.name, 60).trim(), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_000_00, 0) : int(x?.value, 0, 100, 10) })).filter((x) => x.name),
@@ -842,7 +848,9 @@ export function visibleMenu(menu, ordering, nowMs = Date.now()) {
   const listed = new Set(menus.flatMap((x) => x.cats));
   // A menu with dayparts is on during any of them; one without keeps its own days and times.
   const parts = arr(ordering?.dayparts), day = d.getUTCDay();
-  const live = (x) => { const own = arr(x.dayparts).map((pid) => parts.find((p) => p.id === pid)).filter(Boolean); return own.length ? own.some((p) => p.days[day] !== false && inWindow(p.from, p.to)) : x.days[day] !== false && inWindow(x.from, x.to); };
+  // A window that runs past midnight counts after midnight as part of the day it started.
+  const onDay = (days, from, to) => (!from || !to || mins(from) <= mins(to) ? days[day] !== false && inWindow(from, to) : (m >= mins(from) && days[day] !== false) || (m < mins(to) && days[(day + 6) % 7] !== false));
+  const live = (x) => { const own = arr(x.dayparts).map((pid) => parts.find((p) => p.id === pid)).filter(Boolean); return own.length ? own.some((p) => onDay(p.days, p.from, p.to)) : onDay(x.days, x.from, x.to); };
   const on = new Set(menus.filter((x) => x.active && live(x)).flatMap((x) => x.cats));
   return arr(menu).filter((x) => !off.has(x.category) && (!listed.has(x.category) || on.has(x.category)));
 }
@@ -850,10 +858,14 @@ export function visibleMenu(menu, ordering, nowMs = Date.now()) {
 export function applyMods(menu, ordering) {
   const groups = arr(ordering?.modGroups);
   if (!groups.length) return arr(menu);
-  const shown = (g) => ({ name: g.onlineName || g.name, required: g.required, multi: g.multi, choices: arr(g.choices).filter((c) => c.online !== false).map((c) => (c.inStock === false ? { ...c, soldOut: true } : c)) });
+  // Carts and "Order again" remember choices by position, so positions never move: a modifier hidden online stays in the list marked
+  // hidden, groups keep the item's own order, and rank (the place in the modifier group layout) is the order customers see them in.
+  const shown = (g, rank) => {
+    const choices = arr(g.choices).map((c) => (c.online === false ? { ...c, hidden: true } : c.inStock === false ? { ...c, soldOut: true } : c));
+    return { name: g.onlineName || g.name, required: g.required && choices.some((c) => !c.hidden), multi: g.multi, rank, choices };
+  };
   return arr(menu).map((it) => {
-    const ids = new Set(arr(it.mods));
-    const extra = groups.filter((g) => ids.has(g.id)).map(shown).filter((g) => g.choices.length);
+    const extra = arr(it.mods).map((gid) => groups.findIndex((g) => g.id === gid)).filter((i) => i >= 0).map((i) => shown(groups[i], i));
     return extra.length ? { ...it, options: [...arr(it.options), ...extra] } : it;
   });
 }
@@ -882,7 +894,7 @@ export function resolveOptions(item, picks) {
     const chosen = [...new Set(arr(arr(picks)[g]).map(Number))].filter((i) => Number.isInteger(i) && grp.choices[i]);
     if (grp.required && !chosen.length) return { error: `Choose ${grp.name.toLowerCase()} for ${item.name}.` };
     if (!grp.multi && chosen.length > 1) return { error: `Choose only one ${grp.name.toLowerCase()} for ${item.name}.` };
-    for (const i of chosen) { if (grp.choices[i].soldOut) return { error: `${grp.choices[i].name} is sold out.` }; extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
+    for (const i of chosen) { if (grp.choices[i].hidden) return { error: `${grp.choices[i].name} is not available.` }; if (grp.choices[i].soldOut) return { error: `${grp.choices[i].name} is sold out.` }; extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
   }
   return { price: itemPrice(item) + extra, labels };
 }

@@ -100,7 +100,8 @@ export function sheet(build, cls = '', onClose) {
   let open = true;
   // The window eases away rather than vanishing; everything else carries on straight away.
   const close = () => { if (!open) return; open = false; scrim.classList.add('out'); setTimeout(() => scrim.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); };
-  const onKey = (e) => e.key === 'Escape' && close();
+  // Escape closes only the window on top.
+  const onKey = (e) => { if (e.key === 'Escape' && [...document.querySelectorAll('.scrim:not(.out)')].at(-1) === scrim) close(); };
   const box = h('div', { class: `sheet ${cls}`, role: 'dialog', 'aria-modal': 'true' });
   const scrim = h('div', { class: 'scrim', onmousedown: (e) => e.target === scrim && close() }, box);
   box.append(...[build(close)].flat(Infinity).filter((x) => x != null && x !== false));
