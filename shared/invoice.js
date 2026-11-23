@@ -30,19 +30,21 @@ const CSS = `
 @media print{.header,.footer,.announce,.inv-acts,.modebtn{display:none!important}.inv-page{padding:0}.inv-sheet{box-shadow:none;padding:0}}
 `;
 
-export function invoicePage({ invoice, business, payUrl, lang }) {
+// The date in the business's time zone, so an invoice is not past due, issued or paid a day early or late.
+const zoneDay = (ms, tz) => { try { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz || 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms)).map((x) => [x.type, x.value])); return `${p.year}-${p.month}-${p.day}`; } catch { return new Date(ms).toISOString().slice(0, 10); } };
+export function invoicePage({ invoice, business, payUrl, lang, timezone, nowMs = Date.now() }) {
   const T = strings(lang);
   const c = invoice.customer || {};
   const est = invoice.kind === 'estimate';
   const day = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString(lang === 'es' ? 'es' : 'en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' }) : '');
-  const issued = new Date(invoice.sentAt || invoice.createdAt).toISOString().slice(0, 10);
-  const late = invoice.status === 'sent' && invoice.due && invoice.due < new Date().toISOString().slice(0, 10);
+  const issued = zoneDay(invoice.sentAt || invoice.createdAt, timezone);
+  const late = invoice.status === 'sent' && invoice.due && invoice.due < zoneDay(nowMs, timezone);
   const state = est ? ['open', T.estimate] : invoice.status === 'paid' ? ['paid', T.invPaid] : invoice.status === 'void' ? ['', T.invVoid] : late ? ['late', T.invLate] : ['open', T.invOpen];
   const lines = arr(invoice.items).map((l) => `<tr><td>${esc(l.name)}</td><td class="q">${esc(l.qty)}</td><td class="p">${money(l.price)}</td><td>${money(l.price * l.qty)}</td></tr>`).join('');
   const canPay = payUrl && invoice.status === 'sent' && !est;
   return `<style>${CSS}</style><section class="inv-page"><div class="wrap"><div class="inv-sheet">
 <div class="inv-top2"><div><p class="eyebrow">${esc(est ? T.estimate : T.invoice)} ${esc(invoice.label)}</p><h1>${esc(invoice.status === 'paid' ? T.invThanks : money(invoice.total))}</h1><p class="who">${esc(business.name)}${business.address ? `<br>${esc(business.address)}` : ''}${business.phone ? `<br>${esc(business.phone)}` : ''}</p></div><span class="inv-state ${state[0]}"><i></i>${esc(state[1])}</span></div>
-<dl class="inv-meta"><div><dt>${esc(T.billTo)}</dt><dd>${[c.company, c.name, c.address, c.email, c.phone].filter(Boolean).map(esc).join('<br>')}</dd></div><div><dt>${esc(T.issued)}</dt><dd>${esc(day(issued))}</dd></div>${invoice.due ? `<div><dt>${esc(T.dueDate)}</dt><dd>${esc(day(invoice.due))}</dd></div>` : ''}${invoice.status === 'paid' && invoice.paidAt ? `<div><dt>${esc(T.paidOn)}</dt><dd>${esc(day(new Date(invoice.paidAt).toISOString().slice(0, 10)))}</dd></div>` : ''}</dl>
+<dl class="inv-meta"><div><dt>${esc(T.billTo)}</dt><dd>${[c.company, c.name, c.address, c.email, c.phone].filter(Boolean).map(esc).join('<br>')}</dd></div><div><dt>${esc(T.issued)}</dt><dd>${esc(day(issued))}</dd></div>${invoice.due ? `<div><dt>${esc(T.dueDate)}</dt><dd>${esc(day(invoice.due))}</dd></div>` : ''}${invoice.status === 'paid' && invoice.paidAt ? `<div><dt>${esc(T.paidOn)}</dt><dd>${esc(day(zoneDay(invoice.paidAt, timezone)))}</dd></div>` : ''}</dl>
 <table class="inv-lines"><thead><tr><th>${esc(T.invItem)}</th><th class="q">${esc(T.qty)}</th><th class="p">${esc(T.priceEach)}</th><th>${esc(T.amount)}</th></tr></thead><tbody>${lines}</tbody></table>
 <div class="inv-sum"><span>${esc(T.subtotal)}</span><span>${money(invoice.subtotal)}</span>${invoice.discount ? `<span>${esc(T.discount)}</span><span>−${money(invoice.discount)}</span>` : ''}${invoice.tax ? `<span>${esc(T.tax)}${invoice.taxRate ? ` (${esc(invoice.taxRate)}%)` : ''}</span><span>${money(invoice.tax)}</span>` : ''}<span class="g">${esc(est ? T.estTotal : invoice.status === 'paid' ? T.invPaidTotal : T.amountDue)}</span><span class="g">${money(invoice.total)}</span></div>
 ${invoice.notes ? `<div class="inv-note">${esc(invoice.notes)}</div>` : ''}

@@ -852,10 +852,17 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     // Customers: one row per email, whatever the capitals.
     await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, slotLimit: 0, lowStockAt: 5, notifyEmail: 'boss@refill.test' } });
     assert.equal((await place({ items: [{ id: sodaId, qty: 2 }], email: 'ana@example.com' })).status, 201);
-    const people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
+    let people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
     assert.equal(people.length, 2);
-    const ana = people.find((c) => c.email === 'ana@example.com');
-    assert.deepEqual([ana.orders, ana.spent, ana.favourite], [2, 1600, 'Taco']);
+    let ana = people.find((c) => c.email === 'ana@example.com');
+    // Spent is money paid: nothing until a payment is recorded, then that order's total less any refund.
+    assert.deepEqual([ana.orders, ana.spent, ana.favourite], [2, 0, 'Taco']);
+    const anaOrder = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((o) => o.email.toLowerCase() === 'ana@example.com');
+    await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { method: 'Cash' });
+    await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { refund: 100 });
+    people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
+    ana = people.find((c) => c.email === 'ana@example.com');
+    assert.equal(ana.spent, anaOrder.total - 100);
 
     // The day ends: the summary goes out and quantities refill.
     assert.deepEqual((await me('GET', `/api/sites/${site.id}/menu`)).data.items.map((x) => x.stock), [3, 7]);

@@ -6,7 +6,7 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice } from '../shared/core.js';
 import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
@@ -294,7 +294,7 @@ export function createApp(options = {}) {
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
   const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, cost: r.cost ?? null, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
-  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '', gift: r.gift || 0, giftCode: r.gift_code ? `…${r.gift_code.slice(-4)}` : '' });
+  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '', gift: r.gift || 0, giftCode: r.gift_code ? `…${r.gift_code.slice(-4)}` : '', taxRate: r.tax_rate ?? null });
   function cleanItem(b, prev = {}) {
     const price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
     const name = str(b.name ?? prev.name, 120).trim();
@@ -363,9 +363,14 @@ export function createApp(options = {}) {
     const today = bizDay(ordering, nowMs);
     if (site.day === today) return;
     if (site.day) {
-      const rows = db.all("SELECT * FROM orders WHERE site_id = ? AND status != 'cancelled' AND created_at > ?", site.id, nowMs - 4 * DAY).map(toOrder).filter((o) => bizDay(ordering, o.createdAt) === site.day);
+      // The summary covers midnight to midnight of the day that just ended, the same day the reports show.
+      const calDay = (ms) => new Date(wallNow(ordering, ms)).toISOString().slice(0, 10);
+      const rows = db.all("SELECT * FROM orders WHERE site_id = ? AND status != 'cancelled' AND created_at > ?", site.id, nowMs - 4 * DAY).map(toOrder).filter((o) => calDay(o.createdAt) === site.day);
       const totals = { orders: rows.length, net: 0, tax: 0, tips: 0, total: 0 };
       const sold = new Map();
+      // Refunds made that day come off, as in the reports.
+      totals.refunds = db.all("SELECT m.amount, m.at FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day).reduce((a, r) => a + r.amount, 0);
+      totals.net -= totals.refunds; totals.total -= totals.refunds;
       for (const o of rows) {
         totals.net += o.subtotal - o.discount; totals.tax += o.tax; totals.tips += o.tip; totals.total += o.total;
         for (const l of o.items) { const it = sold.get(l.name) || sold.set(l.name, { name: l.name, qty: 0, sales: 0 }).get(l.name); it.qty += l.qty; it.sales += l.price * l.qty; }
@@ -922,21 +927,25 @@ export function createApp(options = {}) {
   route('GET', '/api/sites/:id/customers', (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const people = new Map();
-    for (const o of db.all('SELECT name, email, phone, total, status, items, created_at FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 20000', site.id)) {
+    // Spent is money really paid: paid orders less what was refunded on them, and paid invoices to the same address.
+    for (const o of db.all('SELECT name, email, phone, total, refunded, paid_at, status, items, created_at FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 20000', site.id)) {
       const key = o.email.toLowerCase();
       const c = people.get(key) || people.set(key, { name: o.name, email: key, phone: o.phone, orders: 0, spent: 0, last: o.created_at, first: o.created_at, items: new Map() }).get(key);
       c.first = o.created_at;
       if (o.status === 'cancelled') continue;
-      c.orders++; c.spent += o.total;
+      c.orders++; if (o.paid_at) c.spent += o.total - (o.refunded || 0);
       for (const l of JSON.parse(o.items)) c.items.set(l.name, (c.items.get(l.name) || 0) + l.qty);
     }
     const customers = [...people.values()].map((c) => ({ ...c, items: undefined, favourite: [...c.items].sort((a, b) => b[1] - a[1])[0]?.[0] || '' }));
     const byEmail = new Map(customers.map((c) => [c.email, c]));
+    const invoicePaid = new Map();
+    for (const v of db.all("SELECT customer, total FROM invoices WHERE site_id = ? AND status = 'paid'", site.id)) { let e = ''; try { e = String(JSON.parse(v.customer).email || '').toLowerCase(); } catch { /* none */ } if (e) invoicePaid.set(e, (invoicePaid.get(e) || 0) + v.total); }
+    for (const [e, amount] of invoicePaid) { const hit = byEmail.get(e); if (hit) hit.spent += amount; }
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
       const hit = k.email && byEmail.get(k.email.toLowerCase());
       if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address, more: k.more });
-      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: 0, last: null, first: k.createdAt, favourite: '', contactId: k.id, more: k.more });
+      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: (k.email && invoicePaid.get(k.email.toLowerCase())) || 0, last: null, first: k.createdAt, favourite: '', contactId: k.id, more: k.more });
     }
     json(res, 200, { customers });
   });
@@ -1395,6 +1404,7 @@ export function createApp(options = {}) {
     let from = today, to = today;
     if (range === 'yesterday') from = to = shift(today, -1);
     else if (range === 'week') from = shift(today, -new Date(`${today}T00:00:00Z`).getUTCDay());
+    else if (range === 'last7') from = shift(today, -6);
     else if (range === 'month') from = `${today.slice(0, 8)}01`;
     else if (range === 'last30') from = shift(today, -29);
     else if (range === 'custom') { const f = url.searchParams.get('from'), t = url.searchParams.get('to'); if (!/^\d{4}-\d{2}-\d{2}$/.test(String(f)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(t))) bad(400, 'Choose a start and end date.'); [from, to] = f <= t ? [f, t] : [t, f]; }
@@ -1674,12 +1684,15 @@ export function createApp(options = {}) {
     const allRows = db.all('SELECT * FROM orders WHERE site_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at', site.id, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY).map(toOrder);
     const onlyType = str(url.searchParams.get('type'), 20), rows = onlyType ? allRows.filter((o) => o.method === onlyType) : allRows;
     const catOf = Object.fromEntries(db.all('SELECT id, category FROM menu_items WHERE site_id = ?', site.id).map((r) => [r.id, r.category]));
-    const blank = () => ({ orders: 0, gross: 0, discounts: 0, net: 0, tax: 0, fees: 0, tips: 0, total: 0, taxable: 0, nontaxable: 0, units: 0, refunds: 0, collected: 0 });
+    const blank = () => ({ orders: 0, gross: 0, discounts: 0, net: 0, tax: 0, fees: 0, tips: 0, total: 0, taxable: 0, nontaxable: 0, units: 0, refunds: 0, collected: 0, itemDiscounts: 0, itemDiscountLines: 0, rates: new Map() });
     const add = (t, o) => {
       const taxableLines = o.items.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0);
       const taxable = o.subtotal ? Math.round(taxableLines - (o.discount * taxableLines) / o.subtotal) : 0;
       t.orders++; t.gross += o.subtotal; t.discounts += o.discount; t.net += o.subtotal - o.discount; t.tax += o.tax; t.fees += o.fee; t.tips += o.tip; t.total += o.total;
-      t.taxable += taxable; t.nontaxable += o.subtotal - o.discount - taxable; t.units += o.items.reduce((a, l) => a + l.qty, 0); t.refunds += o.refunded || 0; if (o.paidAt) t.collected += o.total;
+      t.taxable += taxable; t.nontaxable += o.subtotal - o.discount - taxable; t.units += o.items.reduce((a, l) => a + l.qty, 0); if (o.paidAt) t.collected += o.total;
+      t.itemDiscounts += o.items.reduce((a, l) => a + (l.list > l.price ? (l.list - l.price) * l.qty : 0), 0); t.itemDiscountLines += o.items.filter((l) => l.list > l.price).length;
+      const rate = o.taxRate ?? ordering.taxRate ?? 0, r = t.rates.get(rate) || t.rates.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0 }).get(rate);
+      r.taxable += taxable; r.nontaxable += o.subtotal - o.discount - taxable; r.tax += o.tax; r.orders++;
     };
     const totals = blank(), prev = blank();
     const byHour = days === 1;
@@ -1713,12 +1726,55 @@ export function createApp(options = {}) {
         const rk = l.rev || 'No revenue class'; const rv = revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk); rv.qty += l.qty; rv.sales += l.price * l.qty;
       }
     }
-    const pr = period(url, ordering), mv = moneyMoves(site, pr.lo, pr.hi);
-    const moved = tally({ payments: mv.payments.filter((x) => pr.within(x.at)), refunds: mv.refunds.filter((x) => pr.within(x.at)) });
+    // Money moves over both periods, read once from the ledger. With an order type chosen, only that type's order money counts.
+    const mv = moneyMoves(site, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY);
+    const within = (ms) => { const d = dayOf(ms); return d >= from && d <= to; };
+    const ofType = (x) => !onlyType || (x.source === 'Order' && x.channel === onlyType);
+    // Refunds count on the day they were made, against the order they belong to, unless it was cancelled (its sales are not counted either).
+    // They come off net sales and the total everywhere, so the rows of every report add up.
+    const refunds = mv.refunds.filter((x) => x.source === 'Order' && ofType(x));
+    const refOrders = new Map(refunds.length ? db.all('SELECT id, status, method, handled_by, paid_at, paid_method FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(refunds.map((x) => x.refId))])).map((o) => [o.id, o]) : []);
+    for (const x of refunds) {
+      const o = refOrders.get(x.refId);
+      if (!o || o.status === 'cancelled') continue;
+      const day = dayOf(x.at);
+      if (day >= prevFrom && day <= prevTo) { prev.refunds += x.amount; prev.net -= x.amount; prev.total -= x.amount; }
+      if (day < from || day > to) continue;
+      totals.refunds += x.amount; totals.net -= x.amount; totals.total -= x.amount;
+      const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : day);
+      if (s1) s1.net -= x.amount;
+      const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
+      m.net -= x.amount; m.total -= x.amount;
+      const who = o.handled_by || 'Not recorded', e = staff.get(who) || staff.set(who, { name: who, orders: 0, net: 0, tips: 0, total: 0 }).get(who);
+      e.net -= x.amount; e.total -= x.amount;
+      const tk = o.paid_at ? o.paid_method || 'Other' : 'Not paid yet', tr = tenders.get(tk) || tenders.set(tk, { name: tk, orders: 0, net: 0, tips: 0, total: 0 }).get(tk);
+      tr.net -= x.amount; tr.total -= x.amount;
+    }
+    const paidNow = mv.payments.filter((x) => within(x.at) && ofType(x));
+    const moved = tally({ payments: paidNow, refunds: mv.refunds.filter((x) => within(x.at) && ofType(x)) });
+    const invoices = paidNow.filter((x) => x.source === 'Invoice');
+    // Paid invoices' sales and tax go into the Taxes report beside orders, by the rate they were taxed at. An invoice paid and then
+    // taken back in the same period nets to nothing; one taken back now that was paid earlier counts against this period.
+    const invNet = new Map();
+    for (const x of invoices) invNet.set(x.refId, (invNet.get(x.refId) || 0) + Math.sign(x.amount));
+    const taxRows = new Map([...totals.rates.values()].map((r) => [r.rate, { ...r, invoices: 0 }]));
+    if (!onlyType && invNet.size) {
+      for (const v of db.all('SELECT id, items, tax_rate, discount, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...invNet.keys()]))) {
+        const k = Math.sign(invNet.get(v.id) || 0); if (!k) continue;
+        const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0);
+        const taxable = v.subtotal ? Math.round(taxed - (v.discount * taxed) / v.subtotal) : 0;
+        const r = taxRows.get(v.tax_rate) || taxRows.set(v.tax_rate, { rate: v.tax_rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(v.tax_rate);
+        r.taxable += k * taxable; r.nontaxable += k * (v.subtotal - v.discount - taxable); r.tax += k * v.tax; r.invoices += k;
+      }
+    }
+    const { rates, ...sums } = totals;
     json(res, 200, {
-      money: { collected: moved.totals.payments, refunds: moved.totals.refunds, tenders: moved.tenders, count: moved.totals.count, inStore: mv.payments.filter((x) => pr.within(x.at) && x.source === 'Invoice').reduce((a, x) => a + x.amount, 0), tax: mv.payments.filter((x) => pr.within(x.at)).reduce((a, x) => a + (x.tax || 0), 0) },
+      // Money actually taken in the period. Taxes and delivery fees are kept apart; in-store sales are paid invoices, with and without their tax.
+      money: { collected: moved.totals.payments, refunds: moved.totals.refunds, tenders: moved.tenders, count: moved.totals.count,
+        inStore: invoices.reduce((a, x) => a + x.amount, 0), inStoreNet: invoices.reduce((a, x) => a + x.amount - (x.tax || 0), 0), inStoreTax: invoices.reduce((a, x) => a + (x.tax || 0), 0),
+        tax: paidNow.reduce((a, x) => a + (x.tax || 0), 0), fees: paidNow.reduce((a, x) => a + (x.fee || 0), 0) },
       range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
-      totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
+      totals: { ...sums, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled, rates: [...taxRows.values()].sort((a, b) => a.rate - b.rate) },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax, discounts: prev.discounts, refunds: prev.refunds },
       methods: [...methods.values()], series: [...series.values()],
       items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales), revenue: [...revs.values()].sort((a, b) => b.sales - a.sales), employees: [...staff.values()].sort((a, b) => b.net - a.net), tenders: [...tenders.values()].sort((a, b) => b.total - a.total), promos: [...promos.values()].sort((a, b) => b.amount - a.amount), removed: [...removed.values()].sort((a, b) => b.value - a.value),
@@ -1922,7 +1978,9 @@ export function createApp(options = {}) {
           if (picked.error) bad(400, picked.error);
           need.set(it.id, (need.get(it.id) || 0) + w.qty);
           if (it.stock != null && it.stock < need.get(it.id)) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
-          lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks, taxable: it.taxable, label: it.label, rev: it.revclass });
+          // The price before a sale or timed price, so the Discounts report can show what items were discounted by.
+          const list = picked.price + it.price - itemPrice(it);
+          lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks, taxable: it.taxable, label: it.label, rev: it.revclass, ...(list > picked.price ? { list, deal: it.deal || 'Sale' } : {}) });
         }
         const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo?.gift ? null : promo, zone ? zone.fee : null);
         if (method === 'delivery' && t.subtotal < ordering.deliveryMin) bad(400, 'Your order is below the delivery minimum.');
@@ -1938,8 +1996,8 @@ export function createApp(options = {}) {
         for (const [itemId, qty] of need) db.run('UPDATE menu_items SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL', qty, itemId);
         const number = (db.get('SELECT MAX(number) AS n FROM orders WHERE site_id = ?', site.id).n || 1000) + 1;
         const oid = newId(); const now = Date.now();
-        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, gift, gift_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo && !promo.gift ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, gift, gift ? promo.code : '', now, now);
+        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, gift, gift_code, tax_rate, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo && !promo.gift ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, gift, gift ? promo.code : '', ordering.taxRate || 0, now, now);
         if (gift) {
           // The card's part is a payment taken now. If it covers everything, the order is paid.
           giftMove(site, promo.code, 'spend', gift, '', oid, now);

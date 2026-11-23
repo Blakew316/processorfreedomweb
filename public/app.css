@@ -5496,3 +5496,7 @@ html[data-theme=dark] .obp-acts .it-btn.fill:disabled{background:#2c2c2e;color:#
   .obh-flow .obh-arrow{display:none}
   .obh-col{width:100%}
 }
+
+/* A filter that cannot apply to what is recorded */
+.rp-off{opacity:.45}
+.rp-off label,.rp-off input{cursor:not-allowed}

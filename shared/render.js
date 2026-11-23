@@ -449,7 +449,7 @@ export function renderPage(site, page = 'home', opts = {}) {
     main = bookingPage({ lang, ordering, base, done: opts.booked, today: str(opts.today, 10) || new Date().toISOString().slice(0, 10) });
   } else if (page === 'invoice' && opts.invoice) {
     pageTitle = `${opts.invoice.kind === 'estimate' ? T.estimate : T.invoice} ${opts.invoice.label}`;
-    main = invoicePage({ invoice: opts.invoice, business: { name: site.brand?.name || '', address: [biz.address1, biz.city, biz.state, biz.zip].filter(Boolean).join(', '), phone: str(biz.phone) }, payUrl: safeUrl(opts.invoice.payUrl) || safeUrl(biz.payUrl), lang });
+    main = invoicePage({ invoice: opts.invoice, business: { name: site.brand?.name || '', address: [biz.address1, biz.city, biz.state, biz.zip].filter(Boolean).join(', '), phone: str(biz.phone) }, payUrl: safeUrl(opts.invoice.payUrl) || safeUrl(biz.payUrl), lang, timezone: opts.ordering?.timezone, nowMs: opts.now });
   } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
     pageTitle = T[page] || LEGAL_PAGES[page];
     main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">${esc(T.effective)} ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;

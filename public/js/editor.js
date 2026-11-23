@@ -813,12 +813,12 @@ export async function editor(id, mount, title, startTab = '') {
       }
       const all = bills.invoices.filter((v) => (v.kind || 'invoice') === kind);
       if (!all.length) return [h('div', { class: 'inv' }, head(newBtn), h('div', { class: 'inv-list' }, est ? emptyState('doc', 'Your first estimate', '', ['Get started', () => openInvoice(null, null, 'estimate')]) : emptyState('doc', 'No invoices yet', '', ['Create an invoice', () => openInvoice()])))];
-      const stateOf = (v) => (invoiceLate(v) ? 'late' : v.status);
+      const stateOf = (v) => (invoiceLate(v, bizDay()) ? 'late' : v.status);
       const LABEL = est ? { draft: ['Draft', ''], sent: ['Sent', 'warn'], late: ['Expired', 'bad'], paid: ['Paid', 'ok'], void: ['Cancelled', ''] } : { draft: ['Draft', ''], sent: ['Awaiting payment', 'warn'], late: ['Past due', 'bad'], paid: ['Paid', 'ok'], void: ['Cancelled', ''] };
       const sum = (list) => list.reduce((a, v) => a + v.total, 0);
       const open = all.filter((v) => v.status === 'sent'), late = all.filter((v) => stateOf(v) === 'late');
-      const month = new Date().toISOString().slice(0, 7);
-      const paidNow = all.filter((v) => v.status === 'paid' && new Date(v.paidAt).toISOString().slice(0, 7) === month);
+      const month = bizDay().slice(0, 7);
+      const paidNow = all.filter((v) => v.status === 'paid' && bizDay(v.paidAt).slice(0, 7) === month);
       const kpi = (label, value, sub, icon) => h('div', { class: 'kpi big' }, h('span', { class: 'kico' }, ic(icon, 18)), h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
       const n = (k) => all.filter((v) => (k === 'open' ? v.status === 'sent' : stateOf(v) === k)).length;
       const day = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }) : '—');
@@ -875,7 +875,7 @@ export async function editor(id, mount, title, startTab = '') {
       const btn = h('button', { class: 'btn', onclick: create }, ic('plus', 16), 'Create project');
       if (!bills) { api('GET', `/api/sites/${id}/invoices`).then((r) => { bills = r; if (tab === 'projects') paintPanel(); }).catch(() => { bills = { invoices: [], contacts: [], payUrl: '' }; if (tab === 'projects') paintPanel(); }); return [h('div', { class: 'inv' }, head(), skel(4, 'row'))]; }
       const groups = new Map();
-      for (const v of bills.invoices) { if (!v.project || v.status === 'void') continue; const g = groups.get(v.project) || groups.set(v.project, { name: v.project, who: new Set(), est: 0, inv: 0, billed: 0, paid: 0 }).get(v.project); g.who.add(v.customer.company || v.customer.name); if (v.kind === 'estimate') g.est++; else { g.inv++; g.billed += v.total; if (v.status === 'paid') g.paid += v.total; } }
+      for (const v of bills.invoices) { if (!v.project || v.status === 'void') continue; const g = groups.get(v.project) || groups.set(v.project, { name: v.project, who: new Set(), est: 0, inv: 0, billed: 0, paid: 0 }).get(v.project); g.who.add(v.customer.company || v.customer.name); if (v.kind === 'estimate') g.est++; else { g.inv++; if (v.status === 'sent' || v.status === 'paid') g.billed += v.total; if (v.status === 'paid') g.paid += v.total; } }
       if (!groups.size) return [h('div', { class: 'inv' }, head(btn), h('div', { class: 'inv-list' }, emptyState('doc', 'Create a new project to get started', '', ['Create project', create])))];
       return [h('div', { class: 'inv' }, head(btn), h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Project', 'Customer', 'Estimates', 'Invoices', 'Billed', 'Paid', 'Outstanding'].map((x) => h('th', {}, x)))),
         h('tbody', {}, [...groups.values()].map((g) => h('tr', {}, h('td', {}, h('b', {}, g.name)), h('td', {}, [...g.who].join(', ')), h('td', {}, g.est), h('td', {}, g.inv), h('td', {}, money(g.billed)), h('td', {}, money(g.paid)), h('td', {}, h('b', {}, money(g.billed - g.paid))))))))))];
@@ -883,7 +883,7 @@ export async function editor(id, mount, title, startTab = '') {
     plans() {
       const FREQ = { weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly' };
       const add = () => formSheet('New recurring payment', [['name', 'Plan name', { maxlength: 120, placeholder: 'e.g. Weekly office lunch' }], ['who', 'Customer name', { maxlength: 120 }], ['email', 'Customer email', { type: 'email', hint: 'Each invoice is emailed here.' }], ['amount', 'Amount each time', { inputmode: 'decimal', placeholder: '0.00' }], ['every', 'How often', { options: FREQ }], ['start', 'First invoice on', { type: 'date' }], ['tax', 'Sales tax (%)', { inputmode: 'decimal' }]],
-        { name: '', who: '', email: '', amount: '', every: 'monthly', start: new Date().toISOString().slice(0, 10), tax: String(ordering.taxRate || 0) },
+        { name: '', who: '', email: '', amount: '', every: 'monthly', start: bizDay(), tax: String(ordering.taxRate || 0) },
         async (v) => { const c = parsePrice(v.amount || ''); if (!c) throw new Error('Enter an amount above zero.'); planData = await api('POST', `/api/sites/${id}/plans`, { name: v.name, customer: { name: v.who, email: v.email }, amount: c, every: v.every, start: v.start, taxRate: Number(v.tax) || 0 }); });
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Recurring payments'), null), h('button', { class: 'btn', onclick: add }, ic('plus', 16), 'New plan'));
       if (!planData) { api('GET', `/api/sites/${id}/plans`).then((r) => { planData = r; if (tab === 'plans') paintPanel(); }).catch((e) => { toast(e.message, true); planData = { plans: [] }; if (tab === 'plans') paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(3, 'row'))]; }
@@ -1638,6 +1638,11 @@ export async function editor(id, mount, title, startTab = '') {
   const rq = () => { const q = new URLSearchParams(salesRange === 'custom' && salesFrom && salesTo ? { range: 'custom', from: salesFrom, to: salesTo } : { range: salesRange === 'custom' ? 'today' : salesRange }); if (TYPE_TABS.has(tab) && clState.type) q.set('type', clState.type); return q; };
   const rangeBar = () => h('div', { class: 'inv-bar' }, dateFilter());
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Reports follow the business's own date and hour, whatever clock this computer is set to.
+  const zoneFmt = {};
+  const zoneParts = (ms = Date.now()) => { const tz = ordering.timezone || 'America/Chicago'; const f = zoneFmt[tz] ||= new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); return Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value])); };
+  const bizDay = (ms) => { const p = zoneParts(ms); return `${p.year}-${p.month}-${p.day}`; };
+  const bizHour = () => { const p = zoneParts(); return (Number(p.hour) % 24) + Number(p.minute) / 60; };
   const addDays = (d0, n) => new Date(Date.parse(`${d0}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
   const longDay = (d0, o = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) => new Date(`${d0}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
   const monthName = (ym) => new Date(`${ym}-01T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'long', year: 'numeric' });
@@ -1845,7 +1850,7 @@ export async function editor(id, mount, title, startTab = '') {
     const est = kind === 'estimate';
     if (!bills) { try { bills = await api('GET', `/api/sites/${id}/invoices`); } catch (e) { return toast(e.message, true); } }
     if (!customers) { try { customers = (await api('GET', `/api/sites/${id}/customers`)).customers; } catch { customers = []; } }
-    const v = existing ? JSON.parse(JSON.stringify(existing)) : { status: 'draft', customer: { name: person?.name || '', company: person?.company || '', email: person?.email || '', phone: person?.phone || '', address: person?.address || '' }, items: lines || [{ name: '', qty: 1, price: 0, taxable: true }], project: person?.project || '', notes: '', due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), taxRate: ordering.taxRate || 0, discount: 0, payUrl: '' };
+    const v = existing ? JSON.parse(JSON.stringify(existing)) : { status: 'draft', customer: { name: person?.name || '', company: person?.company || '', email: person?.email || '', phone: person?.phone || '', address: person?.address || '' }, items: lines || [{ name: '', qty: 1, price: 0, taxable: true }], project: person?.project || '', notes: '', due: addDays(bizDay(), 14), taxRate: ordering.taxRate || 0, discount: 0, payUrl: '' };
     const locked = v.status === 'paid' || v.status === 'void';
     const copyLink = async (url) => { try { await navigator.clipboard.writeText(url); toast('Invoice link copied'); } catch { toast('Copy the link from the address bar after pressing View', true); } };
     sheet((close) => {
@@ -1897,7 +1902,7 @@ export async function editor(id, mount, title, startTab = '') {
         } catch (e) { toast(e.message, true); btn.disabled = false; }
       };
       const sent = v.status === 'sent';
-      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.id ? v.label : est ? 'New estimate' : 'New invoice'), sent && !est && h('span', { class: `status ${invoiceLate(v) ? 'bad' : 'warn'}` }, invoiceLate(v) ? 'Past due' : 'Awaiting payment'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+      return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.id ? v.label : est ? 'New estimate' : 'New invoice'), sent && !est && h('span', { class: `status ${invoiceLate(v, bizDay()) ? 'bad' : 'warn'}` }, invoiceLate(v, bizDay()) ? 'Past due' : 'Awaiting payment'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         sent && h('p', { class: 'muted' }, `Sent ${fmtDate(v.sentAt)}${v.reminders ? ` · ${v.reminders} reminder${v.reminders === 1 ? '' : 's'}` : ''} · ${v.viewedAt ? `opened ${fmtDate(v.viewedAt)}` : 'not opened yet'}`),
         h('div', { class: 'bill-sec' }, h('h3', {}, 'Bill to'),
           h('div', { class: 'pair' }, cf('Name', 'name', { list: pid, maxlength: 120, autofocus: !v.id, placeholder: 'Start typing to find a customer' }), cf('Company', 'company', { maxlength: 120, placeholder: 'Optional' })),
@@ -1921,7 +1926,7 @@ export async function editor(id, mount, title, startTab = '') {
             h('button', { class: 'btn', onclick: (e) => send(e.currentTarget) }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : est ? 'Send estimate' : 'Send invoice')))];
     }, 'wide bill');
   }
-  const dup = (v) => openInvoice({ ...v, id: undefined, label: undefined, status: 'draft', url: undefined, sentAt: null, viewedAt: null, paidAt: null, reminders: 0, due: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) });
+  const dup = (v) => openInvoice({ ...v, id: undefined, label: undefined, status: 'draft', url: undefined, sentAt: null, viewedAt: null, paidAt: null, reminders: 0, due: addDays(bizDay(), 14) });
 
   /* Reads a photo or PDF of a paper menu, then lets the merchant check the list before anything is saved. */
   async function scanMenu() {
@@ -2088,7 +2093,8 @@ export async function editor(id, mount, title, startTab = '') {
     const pct = (now, was) => (was ? Math.round(((now - was) / was) * 100) : 0);
     const go2 = (k) => () => goTab(k);
     const metric = (label, k, value, sub, big) => h('div', { class: `hm ${big ? 'big' : ''}` }, h('button', { type: 'button', class: 'hm-l', onclick: go2(k) }, label, h('span', { class: 'chv r', 'aria-hidden': 'true' })), h('b', {}, value), sub);
-    const waiting = (orders || []).filter((x) => !['completed', 'cancelled'].includes(x.status));
+    // Orders placed in the chosen period that are not finished yet.
+    const waiting = (st ? st.orders : []).filter((x) => !['completed', 'cancelled'].includes(x.status));
     const short = (c) => { const d = c / 100; return d >= 1000 ? `$${(d / 1000).toFixed(2)}K` : `$${d.toFixed(d % 1 ? 2 : 0)}`; };
     const nice = (v) => { if (v <= 1) return 400000; const u = 10 ** Math.floor(Math.log10(v)); return [1, 2, 2.5, 4, 5, 10].map((m) => m * u).find((x) => x >= v * 1.08) || 10 * u; };
     // Sales line: a running total for the period, against the period before.
@@ -2097,7 +2103,7 @@ export async function editor(id, mount, title, startTab = '') {
       const hourly = !st || st.unit === 'hour';
       const run = (list) => { let a = 0; return list.map((x) => (a += x.net)); };
       const cur = run(ser), prev = prevStats && prevStats.series && prevStats.series.length === ser.length ? run(prevStats.series) : null;
-      const n = ser.length, nowH = new Date().getHours() + new Date().getMinutes() / 60;
+      const n = ser.length, nowH = bizHour();
       const live = st && st.to === st.today && hourly ? Math.min(n - 1, Math.floor(nowH)) : n - 1;
       const top = nice(Math.max(1, ...cur, ...(prev || [0])));
       const X = (i) => (n === 1 ? 50 : (i / (n - 1)) * 100), Y = (v) => 100 - (v / top) * 100;
@@ -2128,7 +2134,7 @@ export async function editor(id, mount, title, startTab = '') {
     const summary = h('div', { class: 'scard hcard hsum' },
       metric('Open orders', 'orders', money(openTotal), h('small', { class: 'hm-s' }, `from ${waiting.length} order${waiting.length === 1 ? '' : 's'}`), true),
       metric('Discounts', 'r-disc', t ? money(t.discounts) : '—', null, true),
-      metric('Refunds', 'tx', st && st.money ? money(st.money.refunds) : '—', null, true));
+      metric('Refunds', 'tx', t ? money(t.refunds || 0) : '—', null, true));
     const units = t ? t.units : 0;
     const itemsCard = h('div', { class: 'scard hcard' }, h('button', { type: 'button', class: 'hc-h link', onclick: go2('r-items') }, 'Item sales', h('span', { class: 'chv r', 'aria-hidden': 'true' })),
       h('p', { class: 'hc-sub' }, `${units} item${units === 1 ? '' : 's'} sold ${nowName === 'Today' ? 'today' : nowName.toLowerCase()}`),
@@ -2233,7 +2239,7 @@ export async function editor(id, mount, title, startTab = '') {
   const clArt = (k) => h('div', { class: 'cl-tile', html: TILE_SVG(TILES[k] || TILES.look) });
   const fmtD = (d) => longDay(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   function periodOf() {
-    const t = isoDay(new Date());
+    const t = bizDay();
     if (salesRange === 'custom' && salesFrom && salesTo) return [salesFrom, salesTo];
     if (salesRange === 'yesterday') { const y = addDays(t, -1); return [y, y]; }
     if (salesRange === 'week') return [addDays(t, -new Date(`${t}T12:00:00Z`).getUTCDay()), t];
@@ -2242,11 +2248,11 @@ export async function editor(id, mount, title, startTab = '') {
     return [t, t];
   }
   const rangeText = () => { const [f, t] = periodOf(); return f === t ? `${fmtD(f)}, 12:00 AM - 11:59 PM` : `${fmtD(f)} - ${fmtD(t)}`; };
-  const isTodayOnly = () => { const [f, t] = periodOf(); return f === t && t === isoDay(new Date()); };
+  const isTodayOnly = () => { const [f, t] = periodOf(); return f === t && t === bizDay(); };
   const caret = () => h('i', { class: 'chv d', 'aria-hidden': 'true' });
   // The date row: a period drop-down, any other controls, then the exact dates with arrows underneath.
   function cDates(...extra) {
-    const t = isoDay(new Date()), [f, to] = periodOf();
+    const t = bizDay(), [f, to] = periodOf();
     const label = salesRange === 'custom' && salesFrom ? (salesFrom === salesTo ? longDay(salesFrom, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Custom') : RANGE_NAMES[salesRange] || 'Today';
     const btn = h('button', { type: 'button', class: 'cl-sel', 'aria-haspopup': 'dialog', onclick: () => calPop(btn, t) }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', { class: 'grow' }, label), caret());
     const span = Math.round((Date.parse(to) - Date.parse(f)) / 86400000) + 1;
@@ -2256,7 +2262,7 @@ export async function editor(id, mount, title, startTab = '') {
   }
   function cDrop(options, value, onPick, o = {}) {
     const cur = options.find(([k]) => k === value) || options[0];
-    const b = h('button', { type: 'button', class: `cl-sel ${o.cls || ''}`, 'aria-haspopup': 'menu', onclick: () => popover(b, (close) => h('div', { class: 'cl-menu' }, options.map(([k, l]) => h('button', { type: 'button', class: k === value ? 'on' : '', onclick: () => { close(); onPick(k); } }, h('span', {}, l), k === value && h('i', { class: 'cl-tick' }, '✓')))), 'left') },
+    const b = h('button', { type: 'button', class: `cl-sel ${o.cls || ''}`, disabled: !!o.disabled, 'aria-haspopup': 'menu', onclick: () => popover(b, (close) => h('div', { class: 'cl-menu' }, options.map(([k, l]) => h('button', { type: 'button', class: k === value ? 'on' : '', onclick: () => { close(); onPick(k); } }, h('span', {}, l), k === value && h('i', { class: 'cl-tick' }, '✓')))), 'left') },
       o.icon && h('span', { class: 'cl-ic', html: SVG[o.icon] || '' }), h('span', { class: 'grow' }, `${o.prefix || ''}${cur ? cur[1] : ''}`), caret());
     return b;
   }
@@ -2291,11 +2297,12 @@ export async function editor(id, mount, title, startTab = '') {
   function rPanel(title, build) {
     sheet((close) => { const body = build(close); return [h('div', { class: 'rp-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))), h('div', { class: 'rp-b' }, body.el), h('div', { class: 'rp-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { body.apply(); close(); paintPanel(); } }, 'Apply'))]; }, 'drawer rpanel');
   }
-  function rpRadios(title, opts, val, set, search) {
-    let v = val; const list = h('div', { class: 'rp-opts' });
-    const draw = (q = '') => list.replaceChildren(...opts.filter((o) => !q || o.toLowerCase().includes(q)).map((o) => h('label', { class: 'rp-opt' }, h('input', { type: 'radio', name: title, checked: o === v, onchange: () => { v = o; set(o); } }), h('span', {}, o))));
+  // off: shown greyed out, for a filter that cannot apply to what is recorded.
+  function rpRadios(title, opts, val, set, search, off) {
+    let v = val; const list = h('div', { class: `rp-opts${off ? ' rp-off' : ''}` });
+    const draw = (q = '') => list.replaceChildren(...opts.filter((o) => !q || o.toLowerCase().includes(q)).map((o) => h('label', { class: 'rp-opt' }, h('input', { type: 'radio', name: title, checked: o === v, disabled: !!off, onchange: () => { v = o; set(o); } }), h('span', {}, o))));
     draw();
-    return rpSec(title, [search && h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: search, oninput: (e) => draw(e.target.value.trim().toLowerCase()) })), list]);
+    return rpSec(title, [search && h('label', { class: `tsearch${off ? ' rp-off' : ''}` }, ic('search', 18), h('input', { type: 'search', placeholder: search, disabled: !!off, oninput: (e) => draw(e.target.value.trim().toLowerCase()) })), list]);
   }
   function rpChecks(title, opts, chosen, icons) {
     const boxes = opts.map((o) => { const cb = h('input', { type: 'checkbox', checked: chosen.has(o) }); cb.onchange = () => { if (cb.checked) chosen.add(o); else chosen.delete(o); }; return h('label', { class: 'rp-opt' }, cb, icons && icons[o] && h('span', { class: 'rp-oi', html: icons[o] }), h('span', {}, o)); });
@@ -2319,8 +2326,8 @@ export async function editor(id, mount, title, startTab = '') {
   const forget = (...keys) => keys.forEach((k) => delete clCache[k]);
   const cmpCache = {};
   function cmpStats(f, t) {
-    const key = `${f}|${t}`;
-    if (!cmpCache[key]) { cmpCache[key] = { loading: true }; api('GET', `/api/sites/${id}/stats?range=custom&from=${f}&to=${t}`).then((r) => { cmpCache[key] = r; if (CL[tab]) paintPanel(); }).catch(() => { cmpCache[key] = { failed: true }; }); }
+    const type = TYPE_TABS.has(tab) && clState.type ? clState.type : '', key = `${f}|${t}|${type}`;
+    if (!cmpCache[key]) { cmpCache[key] = { loading: true }; api('GET', `/api/sites/${id}/stats?range=custom&from=${f}&to=${t}${type ? `&type=${encodeURIComponent(type)}` : ''}`).then((r) => { cmpCache[key] = r; if (CL[tab]) paintPanel(); }).catch(() => { cmpCache[key] = { failed: true }; }); }
     const c = cmpCache[key]; return c.loading || c.failed ? null : c;
   }
   const loadingPage = (title, eyebrow) => [h('div', { class: 'cl' }, cHead(eyebrow, title), h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))];
@@ -2330,7 +2337,7 @@ export async function editor(id, mount, title, startTab = '') {
     const vals = ser.map(val), top = niceTop(Math.max(0, ...vals), isMoney);
     const lab = (x) => (unit === 'hour' ? `${Number(x.key) % 12 || 12} ${Number(x.key) < 12 ? 'AM' : 'PM'}` : longDay(x.key, { month: 'short', day: 'numeric' }));
     const every = unit === 'hour' ? 3 : Math.max(1, Math.ceil(ser.length / 8));
-    const nowAt = unit === 'hour' && isTodayOnly() && ser.length === 24 ? ((new Date().getHours() + new Date().getMinutes() / 60) / 24) * 100 : null;
+    const nowAt = unit === 'hour' && isTodayOnly() && ser.length === 24 ? (bizHour() / 24) * 100 : null;
     const yl = (v) => (isMoney ? shortMoney(v) : String(Math.round(v)));
     return h('div', { class: 'chart g2 cl-chart' },
       h('div', { class: 'chart-y', 'aria-hidden': 'true' }, [4, 3, 2, 1, 0].map((i) => h('span', { style: `bottom:${i * 25}%` }, yl((top * i) / 4)))),
@@ -2342,13 +2349,14 @@ export async function editor(id, mount, title, startTab = '') {
     return h('div', { class: 'scard cl-card' }, h('button', { type: 'button', class: 'hc-h link', onclick: () => k && goTab(k) }, title, h('span', { class: 'chv r' })),
       ls.length ? h('div', { class: 'cl-top' }, ls.slice(0, 5).map((x) => h('div', { class: 'cl-topr' }, h('span', {}, x.name), h('i', {}, h('b', { style: `width:${(val(x) / mx) * 100}%` })), h('em', {}, fmt(val(x)))))) : cEmpty('No results found', NORES)); };
   const pill = (t, cls = '') => h('span', { class: `cl-pill ${cls}` }, t);
-  const dayOfMs = (ms) => isoDay(new Date(ms));
+  const dayOfMs = (ms) => bizDay(ms);
   const inPeriod = (ms) => { const [f, t] = periodOf(), d = dayOfMs(ms); return d >= f && d <= t; };
 
   /* ---------- Reports ---------- */
   // Sales overview, Full Report: every sales figure for the period beside the comparison period.
   function fullReport(st, f, to, span) {
-    const pf = clState.cmp === 'week' ? addDays(f, -7) : addDays(f, -span), pt = clState.cmp === 'week' ? addDays(to, -7) : addDays(f, -1);
+    const week = clState.cmp === 'week' && span <= 7;
+    const pf = week ? addDays(f, -7) : addDays(f, -span), pt = week ? addDays(to, -7) : addDays(f, -1);
     const pv = cmpStats(pf, pt), t = st.totals, p2 = pv ? pv.totals : null;
     const col = (a, b) => (a || 0) - (b || 0);
     const rows = [
@@ -2372,7 +2380,7 @@ export async function editor(id, mount, title, startTab = '') {
     const metricOpts = [['net', 'Net sales'], ['orders', 'Orders'], ['tips', 'Tips'], ['tax', 'Taxes']];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Sales', [exportBtn('sales'), dots('sales')]),
       cTabs([['trends', 'Trends'], ['full', 'Full Report']], clState.salesTab, (k) => { clState.salesTab = k; }),
-      ...cDates(cDrop([['week', span === 1 ? 'This day last week' : 'Same days last week'], ['prev', 'Previous period']], clState.cmp, (k) => { clState.cmp = k; paintPanel(); }, { prefix: 'Compared to:  ' }),
+      ...cDates(cDrop([span <= 7 && ['week', span === 1 ? 'This day last week' : 'Same days last week'], ['prev', 'Previous period']].filter(Boolean), span <= 7 ? clState.cmp : 'prev', (k) => { clState.cmp = k; paintPanel(); }, { prefix: 'Compared to:  ' }),
         cFilters(() => rPanel('Filters', () => { let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
       ...(clState.salesTab === 'full' ? fullReport(st, f, to, span) : [cFigs([['Net sales', money(t.net), null, true], ['Gross sales', money(t.gross), null, true], ['Amount collected', money(st.money ? st.money.collected : 0), null, true], ['Average ticket size', money(t.average), null, true], ['Orders', String(t.orders), null, true]]),
       h('div', { class: 'scard cl-card' }, h('div', { class: 'cl-cardh' }, h('button', { type: 'button', class: 'hc-h link', onclick: () => goTab('r-full') }, 'Net sales', h('span', { class: 'chv r' })), cDrop(metricOpts, clState.metric, (k) => { clState.metric = k; paintPanel(); }, { icon: 'list' })),
@@ -2383,9 +2391,11 @@ export async function editor(id, mount, title, startTab = '') {
   CL['r-full'] = () => {
     const st = needStats(); if (!st) return loadingPage('Sales Report', 'Reports');
     const t = st.totals;
-    const win = { all: [0, 24], morning: [5, 11], midday: [11, 16], evening: [16, 24] }[clState.allDay];
-    const ser = st.unit === 'hour' ? st.series.map((x) => (Number(x.key) >= win[0] && Number(x.key) < win[1] ? x : { ...x, net: 0, orders: 0, tax: 0, tips: 0 })) : st.series;
-    const hourly = st.unit === 'hour';
+    const hourly = st.unit === 'hour', part = hourly ? clState.allDay : 'all';
+    const win = { all: [0, 24], morning: [5, 11], midday: [11, 16], evening: [16, 24] }[part];
+    const ser = hourly ? st.series.map((x) => (Number(x.key) >= win[0] && Number(x.key) < win[1] ? x : { ...x, net: 0, orders: 0, tax: 0, tips: 0 })) : st.series;
+    // With part of the day chosen, net sales and orders are the chosen hours' share.
+    const shownNet = part === 'all' ? t.net : ser.reduce((a, x) => a + x.net, 0), shownOrders = part === 'all' ? t.orders : ser.reduce((a, x) => a + x.orders, 0);
     const viewOpts = hourly ? [['hour', 'Hourly sales'], ['type', 'Order type']] : [['day', 'Daily sales'], ['type', 'Order type']];
     if (!viewOpts.some(([k]) => k === clState.viewBy)) clState.viewBy = viewOpts[0][0];
     const lab = (x) => (hourly ? `${Number(x.key) % 12 || 12}:00 ${Number(x.key) < 12 ? 'AM' : 'PM'}` : longDay(x.key, { weekday: 'short', month: 'short', day: 'numeric' }));
@@ -2393,9 +2403,9 @@ export async function editor(id, mount, title, startTab = '') {
       : ser.filter((x) => x.orders).map((x) => ({ when: lab(x), orders: String(x.orders), net: money(x.net), tax: money(x.tax), tips: money(x.tips), _n: x.net }));
     const tenders = st.money ? st.money.tenders : [];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Sales Report', [exportBtn('r-full'), dots('r-full')]),
-      ...cDates(cDrop([['all', 'All day'], ['morning', 'Morning (5 AM – 11 AM)'], ['midday', 'Midday (11 AM – 4 PM)'], ['evening', 'Evening (4 PM – midnight)']], clState.allDay, (k) => { clState.allDay = k; paintPanel(); }, { icon: 'clock' }), cFilters(() => rPanel('Filters', () => { const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
+      ...cDates(cDrop([['all', 'All day'], ['morning', 'Morning (5 AM – 11 AM)'], ['midday', 'Midday (11 AM – 4 PM)'], ['evening', 'Evening (4 PM – midnight)']], part, (k) => { clState.allDay = k; paintPanel(); }, { icon: 'clock', disabled: !hourly }), cFilters(() => rPanel('Filters', () => { const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
       h('div', { class: 'scard cl-card cl-sum' }, h('div', { class: 'cl-sumL' },
-        h('div', { class: 'cl-fig big' }, h('span', { class: 'dot' }, 'Net sales'), h('b', {}, money(t.net)), h('small', { class: 'strong' }, `from ${t.orders} order${t.orders === 1 ? '' : 's'}`)),
+        h('div', { class: 'cl-fig big' }, h('span', { class: 'dot' }, 'Net sales'), h('b', {}, money(shownNet)), h('small', { class: 'strong' }, `from ${shownOrders} order${shownOrders === 1 ? '' : 's'}`)),
         h('div', { class: 'cl-sumrow' }, h('div', { class: 'cl-fig' }, h('span', { class: 'dot' }, 'Amount collected'), h('b', {}, money(st.money ? st.money.collected : 0))), h('div', { class: 'cl-fig' }, h('span', { class: 'dot' }, 'Gross sales'), h('b', {}, money(t.gross))))),
         h('div', { class: 'cl-sumR' }, h('h3', { class: 'cl-sub' }, hourly ? 'Hourly view' : 'Daily view'), cChart(ser, st.unit, (x) => x.net, true))),
       cH2('Sales'), h('label', { class: 'cl-lab' }, 'View by'), h('div', {}, cDrop(viewOpts, clState.viewBy, (k) => { clState.viewBy = k; paintPanel(); })),
@@ -2445,7 +2455,7 @@ export async function editor(id, mount, title, startTab = '') {
     const cols = [{ k: 'n', l: 'Discount name' }, { k: 'k', l: 'Type' }, { k: 'u', l: 'Times applied', r: 1, sort: (r) => r._u }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Discounts', [exportBtn('r-disc'), dots('r-disc')]), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m2]) => [k, m2.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
       cTabs([['rev', 'Revenue items'], ['non', 'Non revenue items']], clState.discTab, (k) => { clState.discTab = k; }),
-      cFigs(clState.discTab === 'rev' ? [['Discounts on orders', money(st.totals.discounts), `${uses} discount${uses === 1 ? '' : 's'} applied`], ['Discounts on items', money(0), '0 discounts applied'], ['Total discounts', money(st.totals.discounts), `${uses} discount${uses === 1 ? '' : 's'} applied`]] : [['Discounts on orders', money(0), '0 discounts applied'], ['Discounts on items', money(0), '0 discounts applied'], ['Total discounts', money(0), '0 discounts applied']]),
+      cFigs(clState.discTab === 'rev' ? [['Discounts on orders', money(st.totals.discounts), `${uses} discount${uses === 1 ? '' : 's'} applied`], ['Discounts on items', money(st.totals.itemDiscounts || 0), `${st.totals.itemDiscountLines || 0} discount${st.totals.itemDiscountLines === 1 ? '' : 's'} applied`], ['Total discounts', money(st.totals.discounts + (st.totals.itemDiscounts || 0)), `${uses + (st.totals.itemDiscountLines || 0)} discount${uses + (st.totals.itemDiscountLines || 0) === 1 ? '' : 's'} applied`]] : [['Discounts on orders', money(0), '0 discounts applied'], ['Discounts on items', money(0), '0 discounts applied'], ['Total discounts', money(0), '0 discounts applied']]),
       cH2('Discount Detail'), h('div', { class: 'tbar' }, cSearch('Search by discount name', clState.discQ, (v) => { clState.discQ = v; }), colsBtn('r-disc', cols)),
       cTable('r-disc', cols, rows, cEmpty('No results found', NORES)))];
   };
@@ -2474,19 +2484,20 @@ export async function editor(id, mount, title, startTab = '') {
   CL['r-types'] = () => {
     const st = needStats(); if (!st) return loadingPage('Order types', 'Reports');
     const typeOpts = [['', 'Order Types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])];
-    const inStore = st.money ? st.money.inStore : 0;
-    const rows = [...st.methods.filter((m) => m.orders).map((m) => ({ t: h('b', {}, ORDER_METHODS[m.method]?.name || m.method), o: String(m.orders), n: money(m.net), a: money(m.total), _n: m.net })), ...(inStore && !clState.type ? [{ t: h('b', {}, 'In-store'), o: '—', n: money(inStore), a: money(inStore), _n: inStore }] : [])];
+    const inStore = st.money ? st.money.inStore : 0, inStoreNet = st.money ? st.money.inStoreNet ?? inStore : 0;
+    const rows = [...st.methods.filter((m) => m.orders || m.net).map((m) => ({ t: h('b', {}, ORDER_METHODS[m.method]?.name || m.method), o: String(m.orders), n: money(m.net), a: money(m.total), _n: m.net })), ...(inStore && !clState.type ? [{ t: h('b', {}, 'In-store'), o: '—', n: money(inStoreNet), a: money(inStore), _n: inStoreNet }] : [])];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Order types', [exportBtn('r-types'), dots('r-types')]),
       ...cDates(cDrop(typeOpts, clState.type, (k) => { clState.type = k; stats = null; paintPanel(); }, { icon: 'list' }), cFilters(() => rPanel('Filters', () => { let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[0] ? x[1] : 'All order types'), (typeOpts.find((x) => x[0] === v) || [0, 'All order types'])[1].replace('Order Types', 'All order types'), (o) => { v = (typeOpts.find((x) => x[1] === o) || [''])[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
-      cFigs([['Online Net Sales', money(st.totals.net), null, true], ['In-store Net Sales', money(clState.type ? 0 : inStore), null, true]]),
+      cFigs([['Online Net Sales', money(st.totals.net), null, true], ['In-store Net Sales', money(clState.type ? 0 : inStoreNet), null, true]]),
       cTable('r-types', [{ k: 't', l: 'Order type' }, { k: 'o', l: 'Orders', r: 1 }, { k: 'n', l: 'Net sales', r: 1, sort: (r) => r._n }, { k: 'a', l: 'Total', r: 1 }], rows, cEmpty('No results found', NORES)))];
   };
   CL['r-taxes'] = () => {
     const st = needStats(); if (!st) return loadingPage('Taxes Report', 'Finances');
-    const t = st.totals;
-    const rows = t.orders ? [{ r: `${st.taxRate || 0}%`, a: money(t.taxable), n: money(t.nontaxable), x: money(t.tax) }] : [];
+    const t = st.totals, rates = (t.rates || []).filter((r) => r.orders || r.invoices);
+    const rows = rates.map((r) => ({ r: `${r.rate || 0}%${r.invoices ? ` · ${r.orders ? 'orders and invoices' : 'invoices'}` : ''}`, a: money(r.taxable), n: money(r.nontaxable), x: money(r.tax) }));
+    const taxable = rates.reduce((a, r) => a + r.taxable, 0), taxed = rates.reduce((a, r) => a + r.tax, 0);
     return [h('div', { class: 'cl' }, cHead('Finances', 'Taxes Report', [exportBtn('r-taxes'), dots('r-taxes')], 'A table view of taxes and fees collected from your customers.'), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
-      cFigs([['Applicable sales', money(t.taxable), null, true], ['Net taxes', money(t.tax), null, true]]),
+      cFigs([['Applicable sales', money(taxable), null, true], ['Net taxes', money(taxed), null, true]]),
       cH2('Tax details'), cTable('r-taxes', [{ k: 'r', l: 'Tax rate' }, { k: 'a', l: 'Taxable sales', r: 1 }, { k: 'n', l: 'Non-taxable sales', r: 1 }, { k: 'x', l: 'Tax collected', r: 1 }], rows, cEmpty('No results found', NORES)))];
   };
   SVG.clock = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
@@ -2532,8 +2543,8 @@ export async function editor(id, mount, title, startTab = '') {
         ? cTable('orders', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'c', l: 'Customer' }, { k: 'tot', l: 'Order total', r: 1, sort: (r) => r._tot }, { k: 'p', l: 'Payment status' }, { k: 'i', l: 'Items', r: 1 }, { k: 'id', l: 'Order ID' }, { k: 'e', l: 'Employee' }], orderRows, empty)
         : cTable('orders-lines', [{ k: 't', l: 'Time' }, { k: 'n', l: 'Item' }, { k: 'q', l: 'Qty', r: 1 }, { k: 'pr', l: 'Price', r: 1 }, { k: 'a', l: 'Amount', r: 1 }, { k: 'id', l: 'Order ID' }], lineRows, empty))];
   };
-  const TENDER_OPTS = ['All', 'Cash', 'Credit Card', 'Check', 'External Gift Card', 'External PIN Debit', 'Debit Card'];
-  const tenderMatch = (opt, m) => opt === 'All' || (opt === 'Credit Card' || opt === 'Debit Card' ? m === 'Card' : opt === 'External Gift Card' ? m === 'Gift card' : opt === 'External PIN Debit' ? false : m === opt);
+  const TENDER_OPTS = ['All', 'Cash', 'Card', 'Online payment', 'Check', 'Gift card', 'Bank transfer', 'Other'];
+  const tenderMatch = (opt, m) => opt === 'All' || m === opt;
   CL.tx = () => {
     const d = needTx(); if (!d) return loadingPage('Transactions');
     const byOpts = [['last4', 'Last 4 digits on card'], ['pid', 'Payment ID'], ['ext', 'External Id'], ['inv', 'Invoice Id'], ['custom', 'Custom field value']];
@@ -2552,12 +2563,12 @@ export async function editor(id, mount, title, startTab = '') {
     const nPay = net(pays, 'amount'), taxFee = sum(pays, 'tax') + sum(pays, 'fee');
     const figs = { payments: [['Payments total', money(sum(pays, 'amount')), `from ${nPay} payment${nPay === 1 ? '' : 's'}`, true], ['Tips', money(sum(pays, 'tip')), sum(pays, 'tip') ? `on ${net(pays, 'tip')} payments` : '--'], ['Taxes and Fees', money(taxFee), taxFee ? `on ${pays.filter((x) => x.tax > 0 || x.fee > 0).length - pays.filter((x) => x.tax < 0 || x.fee < 0).length} payments` : '--']],
       refunds: [['Refunds total', money(sum(refs, 'amount')), `from ${refs.length} refund${refs.length === 1 ? '' : 's'}`, true]], manual: [['Manual refunds total', money(0), 'from 0 manual refunds', true]], voids: [['Voids total', money(-sum(pays, 'amount')), `from ${pays.length} void${pays.length === 1 ? '' : 's'}`, true]], auth: [['Authorizations total', money(0), 'from 0 authorizations', true]] }[clState.txTab];
-    const nF = (clState.txTender !== 'All') + (clState.txCard !== 'All');
+    const nF = clState.txTender !== 'All' ? 1 : 0;
     return [h('div', { class: 'cl' }, cHead(null, 'Transactions', [printBtn(), dots('tx')]), ...cDates(),
       cTabs([['payments', 'Payments'], ['refunds', 'Refunds'], ['manual', 'Manual Refunds'], ['voids', 'Voids'], ['auth', 'Authorizations']], clState.txTab, (k) => { clState.txTab = k; }),
       cFigs(figs),
       h('div', { class: 'tbar' }, cDrop(byOpts, clState.txBy, (k) => { clState.txBy = k; paintPanel(); }, { icon: 'find', cls: 'cl-by' }), cSearch(`Search by ${byName}`, clState.txQ, (v) => { clState.txQ = v; }),
-        cFilters(() => rPanel('Filters', () => { let tn = clState.txTender, cd = clState.txCard; return { el: h('div', {}, rpRadios('Tender type', TENDER_OPTS, tn, (v) => { tn = v; }, 'Search tender type'), rpRadios('Card type', ['All', 'Visa', 'Mastercard', 'American Express', 'Discover'], cd, (v) => { cd = v; }, 'Search card type')), apply: () => { clState.txTender = tn; clState.txCard = cd; } }; }), nF)),
+        cFilters(() => rPanel('Filters', () => { let tn = clState.txTender; return { el: h('div', {}, rpRadios('Tender type', TENDER_OPTS, tn, (v) => { tn = v; }, 'Search tender type'), rpRadios('Card type', ['All', 'Visa', 'Mastercard', 'American Express', 'Discover'], 'All', () => {}, 'Search card type', true)), apply: () => { clState.txTender = tn; } }; }), nF)),
       cTable('tx', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'y', l: 'Type' }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }, { k: 'm', l: 'Tender Type' }, { k: 'e', l: 'Employee' }, { k: 'c', l: 'Customer' }, { k: 's', l: 'Payment Source' }], rows,
         cEmpty(isTodayOnly() ? 'No transactions yet today' : 'No transactions found', 'Find transactions with a different search, timeframe and filter combination.')))];
   };
@@ -2610,7 +2621,7 @@ export async function editor(id, mount, title, startTab = '') {
     const months = Array.from({ length: Math.max(0, toM - fromM + 1) }, (_, i) => fromM + i).reverse();
     const mName = (m) => new Date(Date.UTC(y, m, 15)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
     const dl = async (m) => { try { const f = `${y}-${String(m + 1).padStart(2, '0')}-01`, t = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10); const s2 = await api('GET', `/api/sites/${id}/stats?range=custom&from=${f}&to=${t}`), tt = s2.totals;
-      await saveSheetFile(`${meta.slug}-statement-${f.slice(0, 7)}`, [[`Sales statement · ${mName(m)}`], [meta.name], [], ['Orders', tt.orders], ['Gross sales', (tt.gross / 100).toFixed(2)], ['Discounts', (tt.discounts / 100).toFixed(2)], ['Net sales', (tt.net / 100).toFixed(2)], ['Tax', (tt.tax / 100).toFixed(2)], ['Tips', (tt.tips / 100).toFixed(2)], ['Total', (tt.total / 100).toFixed(2)], ['Amount collected', ((s2.money?.collected || 0) / 100).toFixed(2)], ['Refunds', ((s2.money?.refunds || 0) / 100).toFixed(2)]], 'csv'); } catch (e) { toast(e.message, true); } };
+      await saveSheetFile(`${meta.slug}-statement-${f.slice(0, 7)}`, [[`Sales statement · ${mName(m)}`], [meta.name], [], ['Orders', tt.orders], ['Gross sales', (tt.gross / 100).toFixed(2)], ['Discounts', (-tt.discounts / 100).toFixed(2)], ['Refunds', (-(tt.refunds || 0) / 100).toFixed(2)], ['Net sales', (tt.net / 100).toFixed(2)], ['Tax', (tt.tax / 100).toFixed(2)], ['Delivery fees', (tt.fees / 100).toFixed(2)], ['Tips', (tt.tips / 100).toFixed(2)], ['Total', (tt.total / 100).toFixed(2)], [], ['Amount collected', ((s2.money?.collected || 0) / 100).toFixed(2)], ['Refunds given', ((s2.money?.refunds || 0) / 100).toFixed(2)], ['Net collected', (((s2.money?.collected || 0) - (s2.money?.refunds || 0)) / 100).toFixed(2)]], 'csv'); } catch (e) { toast(e.message, true); } };
     return [h('div', { class: 'cl' }, cHead(null, 'Monthly Statements', null, 'Review all your monthly statements in one place.'),
       h('div', { class: 'cl-year' }, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous year', disabled: y <= firstY, onclick: () => { clState.stmtYear--; paintPanel(); } }, chev('l')), h('b', {}, String(y)), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next year', disabled: y >= nowY, onclick: () => { clState.stmtYear++; paintPanel(); } }, chev('r'))),
       h('div', { class: 'cl-two' }, h('div', { class: 'scard cl-card' }, h('h3', { class: 'cl-ct' }, 'Sales Statement'), h('p', { class: 'cl-cd' }, 'View your sales, taxes, tips and refunds for each month.'),

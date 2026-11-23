@@ -155,6 +155,8 @@ export function openDb(dataDir) {
   }
   // A gift card pays for an order like money: the part it paid, and which card, are kept on the order.
   addColumn('orders', 'gift', 'INTEGER NOT NULL DEFAULT 0');
+  // The tax rate the order was taxed at, so the Taxes report groups sales by the rate really used.
+  addColumn('orders', 'tax_rate', 'REAL');
   addColumn('orders', 'gift_code', "TEXT NOT NULL DEFAULT ''");
   // Every change to a gift card's balance: issued, loaded, spent, or given back. The method says how a load was paid, or 'Complimentary'.
   const movesAreNew = !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gift_moves'").get();
