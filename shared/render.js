@@ -179,7 +179,8 @@ section+section{border-top:1px solid var(--line)}
 .info{margin-top:40px;display:grid;gap:26px}
 .cols.one .info{justify-items:center}
 .info h3{font-family:var(--font);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px}
-.info p,.info address{font-style:normal;font-size:17px}
+.info p,.info address{font-style:normal;font-size:17px;overflow-wrap:anywhere}
+.info>*{min-width:0}
 .hours{display:grid;grid-template-columns:auto auto;gap:4px 28px;font-size:16px;justify-content:start}
 .hours dt{color:var(--muted)}
 .hours dd{font-variant-numeric:tabular-nums}
@@ -202,6 +203,8 @@ label.f{display:grid;gap:7px;font-size:14px;font-weight:500}
 .ftr ul{list-style:none;padding:0;display:grid;gap:9px}
 .ftr a{color:var(--muted)}
 .ftr a:hover{color:var(--ink)}
+.ftr .top>*{min-width:0}
+.ftr li,.ftr a,.ftr p{overflow-wrap:anywhere}
 .soc{display:flex;gap:14px;margin-top:20px}
 .soc a{display:inline-flex}
 .ftr .base{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;border-top:1px solid var(--line);margin-top:48px;padding-top:22px;font-size:13px}
