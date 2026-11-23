@@ -268,7 +268,7 @@ function orderClient() {
   }
   function choose(c, id) {
     var it = c.items[id], T = c.T, box = d.createElement('div'); box.className = 'osheet';
-    box.innerHTML = '<div role="dialog" aria-modal="true"><h2>' + h(it.n) + '</h2><form>' + it.g.map(function (g, gi) { return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + g.c.map(function (ch, ci) { return '<label><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === 0 ? ' checked' : '') + '>' + h(ch[0]) + (ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
+    box.innerHTML = '<div role="dialog" aria-modal="true"><h2>' + h(it.n) + '</h2><form>' + it.g.map(function (g, gi) { return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + g.c.map(function (ch, ci) { var first = g.c.findIndex(function (x) { return !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
     var close = function () { box.remove(); };
     box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('[data-x]')) close(); });
     box.querySelector('form').addEventListener('submit', function (e) {
@@ -399,7 +399,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
   const items = {};
-  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price]) })) };
+  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, c: g.choices.map((c) => [c.name, c.price, c.soldOut ? 1 : 0]) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,

@@ -610,6 +610,7 @@ export function parseCsv(text) {
 const COLS = [
   ['category', /^(menu\s*)?(categor(y|ies)|section|group|department|type)$/i],
   ['name', /^((item|product|menu\s*item|dish)(\s*name)?|name|title)$/i],
+  ['cost', /^(unit\s*|item\s*)?cost$/i],
   ['price', /price|cost|amount|^\$$/i],
   ['desc', /desc|details|notes?$/i],
   ['stock', /stock|qty|quantity|inventory|on\s*hand|count/i],
@@ -663,11 +664,13 @@ export function parseMenuCsv(text) {
     const stockText = get(r, 'stock');
     const stock = /^\d{1,6}$/.test(stockText) ? Number(stockText) : null;
     const avail = get(r, 'available');
+    const costText = get(r, 'cost');
     out.items.push({
       category: category || 'Menu', name: name.slice(0, 120), price, desc: get(r, 'desc').slice(0, 500), stock,
       image: /^https:\/\/\S+$/i.test(get(r, 'image')) ? get(r, 'image').slice(0, 500) : '',
       available: !/^(no|n|false|0|off|hidden|unavailable|sold\s*out)$/i.test(avail),
       taxable: !/^(no|n|false|0|off|exempt|none|non-?taxable)$/i.test(get(r, 'taxable')),
+      cost: costText ? parsePrice(costText) : null,
     });
   });
   if (!out.items.length && !out.errors.length) out.errors.push({ row: 0, reason: 'No items were found in the file.' });
@@ -690,9 +693,18 @@ export function defaultOrdering() {
     hours: DAYS.map(() => ({ closed: false, open: '11:00', close: '21:00' })),
     promos: [], cats: [], zones: [], loyalty: { enabled: false, every: 10, type: 'amount', value: 500 },
     slotLimit: 0, deals: [], dailySummary: true, lowStockAt: 5,
-    modGroups: [], menus: [], labels: [], revClasses: [], discounts: [],
+    modGroups: [], menus: [], dayparts: [], labels: [], revClasses: [], discounts: [],
     booking: { enabled: false, title: 'Book online', note: '', perSlot: 2, services: [] },
   };
+}
+const ID_CHARS = 'ABCDEFGHJKMNPQRSTVWXYZ0123456789';
+/** A 13-character id that stays the same for the same text (used for categories until one is stored). */
+export function steadyId(text) {
+  let a = 0x811c9dc5, b = 0x01000193;
+  for (const ch of String(text)) { const c = ch.codePointAt(0); a = Math.imul(a ^ c, 0x01000193) >>> 0; b = Math.imul(b ^ (c * 31), 0x5bd1e995) >>> 0; }
+  let out = '', n = BigInt(a) * 4294967296n + BigInt(b);
+  for (let i = 0; i < 13; i++) { out += ID_CHARS[Number(n % 31n)]; n /= 31n; }
+  return out;
 }
 const int = (v, min, max, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
 export function normalizeOrdering(input) {
@@ -711,15 +723,16 @@ export function normalizeOrdering(input) {
     useHours: o.useHours === true, timezone: TIMEZONES[o.timezone] ? o.timezone : d.timezone, scheduling: o.scheduling === true,
     hours: DAYS.map((_, i) => { const h = arr(o.hours)[i] || {}; return { closed: h.closed === true, open: hhmm(h.open, '11:00'), close: hhmm(h.close, '21:00') }; }),
     promos: arr(o.promos).slice(0, 30).map((x) => ({ code: str(x?.code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_00, 0) : int(x?.value, 0, 100, 10), active: x?.active !== false })).filter((x) => x.code),
-    cats: arr(o.cats).slice(0, 60).map((c) => ({ name: str(c?.name, 60).trim(), hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })).filter((c) => c.name),   // kept even when plain, so a new empty category stays until items are added
+    cats: arr(o.cats).slice(0, 60).map((c) => ({ id: /^[A-Z0-9]{13}$/.test(str(c?.id, 13)) ? c.id : steadyId(str(c?.name, 60).trim().toLowerCase()), name: str(c?.name, 60).trim(), hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })).filter((c) => c.name),   // kept even when plain, so a new empty category stays until items are added
     zones: arr(o.zones).slice(0, 30).map((z) => ({ zips: [...new Set((Array.isArray(z?.zips) ? z.zips.join(' ') : str(z?.zips, 2000)).match(/\b\d{5}\b/g) || [])].slice(0, 200), fee: int(z?.fee, 0, 1_000_00, 0) })).filter((z) => z.zips.length),
     loyalty: { enabled: o.loyalty?.enabled === true, every: int(o.loyalty?.every, 2, 50, 10), type: o.loyalty?.type === 'percent' ? 'percent' : 'amount', value: o.loyalty?.type === 'percent' ? int(o.loyalty?.value, 1, 100, 10) : int(o.loyalty?.value, 1, 1_000_00, 500) },
     slotLimit: int(o.slotLimit, 0, 500, 0),
     deals: arr(o.deals).slice(0, 20).map((x) => ({ name: str(x?.name, 40).trim() || 'Happy hour', percent: int(x?.percent, 1, 90, 10), from: hhmm(x?.from, '15:00'), to: hhmm(x?.to, '18:00'), days: DAYS.map((_, i) => arr(x?.days)[i] !== false), category: str(x?.category, 60).trim(), active: x?.active !== false })),
     dailySummary: o.dailySummary !== false, lowStockAt: int(o.lowStockAt, 0, 9999, 5),
     // Inventory lists: reusable modifier groups, menus, printer labels, revenue classes and named discounts.
-    modGroups: arr(o.modGroups).slice(0, 100).map((g, i) => ({ id: str(g?.id, 24) || `g${i}`, ...(cleanOptions([g])[0] || { name: '', required: false, multi: false, choices: [] }) })).filter((g) => g.name),
-    menus: arr(o.menus).slice(0, 30).map((m2, i) => ({ id: str(m2?.id, 24) || `m${i}`, name: str(m2?.name, 60).trim(), cats: [...new Set(arr(m2?.cats).map((c) => str(c, 60).trim()).filter(Boolean))].slice(0, 100), from: hhmm(m2?.from, ''), to: hhmm(m2?.to, ''), days: DAYS.map((_, d) => arr(m2?.days)[d] !== false), active: m2?.active !== false })).filter((m2) => m2.name),
+    modGroups: arr(o.modGroups).slice(0, 100).map((g, i) => ({ id: str(g?.id, 24) || `g${i}`, name: str(g?.name, 60).trim(), onlineName: str(g?.onlineName, 60).trim(), required: g?.required === true, multi: g?.multi === true, choices: cleanChoices(g?.choices) })).filter((g) => g.name),
+    menus: arr(o.menus).slice(0, 30).map((m2, i) => ({ id: str(m2?.id, 24) || `m${i}`, name: str(m2?.name, 60).trim(), cats: [...new Set(arr(m2?.cats).map((c) => str(c, 60).trim()).filter(Boolean))].slice(0, 100), from: hhmm(m2?.from, ''), to: hhmm(m2?.to, ''), days: DAYS.map((_, d) => arr(m2?.days)[d] !== false), dayparts: [...new Set(arr(m2?.dayparts).map((x) => str(x, 24)).filter(Boolean))].slice(0, 20), active: m2?.active !== false })).filter((m2) => m2.name),
+    dayparts: arr(o.dayparts).slice(0, 20).map((x, i) => ({ id: str(x?.id, 24) || `p${i}`, name: str(x?.name, 40).trim(), days: DAYS.map((_, d) => arr(x?.days)[d] !== false), from: hhmm(x?.from, ''), to: hhmm(x?.to, '') })).filter((x) => x.name),
     labels: [...new Set(arr(o.labels).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     revClasses: [...new Set(arr(o.revClasses).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     discounts: arr(o.discounts).slice(0, 60).map((x, i) => ({ id: str(x?.id, 24) || `d${i}`, name: str(x?.name, 60).trim(), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_000_00, 0) : int(x?.value, 0, 100, 10) })).filter((x) => x.name),
@@ -827,14 +840,22 @@ export function visibleMenu(menu, ordering, nowMs = Date.now()) {
   const off = new Set(metas.filter((c) => c.hidden || !inWindow(c.from, c.to)).map((c) => c.name));
   // A category placed in one or more menus shows only while one of those menus is on.
   const listed = new Set(menus.flatMap((x) => x.cats));
-  const on = new Set(menus.filter((x) => x.active && x.days[d.getUTCDay()] !== false && inWindow(x.from, x.to)).flatMap((x) => x.cats));
+  // A menu with dayparts is on during any of them; one without keeps its own days and times.
+  const parts = arr(ordering?.dayparts), day = d.getUTCDay();
+  const live = (x) => { const own = arr(x.dayparts).map((pid) => parts.find((p) => p.id === pid)).filter(Boolean); return own.length ? own.some((p) => p.days[day] !== false && inWindow(p.from, p.to)) : x.days[day] !== false && inWindow(x.from, x.to); };
+  const on = new Set(menus.filter((x) => x.active && live(x)).flatMap((x) => x.cats));
   return arr(menu).filter((x) => !off.has(x.category) && (!listed.has(x.category) || on.has(x.category)));
 }
 /** Adds the choices of any modifier groups an item is linked to, after the item's own options. */
 export function applyMods(menu, ordering) {
   const groups = arr(ordering?.modGroups);
   if (!groups.length) return arr(menu);
-  return arr(menu).map((it) => { const extra = arr(it.mods).map((id) => groups.find((g) => g.id === id)).filter(Boolean); return extra.length ? { ...it, options: [...arr(it.options), ...extra.map((g) => ({ name: g.name, required: g.required, multi: g.multi, choices: g.choices }))] } : it; });
+  const shown = (g) => ({ name: g.onlineName || g.name, required: g.required, multi: g.multi, choices: arr(g.choices).filter((c) => c.online !== false).map((c) => (c.inStock === false ? { ...c, soldOut: true } : c)) });
+  return arr(menu).map((it) => {
+    const ids = new Set(arr(it.mods));
+    const extra = groups.filter((g) => ids.has(g.id)).map(shown).filter((g) => g.choices.length);
+    return extra.length ? { ...it, options: [...arr(it.options), ...extra] } : it;
+  });
 }
 
 /** What an item costs right now, after any sale discount. */
@@ -842,10 +863,11 @@ export const itemPrice = (it) => (it.sale > 0 ? Math.round((it.price * (100 - Ma
 export const DEFAULT_STOCK = 100;
 
 /* Item options: sizes, add-ons and choices. */
+/** Modifiers: name and price; "online: false" hides one on the order page, "inStock: false" shows it as sold out. */
+export const cleanChoices = (input) => arr(input).slice(0, 30).map((c) => ({ name: str(c?.name, 80).trim(), price: int(c?.price, 0, 1_000_00, 0), online: c?.online !== false, inStock: c?.inStock !== false })).filter((c) => c.name);
 export function cleanOptions(input) {
   return arr(input).slice(0, 12).map((g) => ({
-    name: str(g?.name, 60).trim(), required: g?.required === true, multi: g?.multi === true,
-    choices: arr(g?.choices).slice(0, 30).map((c) => ({ name: str(c?.name, 80).trim(), price: int(c?.price, 0, 1_000_00, 0) })).filter((c) => c.name),
+    name: str(g?.name, 60).trim(), required: g?.required === true, multi: g?.multi === true, choices: cleanChoices(g?.choices),
   })).filter((g) => g.name && g.choices.length);
 }
 /** "Large +1.50" per line → choices. */
@@ -860,7 +882,7 @@ export function resolveOptions(item, picks) {
     const chosen = [...new Set(arr(arr(picks)[g]).map(Number))].filter((i) => Number.isInteger(i) && grp.choices[i]);
     if (grp.required && !chosen.length) return { error: `Choose ${grp.name.toLowerCase()} for ${item.name}.` };
     if (!grp.multi && chosen.length > 1) return { error: `Choose only one ${grp.name.toLowerCase()} for ${item.name}.` };
-    for (const i of chosen) { extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
+    for (const i of chosen) { if (grp.choices[i].soldOut) return { error: `${grp.choices[i].name} is sold out.` }; extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
   }
   return { price: itemPrice(item) + extra, labels };
 }

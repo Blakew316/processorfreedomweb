@@ -636,7 +636,8 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
     // Renaming a category moves its items and its settings
     r = await me('POST', `/api/sites/${site.id}/menu/category`, { from: 'Secret', to: 'Specials' });
     assert.ok(r.data.items.some((x) => x.category === 'Specials'));
-    assert.deepEqual(r.data.ordering.cats, [{ name: 'Specials', hidden: true, from: '', to: '' }]);
+    assert.deepEqual(r.data.ordering.cats.map(({ id, ...rest }) => rest), [{ name: 'Specials', hidden: true, from: '', to: '' }]);
+    assert.match(r.data.ordering.cats[0].id, /^[A-Z0-9]{13}$/, 'each category has an id');
 
     // Category hours
     assert.deepEqual(core.visibleMenu([{ category: 'Breakfast' }, { category: 'Lunch' }], core.normalizeOrdering({ cats: [{ name: 'Breakfast', from: '06:00', to: '11:00' }] }), Date.parse('2026-11-21T20:00:00Z')).map((x) => x.category), ['Lunch']);
@@ -992,6 +993,82 @@ test('inventory: modifier groups, menus, printer labels, revenue classes', async
   menu = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [menu[0].id], set: { removeMod: 'g1', label: '' } })).data.items;
   assert.deepEqual([menu[0].mods, menu[0].label], [[], '']);
   } finally { base = saved; srv.close(); app4.close(); rmSync(d4, { recursive: true, force: true }); }
+});
+
+test('items pages: cost, modifier switches, dayparts, category IDs', async () => {
+  const core = await import('../shared/core.js');
+  // Category IDs: 13 letters and digits, the same for the same name, kept once stored.
+  const id1 = core.steadyId('coffee');
+  assert.match(id1, /^[A-Z0-9]{13}$/);
+  assert.equal(core.steadyId('coffee'), id1);
+  assert.notEqual(core.steadyId('tea'), id1);
+  const oc = core.normalizeOrdering({ cats: [{ name: 'Coffee' }, { id: 'ABCDEFGHJKMNP', name: 'Renamed' }, { id: 'nope', name: 'Tea' }] });
+  assert.deepEqual(oc.cats.map((c) => c.id), [id1, 'ABCDEFGHJKMNP', core.steadyId('tea')]);
+  // Modifier groups: an empty group is kept; the online name is what customers see; a modifier can be hidden online or sold out.
+  const o = core.normalizeOrdering({ modGroups: [
+    { id: 'g2', name: 'Milk', onlineName: 'Choose your milk', choices: [{ name: 'Oat', price: 75 }, { name: 'Soy', price: 50, online: false }, { name: 'Almond', price: 75, inStock: false }] },
+    { id: 'g1', name: 'Size', choices: [{ name: 'Small', price: 0 }] },
+    { id: 'g3', name: 'Later', choices: [] }] });
+  assert.deepEqual(o.modGroups.map((g) => [g.id, g.name, g.choices.length]), [['g2', 'Milk', 3], ['g1', 'Size', 1], ['g3', 'Later', 0]]);
+  assert.deepEqual(o.modGroups[0].choices.map((c) => [c.online, c.inStock]), [[true, true], [false, true], [true, false]]);
+  const [latte] = core.applyMods([{ id: 'a', name: 'Latte', category: 'Coffee', price: 450, options: [], mods: ['g1', 'g3', 'g2'] }], o);
+  assert.deepEqual(latte.options.map((g) => g.name), ['Choose your milk', 'Size'], 'in the saved order; an empty group is left out');
+  assert.deepEqual(latte.options[0].choices.map((c) => [c.name, !!c.soldOut]), [['Oat', false], ['Almond', true]], 'hidden online is left out; sold out is marked');
+  assert.match(core.resolveOptions(latte, [[1]]).error, /Almond is sold out/);
+  assert.equal(core.resolveOptions(latte, [[0]]).price, 525);
+  // Dayparts: a menu with dayparts is shown during any of them; its old times no longer apply.
+  const od = core.normalizeOrdering({ timezone: 'America/Chicago', dayparts: [{ id: 'p1', name: 'Lunch', from: '11:00', to: '14:00' }, { id: 'p2', name: 'Weekend', days: [true, false, false, false, false, false, true], from: '17:00', to: '20:00' }, { id: 'px', name: '' }],
+    menus: [{ id: 'm1', name: 'Lunch menu', cats: ['Sandwiches'], from: '06:00', to: '07:00', dayparts: ['p1', 'p2', 'gone'] }] });
+  assert.deepEqual(od.dayparts.map((p) => p.id), ['p1', 'p2'], 'a daypart needs a name');
+  const items = [{ id: 'a', name: 'Club', category: 'Sandwiches' }, { id: 'b', name: 'Latte', category: 'Coffee' }];
+  const at = (day, hhmm) => Date.parse(`2026-11-${day}T${hhmm}:00Z`) + 6 * 3600000; // Central is UTC-6; the 16th is a Monday, the 21st a Saturday
+  assert.deepEqual(core.visibleMenu(items, od, at(16, '12:00')).map((x) => x.name), ['Club', 'Latte']);
+  assert.deepEqual(core.visibleMenu(items, od, at(16, '06:30')).map((x) => x.name), ['Latte'], 'the old times are replaced by the dayparts');
+  assert.deepEqual(core.visibleMenu(items, od, at(16, '18:00')).map((x) => x.name), ['Latte'], 'the weekend daypart is not on Monday');
+  assert.deepEqual(core.visibleMenu(items, od, at(21, '18:00')).map((x) => x.name), ['Club', 'Latte']);
+  assert.deepEqual(core.visibleMenu(items, { ...od, menus: [{ ...od.menus[0], active: false }] }, at(16, '12:00')).map((x) => x.name), ['Latte'], 'an unpublished menu hides its categories');
+  // The item list file: Cost is read back, and a Cost column never takes the place of Price.
+  const csv = core.parseMenuCsv('Category,Item name,Price,Cost\nCoffee,Latte,4.50,0.90\nCoffee,Tea,3.00,');
+  assert.deepEqual(csv.items.map((x) => [x.name, x.price, x.cost]), [['Latte', 450, 90], ['Tea', 300, null]]);
+  assert.deepEqual(core.parseMenuCsv('Item,Cost,Price\nMocha,1.25,5.00').items.map((x) => [x.price, x.cost]), [[500, 125]]);
+
+  const d5 = mkdtempSync(join(tmpdir(), 'pfsites5-'));
+  const app5 = createApp({ dataDir: d5, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app5);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'itemcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'items@shop.test', password: 'long-enough-pw' });
+    const site = (await me('POST', '/api/sites', { name: 'Item Cafe', template: 'order', kind: 'ordering', csv: 'Category,Item,Price\nCoffee,Latte,4.50' })).data.site;
+    // Cost is kept when an item is added, changed and imported.
+    let menu = (await me('POST', `/api/sites/${site.id}/menu`, { name: 'Mocha', price: 500, category: 'Coffee', cost: 125 })).data.items;
+    const mocha = menu.find((x) => x.name === 'Mocha');
+    assert.equal(mocha.cost, 125);
+    menu = (await me('PUT', `/api/sites/${site.id}/menu/${mocha.id}`, { ...mocha, cost: null })).data.items;
+    assert.equal(menu.find((x) => x.name === 'Mocha').cost, null);
+    menu = (await me('POST', `/api/sites/${site.id}/menu/import`, { csv: 'Category,Item name,Price,Cost\nCoffee,Cortado,3.75,0.80' })).data.items;
+    assert.equal(menu.find((x) => x.name === 'Cortado').cost, 80);
+    // A modifier hidden online is not on the order page; a sold-out one is shown but cannot be ordered.
+    const latte = menu.find((x) => x.name === 'Latte');
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, modGroups: o.modGroups, cats: [{ name: 'Coffee' }] } });
+    await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [latte.id], set: { addMod: 'g2' } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const page = (await anon('GET', '/order', null, host)).data;
+    assert.match(page, /Choose your milk/);
+    assert.match(page, /"Almond",75,1/);
+    assert.doesNotMatch(page, /"Soy"/);
+    const who = { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
+    const no = await anon('POST', '/_order', { ...who, items: [{ id: latte.id, qty: 1, opts: [[1]] }] }, host);
+    assert.equal(no.status, 400);
+    assert.match(no.data.error, /Almond is sold out/);
+    assert.equal((await anon('POST', '/_order', { ...who, items: [{ id: latte.id, qty: 1, opts: [[0]] }] }, host)).status, 201);
+    // Renaming a category keeps its ID.
+    const before = (await me('GET', `/api/sites/${site.id}`)).data.site.ordering.cats.find((c) => c.name === 'Coffee').id;
+    assert.match(before, /^[A-Z0-9]{13}$/);
+    const r = (await me('POST', `/api/sites/${site.id}/menu/category`, { from: 'Coffee', to: 'Hot drinks' })).data;
+    assert.equal(r.ordering.cats.find((c) => c.name === 'Hot drinks').id, before);
+  } finally { base = saved; srv.close(); app5.close(); rmSync(d5, { recursive: true, force: true }); }
 });
 
 test('sales activity: payments, refunds, transactions, cash log, closeout, estimates', async () => {
