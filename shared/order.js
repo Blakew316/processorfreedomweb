@@ -370,7 +370,7 @@ function orderClient() {
 export const ORDER_JS = `(${orderClient.toString()})();`;
 
 const tile = (x, { ordering, button, T }) => {
-  const out = x.available === false || x.stock === 0;
+  const out = x.available === false || x.stock === 0 || !!x.blocked;
   const src = safeImg(x.image);
   const from = arr(x.options).some((g) => { const open = g.choices.filter((c) => !c.hidden); return g.required && open.length > 0 && open.every((c) => c.price > 0); });
   return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? '+' : ''}${money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
@@ -408,7 +408,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
   const cats = groupMenu(menu);
   const items = {};
-  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, k: g.rank ?? -1, c: g.choices.map((c) => (c.hidden ? 0 : [c.name, c.price, c.soldOut ? 1 : 0])) })) };
+  for (const it of arr(menu)) if (it.available !== false && it.stock !== 0 && !it.blocked) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, k: g.rank ?? -1, c: g.choices.map((c) => (c.hidden ? 0 : [c.name, c.price, c.soldOut ? 1 : 0])) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,

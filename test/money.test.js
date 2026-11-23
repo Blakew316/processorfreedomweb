@@ -68,7 +68,8 @@ test('sales totals, charts, items, tenders, refunds, cash and counter sales all 
     assert.equal(st.series.reduce((a, x) => a + x.net, 0), 3400); assert.equal(st.series.reduce((a, x) => a + x.orders, 0), 3);
     // Item sales: Taco 3 for 30.00, Soda 4 for 10.00 (cancelled soda not counted). Items add up to gross.
     const it = Object.fromEntries(st.items.map((x) => [x.name, [x.qty, x.sales]]));
-    assert.deepEqual(it, { Taco: [3, 3000], Soda: [4, 1000] }); assert.equal(st.items.reduce((a, x) => a + x.sales, 0), t.gross);
+    // The 1.00 SAVE10 discount on the taco order is spread over its lines, so item sales add up to sales after discounts.
+    assert.deepEqual(it, { Taco: [3, 2900], Soda: [4, 1000] }); assert.equal(st.items.reduce((a, x) => a + x.sales, 0), t.gross - t.discounts);
     // Order types: pickup 2 orders net 30.00, delivery 1 order net 9.00 less its 5.00 refund; together = net sales.
     const m = Object.fromEntries(st.methods.filter((x) => x.orders).map((x) => [x.method, [x.orders, x.net]]));
     assert.deepEqual(m, { pickup: [2, 3000], delivery: [1, 400] }); assert.equal(st.methods.reduce((a, x) => a + x.net, 0), t.net);

@@ -306,6 +306,13 @@ export function createApp(options = {}) {
     const cost = b.cost === undefined ? prev.cost ?? null : b.cost === null || b.cost === '' ? null : typeof b.cost === 'number' ? Math.max(0, Math.min(100_000_00, Math.round(b.cost))) : parsePrice(b.cost);
     return { cost: cost == null || !(cost >= 0) ? null : Math.min(100_000_00, cost), category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, restock, sale, mods: JSON.stringify(Array.isArray(b.mods) ? b.mods.slice(0, 30).map((x) => str(x, 24)) : prev.mods ? JSON.parse(prev.mods) : []), label: str(b.label ?? prev.label, 40).trim(), revclass: str(b.revclass ?? prev.revclass, 40).trim(), options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
   }
+  // A category typed in another case joins the one that exists ('sides' goes into 'Sides'), never making a near-duplicate.
+  const canonCategory = (site, name) => {
+    const want = String(name || '').trim();
+    if (!want) return want;
+    const names = [...db.all('SELECT DISTINCT category FROM menu_items WHERE site_id = ?', site.id).map((r) => r.category), ...orderingOf(site).cats.map((c) => c.name)];
+    return names.find((n) => n === want) || names.find((n) => n.toLowerCase() === want.toLowerCase()) || want;
+  };
   function insertItems(siteId, items, startStock = DEFAULT_STOCK) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
     for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, restock, options, sort, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, it.restock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++, Number.isInteger(it.cost) && it.cost >= 0 ? Math.min(100_000_00, it.cost) : null);
@@ -754,6 +761,25 @@ export function createApp(options = {}) {
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)), emailed: !!mailer.enabled });
   });
 
+  // The business details customers see (phone, email, address, logo) go live straight away, like the business name:
+  // they are written into the saved draft and the live copy together, so receipts, emails and the order page agree.
+  route('PUT', '/api/sites/:id/business', async (req, res, p) => {
+    const { site: asked } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
+    if (b.rev !== revOf(site.draft)) bad(412, STALE);
+    const KEYS = ['phone', 'email', 'address1', 'city', 'state', 'zip'];
+    const patch = (raw) => {
+      const d = JSON.parse(raw);
+      d.business = { ...(d.business || {}) };
+      for (const k of KEYS) if (typeof b.business?.[k] === 'string') d.business[k] = b.business[k];
+      if (b.logo !== undefined) d.brand = { ...(d.brand || {}), logo: b.logo, ...(b.logo && d.brand?.logoMode === 'text' ? { logoMode: 'image' } : {}) };
+      return packDraft(d);
+    };
+    db.run('UPDATE sites SET draft = ?, published = ?, updated_at = ? WHERE id = ?', patch(site.draft), site.published ? patch(site.published) : null, Date.now(), site.id);
+    json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
+  });
+
   route('DELETE', '/api/sites/:id', (req, res, p) => {
     const { site } = ownSite(req, p.id, 'owner');
     db.run('DELETE FROM sites WHERE id = ?', site.id);
@@ -944,7 +970,7 @@ export function createApp(options = {}) {
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
       const hit = k.email && byEmail.get(k.email.toLowerCase());
-      if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address, more: k.more });
+      if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address, more: k.more, name: k.name || hit.name, phone: k.phone || hit.phone });
       else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: (k.email && invoicePaid.get(k.email.toLowerCase())) || 0, last: null, first: k.createdAt, favourite: '', contactId: k.id, more: k.more });
     }
     json(res, 200, { customers });
@@ -960,10 +986,15 @@ export function createApp(options = {}) {
     return c;
   };
   const EMPTY_MORE = JSON.stringify({ emails: [], phones: [], note: '' });
+  // Returns false when the list is full and nothing was saved.
+  const CONTACT_MAX = 5000;
   function keepContact(siteId, c) {
     const old = c.email ? db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ?', siteId, c.email) : db.get('SELECT id FROM contacts WHERE site_id = ? AND email = ? AND lower(name) = lower(?)', siteId, '', c.name);
-    if (old) db.run("UPDATE contacts SET name = COALESCE(NULLIF(?, ''), name), company = COALESCE(NULLIF(?, ''), company), phone = COALESCE(NULLIF(?, ''), phone), address = COALESCE(NULLIF(?, ''), address), more = CASE WHEN ? = ? THEN more ELSE ? END WHERE id = ?", c.name, c.company, c.phone, c.address, c.more, EMPTY_MORE, c.more, old.id);   // blank fields never wipe what is saved
-    else if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n < 5000) db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, more, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, c.more || '{}', Date.now());
+    // Blank fields never wipe what is saved: invoices and orders only add to a customer's details.
+    if (old) { db.run("UPDATE contacts SET name = COALESCE(NULLIF(?, ''), name), company = COALESCE(NULLIF(?, ''), company), phone = COALESCE(NULLIF(?, ''), phone), address = COALESCE(NULLIF(?, ''), address), more = CASE WHEN ? = ? THEN more ELSE ? END WHERE id = ?", c.name, c.company, c.phone, c.address, c.more, EMPTY_MORE, c.more, old.id); return true; }
+    if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', siteId).n >= CONTACT_MAX) return false;
+    db.run('INSERT INTO contacts (id, site_id, name, company, email, phone, address, more, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, c.name, c.company, c.email, c.phone, c.address, c.more || '{}', Date.now());
+    return true;
   }
   // Loyalty rewards earned and used, with how much they took off.
   route('GET', '/api/sites/:id/rewards', (req, res, p) => {
@@ -974,8 +1005,18 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/sites/:id/contacts', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
-    keepContact(site.id, cleanContact(await readJson(req)));
+    const c = cleanContact(await readJson(req));
+    if (!keepContact(site.id, c)) bad(400, `The customer list is full (${CONTACT_MAX.toLocaleString('en-US')} people). Remove some before adding more.`);
     json(res, 201, { contacts: contactsOf(site.id) });
+  });
+  // Editing one saved customer: exactly what was typed, so a field can be cleared, and the same row even when the email changes.
+  route('PUT', '/api/sites/:id/contacts/:contact', async (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const c = cleanContact(await readJson(req));
+    const row = db.get('SELECT id FROM contacts WHERE id = ? AND site_id = ?', str(p.contact, 40), site.id) || bad(404, 'That customer was removed.');
+    if (c.email && db.get('SELECT 1 FROM contacts WHERE site_id = ? AND email = ? AND id != ?', site.id, c.email, row.id)) bad(409, 'Another saved customer already uses that email address.');
+    db.run('UPDATE contacts SET name = ?, company = ?, email = ?, phone = ?, address = ?, more = ? WHERE id = ?', c.name, c.company, c.email, c.phone, c.address, c.more, row.id);
+    json(res, 200, { contacts: contactsOf(site.id) });
   });
   route('DELETE', '/api/sites/:id/contacts/:contact', (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -1003,10 +1044,11 @@ export function createApp(options = {}) {
     const rows = (await readJson(req, 1_500_000)).rows;
     let added = 0, skipped = 0;
     if (Array.isArray(rows) && rows.length > 1000) bad(413, 'Send at most 1,000 customers at a time.');
-    if (db.get('SELECT COUNT(*) AS n FROM contacts WHERE site_id = ?', site.id).n > 50000) bad(400, 'A site can keep up to 50,000 customers.');
+    let full = 0;
     db.raw.exec('BEGIN');
-    try { for (const r of Array.isArray(rows) ? rows : []) { try { keepContact(site.id, cleanContact(r)); added++; } catch { skipped++; } } db.raw.exec('COMMIT'); } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
-    json(res, 200, { added, skipped, contacts: contactsOf(site.id) });
+    try { for (const r of Array.isArray(rows) ? rows : []) { try { if (keepContact(site.id, cleanContact(r))) added++; else full++; } catch { skipped++; } } db.raw.exec('COMMIT'); } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
+    // Rows past the limit are counted as skipped, with the reason.
+    json(res, 200, { added, skipped: skipped + full, full, limit: CONTACT_MAX, contacts: contactsOf(site.id) });
   });
 
   /* Gift cards: a code with a balance, spent like money off at checkout or at the counter. */
@@ -1143,7 +1185,8 @@ export function createApp(options = {}) {
       const now = wallNow(ordering);
       if (!(wall > now)) bad(400, 'Please choose a time in the future.');
       if (wall > now + 90 * DAY) bad(400, 'Please choose a date in the next three months.');
-      if (!openAtWall(ordering, wall)) bad(409, 'We are closed at that time. Please choose another.');
+      // Bookings always follow Business hours; the 'only take orders during business hours' switch is about online orders.
+      if (!openAtWall({ ...ordering, useHours: true }, wall)) bad(409, 'We are closed at that time. Please choose another.');
       if (db.get("SELECT COUNT(*) AS n FROM appointments WHERE site_id = ? AND at = ? AND status IN ('pending','confirmed')", site.id, at).n >= ordering.booking.perSlot) bad(409, 'That time is fully booked. Please choose another.');
     }
     const id = newId();
@@ -1282,7 +1325,7 @@ export function createApp(options = {}) {
     const reminder = row.status === 'sent';
     const business = businessOf(site);
     await mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url, reminder, estimate: inv.kind === 'estimate' }), fromName: business.name, replyTo: business.email || orderingOf(site).notifyEmail }).catch((e) => { console.error('Invoice email failed:', e.message); bad(502, 'We could not send that email just now. Please try again, or copy the link and send it yourself.'); });
-    db.run("UPDATE invoices SET status = 'sent', sent_at = COALESCE(sent_at, ?), reminders = reminders + ?, updated_at = ? WHERE id = ?", Date.now(), reminder ? 1 : 0, Date.now(), row.id);
+    db.run("UPDATE invoices SET status = 'sent', sent_at = COALESCE(sent_at, ?), reminders = reminders + ?, updated_at = ? WHERE id = ?", Date.now(), reminder && mailer.enabled ? 1 : 0, Date.now(), row.id);
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), emailed: !!mailer.enabled });
   });
   route('POST', '/api/sites/:id/invoices/:inv/status', async (req, res, p) => {
@@ -1539,7 +1582,9 @@ export function createApp(options = {}) {
   route('POST', '/api/sites/:id/menu', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     if (db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n >= 1000) bad(400, 'A menu can hold up to 1,000 items.');
-    insertItems(site.id, [cleanItem(await readJson(req))]);
+    const made = cleanItem(await readJson(req));
+    made.category = canonCategory(site, made.category);
+    insertItems(site.id, [made]);
     json(res, 201, { items: menuOf(site.id) });
   });
 
@@ -1576,6 +1621,7 @@ export function createApp(options = {}) {
       else if ((prev.stock ?? 0) !== seen) return json(res, 409, { error: `${prev.name} sold while you were editing. It has ${prev.stock ?? 0} left now.`, stock: prev.stock ?? 0 });
     }
     const it = cleanItem(body, prev);
+    it.category = canonCategory(site, it.category);
     db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ?, mods = ?, label = ?, revclass = ?, cost = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, it.mods, it.label, it.revclass, it.cost, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
@@ -1660,7 +1706,7 @@ export function createApp(options = {}) {
         if (typeof set.revclass === 'string') db.run('UPDATE menu_items SET revclass = ? WHERE id = ?', str(set.revclass, 40).trim(), row.id);
         if (typeof set.addMod === 'string' || typeof set.removeMod === 'string') { const cur = (row.mods ? JSON.parse(row.mods) : []).filter((x) => x !== set.removeMod && x !== set.addMod); if (typeof set.addMod === 'string') cur.push(str(set.addMod, 24)); db.run('UPDATE menu_items SET mods = ? WHERE id = ?', JSON.stringify(cur.slice(0, 30)), row.id); }
         if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
-        if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', str(set.category, 60).trim(), row.id);
+        if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', canonCategory(site, str(set.category, 60)), row.id);
         if (set.pricePercent !== undefined) db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + num(set.pricePercent, -90, 500))) / 100))), row.id);
       }
       db.raw.exec('COMMIT');
@@ -1717,8 +1763,8 @@ export function createApp(options = {}) {
     const totals = blank(), prev = blank();
     const byHour = days === 1;
     const series = new Map();
-    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0, tips: 0 });
-    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0, tips: 0 }); }
+    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0, tips: 0, collected: 0 });
+    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0, tips: 0, collected: 0 }); }
     const methods = new Map(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
     const items = new Map(), cats = new Map(), revs = new Map(), list = [], staff = new Map(), tenders = new Map(), promos = new Map(), removed = new Map();
     const bump = (map, key, o) => { const r = map.get(key) || map.set(key, { name: key, orders: 0, net: 0, tips: 0, total: 0 }).get(key); r.orders++; r.net += o.subtotal - o.discount; r.tips += o.tip; r.total += o.total; };
@@ -1737,14 +1783,17 @@ export function createApp(options = {}) {
       if (o.discount) { const pk = o.promo || 'Other discount'; const pr = promos.get(pk) || promos.set(pk, { name: pk, uses: 0, amount: 0 }).get(pk); pr.uses++; pr.amount += o.discount; }
       const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
       m.orders++; m.net += o.subtotal - o.discount; m.total += o.total;
-      for (const l of o.items) {
-        const category = catOf[l.id] || 'No longer on the menu';
+      let left = o.discount;
+      o.items.forEach((l, i) => {
+        const gross = l.price * l.qty, off = i === o.items.length - 1 ? left : o.subtotal ? Math.round((o.discount * gross) / o.subtotal) : 0;
+        left -= off;
+        const sale = gross - off, category = catOf[l.id] || 'No longer on the menu';
         const it = items.get(l.name) || items.set(l.name, { name: l.name, category, qty: 0, sales: 0 }).get(l.name);
-        it.qty += l.qty; it.sales += l.price * l.qty;
+        it.qty += l.qty; it.sales += sale;
         const c = cats.get(category) || cats.set(category, { name: category, qty: 0, sales: 0 }).get(category);
-        c.qty += l.qty; c.sales += l.price * l.qty;
-        const rk = l.rev || 'No revenue class'; const rv = revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk); rv.qty += l.qty; rv.sales += l.price * l.qty;
-      }
+        c.qty += l.qty; c.sales += sale;
+        const rk = l.rev || 'No revenue class'; const rv = revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk); rv.qty += l.qty; rv.sales += sale;
+      });
     }
     // Money moves over both periods, read once from the ledger. With an order type chosen, only that type's order money counts.
     const mv = moneyMoves(site, Date.parse(`${prevFrom}T00:00:00Z`) - 2 * DAY, Date.parse(`${to}T00:00:00Z`) + 3 * DAY);
@@ -1771,6 +1820,7 @@ export function createApp(options = {}) {
       tr.net -= x.amount; tr.total -= x.amount;
     }
     const paidNow = mv.payments.filter((x) => within(x.at) && ofType(x));
+    for (const x of paidNow) { const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : dayOf(x.at)); if (s1) s1.collected += x.amount; }
     const moved = tally({ payments: paidNow, refunds: mv.refunds.filter((x) => within(x.at) && ofType(x)) });
     const invoices = paidNow.filter((x) => x.source === 'Invoice');
     // Paid invoices' sales and tax go into the Taxes report beside orders, by the rate they were taxed at. An invoice paid and then
@@ -1993,6 +2043,7 @@ export function createApp(options = {}) {
           const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', w.id, site.id);
           if (!row || !row.available || row.stock === 0 || !visibleMenu([toItem(row)], ordering).length) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
           const it = applyMods(pricedMenu([toItem(row)], ordering), ordering)[0];
+          if (it.blocked) bad(409, `${it.name} is sold out right now. Please remove it and try again.`);
           before.set(it.id, { name: it.name, stock: it.stock });
           const picked = resolveOptions(it, w.picks);
           if (picked.error) bad(400, picked.error);

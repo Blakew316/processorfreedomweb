@@ -768,7 +768,9 @@ test('sales report: periods, tax, order types, items, cancelled orders', async (
   assert.equal(r.data.series.length, 24);
   assert.equal(r.data.series.reduce((a, x) => a + x.net, 0), 7400);
   assert.deepEqual(r.data.methods.map((m) => [m.method, m.orders, m.net]), [['pickup', 1, 4500], ['curbside', 1, 900], ['delivery', 1, 2000]]);
-  assert.deepEqual(r.data.items.map((i) => [i.name, i.category, i.qty, i.sales]), [['Soda', 'Drinks', 5, 1000], ['Taco', 'Tacos', 4, 4000], ['Gift card', 'Gifts', 1, 2500]]);
+  // Item sales carry their order's discount (1.00 off the curbside taco), so they add up to sales after discounts.
+  assert.deepEqual(r.data.items.map((i) => [i.name, i.category, i.qty, i.sales]), [['Soda', 'Drinks', 5, 1000], ['Taco', 'Tacos', 4, 3900], ['Gift card', 'Gifts', 1, 2500]]);
+  assert.equal(r.data.items.reduce((a, i) => a + i.sales, 0), t.gross - t.discounts);
   assert.deepEqual(r.data.categories.map((c) => c.name), ['Tacos', 'Gifts', 'Drinks']);
   assert.equal(r.data.orders.length, 4);
   assert.equal(r.data.orders[0].status, 'cancelled');
@@ -1084,7 +1086,8 @@ test('items pages: cost, modifier switches, dayparts, category IDs', async () =>
   assert.deepEqual(core.visibleMenu(items, od, at(16, '06:30')).map((x) => x.name), ['Latte'], 'the old times are replaced by the dayparts');
   assert.deepEqual(core.visibleMenu(items, od, at(16, '18:00')).map((x) => x.name), ['Latte'], 'the weekend daypart is not on Monday');
   assert.deepEqual(core.visibleMenu(items, od, at(21, '18:00')).map((x) => x.name), ['Club', 'Latte']);
-  assert.deepEqual(core.visibleMenu(items, { ...od, menus: [{ ...od.menus[0], active: false }] }, at(16, '12:00')).map((x) => x.name), ['Latte'], 'an unpublished menu hides its categories');
+  assert.deepEqual(core.visibleMenu(items, { ...od, menus: [{ ...od.menus[0], active: false }] }, at(16, '12:00')).map((x) => x.name), ['Club', 'Latte'], 'a menu not published yet changes nothing on the order page');
+  assert.deepEqual(core.visibleMenu([...items, { id: 'c', name: 'Old soup', category: 'Coffee', available: false }], od, at(16, '12:00')).map((x) => x.name), ['Club', 'Latte'], 'an item switched off is not shown at all');
   const late = core.normalizeOrdering({ timezone: 'America/Chicago', dayparts: [{ id: 'n', name: 'Late night', days: [false, false, false, false, false, true, true], from: '22:00', to: '02:00' }], menus: [{ id: 'm', name: 'Late', cats: ['Sandwiches'], dayparts: ['n'] }] });
   assert.deepEqual(core.visibleMenu(items, late, at(22, '01:00')).map((x) => x.name), ['Club', 'Latte'], 'after midnight on Saturday night is still Saturday');
   assert.deepEqual(core.visibleMenu(items, late, at(20, '01:00')).map((x) => x.name), ['Latte'], 'after midnight on Thursday night is not Friday');

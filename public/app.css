@@ -3464,7 +3464,7 @@ html[data-theme=dark] .c2-pill i{background:#9cc0ff}
   .c2-cell{min-height:72px;padding:4px}.c2-wd{padding:8px 4px;text-align:center;font-size:10px}
   .c2-pill{padding:0;justify-content:center}.c2-pill b,.c2-pill span{display:none}.c2-pills{grid-template-columns:repeat(auto-fill,8px);gap:3px}.c2-num{font-size:13px;min-width:24px;height:24px}
 }
-.c2{--ev:#2f5fd0}
+.c2,.cl-cal{--ev:#2f5fd0}
 .c2-ev{background:color-mix(in srgb,var(--ev) 10%,var(--card));box-shadow:inset 3px 0 0 var(--ev),0 1px 2px rgba(16,24,40,.06)}
 .c2-ev:hover{box-shadow:inset 3px 0 0 var(--ev),0 8px 18px -10px rgba(16,24,40,.4)}
 .c2-ev b{color:color-mix(in srgb,var(--ev) 55%,var(--ink))}
@@ -3472,7 +3472,7 @@ html[data-theme=dark] .c2-pill i{background:#9cc0ff}
 .c2-ev.pending{background:var(--card);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--ev) 55%,transparent),inset 0 0 0 1px color-mix(in srgb,var(--ev) 30%,transparent)}
 .c2-pill i{background:var(--ev)}.c2-pill.pending i{background:none;box-shadow:inset 0 0 0 1.5px var(--ev)}
 .c2-pill:hover{background:color-mix(in srgb,var(--ev) 9%,transparent)}
-html[data-theme=dark] .c2{--ev:#8fb3ff}
+html[data-theme=dark] .c2,html[data-theme=dark] .cl-cal{--ev:#8fb3ff}
 html[data-theme=dark] .c2-ev{background:color-mix(in srgb,var(--ev) 16%,var(--card));box-shadow:inset 3px 0 0 var(--ev)}
 html[data-theme=dark] .c2-ev b{color:#e8eeff}html[data-theme=dark] .c2-pill i{background:var(--ev)}
 .c2-ev.completed,.c2-ev.noshow{background:var(--bg2);box-shadow:inset 3px 0 0 var(--faint,#9aa3b2)}.c2-ev.completed b,.c2-ev.noshow b{color:var(--muted)}
@@ -4500,6 +4500,8 @@ html[data-theme=dark] .rw-day i.e{background:#9cc0ff}
   .cl-ctrls::-webkit-scrollbar{display:none}
   .cl-ctrls>*{flex:none}
   .cl-ctrls .cl-sel,.cl-ctrls .fbtn{height:40px;font-size:14px}
+  /* The row fades at its right edge, so it reads as one that slides sideways */
+  .cl-ctrls{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);padding-right:44px}
   .cl-ctrls .fbtn{padding:0 16px}
   /* Three figures sit side by side */
   .cl-figs:has(>.cl-fig:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -5500,3 +5502,7 @@ html[data-theme=dark] .obp-acts .it-btn.fill:disabled{background:#2c2c2e;color:#
 /* A filter that cannot apply to what is recorded */
 .rp-off{opacity:.45}
 .rp-off label,.rp-off input{cursor:not-allowed}
+
+/* Card payments are not connected yet: shown, greyed out, not usable */
+.vt-off{opacity:.45;pointer-events:none}
+.btn.vt-off{cursor:not-allowed}

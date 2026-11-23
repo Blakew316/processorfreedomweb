@@ -32,8 +32,7 @@ function bookClient() {
   function fill() {
     var wd = new Date(day.value + 'T12:00:00Z').getUTCDay(), h = c.hours[wd], out = '';
     for (var m = 0; m < 1440; m += 30) {
-      var open = !c.useHours || (!h.closed && (mins(h.close) > mins(h.open) ? m >= mins(h.open) && m < mins(h.close) : m >= mins(h.open)));
-      if (!c.useHours && (m < 360 || m > 1380)) open = false;
+      var open = !h.closed && (mins(h.close) > mins(h.open) ? m >= mins(h.open) && m < mins(h.close) : m >= mins(h.open));
       if (!open) continue;
       var hh = Math.floor(m / 60), label = (hh % 12 || 12) + ':' + (m % 60 ? '30' : '00') + (hh < 12 ? ' AM' : ' PM');
       out += '<option value="' + String(hh).padStart(2, '0') + ':' + (m % 60 ? '30' : '00') + '">' + label + '</option>';
@@ -57,7 +56,7 @@ export function bookingPage({ ordering, base, done, today, lang }) {
   const b = ordering.booking;
   const T = WORDS[lang] || WORDS.en;
   if (done) return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${T.sent}</h1><div class="done">${T.thanks}</div></div></section>`;
-  const conf = { post: `${base}/_book`, done: `${base}/book?done=1`, hours: ordering.hours, useHours: ordering.useHours, t: { closed: T.closed, preview: T.preview, failed: T.failed } };
+  const conf = { post: `${base}/_book`, done: `${base}/book?done=1`, hours: ordering.hours, t: { closed: T.closed, preview: T.preview, failed: T.failed } };
   return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${esc(b.title && b.title !== WORDS.en.title ? b.title : T.title)}</h1>${b.note ? `<p class="lede">${esc(b.note)}</p>` : ''}
 <form id="pf-book" novalidate>
 <label>${T.what}<select name="service">${arr(b.services).map((s) => `<option value="${esc(s.id)}">${esc(s.name)}${s.minutes ? ` · ${s.minutes} min` : ''}${s.price ? ` · ${money(s.price)}` : ''}</option>`).join('')}</select></label>

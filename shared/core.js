@@ -186,10 +186,10 @@ export const TEMPLATES = [
       hours: hours(['Tuesday – Thursday', '5:00 – 9:30 PM'], ['Friday – Saturday', '5:00 – 10:30 PM'], ['Sunday', '4:00 – 9:00 PM'], ['Monday', 'Closed']),
       sections: [
         hero('Neighborhood kitchen', 'Good food, made with care.', `${n} serves seasonal dishes cooked from scratch, in a room built for long dinners and good company.`, link('Reserve a table', '#contact'), link('See the menu', '#menu')),
-        about('Our story', `${n} began with a simple idea: cook honest food with the best ingredients we can find, and treat every guest like a regular. We work with nearby farms and change the menu as the seasons do.`, [['12', 'Local farm partners'], ['4.9', 'Average guest rating'], ['7', 'Nights of service']]),
+        about('Our story', `${n} began with a simple idea: cook honest food with the best ingredients we can find, and treat every guest like a regular. We work with nearby farms and change the menu as the seasons do.`),
         offer('Menu', 'The menu', 'A few favourites. Ask your server about tonight’s specials.', 'list', [['Wood-fired flatbread', 'Roasted garlic, mozzarella, basil, olive oil', '$14'], ['Market salad', 'Greens, shaved fennel, citrus, toasted almonds', '$12'], ['Handmade pappardelle', 'Slow-braised short rib ragù, parmesan', '$24'], ['Pan-roasted salmon', 'Lemon butter, asparagus, herbed potatoes', '$28'], ['Half roasted chicken', 'Pan jus, charred broccolini, garlic mash', '$25'], ['Olive oil cake', 'Whipped mascarpone, seasonal fruit', '$10']]),
         gallery(),
-        reviews([['Every plate felt like it was cooked just for us. Our new go-to for date night.', 'Maria S.'], ['Warm service, a great wine list, and the best pasta in town.', 'James T.'], ['We booked the back room for a birthday and they took care of everything.', 'Priya K.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         cta('Planning something special?', 'We host private dinners, celebrations and team events for up to 40 guests.', link('Ask about events', '#contact')),
         contact('Visit us', 'Reserve a table or ask us anything. We reply within a few hours.'),
       ],
@@ -207,7 +207,7 @@ export const TEMPLATES = [
         offer('Menu', 'On the counter', 'Our everyday favourites.', 'list', [['Drip coffee', 'Rotating single-origin roast', '$3.50'], ['Oat milk latte', 'Double shot, steamed oat milk', '$5.50'], ['Butter croissant', 'Laminated over three days', '$4.25'], ['Morning bun', 'Orange zest and cinnamon sugar', '$4.75'], ['Avocado toast', 'Sourdough, chili, lemon, sea salt', '$9'], ['Seasonal fruit galette', 'Ask what came in this week', '$6']]),
         about('A neighborhood ritual', `We opened ${n} to be the kind of place we wanted on our own block: unhurried, welcoming, and serious about quality without being fussy about it.`),
         gallery(),
-        reviews([['The croissants sell out for a reason. Get there early.', 'Dana R.'], ['My daily stop. They remember my order and my dog’s name.', 'Chris L.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Come say hello', 'Ordering for a group? Send us a note at least a day ahead.'),
       ],
     }),
@@ -224,7 +224,7 @@ export const TEMPLATES = [
         feats('Shopping, made easy', [['gift', 'Complimentary gift wrap', 'On every purchase, all year.'], ['truck', 'Local delivery', 'Same-day delivery within the city.'], ['card', 'Easy returns', '30 days, no questions asked.']]),
         about('Independent and proud of it', `Every item at ${n} is chosen by hand. We work directly with small makers and only stock what we would bring home ourselves.`),
         gallery(),
-        reviews([['The best place in town to find a gift that feels personal.', 'Alex M.'], ['Beautiful shop, lovely people, and everything is so well made.', 'Sofia B.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Find us', 'Looking for something specific? Ask and we will check the stockroom.'),
       ],
     }),
@@ -241,7 +241,7 @@ export const TEMPLATES = [
         feats('The details matter', [['sparkle', 'Expert stylists', 'Continuously trained in the latest techniques.'], ['leaf', 'Clean products', 'Gentle, professional-grade and cruelty-free.'], ['calendar', 'Easy booking', 'Appointments that start on time.']]),
         about('A studio built around you', `At ${n} we believe great service starts with listening. Tell us how you live, and we will give you a look that works every day, not just the day you leave the chair.`),
         gallery(),
-        reviews([['I have never had a colorist get it this right on the first visit.', 'Hannah W.'], ['Relaxing from the moment you walk in. Worth every minute.', 'Leah G.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         faq([['How do I book?', 'Send us a message or call during business hours and we will find a time that works.'], ['What is your cancellation policy?', 'We ask for 24 hours’ notice so we can offer the time to another guest.'], ['Do you offer gift cards?', 'Yes, in any amount. Ask at the front desk or send us a message.']]),
         contact('Book your visit', 'Tell us what you are looking for and when you would like to come in.'),
       ],
@@ -256,9 +256,9 @@ export const TEMPLATES = [
       sections: [
         hero('Trusted advisors', 'Expert guidance, without the runaround.', `${n} helps individuals and growing businesses make confident decisions, with straight answers and a plan you can act on.`, link('Book a consultation', '#contact'), link('What we do', '#services')),
         offer('Services', 'How we help', '', 'cards', [['Consulting', 'Practical strategy shaped around your goals and budget.'], ['Planning', 'A clear roadmap with milestones you can measure.'], ['Ongoing support', 'A dedicated point of contact who knows your situation.']]),
-        about('Experience you can rely on', `For years, ${n} has been the first call for clients who want things done properly. We keep our client list small so every engagement gets senior attention.`, [['15+', 'Years of experience'], ['500+', 'Clients served'], ['98%', 'Client retention']]),
+        about('Experience you can rely on', `For years, ${n} has been the first call for clients who want things done properly. We keep our client list small so every engagement gets senior attention.`),
         feats('Working with us', [['users', 'Senior attention', 'You work directly with the people doing the work.'], ['check', 'Plain language', 'No jargon, no surprises on the invoice.'], ['shield', 'Confidential', 'Your information is protected at every step.']]),
-        reviews([['They explained our options clearly and delivered exactly what they promised.', 'Robert D.', 'Business owner'], ['Responsive, thorough, and genuinely invested in our success.', 'Angela P.', 'Operations director']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         faq([['How does the first consultation work?', 'We start with a 30-minute conversation to understand your situation. There is no cost and no obligation.'], ['How do you bill?', 'You receive a clear written quote before any work begins.'], ['Do you work remotely?', 'Yes. We meet in person, by phone or by video, whichever you prefer.']]),
         cta('Let’s talk about what you need.', 'The first conversation is free.', link('Book a consultation', '#contact')),
         contact('Contact us', 'Tell us a little about your situation and we will be in touch within one business day.'),
@@ -275,9 +275,9 @@ export const TEMPLATES = [
         hero('Licensed and insured', 'Done right, the first time.', `${n} provides dependable repairs, installations and maintenance for homes and small businesses, with upfront pricing.`, link('Get a free quote', '#contact'), link('Our services', '#services'), 'split'),
         feats('Why homeowners call us', [['clock', 'On-time arrival', 'We give you a real appointment window and keep it.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Work guaranteed', 'Every job is backed by a written warranty.']]),
         offer('Services', 'Services', 'No job too small.', 'cards', [['Repairs', 'Fast diagnosis and lasting fixes.'], ['Installations', 'Done to code with quality materials.'], ['Maintenance plans', 'Seasonal checkups that prevent expensive surprises.']]),
-        about('Local, family owned', `${n} has served this community for years. Our technicians are background-checked, trained, and treat your home like their own.`, [['2,000+', 'Jobs completed'], ['4.9', 'Average rating'], ['1 hr', 'Typical response']]),
+        about('Local, family owned', `${n} has served this community for years. Our technicians are background-checked, trained, and treat your home like their own.`),
         gallery(),
-        reviews([['Showed up when they said they would and finished ahead of schedule.', 'Mark H.'], ['Honest pricing and spotless cleanup. Highly recommend.', 'Linda C.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         faq([['Are estimates free?', 'Yes. We provide free, no-obligation estimates.'], ['Which areas do you serve?', 'We serve the greater metro area. Send your address and we will confirm.'], ['Do you offer emergency service?', 'Yes, around the clock. Call us directly for the fastest response.']]),
         contact('Request a quote', 'Describe the job and we will get back to you the same day.'),
       ],
@@ -295,7 +295,7 @@ export const TEMPLATES = [
         offer('Memberships', 'Memberships', 'No contracts. Pause or cancel any time.', 'cards', [['Drop-in', 'A single class, whenever you like.', '$22'], ['Unlimited', 'Every class, every day.', '$149 / mo'], ['Personal training', 'One-on-one sessions with a dedicated coach.', 'From $75']]),
         about('More than a workout', `${n} was founded on the idea that fitness should fit your life. Whether you are just starting or training for something big, we will meet you where you are.`),
         gallery(),
-        reviews([['The coaching is on another level. I have never been this consistent.', 'Tyler N.'], ['I was nervous to start and felt at home in my first class.', 'Grace E.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Try a class on us', 'Tell us a bit about your goals and we will recommend where to start.'),
       ],
     }),
@@ -311,7 +311,7 @@ export const TEMPLATES = [
         offer('Services', 'Services', 'All makes and models.', 'cards', [['Maintenance', 'Oil, filters, fluids and factory-scheduled service.', 'From $49'], ['Brakes and tires', 'Inspection, replacement, alignment and balancing.'], ['Diagnostics and repair', 'Check-engine lights, electrical, engine and transmission.']]),
         feats('The shop you can trust', [['tool', 'Certified technicians', 'Trained, experienced and equipped with the right tools.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', '12-month warranty', 'On parts and labor.']]),
         about('Family owned and operated', `${n} has kept this community moving for years. We only recommend what your vehicle actually needs.`),
-        reviews([['They found the problem two other shops missed and charged less than quoted.', 'Kevin R.'], ['Straightforward and honest. I will not take my car anywhere else.', 'Diane F.']]),
+        { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Schedule service', 'Tell us your vehicle’s year, make and model, and what is going on.'),
       ],
     }),
@@ -353,6 +353,16 @@ export const getTemplate = (id) => TEMPLATES.find((t) => t.id === id) || TEMPLAT
 const today = () => new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
 /** Builds a complete, ready-to-publish site from a business name and a template. */
+/** Business hours as the rows the website shows: days with the same hours run together. */
+export function hoursText(week) {
+  const order = [1, 2, 3, 4, 5, 6, 0], rows = [];
+  const clock12 = (t) => { const [hh, mm] = String(t).split(':').map(Number); return `${hh % 12 || 12}:${String(mm || 0).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+  for (const d of order) {
+    const x = week[d], value = x.closed ? 'Closed' : `${clock12(x.open)} – ${clock12(x.close)}`, last = rows[rows.length - 1];
+    if (last && last.value === value) last.to = d; else rows.push({ from: d, to: d, value });
+  }
+  return rows.map((r) => ({ label: r.from === r.to ? DAYS[r.from] : `${DAYS[r.from]} – ${DAYS[r.to]}`, value: r.value }));
+}
 export function createSite(name, templateId, o = {}) {
   const t = getTemplate(templateId);
   const n = str(name, 80).trim() || 'My Business';
@@ -373,7 +383,7 @@ export function createSite(name, templateId, o = {}) {
     lang: o.lang === 'es' ? 'es' : 'en',
     brand: { name: n, tagline: b.tagline, logo: '', logoMode: 'text' },
     theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', bg: '', font: Object.hasOwn(FONTS, o.font) ? o.font : t.font, radius: Object.hasOwn(RADII, o.radius) ? o.radius : t.radius },
-    business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: b.hours, payUrl: '' },
+    business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: hoursText(defaultOrdering().hours), payUrl: '' },
     social: { instagram: '', facebook: '', tiktok: '', x: '', youtube: '', linkedin: '' },
     header: { sticky: true, cta: b.cta, showPhone: false, layout: 'left', style: 'glass' },
     announcement: { enabled: false, text: '', href: '' },
@@ -841,21 +851,23 @@ export const rewardText = (l) => (l.type === 'percent' ? `${l.value}%` : money(l
 
 /** Items customers can see right now: hidden categories and categories outside their hours are left out. */
 export function visibleMenu(menu, ordering, nowMs = Date.now()) {
+  // An item switched off ('Available to order' off, or hidden from the menu) is not shown to customers at all; sold out is only for stock 0.
+  const items = arr(menu).filter((x) => x.available !== false);
   const metas = arr(ordering?.cats), menus = arr(ordering?.menus).filter((x) => x.cats.length);
-  if (!metas.length && !menus.length) return arr(menu);
+  if (!metas.length && !menus.length) return items;
   const d = new Date(wallNow(ordering, nowMs));
   const m = d.getUTCHours() * 60 + d.getUTCMinutes();
   const inWindow = (from, to) => !from || !to || (mins(from) <= mins(to) ? m >= mins(from) && m < mins(to) : m >= mins(from) || m < mins(to));
   const off = new Set(metas.filter((c) => c.hidden || !inWindow(c.from, c.to)).map((c) => c.name));
-  // A category placed in one or more menus shows only while one of those menus is on.
-  const listed = new Set(menus.flatMap((x) => x.cats));
+  // A category placed in one or more published menus shows only while one of those menus is on. A menu not published yet changes nothing.
+  const listed = new Set(menus.filter((x) => x.active).flatMap((x) => x.cats));
   // A menu with dayparts is on during any of them; one without keeps its own days and times.
   const parts = arr(ordering?.dayparts), day = d.getUTCDay();
   // A window that runs past midnight counts after midnight as part of the day it started.
   const onDay = (days, from, to) => (!from || !to || mins(from) <= mins(to) ? days[day] !== false && inWindow(from, to) : (m >= mins(from) && days[day] !== false) || (m < mins(to) && days[(day + 6) % 7] !== false));
   const live = (x) => { const own = arr(x.dayparts).map((pid) => parts.find((p) => p.id === pid)).filter(Boolean); return own.length ? own.some((p) => onDay(p.days, p.from, p.to)) : onDay(x.days, x.from, x.to); };
   const on = new Set(menus.filter((x) => x.active && live(x)).flatMap((x) => x.cats));
-  return arr(menu).filter((x) => !off.has(x.category) && (!listed.has(x.category) || on.has(x.category)));
+  return items.filter((x) => !off.has(x.category) && (!listed.has(x.category) || on.has(x.category)));
 }
 /** Adds the choices of any modifier groups an item is linked to, after the item's own options. */
 export function applyMods(menu, ordering) {
@@ -869,7 +881,9 @@ export function applyMods(menu, ordering) {
   };
   return arr(menu).map((it) => {
     const extra = arr(it.mods).map((gid) => groups.findIndex((g) => g.id === gid)).filter((i) => i >= 0).map((i) => shown(groups[i], i));
-    return extra.length ? { ...it, options: [...arr(it.options), ...extra] } : it;
+    // A required group whose shown choices are all sold out leaves nothing to pick, so the item cannot be ordered right now.
+    const blocked = extra.some((g) => g.required && !g.choices.some((c) => !c.hidden && !c.soldOut));
+    return extra.length ? { ...it, options: [...arr(it.options), ...extra], ...(blocked ? { blocked: true } : {}) } : it;
   });
 }
 
