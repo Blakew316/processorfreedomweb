@@ -971,12 +971,14 @@ export const fill = (text, vars) => String(text).replace(/\{(\w+)\}/g, (m, k) =>
 /* ---------- invoices ---------- */
 export const INVOICE_STATUSES = { draft: 'Draft', sent: 'Sent', paid: 'Paid', void: 'Void' };
 /** Totals for an invoice. Tax applies to taxable lines only, after the discount. */
+// What was sold, plus any service charge (a line marked charge). The order discount comes off what was sold only, and tax is
+// charged on the taxable part of that after the discount. A service charge is neither discounted nor taxed.
 export function invoiceTotals(lines, taxRate = 0, discount = 0) {
-  const ls = arr(lines);
-  const subtotal = ls.reduce((a, l) => a + Math.round(l.price * l.qty), 0);
-  const d = Math.max(0, Math.min(subtotal, Math.round(Number(discount)) || 0));
-  const taxable = ls.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0);
-  const tax = subtotal ? Math.round(((taxable - (d * taxable) / subtotal) * (Number(taxRate) || 0)) / 100) : 0;
+  const ls = arr(lines), amount = (l) => Math.round(l.price * l.qty);
+  const goods = ls.reduce((a, l) => a + (l.charge ? 0 : amount(l)), 0), subtotal = ls.reduce((a, l) => a + amount(l), 0);
+  const d = Math.max(0, Math.min(goods, Math.round(Number(discount)) || 0));
+  const taxable = ls.reduce((a, l) => a + (l.charge || l.taxable === false ? 0 : amount(l)), 0);
+  const tax = goods ? Math.round(((taxable - (d * taxable) / goods) * (Number(taxRate) || 0)) / 100) : 0;
   return { subtotal, discount: d, tax, total: subtotal - d + tax };
 }
 export const invoiceLate = (inv, today = new Date().toISOString().slice(0, 10)) => inv.status === 'sent' && !!inv.due && inv.due < today;

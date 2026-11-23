@@ -1165,7 +1165,8 @@ export function createApp(options = {}) {
   const TERMS = ['receipt', 'net7', 'net15', 'net30', 'net45', 'net60', 'custom'];
   function cleanInvoice(b, site, keep = []) {
     const customer = cleanContact(b.customer);
-    const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200).map((l) => ({ name: str(l?.name, 160).trim(), qty: Math.max(1, Math.min(100000, Math.round(Number(l?.qty)) || 1)), price: Math.max(0, Math.min(1_000_000_00, Math.round(Number(l?.price)) || 0)), taxable: l?.taxable !== false })).filter((l) => l.name);
+    // A service charge line is kept as one: never taxed, never discounted.
+    const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200).map((l) => ({ name: str(l?.name, 160).trim(), qty: Math.max(1, Math.min(100000, Math.round(Number(l?.qty)) || 1)), price: Math.max(0, Math.min(1_000_000_00, Math.round(Number(l?.price)) || 0)), taxable: l?.charge === true ? false : l?.taxable !== false, ...(l?.charge === true ? { charge: true } : {}) })).filter((l) => l.name);
     const rate = Number(b.taxRate);
     const taxRate = Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0;
     const due = realDay(b.due) ? b.due : '';
@@ -1546,7 +1547,8 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const row = ownInvoice(site, p.inv);
     if (row.kind !== 'estimate') bad(400, 'This is already an invoice.');
-    db.run("UPDATE invoices SET kind = 'invoice', status = 'draft', sent_at = NULL, viewed_at = NULL, reminders = 0, updated_at = ? WHERE id = ?", Date.now(), row.id);
+    // How long an estimate was valid for is not how long the customer has to pay: an invoice starts due on receipt.
+    db.run("UPDATE invoices SET kind = 'invoice', status = 'draft', sent_at = NULL, viewed_at = NULL, reminders = 0, terms = 'receipt', due = '', updated_at = ? WHERE id = ?", Date.now(), row.id);
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site) });
   });
 
@@ -1764,8 +1766,10 @@ export function createApp(options = {}) {
   // An invoice's ledger rows keep the taxable part of its sales and its rate as they were when the row was written, so changing or
   // deleting the invoice later never restates a day already reported. A row taking a payment back carries them negated.
   const invoiceTax = (v, k = 1) => {
-    const lines = JSON.parse(v.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount;
-    return { taxable: k * (v.subtotal ? Math.max(0, Math.min(net, Math.round((net * taxed) / v.subtotal))) : 0), rate: Number(v.tax_rate) || 0 };
+    // The discount comes off what was sold only; a service charge line is neither discounted nor taxed.
+    const lines = JSON.parse(v.items || '[]'), amount = (l) => Math.round(l.price * l.qty);
+    const goods = lines.reduce((a, l) => a + (l.charge ? 0 : amount(l)), 0), taxed = lines.reduce((a, l) => a + (l.charge || l.taxable === false ? 0 : amount(l)), 0), net = goods - v.discount;
+    return { taxable: k * (goods ? Math.max(0, Math.min(net, Math.round((net * taxed) / goods))) : 0), rate: Number(v.tax_rate) || 0 };
   };
   function moneyMoves(site, lo, hi) {
     const payments = [], refunds = [];

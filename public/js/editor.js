@@ -4462,7 +4462,7 @@ export async function editor(id, mount, title, startTab = '') {
   const asCustomer = (c) => ({ name: c.name || c.company || '', company: c.company || '', email: c.email || '', phone: c.phone || '', address: c.address || '' });
   const counter = (el, max) => { const c = h('small', { class: 'iv-count' }, `${el.value.length}/${max} characters`); el.addEventListener('input', () => { c.textContent = `${el.value.length}/${max} characters`; }); return c; };
   // Files on an invoice or a project: picked with the button or dropped on the box, uploaded straight away, listed by name.
-  function attachBox({ files, most, each = 0, total = 0, zone }) {
+  function attachBox({ files, most, each = 0, total = 0, zone, onBusy = () => {} }) {
     const list = h('div', { class: 'iv-files' });
     const draw = () => {
       list.replaceChildren(...files.map((f, i) => h('div', { class: 'iv-file' }, h('span', { class: 'iv-fic', html: IVI.file, 'aria-hidden': 'true' }), h('a', { href: f.url, download: f.name, target: '_blank', rel: 'noopener' }, f.name), h('small', {}, fileSize(f.size)),
@@ -4477,10 +4477,10 @@ export async function editor(id, mount, title, startTab = '') {
       if (files.length + ok.length > most) return toast(`Upload up to ${most} files.`, true);
       if (each && ok.some((f) => f.size > each)) return toast(`Each file can be at most ${each / MB} MB.`, true);
       if (total && [...files, ...ok].reduce((a, f) => a + f.size, 0) > total) return toast(`Files can be at most ${total / MB} MB together.`, true);
-      trigger.disabled = true;
+      trigger.disabled = true; onBusy(1);
       try { for (const f of ok) { const r = await api('POST', '/api/uploads?kind=file', f); files.push({ url: r.url, name: f.name.slice(0, 120), size: f.size }); draw(); } }
       catch (e) { toast(e.message, true); }
-      finally { trigger.disabled = false; }
+      finally { trigger.disabled = false; onBusy(-1); }
     };
     const choose = async () => add(await pickFiles(true, 'application/pdf,image/png,image/jpeg'));
     trigger = zone
@@ -4496,15 +4496,22 @@ export async function editor(id, mount, title, startTab = '') {
   const blankBill = (kind, person = null, lines = null) => ({ kind, status: 'draft', customer: person && (person.name || person.company) ? asCustomer(person) : null, items: lines ? JSON.parse(JSON.stringify(lines)) : [], project: person?.project || '', notes: '', terms: kind === 'estimate' ? 'net30' : 'receipt', due: '', taxRate: ordering.taxRate || 0, discount: 0, discountName: '', payUrl: '', attachments: [] });
   function billPage(kind) {
     const est = kind === 'estimate', list = est ? 'est' : 'invoices', Noun = est ? 'Estimate' : 'Invoice', noun = Noun.toLowerCase();
-    if (!clState.bill || clState.bill.kind !== kind) clState.bill = { v: blankBill(kind), kind, mode: 'item', quick: { amount: '', desc: '' }, files: true };
+    if (!clState.bill || clState.bill.kind !== kind) clState.bill = { v: blankBill(kind), kind, mode: 'item', quick: { amount: '', desc: '' }, files: true, charge: null, disc: null, uploading: 0 };
     const b = clState.bill, v = b.v;
-    loadBills('inv-edit', 'est-edit'); loadProjects('inv-edit', 'est-edit'); loadPeople();
-    const leave = () => { clState.bill = null; goTab(list); };
+    // Drawn once for each invoice opened: redrawing the screen (a new order coming in) keeps the same page, with what is typed,
+    // any dialog that is open and any file still uploading.
+    if (clState.billView && clState.billView.b === b) return [clState.billView.el];
+    loadBills(); loadProjects(); loadPeople();
+    const done = () => { clState.bill = null; clState.billView = null; goTab(list); };
+    const leave = done;
     // What is being sold, then everything on the invoice: the sale and a service charge, if one was added.
     const sold = () => (b.mode === 'quick' ? (parsePrice(b.quick.amount || '') ? [{ name: b.quick.desc.trim() || 'Quick charge', qty: 1, price: parsePrice(b.quick.amount), taxable: false }] : []) : v.items.filter((l) => l.name.trim()));
     const lines = () => (b.charge ? [...sold(), b.charge] : sold());
+    // A percentage discount stays a percentage of what is sold, however the items change.
+    const goods = () => invoiceTotals(sold(), 0, 0).subtotal;
+    const syncDisc = () => { v.discount = !b.disc ? 0 : b.disc.type === 'percent' ? Math.round((goods() * b.disc.value) / 100) : b.disc.value; v.discountName = b.disc ? b.disc.name : ''; };
     const review = h('button', { type: 'button', class: 'it-btn fill' }, 'Review & Send');
-    const sync = () => { review.disabled = !(v.customer && sold().length); };
+    const sync = () => { review.disabled = !(v.customer && sold().length) || b.uploading > 0; };
     // Invoice details: who it goes to and when it is due.
     const custSlot = h('div', { class: 'iv-field iv-half' });
     const deliv = h('p', { class: 'iv-to' });
@@ -4538,26 +4545,26 @@ export async function editor(id, mount, title, startTab = '') {
       if (focusLast) linesBox.querySelector('.iv-lrow:last-child input')?.focus();
     };
     const addDisc = () => sheet((close) => {
-      const sub = invoiceTotals(sold(), 0, 0).subtotal;
       const amt = h('input', { inputmode: 'decimal', placeholder: '0.00', 'aria-label': 'Amount' }), err = h('p', { class: 'error', role: 'alert' });
-      const use = (cents, name) => { v.discount = Math.min(sub, cents); v.discountName = name; close(); drawTotals(); };
+      const use = (disc) => { b.disc = disc; close(); drawTotals(); };
       return [h('h2', {}, 'Add order discount'),
-        h('div', { class: 'iv-discs' }, discList().map((dd) => h('button', { type: 'button', class: 'iv-disc', onclick: () => use(dd.type === 'amount' ? dd.value : Math.round((sub * dd.value) / 100), dd.name) }, h('b', {}, dd.name), h('span', {}, dd.type === 'amount' ? `${money(dd.value)} off` : `${dd.value}% off`)))),
+        h('div', { class: 'iv-discs' }, discList().map((dd) => h('button', { type: 'button', class: 'iv-disc', onclick: () => use({ type: dd.type === 'amount' ? 'amount' : 'percent', value: dd.value, name: dd.name }) }, h('b', {}, dd.name), h('span', {}, dd.type === 'amount' ? `${money(dd.value)} off` : `${dd.value}% off`)))),
         h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), err,
-        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } use(c, ''); } }, 'Add discount'))];
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } use({ type: 'amount', value: c, name: '' }); } }, 'Add discount'))];
     });
     // A service charge is a set amount added to the invoice, untaxed. It is saved as its own line.
     const addCharge = () => sheet((close) => {
       const amt = h('input', { inputmode: 'decimal', placeholder: '0.00', 'aria-label': 'Amount' }), err = h('p', { class: 'error', role: 'alert' });
       return [h('h2', {}, 'Add service charge'), h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), err,
-        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } b.charge = { name: 'Service charge', qty: 1, price: c, taxable: false }; close(); drawTotals(); } }, 'Add service charge'))];
+        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } b.charge = { name: 'Service charge', qty: 1, price: c, taxable: false, charge: true }; close(); drawTotals(); } }, 'Add service charge'))];
     });
     const drawTotals = () => {
-      const t = invoiceTotals(lines(), v.taxRate, v.discount), sub = invoiceTotals(sold(), 0, 0).subtotal;
+      syncDisc();
+      const t = invoiceTotals(lines(), v.taxRate, v.discount), sub = goods();
       const link = (label, fn) => h('button', { type: 'button', class: 'iv-link', onclick: fn }, label);
       totals.replaceChildren(...[h('div', { class: 'iv-tr' }, h('span', {}, 'Subtotal'), h('span', {}, money(sub))),
         t.discount > 0 && h('div', { class: 'iv-tr' }, h('span', {}, v.discountName ? `Discount (${v.discountName})` : 'Discount'), h('span', {}, `−${money(t.discount)}`)),
-        h('div', { class: 'iv-tr' }, t.discount > 0 ? link('Remove order discount', () => { v.discount = 0; v.discountName = ''; drawTotals(); }) : link('Add order discount', addDisc)),
+        h('div', { class: 'iv-tr' }, t.discount > 0 ? link('Remove order discount', () => { b.disc = null; drawTotals(); }) : link('Add order discount', addDisc)),
         h('div', { class: 'iv-tr' }, h('span', {}, 'Tax'), h('span', {}, money(t.tax))),
         b.charge && h('div', { class: 'iv-tr' }, h('span', {}, 'Service charge'), h('span', {}, money(b.charge.price))),
         h('div', { class: 'iv-tr' }, b.charge ? link('Remove service charge', () => { b.charge = null; drawTotals(); }) : link('Add service charge', addCharge)),
@@ -4577,35 +4584,49 @@ export async function editor(id, mount, title, startTab = '') {
     const seg = h('div', { class: 'iv-seg', role: 'tablist', 'aria-label': 'Sale type' }, [['item', `Itemized ${noun}`], ['quick', 'Quick charge']].map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(b.mode === k), onclick: () => { b.mode = k; for (const x of seg.children) x.setAttribute('aria-selected', String(x.textContent === l)); drawSale(); sync(); } }, l)));
     const note = h('textarea', { class: 'iv-in iv-note', rows: 2, maxlength: 200, placeholder: 'Add a note', value: v.notes || '', 'aria-label': 'Note', oninput: (e) => { v.notes = e.target.value; } });
     // Attachments: shown open, as in the photos; the round button folds them away.
-    const attBody = h('div', { class: 'iv-attbody', hidden: !b.files }, h('p', { class: 'iv-attp' }, 'Upload up to 3 files ( max total size: 25MB). Supported formats: JPG, PDF, PNG.', h('br'), h('b', {}, 'Avoid uploading files with sensitive personal data.')), attachBox({ files: v.attachments, most: 3, total: 25 * MB, zone: true }));
+    const attBody = h('div', { class: 'iv-attbody', hidden: !b.files }, h('p', { class: 'iv-attp' }, 'Upload up to 3 files ( max total size: 25MB). Supported formats: JPG, PDF, PNG.', h('br'), h('b', {}, 'Avoid uploading files with sensitive personal data.')), attachBox({ files: v.attachments, most: 3, total: 25 * MB, zone: true, onBusy: (n) => { b.uploading += n; sync(); } }));
     const fold = h('button', { type: 'button', class: 'iv-fold', 'aria-expanded': String(b.files), 'aria-label': b.files ? 'Hide attachments' : 'Show attachments', html: b.files ? II.chevU : II.chevD });
     fold.onclick = () => { b.files = !b.files; attBody.hidden = !b.files; fold.setAttribute('aria-expanded', String(b.files)); fold.setAttribute('aria-label', b.files ? 'Hide attachments' : 'Show attachments'); fold.innerHTML = b.files ? II.chevU : II.chevD; };
     // Review & Send: a last look, then send it, or keep it as a draft.
-    const body = () => ({ kind, project: v.project || '', customer: v.customer, items: lines(), notes: v.notes || '', terms: v.terms, due: billDue(v), taxRate: v.taxRate, discount: v.discount, discountName: v.discount ? v.discountName || '' : '', payUrl: v.payUrl || '', attachments: v.attachments });
-    const store = () => (v.id ? api('PUT', `/api/sites/${id}/invoices/${v.id}`, body()) : api('POST', `/api/sites/${id}/invoices`, body()));
-    review.onclick = () => sheet((close) => {
+    const body = () => (syncDisc(), { kind, project: v.project || '', customer: v.customer, items: lines(), notes: v.notes || '', terms: v.terms, due: billDue(v), taxRate: v.taxRate, discount: v.discount, discountName: v.discount ? v.discountName || '' : '', payUrl: v.payUrl || '', attachments: v.attachments });
+    // One save at a time: a second press waits for the first, so an invoice is never created twice.
+    let saving = null;
+    const store = () => (saving ||= (v.id ? api('PUT', `/api/sites/${id}/invoices/${v.id}`, body()) : api('POST', `/api/sites/${id}/invoices`, body())).then((r) => { v.id = r.invoice.id; v.status = r.invoice.status; return r; }).finally(() => { saving = null; }));
+    review.onclick = () => {
+      // An item with a price needs a name, or it would be left off.
+      const blank = b.mode === 'item' ? v.items.findIndex((l) => !l.name.trim() && l.price > 0) : -1;
+      if (blank >= 0) { toast('Give each item a name.', true); linesBox.querySelectorAll('.iv-lrow:not(.iv-lhead)')[blank]?.querySelector('input')?.focus(); return; }
+      reviewSheet();
+    };
+    const reviewSheet = () => sheet((close) => {
+      syncDisc();
       const t = invoiceTotals(lines(), v.taxRate, v.discount), due = billDue(v), c = v.customer, sent = v.status === 'sent';
+      // Sent for the first time with a date already gone, it would be overdue (or expired) the moment it arrives.
+      const late = !sent && !!due && due < bizDay();
       const names = [...new Set([v.project, ...(projData?.projects || []).map((x) => x.name), ...(bills?.invoices || []).map((x) => x.project)].filter(Boolean))];
       const line = (k, val) => h('div', { class: 'rline' }, h('span', {}, k), h('b', {}, val));
+      const back = h('button', { type: 'button', class: 'btn text', onclick: close }, 'Back');
       const keep = h('button', { type: 'button', class: 'btn soft' }, sent ? 'Save changes' : 'Save draft');
-      const send = h('button', { type: 'button', class: 'btn' }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : `Send ${noun}`);
-      keep.onclick = async () => { keep.disabled = true; try { setBills(await store()); close(); clState.bill = null; goTab(list); toast(`${Noun} saved`); } catch (e) { toast(e.message, true); keep.disabled = false; } };
+      const send = h('button', { type: 'button', class: 'btn', disabled: late }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : `Send ${noun}`);
+      const lock = (on) => { back.disabled = on; keep.disabled = on; send.disabled = on || late; };
+      keep.onclick = async () => { lock(true); try { setBills(await store()); close(); done(); toast(`${Noun} saved`); } catch (e) { toast(e.message, true); lock(false); } };
       send.onclick = async () => {
-        send.disabled = true;
+        lock(true);
         try {
-          const kept = await store(); v.id = kept.invoice.id; v.status = kept.invoice.status; setBills(kept);
+          setBills(await store());
           const r = await api('POST', `/api/sites/${id}/invoices/${v.id}/send`);
-          setBills(r); close(); clState.bill = null; goTab(list);
+          setBills(r); close(); done();
           if (r.emailed) toast(`${r.invoice.label} sent to ${r.invoice.customer.email}`); else billReady(r.invoice);
-        } catch (e) { toast(e.message, true); send.disabled = false; }
+        } catch (e) { toast(e.message, true); lock(false); }
       };
       return [h('h2', {}, `Review ${noun}`),
         h('div', { class: 'bill-lines ro' }, line('Send to', [c.name, c.email].filter(Boolean).join(' · ')), line(est ? 'Valid until' : 'Due date', billDay(due)), line('Total', money(t.total))),
+        late && h('p', { class: 'error', role: 'alert' }, est ? 'This date has passed. Choose a later one before sending.' : 'This due date has passed. Choose a later one before sending.'),
         names.length > 0 && h('label', { class: 'field' }, h('span', {}, 'Project'), h('select', { onchange: (e) => { v.project = e.target.value; } }, h('option', { value: '' }, 'None'), names.map((n) => h('option', { value: n, selected: v.project === n }, n)))),
-        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn text', onclick: close }, 'Back'), keep, send)];
+        h('div', { class: 'acts' }, back, keep, send)];
     });
     drawCust(); drawSale(); sync();
-    return [h('div', { class: 'cl it iv iv-form' },
+    const page = h('div', { class: 'cl it iv iv-form' },
       h('div', { class: 'iv-back' }, h('button', { type: 'button', onclick: leave }, h('span', { html: II.left, 'aria-hidden': 'true' }), est ? 'Estimates' : 'Invoices')),
       h('h1', { class: 'iv-title' }, v.id ? `Edit ${Noun}` : `Create New ${Noun}`), h('p', { class: 'iv-req' }, 'Required*'),
       h('section', { class: 'iv-card' }, h('h2', {}, `${Noun} details`),
@@ -4616,7 +4637,9 @@ export async function editor(id, mount, title, startTab = '') {
         h('label', { class: 'iv-field iv-notef' }, h('span', { class: 'iv-lab' }, 'Note'), note), counter(note, 200)),
       h('section', { class: 'iv-card iv-c-del' }, h('h2', {}, `${Noun} delivery`), h('b', { class: 'iv-sub' }, `${Noun} sent to`), deliv),
       h('section', { class: 'iv-card iv-c-att' }, h('div', { class: 'iv-cardhead' }, h('h2', {}, 'Attachments'), fold), attBody),
-      h('div', { class: 'iv-end' }, review))];
+      h('div', { class: 'iv-end' }, review));
+    clState.billView = { b, el: page };
+    return [page];
   }
   CL['inv-edit'] = () => billPage('invoice');
   CL['est-edit'] = () => billPage('estimate');
@@ -4627,7 +4650,11 @@ export async function editor(id, mount, title, startTab = '') {
     v.attachments ||= [];
     // Saved before payment terms were kept: its due date shows as a custom date.
     if (existing && !v.terms) v.terms = 'custom';
-    clState.bill = { v, kind, mode: 'item', quick: { amount: '', desc: '' }, files: true };
+    // A service charge saved on it shows as the service charge again, not as an item.
+    const charge = (v.items || []).find((l) => l.charge) || null;
+    v.items = (v.items || []).filter((l) => !l.charge);
+    clState.bill = { v, kind, mode: 'item', quick: { amount: '', desc: '' }, files: true, charge, disc: v.discount ? { type: 'amount', value: v.discount, name: v.discountName || '' } : null, uploading: 0 };
+    clState.billView = null;
     goTab(kind === 'estimate' ? 'est-edit' : 'inv-edit');
   }
 
@@ -4637,11 +4664,13 @@ export async function editor(id, mount, title, startTab = '') {
   function openProject(p) { clState.proj = { p: p ? JSON.parse(JSON.stringify(p)) : blankProject() }; goTab('proj-edit'); }
   CL['proj-edit'] = () => {
     const st = clState.proj ||= { p: blankProject() }, p = st.p;
+    if (st.view) return [st.view];
     if (p.customer && !(p.customer.name || p.customer.company)) p.customer = null;
-    loadBills('proj-edit'); loadProjects('proj-edit'); loadPeople();
+    loadBills(); loadProjects(); loadPeople();
+    st.uploading = 0;
     const leave = () => { clState.proj = null; goTab('projects'); };
     const save = h('button', { type: 'button', class: 'it-btn fill' }, p.id ? 'Save' : 'Create project');
-    const sync = () => { save.disabled = !(p.customer && p.name.trim() && p.phase); };
+    const sync = () => { save.disabled = !(p.customer && p.name.trim() && p.phase) || st.uploading > 0; };
     const custSlot = h('div', { class: 'iv-field iv-half' });
     const pick = (c) => { p.customer = asCustomer(c); drawCust(); };
     const drawCust = () => { custSlot.replaceChildren(h('span', { class: 'iv-lab' }, 'Select existing customer*'), p.customer ? custCard(p.customer, () => { p.customer = null; drawCust(); custSlot.querySelector('input')?.focus(); }) : custFinder(pick)); sync(); };
@@ -4667,7 +4696,7 @@ export async function editor(id, mount, title, startTab = '') {
       try { const r = await api('DELETE', `/api/sites/${id}/projects/${p.id}`); projData = { projects: r.projects }; if (bills) bills = { ...bills, invoices: r.invoices }; toast('Project deleted'); leave(); } catch (e) { toast(e.message, true); }
     } : null;
     drawCust();
-    return [h('div', { class: 'cl it iv iv-form iv-proj' },
+    const view = h('div', { class: 'cl it iv iv-form iv-proj' },
       h('div', { class: 'iv-phead' }, h('h1', { class: 'iv-title' }, p.id ? p.name || 'Project' : 'Create new project'), del && h('button', { type: 'button', class: 'it-cvdel', onclick: del }, h('span', { html: II.bin, 'aria-hidden': 'true' }), 'Delete project')),
       h('p', { class: 'iv-req' }, '*Required'),
       h('section', { class: 'iv-card iv-c-cust' }, h('h2', {}, 'Customer information'), h('div', { class: 'iv-custrow' }, custSlot, h('button', { type: 'button', class: 'it-btn grey', onclick: () => addCustomer(pick) }, h('span', { class: 'it-bic', html: II.plus }), 'Add a new customer instead'))),
@@ -4679,12 +4708,17 @@ export async function editor(id, mount, title, startTab = '') {
         h('hr', { class: 'iv-hr' }),
         h('div', { class: 'iv-grid' }, h('label', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'Start date (mm/dd/yyyy)'), startIn), h('label', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'End date (mm/dd/yyyy)'), endIn)),
         h('label', { class: 'iv-field iv-notes' }, h('span', { class: 'iv-lab' }, 'Notes'), notes), counter(notes, 1000)),
-      h('section', { class: 'iv-card iv-c-patt' }, h('h2', {}, 'Attachments'), h('p', { class: 'iv-attp' }, 'Upload up to 10 files (max size per file: 10 MB). Supported formats: JPG, JPEG, PDF, PNG.', h('br'), 'Please refrain from uploading any sensitive personal data or content that is illegal.'), attachBox({ files: p.attachments, most: 10, each: 10 * MB, zone: false })),
-      h('div', { class: 'it-foot iv-foot' }, h('button', { type: 'button', class: 'it-btn grey', onclick: leave }, 'Cancel'), save))];
+      h('section', { class: 'iv-card iv-c-patt' }, h('h2', {}, 'Attachments'), h('p', { class: 'iv-attp' }, 'Upload up to 10 files (max size per file: 10 MB). Supported formats: JPG, JPEG, PDF, PNG.', h('br'), 'Please refrain from uploading any sensitive personal data or content that is illegal.'), attachBox({ files: p.attachments, most: 10, each: 10 * MB, zone: false, onBusy: (n) => { st.uploading += n; sync(); } })),
+      h('div', { class: 'it-foot iv-foot' }, h('button', { type: 'button', class: 'it-btn grey', onclick: leave }, 'Cancel'), save));
+    st.view = view;
+    return [view];
   };
 
   function paintPanel() {
     const y = panel.scrollTop;
+    // A page that is kept between redraws (an invoice or project being written) keeps the field you were in.
+    const was = document.activeElement;
+    let caret = null; try { caret = was && typeof was.selectionStart === 'number' ? [was.selectionStart, was.selectionEnd] : null; } catch { /* no caret here */ }
     const cur = tabs.find(([k]) => k === tab) || tabs[0];
     const fresh = orders ? orders.filter((x) => x.status === 'new').length : 0;
     const mode = cur[3];
@@ -4732,6 +4766,7 @@ export async function editor(id, mount, title, startTab = '') {
     if (REPORT_TABS.has(cur[0]) && !CL[cur[0]]) addReportTools(cur[0]);
     labelTables(panel);
     panel.scrollTop = y;
+    if (was && was !== document.body && was.isConnected && panel.contains(was) && document.activeElement !== was) { was.focus({ preventScroll: true }); try { if (caret) was.setSelectionRange(caret[0], caret[1]); } catch { /* not a text field */ } }
     const title2 = top.querySelector('.m-title b');
     if (title2 && title2.textContent !== group.label && body.dataset.view !== 'preview') paintTop(); else paintTabbar();
   }

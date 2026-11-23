@@ -2029,6 +2029,23 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     r = await me('DELETE', `/api/sites/${site.id}/projects/${proj.id}`);
     assert.deepEqual(r.data.projects.map((x) => x.id), [second.id]);
     assert.equal(r.data.invoices.find((v) => v.id === inv.id).project, '');
+    // A service charge is neither discounted nor taxed: a $100 taxed item, $50 off, a $100 charge and 10% tax is $5 tax, $155 in all.
+    const charged = { customer: { name: 'Ann' }, items: [{ name: 'Item', qty: 1, price: 10000 }, { name: 'Service charge', qty: 1, price: 10000, taxable: true, charge: true }], taxRate: 10, discount: 5000 };
+    const sc = (await me('POST', `/api/sites/${site.id}/invoices`, charged)).data.invoice;
+    assert.deepEqual([sc.subtotal, sc.discount, sc.tax, sc.total], [20000, 5000, 500, 15500]);
+    assert.deepEqual(sc.items[1], { name: 'Service charge', qty: 1, price: 10000, taxable: false, charge: true });
+    // Paid, the ledger records the taxed part after the discount: $50.
+    await me('POST', `/api/sites/${site.id}/invoices/${sc.id}/status`, { status: 'paid', method: 'Cash' });
+    const ledger = new DatabaseSync(join(d17, 'sites.db'));
+    assert.deepEqual({ ...ledger.prepare('SELECT amount, tax, taxable FROM money_log WHERE ref_id = ?').get(sc.id) }, { amount: 15500, tax: 500, taxable: 5000 });
+    ledger.close();
+    // A discount bigger than what was sold stops there; the service charge is still owed.
+    const capped = (await me('POST', `/api/sites/${site.id}/invoices`, { ...charged, items: [{ name: 'Item', qty: 1, price: 3000 }, { name: 'Service charge', qty: 1, price: 2000, charge: true }], taxRate: 0 })).data.invoice;
+    assert.deepEqual([capped.discount, capped.total], [3000, 2000]);
+    // An estimate becomes an invoice due on receipt: how long the estimate was valid for is not a payment term.
+    const quote = (await me('POST', `/api/sites/${site.id}/invoices`, { kind: 'estimate', customer: { name: 'Ann' }, items: [{ name: 'Job', qty: 1, price: 100 }], terms: 'net30', due: '2027-01-01' })).data.invoice;
+    const made = (await me('POST', `/api/sites/${site.id}/invoices/${quote.id}/convert`)).data.invoice;
+    assert.deepEqual([made.kind, made.terms, made.due], ['invoice', 'receipt', '']);
     // Files have their own room: when it is full, photos still upload.
     const uid = (await me('GET', '/api/me')).data.user.id;
     const raw17 = new DatabaseSync(join(d17, 'sites.db'));
