@@ -1142,15 +1142,20 @@ export function createApp(options = {}) {
   const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discountName: r.discount_name || '', discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
     project: r.project || '', terms: r.terms || '', attachments: JSON.parse(r.attachments || '[]'), payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
   const invoicesOf = (req, site) => db.all('SELECT * FROM invoices WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id).map((r) => toInvoice(r, req, site));
-  // Files attached to an invoice or project: only files uploaded here, each listed once, with the size the upload really has.
+  // Files attached to an invoice or project: only files uploaded here by someone who works on this site (or already on it),
+  // each listed once, with the size the upload really has. A file's name always ends in its real type, so a download can
+  // never be saved as something that runs.
   const MB = 1024 * 1024;
-  function cleanFiles(list, { most, each = 0, total = 0 }) {
-    const out = [];
+  const worksOn = (site, userId) => site.user_id === userId || !!db.get('SELECT 1 FROM members WHERE site_id = ? AND user_id = ?', site.id, userId);
+  const fileName = (name, ext) => `${(str(name, 120).replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, ' ').trim().replace(/\.[A-Za-z0-9]{1,8}$/, '').replace(/[. ]+$/, '').trim() || 'file').slice(0, 110)}.${ext}`;
+  const filesOf = (text) => { try { const a = JSON.parse(text || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
+  function cleanFiles(list, { most, each = 0, total = 0, site, keep = [] }) {
+    const out = [], had = new Set(keep.map((f) => f && f.url));
     for (const f of Array.isArray(list) ? list.slice(0, 50) : []) {
-      const m = /^\/u\/([A-Za-z0-9_-]{6,40}\.(?:pdf|png|jpg))$/.exec(String(f?.url || ''));
-      if (!m || out.some((x) => x.url === f.url)) continue;
-      const up = db.get('SELECT size FROM uploads WHERE name = ?', m[1]);
-      if (up) out.push({ url: f.url, name: str(f.name, 120).trim() || m[1], size: up.size });
+      const m = /^\/u\/([A-Za-z0-9_-]{6,40})\.(pdf|png|jpg)$/.exec(typeof f?.url === 'string' ? f.url : '');
+      if (!m || out.some((x) => x.url === m[0])) continue;
+      const up = db.get('SELECT size, user_id FROM uploads WHERE name = ?', `${m[1]}.${m[2]}`);
+      if (up && (had.has(m[0]) || worksOn(site, up.user_id))) out.push({ url: m[0], name: fileName(f.name, m[2]), size: up.size });
     }
     if (out.length > most) bad(400, `Attach at most ${most} files.`);
     if (each && out.some((x) => x.size > each)) bad(400, `Each file can be at most ${each / MB} MB.`);
@@ -1158,14 +1163,14 @@ export function createApp(options = {}) {
     return out;
   }
   const TERMS = ['receipt', 'net7', 'net15', 'net30', 'net45', 'net60', 'custom'];
-  function cleanInvoice(b) {
+  function cleanInvoice(b, site, keep = []) {
     const customer = cleanContact(b.customer);
     const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200).map((l) => ({ name: str(l?.name, 160).trim(), qty: Math.max(1, Math.min(100000, Math.round(Number(l?.qty)) || 1)), price: Math.max(0, Math.min(1_000_000_00, Math.round(Number(l?.price)) || 0)), taxable: l?.taxable !== false })).filter((l) => l.name);
     const rate = Number(b.taxRate);
     const taxRate = Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0;
-    const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due)) && !Number.isNaN(Date.parse(`${b.due}T00:00:00Z`)) ? b.due : '';
+    const due = realDay(b.due) ? b.due : '';
     const totals = invoiceTotals(items, taxRate, b.discount);
-    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...totals, discountName: totals.discount ? str(b.discountName, 60).trim() : '', terms: TERMS.includes(b.terms) ? b.terms : '', attachments: cleanFiles(b.attachments, { most: 3, total: 25 * MB }) };
+    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...totals, discountName: totals.discount ? str(b.discountName, 60).trim() : '', terms: TERMS.includes(b.terms) ? b.terms : '', attachments: cleanFiles(b.attachments, { most: 3, total: 25 * MB, site, keep }) };
   }
   const ownInvoice = (site, invId) => db.get('SELECT * FROM invoices WHERE id = ? AND site_id = ?', invId, site.id) || bad(404, 'We could not find that invoice.');
   const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, discount_name = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, project = ?, terms = ?, attachments = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.discountName || '', v.subtotal, v.tax, v.total, v.payUrl, v.project || '', v.terms || '', JSON.stringify(v.attachments || []), Date.now(), rowId);
@@ -1464,7 +1469,7 @@ export function createApp(options = {}) {
   route('POST', '/api/sites/:id/invoices', async (req, res, p) => {
     const { site, user } = ownSite(req, p.id);
     const raw = await readJson(req, 200_000);
-    const v = cleanInvoice(raw);
+    const v = cleanInvoice(raw, site);
     const id = newId(), now = Date.now();
     const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
     db.run('INSERT INTO invoices (id, site_id, number, token, kind, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), raw.kind === 'estimate' ? 'estimate' : 'invoice', '{}', '[]', now, now);
@@ -1483,7 +1488,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const row = ownInvoice(site, p.inv);
     if (row.status === 'paid' || row.status === 'void') bad(409, 'A paid or cancelled invoice cannot be changed. Duplicate it instead.');
-    const v = cleanInvoice(await readJson(req, 200_000));
+    const v = cleanInvoice(await readJson(req, 200_000), site, filesOf(row.attachments));
     saveInvoice(row.id, v);
     keepContact(site.id, v.customer);
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
@@ -1550,15 +1555,14 @@ export function createApp(options = {}) {
   const toProject = (r) => ({ id: r.id, name: r.name, phase: r.phase, type: r.type, customer: JSON.parse(r.customer || '{}'), start: r.start, end: r.finish, notes: r.notes, attachments: JSON.parse(r.attachments || '[]'), createdAt: r.created_at, updatedAt: r.updated_at });
   const projectsOf = (siteId) => db.all('SELECT * FROM projects WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', siteId).map(toProject);
   const ownProject = (site, projId) => db.get('SELECT * FROM projects WHERE id = ? AND site_id = ?', str(projId, 40), site.id) || bad(404, 'That project was removed.');
-  const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`));
-  function cleanProject(b) {
+  function cleanProject(b, site, keep = []) {
     const name = str(b?.name, 50).trim();
     if (!name) bad(400, 'Add a project name.');
     if (!PHASES.includes(b?.phase)) bad(400, 'Choose a phase.');
     const c = cleanContact(b?.customer);
-    const start = isDay(b?.start) ? b.start : '', end = isDay(b?.end) ? b.end : '';
+    const start = realDay(b?.start) ? b.start : '', end = realDay(b?.end) ? b.end : '';
     if (start && end && end < start) bad(400, 'The end date is before the start date.');
-    return { name, phase: b.phase, type: str(b?.type, 50).trim(), customer: c, who: JSON.stringify({ name: c.name, company: c.company, email: c.email, phone: c.phone, address: c.address }), start, end, notes: str(b?.notes, 1000).trim(), attachments: cleanFiles(b?.attachments, { most: 10, each: 10 * MB }) };
+    return { name, phase: b.phase, type: str(b?.type, 50).trim(), customer: c, who: JSON.stringify({ name: c.name, company: c.company, email: c.email, phone: c.phone, address: c.address }), start, end, notes: str(b?.notes, 1000).trim(), attachments: cleanFiles(b?.attachments, { most: 10, each: 10 * MB, site, keep }) };
   }
   const projectTaken = (siteId, name, except = '') => db.get('SELECT 1 FROM projects WHERE site_id = ? AND lower(name) = lower(?) AND id != ?', siteId, name, except);
   route('GET', '/api/sites/:id/projects', (req, res, p) => {
@@ -1567,7 +1571,7 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/sites/:id/projects', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
-    const v = cleanProject(await readJson(req, 100_000));
+    const v = cleanProject(await readJson(req, 100_000), site);
     if (projectTaken(site.id, v.name)) bad(409, 'You already have a project with that name.');
     if (db.get('SELECT COUNT(*) AS n FROM projects WHERE site_id = ?', site.id).n >= 2000) bad(400, 'You have reached the limit of 2,000 projects.');
     const id = newId(), now = Date.now();
@@ -1577,8 +1581,9 @@ export function createApp(options = {}) {
   });
   route('PUT', '/api/sites/:id/projects/:proj', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
+    const raw = await readJson(req, 100_000);
     const row = ownProject(site, p.proj);
-    const v = cleanProject(await readJson(req, 100_000));
+    const v = cleanProject(raw, site, filesOf(row.attachments));
     if (projectTaken(site.id, v.name, row.id)) bad(409, 'You already have a project with that name.');
     db.raw.exec('BEGIN');
     try {
@@ -2302,14 +2307,15 @@ export function createApp(options = {}) {
     const buf = await readBody(req, (file ? 25 : 8) * 1024 * 1024);
     const ext = file ? sniffFile(buf) : sniffImage(buf);
     if (!ext) bad(415, file ? 'Upload a JPG, PNG or PDF file.' : 'Upload a PNG, JPG, WebP, GIF or SVG image.');
-    // Each account has room for 250 MB of photos. Photos no page uses any more are cleared away after a week, which frees the room again.
-    const used = db.get('SELECT COALESCE(SUM(size), 0) AS n FROM uploads WHERE user_id = ?', user.id).n;
-    if (used + buf.length > UPLOAD_QUOTA) bad(413, file ? 'Your account has used all of its storage (250 MB). Files you stop using are cleared away after a week.' : 'Your account has used all of its photo storage (250 MB). Photos you stop using are cleared away after a week.');
+    // Each account has room for 250 MB of photos, and another 250 MB for files attached to invoices and projects, so files never
+    // take the room photos need. Uploads nothing uses any more are cleared away after a week, which frees the room again.
+    const used = db.get("SELECT COALESCE(SUM(size), 0) AS n FROM uploads WHERE user_id = ? AND kind = ?", user.id, file ? 'file' : 'image').n;
+    if (used + buf.length > UPLOAD_QUOTA) bad(413, file ? 'Your account has used all of its file storage (250 MB). Files you stop using are cleared away after a week.' : 'Your account has used all of its photo storage (250 MB). Photos you stop using are cleared away after a week.');
     const disk = await fs.statfs(uploadDir).catch(() => null);
     if (disk && disk.bavail * disk.bsize < 64 * 1024 * 1024 + buf.length) bad(507, 'Photo storage is full right now. Please try again later.');
     const name = `${newId(12)}${ext}`;
     await fs.writeFile(join(uploadDir, name), buf);
-    db.run('INSERT INTO uploads (name, user_id, size, created_at) VALUES (?, ?, ?, ?)', name, user.id, buf.length, Date.now());
+    db.run('INSERT INTO uploads (name, user_id, size, created_at, kind) VALUES (?, ?, ?, ?, ?)', name, user.id, buf.length, Date.now(), file ? 'file' : 'image');
     json(res, 201, { url: `/u/${name}` });
   });
 
@@ -2627,7 +2633,13 @@ export function createApp(options = {}) {
 
     // Uploaded images are served on every host so published sites can use them.
     if (path.startsWith('/u/') && uploadDir && (method === 'GET' || method === 'HEAD')) {
-      // A PDF is handed over as a download, never opened as a page of this site.
+      // A PDF is handed over as a download, never opened as a page of this site, and only on the app itself or on a site of
+      // whoever uploaded it, so a file cannot borrow another business's web address.
+      if (path.endsWith('.pdf')) {
+        const on = siteForHost(hostOf(req)), up = on && db.get('SELECT user_id FROM uploads WHERE name = ?', path.slice(3));
+        const attached = (table) => !!db.get(`SELECT 1 FROM ${table} WHERE site_id = ? AND instr(attachments, ?) > 0`, on.id, `"${path}"`);
+        if (on && !(up && worksOn(on, up.user_id)) && !attached('invoices') && !attached('projects')) return send(res, 404, 'Not found');
+      }
       const ok = /^\/u\/[\w.-]+$/.test(path) && await sendFile(res, uploadDir, path.slice(3), { 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", ...(path.endsWith('.pdf') ? { 'Content-Disposition': 'attachment' } : {}) });
       return ok || send(res, 404, 'Not found');
     }

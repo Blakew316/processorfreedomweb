@@ -1960,18 +1960,36 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     assert.equal(up.status, 201);
     assert.match(up.data.url, /^\/u\/[\w-]+\.pdf$/);
     const img = (await me('POST', '/api/uploads?kind=file', png, { raw: true })).data.url;
-    // A PDF is handed over as a download, sandboxed, never opened as a page of the site.
+    // A PDF is handed over as a download, sandboxed, never opened as a page of the site, and only on the app or the uploader's own
+    // sites: another business's web address does not serve it.
     const got = await anon('GET', up.data.url, null, host);
     assert.equal(got.headers.get('content-type'), 'application/pdf');
     assert.equal(got.headers.get('content-disposition'), 'attachment');
     assert.match(got.headers.get('content-security-policy'), /sandbox/);
+    assert.equal((await anon('GET', up.data.url)).status, 200);
+    const elsewhere = (await me('POST', '/api/sites', { name: 'Other Place', template: 'cafe' })).data.site;
+    await me('POST', `/api/sites/${elsewhere.id}/publish`, {});
+    const stranger = client();
+    await stranger('POST', '/api/auth/signup', { email: 'stranger@files.test', password: 'long-enough-pw', name: 'Stranger' });
+    const strangers = (await stranger('POST', '/api/sites', { name: 'Stranger Shop', template: 'cafe' })).data.site;
+    await stranger('POST', `/api/sites/${strangers.id}/publish`, {});
+    assert.equal((await anon('GET', up.data.url, null, { host: `${elsewhere.slug}.pfsites.test` })).status, 200);
+    assert.equal((await anon('GET', up.data.url, null, { host: `${strangers.slug}.pfsites.test` })).status, 404);
+    assert.equal((await anon('GET', img, null, { host: `${strangers.slug}.pfsites.test` })).status, 200);
     // An invoice keeps its files by name with their real size. Links that are not uploads here, and repeats, are dropped.
+    // Another account's upload cannot be attached here, even with its link.
+    await other('POST', '/api/auth/signup', { email: 'other@files.test', password: 'long-enough-pw', name: 'Other' });
+    const theirs = (await other('POST', '/api/uploads?kind=file', pdf, { raw: true })).data.url;
     const body = { customer: { name: 'Ann', email: 'ann@x.test' }, items: [{ name: 'Job', qty: 1, price: 10000 }], terms: 'net15', due: '2026-12-08',
-      attachments: [{ url: up.data.url, name: 'Quote.pdf', size: 1 }, { url: '/u/nothere123.pdf', name: 'x' }, { url: 'https://evil.test/a.pdf', name: 'y' }, { url: up.data.url, name: 'again' }] };
+      attachments: [{ url: up.data.url, name: 'Quote.hta', size: 1 }, { url: '/u/nothere123.pdf', name: 'x' }, { url: 'https://evil.test/a.pdf', name: 'y' }, { url: up.data.url, name: 'again' }, { url: [up.data.url], name: 'array' }, { url: theirs, name: 'theirs.pdf' }] };
     let r = await me('POST', `/api/sites/${site.id}/invoices`, body);
     assert.equal(r.status, 201);
     const inv = r.data.invoice;
+    // The name always ends in the file's real type, so a download can never be saved as something that runs.
     assert.deepEqual(inv.attachments, [{ url: up.data.url, name: 'Quote.pdf', size: pdf.length }]);
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, attachments: [{ url: up.data.url, name: 'a/b\\c<d>.pdf.exe ' }] })).data.invoice.attachments[0].name, 'a b c d .pdf.pdf');
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, attachments: [{ url: up.data.url, name: '...' }] })).data.invoice.attachments[0].name, 'file.pdf');
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, due: '2026-02-31' })).data.invoice.due, '');
     assert.equal(inv.terms, 'net15');
     assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, attachments: [], terms: 'whenever' })).data.invoice.terms, '');
     const four = [];
@@ -1988,6 +2006,7 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, phase: 'someday' })).status, 400);
     assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, customer: {} })).status, 400);
     assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, start: '2026-12-21' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, name: 'Dates', start: '2026-02-31', attachments: [] })).data.project.start, '');
     r = await me('POST', `/api/sites/${site.id}/projects`, pbody);
     assert.equal(r.status, 201);
     const proj = r.data.project;
@@ -1998,7 +2017,6 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     const bigUrl = (await me('POST', '/api/uploads?kind=file', big, { raw: true })).data.url;
     assert.equal((await me('PUT', `/api/sites/${site.id}/projects/${proj.id}`, { ...pbody, attachments: [{ url: bigUrl, name: 'big.pdf' }] })).status, 400);
     // Another business cannot see or change them.
-    await other('POST', '/api/auth/signup', { email: 'other@files.test', password: 'long-enough-pw', name: 'Other' });
     assert.equal((await other('GET', `/api/sites/${site.id}/projects`)).status, 404);
     assert.equal((await other('PUT', `/api/sites/${site.id}/projects/${proj.id}`, pbody)).status, 404);
     // Its invoices follow a rename, and stay, without the project, when it is deleted.
@@ -2007,9 +2025,17 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     assert.equal(r.status, 200);
     assert.equal(r.data.invoices.find((v) => v.id === inv.id).project, 'Deck rebuild');
     const second = (await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, name: 'Fence' })).data.project;
+    await me('DELETE', `/api/sites/${site.id}/projects/${(await me('GET', `/api/sites/${site.id}/projects`)).data.projects.find((x) => x.name === 'Dates').id}`);
     r = await me('DELETE', `/api/sites/${site.id}/projects/${proj.id}`);
     assert.deepEqual(r.data.projects.map((x) => x.id), [second.id]);
     assert.equal(r.data.invoices.find((v) => v.id === inv.id).project, '');
+    // Files have their own room: when it is full, photos still upload.
+    const uid = (await me('GET', '/api/me')).data.user.id;
+    const raw17 = new DatabaseSync(join(d17, 'sites.db'));
+    raw17.prepare("INSERT INTO uploads (name, user_id, size, created_at, kind) VALUES ('filler00001.pdf', ?, ?, ?, 'file')").run(uid, 250 * 1024 * 1024, Date.now());
+    raw17.close();
+    assert.equal((await me('POST', '/api/uploads?kind=file', pdf, { raw: true })).status, 413);
+    assert.equal((await me('POST', '/api/uploads', png, { raw: true })).status, 201);
     // A week on, files an invoice or a project uses stay; the rest are cleared away.
     await app17.sweepUploads(Date.now() + 8 * 86400000);
     assert.equal((await anon('GET', up.data.url, null, host)).status, 200);

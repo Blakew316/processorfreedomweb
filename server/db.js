@@ -252,6 +252,8 @@ export function openDb(dataDir) {
   // Files attached to an invoice, and its payment terms (Upon receipt, Net 15...), so its due date can follow the day it is sent.
   addColumn('invoices', 'attachments', "TEXT NOT NULL DEFAULT '[]'");
   addColumn('invoices', 'terms', "TEXT NOT NULL DEFAULT ''");
+  // Whether an upload is a photo or a file attached to an invoice or project: each has its own room.
+  addColumn('uploads', 'kind', "TEXT NOT NULL DEFAULT 'image'");
   // Projects: a larger job for one customer. Its invoices and estimates are filed under its name.
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL, phase TEXT NOT NULL DEFAULT 'proposal', type TEXT NOT NULL DEFAULT '',
