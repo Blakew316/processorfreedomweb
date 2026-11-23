@@ -187,7 +187,7 @@ export const TEMPLATES = [
       hours: hours(['Tuesday – Thursday', '5:00 – 9:30 PM'], ['Friday – Saturday', '5:00 – 10:30 PM'], ['Sunday', '4:00 – 9:00 PM'], ['Monday', 'Closed']),
       sections: [
         hero('Neighborhood kitchen', 'Good food, made with care.', `${n} serves seasonal dishes cooked from scratch, in a room built for long dinners and good company.`, link('Reserve a table', '#contact'), link('See the menu', '#menu')),
-        about('Our story', `${n} began with a simple idea: cook honest food with the best ingredients we can find, and treat every guest like a regular. We work with nearby farms and change the menu as the seasons do.`),
+        about('Our story', `${n} began with a simple idea: cook honest food with the best ingredients we can find, and treat every guest like a regular. We change the menu as the seasons do.`),
         offer('Menu', 'The menu', 'A few favourites. Ask your server about tonight’s specials.', 'list', [['Wood-fired flatbread', 'Roasted garlic, mozzarella, basil, olive oil', '$14'], ['Market salad', 'Greens, shaved fennel, citrus, toasted almonds', '$12'], ['Handmade pappardelle', 'Slow-braised short rib ragù, parmesan', '$24'], ['Pan-roasted salmon', 'Lemon butter, asparagus, herbed potatoes', '$28'], ['Half roasted chicken', 'Pan jus, charred broccolini, garlic mash', '$25'], ['Olive oil cake', 'Whipped mascarpone, seasonal fruit', '$10']]),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -239,7 +239,7 @@ export const TEMPLATES = [
       sections: [
         hero('By appointment', 'Leave feeling like yourself, only better.', `${n} is a calm, modern studio for hair, skin and nails, with stylists who listen first.`, link('Book an appointment', '#contact'), link('View services', '#services')),
         offer('Services', 'Services', 'Every visit starts with a consultation.', 'list', [['Signature cut and style', 'Consultation, wash, cut and finish', '$65+'], ['Color and gloss', 'Single process with a shine treatment', '$95+'], ['Balayage', 'Hand-painted, lived-in color', '$180+'], ['Classic facial', 'Cleanse, exfoliate, mask and massage', '$85'], ['Gel manicure', 'Shape, cuticle care and long-wear polish', '$45'], ['Blowout', 'Wash and style', '$45']]),
-        feats('The details matter', [['sparkle', 'Expert stylists', 'Continuously trained in the latest techniques.'], ['leaf', 'Gentle products', 'Professional-grade care for hair and skin.'], ['calendar', 'Easy booking', 'Appointments that start on time.']]),
+        feats('The details matter', [['sparkle', 'Expert stylists', 'Continuously trained in the latest techniques.'], ['leaf', 'Gentle products', 'Professional-grade care for hair and skin.'], ['calendar', 'Easy booking', 'Book a time that suits you.']]),
         about('A studio built around you', `At ${n} we believe great service starts with listening. Tell us how you live, and we will give you a look that works every day, not just the day you leave the chair.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -274,7 +274,7 @@ export const TEMPLATES = [
       hours: hours(['Monday – Friday', '7:00 AM – 6:00 PM'], ['Saturday', '8:00 AM – 2:00 PM'], ['Emergencies', '24 / 7']),
       sections: [
         hero('Home repairs and installations', 'Done right, the first time.', `${n} provides repairs, installations and maintenance for homes and small businesses.`, link('Get a quote', '#contact'), link('Our services', '#services'), 'split'),
-        feats('Why homeowners call us', [['clock', 'On-time arrival', 'We give you a real appointment window and keep it.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Work you can count on', 'We stand behind the work we do.']]),
+        feats('Why homeowners call us', [['clock', 'Clear scheduling', 'We agree on a time that works for you.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Straight talk', 'We explain the work before we start.']]),
         offer('Services', 'Services', 'No job too small.', 'cards', [['Repairs', 'Fast diagnosis and lasting fixes.'], ['Installations', 'Done to code with quality materials.'], ['Maintenance plans', 'Seasonal checkups that prevent expensive surprises.']]),
         about('About us', `${n} takes care of homes and small businesses in this community, and treats every home with respect.`),
         gallery(),
@@ -309,7 +309,7 @@ export const TEMPLATES = [
       hours: hours(['Monday – Friday', '7:30 AM – 6:00 PM'], ['Saturday', '8:00 AM – 1:00 PM']),
       sections: [
         hero('Repairs and maintenance', 'Back on the road, with confidence.', `${n} handles everything from oil changes to major repairs, and explains every recommendation in plain language.`, link('Schedule service', '#contact'), link('What we fix', '#services')),
-        offer('Services', 'Services', 'All makes and models.', 'cards', [['Maintenance', 'Oil, filters, fluids and factory-scheduled service.', 'From $49'], ['Brakes and tires', 'Inspection, replacement, alignment and balancing.'], ['Diagnostics and repair', 'Check-engine lights, electrical, engine and transmission.']]),
+        offer('Services', 'Services', 'Everyday service and repairs.', 'cards', [['Maintenance', 'Oil, filters, fluids and factory-scheduled service.', 'From $49'], ['Brakes and tires', 'Inspection, replacement, alignment and balancing.'], ['Diagnostics and repair', 'Check-engine lights, electrical, engine and transmission.']]),
         feats('The shop you can trust', [['tool', 'Experienced technicians', 'Equipped with the right tools for the job.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', 'Straight answers', 'We explain what needs doing and what can wait.']]),
         about('About us', `${n} keeps this community moving, and only recommends what your vehicle actually needs.`),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -320,11 +320,11 @@ export const TEMPLATES = [
   {
     id: 'order', name: 'Online ordering', blurb: 'A menu customers can order from', accent: '#1d1d1f', font: 'sans', radius: 'soft',
     build: (n) => ({
-      tagline: 'Order online for pickup or delivery',
+      tagline: 'Order online',
       cta: link('Order online', '/order'),
       hours: hours(['Monday – Friday', '11:00 AM – 9:00 PM'], ['Saturday – Sunday', '10:00 AM – 9:00 PM']),
       sections: [
-        hero('Order online', `${n}, ready when you are.`, 'Order ahead and skip the wait. Choose pickup, curbside or delivery and we will have it ready.', link('Order online', '/order'), link('See the menu', '#menu')),
+        hero('Order online', `${n}, ready when you are.`, 'Order ahead and skip the wait.', link('Order online', '/order'), link('See the menu', '#menu')),
         sec('menu', 'Menu', SECTION_DEFAULTS.menu()),
         about('About us', `Welcome to ${n}. Tell customers who you are, what you make, and what makes it worth coming back for.`),
         gallery(),
@@ -923,7 +923,7 @@ export function resolveOptions(item, picks, lang = 'en') {
 export const LANGS = { en: 'English', es: 'Español' };
 export const STRINGS = {
   en: {
-    orderOnline: 'Order online', bookOnline: 'Book online', add: 'Add', added: 'Added', soldOut: 'Sold out', onlyLeft: 'Only {n} left', yourOrder: 'Your order', emptyCart: 'Add items from the menu to get started.', paused: 'Online ordering is paused right now.',
+    orderOnline: 'Order online', bookOnline: 'Book online', add: 'Add', added: 'Added', soldOut: 'Sold out', onlyLeft: 'Only {n} left', onlyOne: 'Only 1 left', maxN: 'Max {n}', upTo: 'You can add up to {n}.', tooMany: 'Too many tries. Please wait a few minutes and try again.', yourOrder: 'Your order', emptyCart: 'Add items from the menu to get started.', paused: 'Online ordering is paused right now.',
     closedNow: 'We are closed right now.', busyNow: 'We have as many orders as we can make right now. Please try again in a few minutes.', busySchedule: 'We have as many orders as we can make right now. You can choose a later time.', search: 'Search the menu', noMatch: 'Nothing on the menu matches that.', closedSchedule: 'We are closed right now. You can schedule an order for later.', notTaking: 'We are not taking online orders right now. Please check back soon or give us a call.',
     name: 'Name', phone: 'Phone', emailConfirm: 'Email for your confirmation', address: 'Delivery address', vehicle: 'Vehicle make, model and colour', notes: 'Notes for us', tip: 'Add a tip', none: 'None',
     subtotal: 'Subtotal', discount: 'Discount', tax: 'Tax', delivery: 'Delivery', tipLine: 'Tip', total: 'Total', place: 'Place order', placing: 'Placing order…', pausedBtn: 'Ordering is paused',
@@ -944,7 +944,7 @@ export const STRINGS = {
     privacy: 'Privacy Policy', terms: 'Terms of Service', policies: 'Store Policies', accessibility: 'Accessibility', effective: 'Effective', skip: 'Skip to content', menu: 'Menu', notFound: 'Page not found.', notFoundSub: 'The page you are looking for does not exist or has moved.', learnMore: 'Learn more',
   },
   es: {
-    orderOnline: 'Ordenar en línea', bookOnline: 'Reservar en línea', add: 'Agregar', added: 'Agregado', soldOut: 'Agotado', onlyLeft: 'Solo quedan {n}', yourOrder: 'Tu pedido', emptyCart: 'Agrega artículos del menú para comenzar.', paused: 'Los pedidos en línea están en pausa.',
+    orderOnline: 'Ordenar en línea', bookOnline: 'Reservar en línea', add: 'Agregar', added: 'Agregado', soldOut: 'Agotado', onlyLeft: 'Solo quedan {n}', onlyOne: 'Solo queda 1', maxN: 'Máx. {n}', upTo: 'Puedes agregar hasta {n}.', tooMany: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.', yourOrder: 'Tu pedido', emptyCart: 'Agrega artículos del menú para comenzar.', paused: 'Los pedidos en línea están en pausa.',
     closedNow: 'Estamos cerrados en este momento.', busyNow: 'Tenemos todos los pedidos que podemos preparar ahora. Inténtalo de nuevo en unos minutos.', busySchedule: 'Tenemos todos los pedidos que podemos preparar ahora. Puedes elegir una hora más tarde.', search: 'Buscar en el menú', noMatch: 'Nada en el menú coincide.', closedSchedule: 'Estamos cerrados en este momento. Puedes programar un pedido para más tarde.', notTaking: 'No estamos tomando pedidos en línea en este momento. Vuelve pronto o llámanos.',
     name: 'Nombre', phone: 'Teléfono', emailConfirm: 'Correo para tu confirmación', address: 'Dirección de entrega', vehicle: 'Marca, modelo y color del vehículo', notes: 'Notas para nosotros', tip: 'Agregar propina', none: 'Ninguna',
     subtotal: 'Subtotal', discount: 'Descuento', tax: 'Impuesto', delivery: 'Entrega', tipLine: 'Propina', total: 'Total', place: 'Hacer pedido', placing: 'Enviando pedido…', pausedBtn: 'Pedidos en pausa',

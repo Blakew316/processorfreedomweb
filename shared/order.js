@@ -294,7 +294,7 @@ function orderClient() {
       var o = it.g.map(function (g, gi) { return [].map.call(e.target.querySelectorAll('[name=g' + gi + ']:checked'), function (i) { return Number(i.value); }).filter(function (n) { return n >= 0; }); });
       var miss = it.g.filter(function (g, gi) { return g.r && !o[gi].length; })[0];
       if (miss) { var p = e.target.querySelector('.oerr'); p.hidden = false; p.textContent = T.choose + ': ' + miss.n; return; }
-      if (!put(c, id, o)) { var q = e.target.querySelector('.oerr'); q.hidden = false; q.textContent = T.onlyLeft.replace('{n}', it.max); return; }
+      if (!put(c, id, o)) { var q = e.target.querySelector('.oerr'); q.hidden = false; q.textContent = T.upTo.replace('{n}', it.max); return; }
       keep(c); close(); draw();
     });
     d.body.appendChild(box);
@@ -336,11 +336,11 @@ function orderClient() {
     if (t.dataset.promo) {
       var code = (S.f.promo || '').trim(); S.perr = ''; S.promo = null;
       if (!code) { draw(); return; }
-      fetch(c.promoUrl + '?code=' + encodeURIComponent(code)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) { S.promo = j; draw(); }).catch(function () { S.perr = c.T.promoBad; draw(); });
+      fetch(c.promoUrl + '?code=' + encodeURIComponent(code), { headers: { Accept: 'application/json' } }).then(function (r) { if (r.status === 429) throw { m: c.T.tooMany }; if (!r.ok) throw 0; return r.json(); }).then(function (j) { S.promo = j; draw(); }).catch(function (e) { S.perr = (e && e.m) || c.T.promoBad; draw(); });
       return;
     }
     S.err = ''; keep(c); draw();
-    if (t.dataset.add) { var o = t.textContent; t.textContent = full ? c.T.onlyLeft.replace('{n}', it.max) : c.T.added; if (!full) t.classList.add('ok'); setTimeout(function () { t.textContent = o; t.classList.remove('ok'); }, full ? 1600 : 900); if (!full) fly(t); }
+    if (t.dataset.add) { if (!t.dataset.label) t.dataset.label = t.textContent; clearTimeout(t._pf); t.textContent = full ? c.T.maxN.replace('{n}', it.max) : c.T.added; t.classList.toggle('ok', !full); t._pf = setTimeout(function () { t.textContent = t.dataset.label; t.classList.remove('ok'); }, full ? 1600 : 900); if (!full) fly(t); }
   });
   // A small dot travels from the button to the cart, then the cart gives a soft bounce.
   function fly(from) {
@@ -374,12 +374,12 @@ function orderClient() {
     S.busy = true; S.err = ''; draw();
     var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', expect: S.total, name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, zip: S.f.zip, vehicle: S.f.vehicle, notes: S.f.notes };
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var er = new Error(j.error || 'x'); er.code = j.code; throw er; } return j; }); })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var er = new Error(j.error || 'x'); er.code = j.code; er.srv = true; throw er; } return j; }); })
       .then(function (j) { S.lines = []; keep(c); location.href = j.url; })
       .catch(function (x) {
         // A price changed while the page was open: keep the cart and load the page again, so the new prices show before anything is sent.
         if (x.code === 'prices') { S.err = c.T.pricesChanged; draw(); keep(c); setTimeout(function () { location.reload(); }, 1800); return; }
-        S.busy = false; S.err = x.message && x.message !== 'x' ? x.message : c.T.failed; draw();
+        S.busy = false; S.err = x.srv && x.message && x.message !== 'x' ? x.message : c.T.failed; draw();
       });
   });
   window.pfOrderInit = function () { var c = conf(); if (c) { if (!S.loaded) { load(c); S.loaded = 1; } draw(); spy(); } };
@@ -393,7 +393,7 @@ const tile = (x, { ordering, button, T }) => {
   // The lowest price anyone can pay: the item plus the cheapest open choice in every required group.
   const extra = arr(x.options).reduce((sum, g) => { const open = g.choices.filter((c) => !c.hidden && !c.soldOut); return g.required && open.length ? sum + Math.min(...open.map((c) => c.price || 0)) : sum; }, 0);
   const from = extra > 0;
-  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? esc(fill((T && T.from) || 'From {price}', { price: money(itemPrice(x) + extra) })) : money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
+  return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? esc(fill((T && T.from) || 'From {price}', { price: money(itemPrice(x) + extra) })) : money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(x.stock === 1 && T.onlyOne ? T.onlyOne : T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
 export function groupMenu(menu) {

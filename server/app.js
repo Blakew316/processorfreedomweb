@@ -393,7 +393,7 @@ export function createApp(options = {}) {
   const idForName = (site, name) => { const n = str(name).trim(), hits = n ? staffNames(site).filter(([, x]) => x === n) : []; return hits.length === 1 ? hits[0][0] : ''; };
   // A person's new name reaches everything they did. Records kept by account follow at once; older ones that only
   // carry a name follow when no one else here goes by that name, so nobody else's work is ever moved.
-  const NAMED = [['orders', 'handled_by', 'handled_by_id', 'updated_at'], ['money_log', 'by_name', 'by_id', 'at'], ['cash_log', 'by_name', 'by_id', 'created_at'], ['timeclock', 'name', 'user_id', 'in_at'], ['shifts', 'name', 'user_id', 'day'], ['appointments', 'employee', 'employee_id', 'created_at']];
+  const NAMED = [['orders', 'handled_by', 'handled_by_id', 'created_at'], ['money_log', 'by_name', 'by_id', 'at'], ['cash_log', 'by_name', 'by_id', 'created_at'], ['timeclock', 'name', 'user_id', 'in_at'], ['shifts', 'name', 'user_id', 'day'], ['appointments', 'employee', 'employee_id', 'created_at']];
   // since: when the person joined this business. Older records with only a name may belong to someone who went by it before.
   function carryName(site, userId, name, oldNames, since = 0) {
     if (!name) return;
@@ -1653,7 +1653,7 @@ export function createApp(options = {}) {
   function moneyMoves(site, lo, hi) {
     const payments = [], refunds = [];
     for (const r of db.all('SELECT * FROM money_log WHERE site_id = ? AND at >= ? AND at < ? ORDER BY at, rowid', site.id, lo, hi)) {
-      const x = { at: r.at, source: r.source, ref: r.ref, refId: r.ref_id, customer: r.customer, channel: r.channel, method: r.method, amount: r.amount, tip: r.tip, tax: r.tax, fee: r.fee, note: r.note, by: r.by_name };
+      const x = { id: r.id, at: r.at, source: r.source, ref: r.ref, refId: r.ref_id, customer: r.customer, channel: r.channel, method: r.method, amount: r.amount, tip: r.tip, tax: r.tax, fee: r.fee, note: r.note, by: r.by_name };
       (r.kind === 'refund' ? refunds : payments).push(x);
     }
     return { payments, refunds };
@@ -1972,6 +1972,14 @@ export function createApp(options = {}) {
     // Refunds count on the day they were made, against the order they belong to, unless it was cancelled (its sales are not counted either).
     // They come off net sales and the total everywhere, so the rows of every report add up.
     const refunds = mv.refunds.filter((x) => x.source === 'Order' && ofType(x));
+    // What each order had already had refunded before each refund row, so its shares are worked out on the running total.
+    const refundedBefore = new Map();
+    if (refunds.length) {
+      const run = new Map();
+      for (const r of db.all("SELECT id, ref_id, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'refund' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify([...new Set(refunds.map((x) => x.refId))]))) {
+        const was = run.get(r.ref_id) || 0; refundedBefore.set(r.id, was); run.set(r.ref_id, was + r.amount - r.tax - r.tip - r.fee);
+      }
+    }
     const refOrders = new Map(refunds.length ? db.all('SELECT id, status, method, handled_by, paid_at, paid_method, subtotal, discount, tax, tip, fee, total, items, tax_rate FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(refunds.map((x) => x.refId))])).map((o) => [o.id, o]) : []);
     for (const x of refunds) {
       const o = refOrders.get(x.refId);
@@ -1983,20 +1991,20 @@ export function createApp(options = {}) {
       if (day < from || day > to) continue;
       totals.refunds += part.sales; totals.net -= part.sales; totals.tax -= part.tax; totals.tips -= part.tip; totals.fees -= part.fee; totals.total -= x.amount;
       const lines = JSON.parse(o.items || '[]'), taxedLines = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net0 = o.subtotal - o.discount;
-      const taxable0 = o.subtotal ? Math.round(taxedLines - (o.discount * taxedLines) / o.subtotal) : 0, taxablePart = net0 ? Math.round((part.sales * taxable0) / net0) : 0;
+      const taxable0 = o.subtotal ? Math.round(taxedLines - (o.discount * taxedLines) / o.subtotal) : 0, pre = refundedBefore.get(x.id) || 0;
+      const cumTaxable = (v) => (net0 ? Math.round((v * taxable0) / net0) : 0), taxablePart = cumTaxable(pre + part.sales) - cumTaxable(pre);
       totals.taxable -= taxablePart; totals.nontaxable -= part.sales - taxablePart;
       // The refunded sales come off the items they were for, in proportion, so Item sales, categories and revenue classes add up to net sales.
-      let leftR = part.sales, leftD = o.discount;
+      // Shares are taken on the order's running refunded total, so an order refunded in parts ends exactly at zero on every line.
+      const lineCum = (v) => { let left = v, leftD = o.discount; return lines.map((l, i) => { const g = l.price * l.qty, last = i === lines.length - 1, off = last ? leftD : o.subtotal ? Math.round((o.discount * g) / o.subtotal) : 0; leftD -= off; const a = last ? left : net0 ? Math.round((v * (g - off)) / net0) : 0; left -= a; return a; }); };
+      const was = lineCum(pre), now = lineCum(pre + part.sales);
       lines.forEach((l, i) => {
-        const g = l.price * l.qty, last = i === lines.length - 1, off = last ? leftD : o.subtotal ? Math.round((o.discount * g) / o.subtotal) : 0; leftD -= off;
-        const back = last ? leftR : net0 ? Math.round((part.sales * (g - off)) / net0) : 0; leftR -= back;
+        const back = now[i] - was[i];
         const category = catOf[l.id] || 'No longer on the menu';
         (items.get(l.name) || items.set(l.name, { name: l.name, category, qty: 0, sales: 0 }).get(l.name)).sales -= back;
         (cats.get(category) || cats.set(category, { name: category, qty: 0, sales: 0 }).get(category)).sales -= back;
         const rk = l.rev || 'No revenue class'; (revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk)).sales -= back;
       });
-      const rate = o.tax_rate ?? ordering.taxRate ?? 0, rr = totals.rates.get(rate) || totals.rates.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0 }).get(rate);
-      rr.taxable -= taxablePart; rr.nontaxable -= part.sales - taxablePart; rr.tax -= part.tax; rr.refunds = (rr.refunds || 0) + 1;
       const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : day);
       if (s1) { s1.net -= part.sales; s1.tax -= part.tax; s1.tips -= part.tip; if (s1.types) { const ty = s1.types[o.method] ||= { orders: 0, net: 0, total: 0 }; ty.net -= part.sales; ty.total -= x.amount; } }
       const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
@@ -2017,13 +2025,36 @@ export function createApp(options = {}) {
     // taken back in the same period nets to nothing; one taken back now that was paid earlier counts against this period.
     const invNet = new Map();
     for (const x of invoices) invNet.set(x.refId, (invNet.get(x.refId) || 0) + Math.sign(x.amount));
-    const taxRows = new Map([...totals.rates.values()].map((r) => [r.rate, { ...r, invoices: 0 }]));
+    const taxRows = new Map();
+    const rowFor = (rate) => taxRows.get(rate) || taxRows.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(rate);
+    {
+      const orderPaid = paidNow.filter((x) => x.source === 'Order'), orderBack = mv.refunds.filter((x) => x.source === 'Order' && within(x.at) && ofType(x));
+      const ids = [...new Set([...orderPaid, ...orderBack].map((x) => x.refId))];
+      const ord = new Map(ids.length ? db.all('SELECT id, items, subtotal, discount, tax, total, tax_rate FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify(ids)).map((o) => [o.id, o]) : []);
+      const base = (o) => { const lines = JSON.parse(o.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net = o.subtotal - o.discount; const taxable = o.subtotal ? Math.round(taxed - (o.discount * taxed) / o.subtotal) : 0; return { net, taxable }; };
+      // Payments: each order once, for the share of it paid in the period (by its tax, or by its total when it had none).
+      const paidBy = new Map();
+      for (const x of orderPaid) { const t = paidBy.get(x.refId) || paidBy.set(x.refId, { tax: 0, amount: 0 }).get(x.refId); t.tax += x.tax || 0; t.amount += x.amount; }
+      for (const [oid, t] of paidBy) {
+        const o = ord.get(oid); if (!o) continue;
+        const share = o.tax ? t.tax / o.tax : o.total ? t.amount / o.total : 0, b = base(o), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
+        const taxable = Math.round(share * b.taxable);
+        r.taxable += taxable; r.nontaxable += Math.round(share * b.net) - taxable; r.tax += t.tax; r.orders += Math.sign(share);
+      }
+      // Refunds: the tax each gave back, and its sales shared between taxable and not on the order's running total.
+      for (const x of orderBack) {
+        const o = ord.get(x.refId); if (!o) continue;
+        const b = base(o), sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = refundedBefore.get(x.id) || 0;
+        const cum = (v) => (b.net ? Math.round((v * b.taxable) / b.net) : 0), taxable = cum(pre + sales) - cum(pre), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
+        r.taxable -= taxable; r.nontaxable -= sales - taxable; r.tax -= x.tax || 0; r.refunds = (r.refunds || 0) + 1;
+      }
+    }
     if (!onlyType && invNet.size) {
       for (const v of db.all('SELECT id, items, tax_rate, discount, discount_name, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...invNet.keys()]))) {
         const k = Math.sign(invNet.get(v.id) || 0); if (!k) continue;
         const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0);
         const taxable = v.subtotal ? Math.round(taxed - (v.discount * taxed) / v.subtotal) : 0;
-        const r = taxRows.get(v.tax_rate) || taxRows.set(v.tax_rate, { rate: v.tax_rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(v.tax_rate);
+        const r = rowFor(v.tax_rate);
         r.taxable += k * taxable; r.nontaxable += k * (v.subtotal - v.discount - taxable); r.tax += k * v.tax; r.invoices += k;
         if (v.discount) { const dn = v.discount_name || 'Invoice discount', pk = `invoice:${dn}`, pr = promos.get(pk) || promos.set(pk, { name: dn, uses: 0, amount: 0, invoice: true }).get(pk); pr.uses += k; pr.amount += k * v.discount; }
       }
@@ -2034,7 +2065,7 @@ export function createApp(options = {}) {
     if (!onlyType) for (const x of apptPaid) {
       const a = apptRow.get(x.refId), k = Math.sign(x.amount), tax = Math.abs(x.tax || 0), sale = Math.abs(x.amount) - tax;
       const rate = a && a.tax_rate != null ? a.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0, taxable = a && a.taxable != null ? Math.min(sale, a.taxable) : tax ? sale : 0;
-      const r = taxRows.get(rate) || taxRows.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(rate);
+      const r = rowFor(rate);
       r.taxable += k * taxable; r.nontaxable += k * (sale - taxable); r.tax += k * tax; r.appointments = (r.appointments || 0) + k;
     }
     const { rates, ...sums } = totals;
@@ -2182,7 +2213,7 @@ export function createApp(options = {}) {
   async function serveSite(req, res, site, base, sub, origin, draft = false) {
     try { return await siteRequest(req, res, site, base, sub, origin, draft); }
     catch (e) {
-      if (req.method !== 'POST' || !site) throw e;
+      if (!site || !(req.method === 'POST' || sub.startsWith('/_'))) throw e;
       let lang = 'en'; try { lang = JSON.parse(draft ? site.draft : site.published || site.draft).lang; } catch { /* English */ }
       if (lang !== 'es') throw e;
       if (!(e instanceof HttpError)) { console.error(e); e = new HttpError(500, 'Something went wrong on our side. Please try again.'); }
@@ -2196,7 +2227,7 @@ export function createApp(options = {}) {
     let config = site && JSON.parse(draft ? site.draft : site.published || 'null');
     // An invoice or an order's tracking page does not depend on the website being live, so links already sent keep working.
     if (!config && site && /^\/(invoice|order)\/[\w-]{10,40}$/.test(path)) config = JSON.parse(site.draft);
-    if (!config) return html(res, 404, simplePage('Coming soon', 'This website has not been published yet.'));
+    if (!config) { let es = false; try { es = JSON.parse(site.draft).lang === 'es'; } catch { /* English */ } return html(res, 404, es ? simplePage('Próximamente', 'Este sitio web aún no está publicado.', 'es') : simplePage('Coming soon', 'This website has not been published yet.')); }
     const home = `${origin}${base}/`;
     // Search engines are given the site's one public address: a page reached through the free path address names its main address instead.
     const canon = draft || !base.startsWith('/s/') ? home : `${siteUrl(req, site).replace(/\/$/, '')}/`;
@@ -2237,7 +2268,9 @@ export function createApp(options = {}) {
     if (path === '/_promo' && req.method === 'GET') {
       limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000);
       const promo = ordering.enabled && promoFor(site, ordering, new URL(req.url, 'http://x').searchParams.get('code'));
-      return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
+      // Raised as an error, so a Spanish site answers in Spanish.
+      if (!promo) bad(404, 'That code is not valid.');
+      return json(res, 200, { code: promo.code, type: promo.type, value: promo.value });
     }
     if (path === '/_order' && req.method === 'POST' && !draft) {
       limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000);

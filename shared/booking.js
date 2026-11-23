@@ -49,9 +49,9 @@ function bookClient() {
     var b = {}; [].forEach.call(f.elements, function (el) { if (el.name) b[el.name] = el.value; });
     var btn = f.querySelector('button'); btn.disabled = true;
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(b) })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'x'); return j; }); })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var er = new Error(j.error || 'x'); er.srv = true; throw er; } return j; }); })
       .then(function () { location.href = c.done; })
-      .catch(function (x) { btn.disabled = false; err.textContent = x.message && x.message !== 'x' ? x.message : c.t.failed; });
+      .catch(function (x) { btn.disabled = false; err.textContent = x.srv && x.message && x.message !== 'x' ? x.message : c.t.failed; });
   });
 }
 

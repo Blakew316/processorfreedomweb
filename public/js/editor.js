@@ -227,16 +227,19 @@ export async function editor(id, mount, title, startTab = '') {
     snap.flush();
     if (at + by < 0 || at + by >= history.length) return;
     at += by;
-    const was = JSON.parse(history[at]), b0 = draft.business || {}, br = draft.brand || {};
-    const live = { biz: Object.fromEntries(['phone', 'email', 'address1', 'city', 'state', 'zip'].map((k) => [k, b0[k]])), logo: br.logo, logoMode: br.logoMode, name: br.name };
+    const was = JSON.parse(history[at]);
     for (const k of Object.keys(draft)) delete draft[k];
     Object.assign(draft, was);
-    draft.business = { ...(draft.business || {}), ...live.biz, hours: hoursText(ordering.hours) };
-    draft.brand = { ...(draft.brand || {}), logo: live.logo, logoMode: live.logoMode, name: live.name };
     sel = null; saveState = 'dirty'; if (meta.live) meta.dirty = true;
     repaint(); save(); paintPanel(); paintTop();
   }
   function changed() { saveState = 'dirty'; if (meta.live) meta.dirty = true; repaint(); save(); snap(); paintTop(); }
+  // A value that went live (business details, logo, name, opening hours) is written into the draft and into every Undo step,
+  // so Undo never takes back what customers already see, while everything still only in the draft stays undoable.
+  function pinLive(apply) {
+    apply(draft);
+    for (let i = 0; i < history.length; i++) { const d = JSON.parse(history[i]); apply(d); history[i] = JSON.stringify(d); }
+  }
   const flush = async () => { if (saveState !== 'saved') await save.flush(); };
 
   /* ---------- form controls ---------- */
@@ -1287,7 +1290,7 @@ export async function editor(id, mount, title, startTab = '') {
       const when = (ms) => new Date(ms).toLocaleString(undefined, { timeZone: ordering.timezone || 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
       const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
       const editRow = (x) => { const nm = h('input', { value: x ? x.name : '', placeholder: 'Name', 'aria-label': 'Name', maxlength: 80, list: 'pf-staff' }), i1 = h('input', { type: 'datetime-local', value: local(x ? x.inAt : Date.now() - 8 * 3600000), 'aria-label': 'Clocked in' }), o1 = h('input', { type: 'datetime-local', value: local(x ? x.outAt : Date.now()), 'aria-label': 'Clocked out' });
-        const save = async () => { if (!nm.value.trim()) return toast('Enter a name.', true); if (!i1.value) return toast('Enter when they clocked in.', true); try { const body = { name: nm.value, inAt: fromBizWall(i1.value), outAt: o1.value ? fromBizWall(o1.value) : null }; clockData = x ? await api('PUT', `/api/sites/${id}/timeclock/${x.id}`, body) : await api('POST', `/api/sites/${id}/timeclock/entries`, body); tsEdit = ''; tsAdding = false; toast('Saved'); paintPanel(); } catch (e) { toast(e.message, true); } };
+        const save = async () => { if (!nm.value.trim()) return toast('Enter a name.', true); if (!i1.value) return toast('Enter when they clocked in.', true); try { const body = { name: nm.value, inAt: x && i1.value === local(x.inAt) ? x.inAt : fromBizWall(i1.value), outAt: !o1.value ? null : x && x.outAt && o1.value === local(x.outAt) ? x.outAt : fromBizWall(o1.value) }; clockData = x ? await api('PUT', `/api/sites/${id}/timeclock/${x.id}`, body) : await api('POST', `/api/sites/${id}/timeclock/entries`, body); tsEdit = ''; tsAdding = false; toast('Saved'); paintPanel(); } catch (e) { toast(e.message, true); } };
         return h('tr', { class: 'inline-tr' }, h('td', {}, nm), h('td', {}, i1), h('td', {}, o1), h('td', {}, ''), h('td', { style: 'text-align:right;white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: () => { tsEdit = ''; tsAdding = false; paintPanel(); } }, 'Cancel'), ' ', h('button', { class: 'btn sm', onclick: save }, 'Save'))); };
       return [h('div', { class: 'inv' },
         h('datalist', { id: 'pf-staff' }, [...new Set(entries.map((x) => x.name))].map((n) => h('option', { value: n }))),
@@ -2472,7 +2475,7 @@ export async function editor(id, mount, title, startTab = '') {
     const t = st.totals;
     const hourly = st.unit === 'hour', part = hourly ? clState.allDay : 'all';
     const win = { all: [0, 24], morning: [5, 11], midday: [11, 16], evening: [16, 24] }[part];
-    const ser = hourly ? st.series.map((x) => (Number(x.key) >= win[0] && Number(x.key) < win[1] ? x : { ...x, net: 0, orders: 0, tax: 0, tips: 0, gross: 0, collected: 0 })) : st.series;
+    const ser = hourly ? st.series.map((x) => (Number(x.key) >= win[0] && Number(x.key) < win[1] ? x : { ...x, net: 0, orders: 0, tax: 0, tips: 0, gross: 0, collected: 0, types: {}, paid: {} })) : st.series;
     // With part of the day chosen, every figure is the chosen hours' share.
     const sum = (k) => ser.reduce((a, x) => a + (x[k] || 0), 0);
     const shownNet = part === 'all' ? t.net : sum('net'), shownOrders = part === 'all' ? t.orders : sum('orders');
@@ -2957,7 +2960,7 @@ export async function editor(id, mount, title, startTab = '') {
     const local = (ms) => (ms ? bizWall(ms) : '');
     const when = (ms) => new Date(ms).toLocaleString(undefined, { timeZone: ordering.timezone || 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     const editRow = (x) => { const nm = h('input', { value: x ? x.name : '', placeholder: 'Name', 'aria-label': 'Name', maxlength: 80 }), i1 = h('input', { type: 'datetime-local', value: x ? local(x.inAt) : '', 'aria-label': 'Clocked in' }), o1 = h('input', { type: 'datetime-local', value: x ? local(x.outAt) : '', 'aria-label': 'Clocked out' });
-      const save = async () => { if (!nm.value.trim()) return toast('Enter a name.', true); if (!i1.value) return toast('Enter when they clocked in.', true); try { const body = { name: nm.value, inAt: fromBizWall(i1.value), outAt: o1.value ? fromBizWall(o1.value) : null }; clockData = x ? await api('PUT', `/api/sites/${id}/timeclock/${x.id}`, body) : await api('POST', `/api/sites/${id}/timeclock/entries`, body); tsEdit = ''; tsAdding = false; toast('Saved'); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const save = async () => { if (!nm.value.trim()) return toast('Enter a name.', true); if (!i1.value) return toast('Enter when they clocked in.', true); try { const body = { name: nm.value, inAt: x && i1.value === local(x.inAt) ? x.inAt : fromBizWall(i1.value), outAt: !o1.value ? null : x && x.outAt && o1.value === local(x.outAt) ? x.outAt : fromBizWall(o1.value) }; clockData = x ? await api('PUT', `/api/sites/${id}/timeclock/${x.id}`, body) : await api('POST', `/api/sites/${id}/timeclock/entries`, body); tsEdit = ''; tsAdding = false; toast('Saved'); paintPanel(); } catch (e) { toast(e.message, true); } };
       return h('tr', { class: 'inline-tr' }, h('td', {}, nm), h('td', {}, i1), h('td', {}, o1), h('td', {}, ''), h('td', { style: 'text-align:right;white-space:nowrap' }, h('button', { class: 'btn soft sm', onclick: () => { tsEdit = ''; tsAdding = false; paintPanel(); } }, 'Cancel'), ' ', h('button', { class: 'btn sm', onclick: save }, 'Save'))); };
     let content;
     if (clState.tsMode === 'pay') {
@@ -3392,8 +3395,8 @@ export async function editor(id, mount, title, startTab = '') {
         btn.disabled = true;
         try {
           await flush();
-          const r = await inTurn(async () => { const x = await api('PUT', `/api/sites/${id}/name`, { name }); meta = { ...meta, ...x.site }; draftRev = x.site.draftRev; return x; });
-          draft.brand.name = r.site.name; title(meta.name);
+          const r = await inTurn(async () => { const x = await api('PUT', `/api/sites/${id}/name`, { name }); meta = { ...meta, ...x.site }; draftRev = x.site.draftRev; pinLive((d) => { (d.brand ||= {}).name = x.site.name; }); return x; });
+          title(meta.name);
           close();
           toast(!r.emailed ? 'Business name changed' : isOwner ? 'Business name changed. We emailed you about it.' : 'Business name changed. The account owner was emailed.');
           paint(true); paintTop(); paintPanel();
@@ -3408,7 +3411,15 @@ export async function editor(id, mount, title, startTab = '') {
   // Business details go live at once (the server writes them into the saved and the live site), so receipts and the order page agree.
   async function liveBiz(body) {
     await flush();
-    await inTurn(async () => { const r = await api('PUT', `/api/sites/${id}/business`, { ...body, rev: draftRev }); meta = { ...meta, ...r.site }; draftRev = r.site.draftRev; });
+    // The page's own copy changes inside the same turn as the write, so a publish queued after it sends what is now live.
+    await inTurn(async () => {
+      const r = await api('PUT', `/api/sites/${id}/business`, { ...body, rev: draftRev }); meta = { ...meta, ...r.site }; draftRev = r.site.draftRev;
+      pinLive((d) => {
+        if (body.business) Object.assign((d.business ||= {}), body.business);
+        if (body.week) (d.business ||= {}).hours = hoursText(body.week);
+        if (body.logo !== undefined) { d.brand ||= {}; d.brand.logo = body.logo; if (body.logo && d.brand.logoMode === 'text') d.brand.logoMode = 'image'; }
+      });
+    });
   }
   CL.bizinfo = () => {
     const b = draft.business || (draft.business = {}), { name, logo } = bizOf();

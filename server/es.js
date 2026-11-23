@@ -7,6 +7,7 @@ const EXACT = new Map([
   ['Please describe your vehicle so we can find you.', 'Describe tu vehículo para que podamos encontrarte.'],
   ['Sorry, we do not deliver to that ZIP code.', 'Lo sentimos, no entregamos en ese código postal.'],
   ['That promo code is not valid.', 'Ese código no es válido.'],
+  ['That code is not valid.', 'Ese código no es válido.'],
   ['Your order is below the delivery minimum.', 'Tu pedido no alcanza el mínimo para entrega.'],
   ['Your order is empty.', 'Tu pedido está vacío.'],
   ['Online ordering is paused right now. Please call us to order.', 'Los pedidos en línea están en pausa. Llámanos para ordenar.'],

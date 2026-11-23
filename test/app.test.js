@@ -1583,3 +1583,45 @@ test('a refused employee save leaves nothing behind; refunds in parts add up exa
     assert.equal(r.status, 400);
   } finally { base = saved; srv.close(); app10.close(); rmSync(d10, { recursive: true, force: true }); }
 });
+
+test('the Taxes report counts money taken; refunds in parts end at exactly zero on every row; Spanish promo answers', async () => {
+  const d11 = mkdtempSync(join(tmpdir(), 'pfsites11-'));
+  const app11 = createApp({ dataDir: d11, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app11);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'taxcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@tax.test', password: 'long-enough-pw', name: 'Tess' });
+    let site = (await me('POST', '/api/sites', { name: 'Tax Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price,Taxable\nTaco,3.50,yes\nTea,2.25,no' })).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25 } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const [taco, tea] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const who = { name: 'Ana', phone: '903-555-0100', email: 'ana@tax.test', method: 'pickup' };
+    // An order nobody has paid for yet is not tax collected.
+    await anon('POST', '/_order', { ...who, items: [{ id: taco.id, qty: 1 }] }, host);
+    let st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.equal(st.totals.rates.reduce((a, r) => a + r.tax, 0), 0, 'unpaid tax is not collected');
+    // Paid in cash, its tax is collected and matches Finances.
+    await anon('POST', '/_order', { ...who, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
+    const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.equal(order.total, 604);
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { method: 'Cash' });
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    let row = st.totals.rates.find((r) => r.rate === 8.25);
+    assert.deepEqual([row.taxable, row.nontaxable, row.tax, row.orders, st.money.tax], [350, 225, 29, 1, 29]);
+    // Refunded in odd parts: every row, and every item, ends at exactly zero.
+    for (const part of [101, 101, 101, 301]) assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { refund: part })).status, 200);
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    row = st.totals.rates.find((r) => r.rate === 8.25);
+    assert.deepEqual([row.taxable, row.nontaxable, row.tax, st.money.tax], [0, 0, 0, 0]);
+    assert.deepEqual(st.items.filter((x) => x.name !== 'Taco' || x.qty === 2).map((x) => [x.name, x.sales]).sort(), [['Taco', 350], ['Tea', 0]], 'only the unpaid taco order is left in item sales');
+
+    // A Spanish site's promo lookups answer in Spanish.
+    site = (await me('GET', `/api/sites/${site.id}`)).data.site;
+    await me('PUT', `/api/sites/${site.id}`, { draft: { ...site.draft, lang: 'es' }, rev: site.draftRev });
+    await me('POST', `/api/sites/${site.id}/publish`, { rev: (await me('GET', `/api/sites/${site.id}`)).data.site.draftRev });
+    const r = await anon('GET', '/_promo?code=NOPE', null, { ...host, headers: { Accept: 'application/json' } });
+    assert.deepEqual([r.status, r.data.error], [404, 'Ese código no es válido.']);
+  } finally { base = saved; srv.close(); app11.close(); rmSync(d11, { recursive: true, force: true }); }
+});
