@@ -5103,7 +5103,7 @@ html[data-theme=dark] .it-sort{color:var(--muted)}
 .it-table .it-wide{min-width:200px}
 .it-table td.it-c{width:1%;white-space:nowrap;padding-left:27px}
 .it-table th.it-c{width:1%;white-space:nowrap}
-.it-table th.it-c.tipc{white-space:normal}
+.it-table th.it-c.tipc{white-space:normal;min-width:126px;max-width:132px}
 .it-name{display:flex;align-items:center;gap:8px;min-width:0}
 .it-swatch{flex:none;width:40px;height:40px;border-radius:4px;object-fit:cover;background:var(--it-swatch)}
 .it-swatch.none{display:inline-block}

@@ -3328,15 +3328,18 @@ export async function editor(id, mount, title, startTab = '') {
     }, 'drawer it-drawer');
   }
   /* Rearrange a list: drag a row by mouse or finger, or tab to a row, press Space to pick it up, move it with the arrow keys and Space to drop it. */
-  function layoutDrawer(title, what, names, onSave) {
+  // entries: [key, name] pairs. Rows are told apart by key, so two groups with the same name can still be moved.
+  function layoutDrawer(title, what, entries, onSave) {
+    const nameOf = new Map(entries);
     itDrawer(title, (dirty) => {
-      let order = [...names], picked = null, asc = true;
+      let order = entries.map(([k]) => k), picked = null, asc = true;
       const list = h('div', { class: 'itd-list', role: 'list' });
       const draw = (focus) => { list.replaceChildren(...order.map(row)); if (focus != null) [...list.children].find((x) => x.dataset.n === focus)?.focus(); };
       const move = (n, by) => { const i = order.indexOf(n), j = i + by; if (j < 0 || j >= order.length) return; order.splice(i, 1); order.splice(j, 0, n); dirty(); draw(n); };
       function row(n) {
-        const el = h('div', { class: `itd-row${picked === n ? ' picked' : ''}`, tabindex: 0, role: 'listitem', 'data-n': n, 'aria-label': picked === n ? `${n}, picked up` : n },
-          h('span', { class: 'grow' }, n), h('span', { class: 'itd-hd', html: II.handle, 'aria-hidden': 'true' }));
+        const label = nameOf.get(n);
+        const el = h('div', { class: `itd-row${picked === n ? ' picked' : ''}`, tabindex: 0, role: 'listitem', 'data-n': n, 'aria-label': picked === n ? `${label}, picked up` : label },
+          h('span', { class: 'grow' }, label), h('span', { class: 'itd-hd', html: II.handle, 'aria-hidden': 'true' }));
         el.onkeydown = (e) => {
           if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); picked = picked === n ? null : n; draw(n); }
           else if (picked === n && (e.key === 'ArrowUp' || e.key === 'ArrowLeft')) { e.preventDefault(); move(n, -1); }
@@ -3346,28 +3349,31 @@ export async function editor(id, mount, title, startTab = '') {
         el.onpointerdown = (e) => {
           if (e.button !== 0) return;
           const startY = e.clientY; let dragging = false;
+          // Listened for on the window: moving the row in the list would end a pointer capture on the row itself.
           const onMove = (ev) => {
+            if (ev.pointerId !== e.pointerId) return;
             if (!dragging && Math.abs(ev.clientY - startY) < 6) return;
-            if (!dragging) { dragging = true; el.classList.add('dragging'); try { el.setPointerCapture(e.pointerId); } catch { /* old browser */ } }
+            if (!dragging) { dragging = true; el.classList.add('dragging'); }
             ev.preventDefault();
             const others = [...list.children].filter((x) => x !== el);
-            const after = others.find((x) => { const r = x.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
-            if (after) list.insertBefore(el, after); else list.append(el);
+            const after = others.find((x) => { const r = x.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; }) || null;
+            if (el.nextElementSibling !== after) list.insertBefore(el, after);
           };
-          const onUp = () => {
-            el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp);
+          const onUp = (ev) => {
+            if (ev.pointerId !== e.pointerId) return;
+            window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
             if (!dragging) return;
             el.classList.remove('dragging');
             const next = [...list.children].map((x) => x.dataset.n);
             if (next.join('\n') !== order.join('\n')) { order = next; dirty(); }
           };
-          el.addEventListener('pointermove', onMove); el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
+          window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
         };
         return el;
       }
       draw();
       const az = h('button', { type: 'button', class: 'it-btn grey itd-az' }, 'A-Z', h('span', { class: 'it-bic', html: II.up }));
-      az.onclick = () => { order.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }) * (asc ? 1 : -1)); az.lastChild.innerHTML = asc ? II.up : II.down; asc = !asc; dirty(); draw(); };
+      az.onclick = () => { order.sort((a, b) => nameOf.get(a).localeCompare(nameOf.get(b), undefined, { sensitivity: 'base' }) * (asc ? 1 : -1)); az.lastChild.innerHTML = asc ? II.up : II.down; asc = !asc; dirty(); draw(); };
       const key = (t) => h('kbd', {}, t);
       return {
         body: [h('div', { class: 'itd-top' }, h('p', { class: 'itd-lead' }, `Arrange how ${what} appear online.`), h('p', { class: 'itd-k' }, 'Keyboard instructions'),
@@ -3466,7 +3472,7 @@ export async function editor(id, mount, title, startTab = '') {
     const bulk = async (body, msg) => { const list = ids(); if (!list.length) return toast('Those categories have no items yet.', true); await itemsBulk(list, body, msg); };
     const pair = (label, onL, onFn, offL, offFn) => h('div', { class: 'bgroup' }, h('span', {}, label), h('div', { class: 'seg' }, h('button', { type: 'button', onclick: onFn }, onL), h('button', { type: 'button', onclick: offFn }, offL)));
     const b = (label, fn) => h('button', { type: 'button', class: 'btn soft sm', onclick: fn }, label);
-    return [h('div', { class: 'cl it' }, itHead('Categories', itBtn('Change layout', { icon: II.layout, kind: 'outline', onclick: () => layoutDrawer('Category layout', 'categories', catNames(), saveCatOrder) }),
+    return [h('div', { class: 'cl it' }, itHead('Categories', itBtn('Change layout', { icon: II.layout, kind: 'outline', onclick: () => layoutDrawer('Category layout', 'categories', catNames().map((c) => [c, c]), saveCatOrder) }),
       itMore([['Download categories', () => csvDownload('categories', [['Category name', 'Category ID', 'Items'], ...rows.map((r) => [r.id, r.cells.cid, r.n])])]])),
       h('div', { class: 'it-bar' }, itSearch('Search categories', 'cats'), itBtn('Add category', { icon: II.plus, kind: 'fill', onclick: () => addCategory(cats) })),
       itBulk('cats', ['category', 'categories'], [
@@ -3480,16 +3486,17 @@ export async function editor(id, mount, title, startTab = '') {
 
   /* ---------- Modifier groups ---------- */
   const usedBy = (g) => menu.filter((x) => (x.mods || []).includes(g.id));
-  async function saveModOrder(order) {
-    const byName = new Map(); for (const g of ordering.modGroups) { if (!byName.has(g.name)) byName.set(g.name, []); byName.get(g.name).push(g); }
-    ordering.modGroups = order.map((n) => byName.get(n).shift()).filter(Boolean);
+  async function saveModOrder(ids) {
+    const byId = new Map(ordering.modGroups.map((g) => [g.id, g]));
+    // Any group added meanwhile keeps its place at the end.
+    ordering.modGroups = [...ids.map((x) => byId.get(x)).filter(Boolean), ...ordering.modGroups.filter((g) => !ids.includes(g.id))];
     await putOrdering(); toast('Modifier group layout saved'); paintPanel(); paint(true);
   }
   const openGroup = (g) => { clState.modEdit = g.id; clState.modDraft = null; goTab('mod-edit'); };
   CL.mods = () => {
     const tab = clState.modTab ||= 'groups';
     const groups = ordering.modGroups;
-    const head = itHead('Modifier groups', itBtn('Change layout', { icon: II.layout, kind: 'outline', onclick: () => layoutDrawer('Modifier group layout', 'modifier groups', groups.map((g) => g.name), saveModOrder) }),
+    const head = itHead('Modifier groups', itBtn('Change layout', { icon: II.layout, kind: 'outline', onclick: () => layoutDrawer('Modifier group layout', 'modifier groups', groups.map((g) => [g.id, g.name]), saveModOrder) }),
       itMore([['Download modifier groups', () => csvDownload('modifier-groups', [['Modifier group name', 'Modifier ID', 'Modifier', 'Price'], ...groups.flatMap((g) => (g.choices.length ? g.choices : [{ name: '', price: 0 }]).map((c) => [g.name, g.id.toUpperCase(), c.name, c.name ? (c.price / 100).toFixed(2) : '']))])]]));
     const add = itBtn('Add modifier group', { icon: II.plus, kind: 'fill', onclick: () => { clState.modDraft = null; goTab('mod-new'); } });
     const seg = itSeg([['groups', 'Modifier groups'], ['mods', 'Modifiers']], tab, (k) => { clState.modTab = k; });
