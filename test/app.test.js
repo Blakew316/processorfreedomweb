@@ -1625,3 +1625,49 @@ test('the Taxes report counts money taken; refunds in parts end at exactly zero 
     assert.deepEqual([r.status, r.data.error], [404, 'Ese código no es válido.']);
   } finally { base = saved; srv.close(); app11.close(); rmSync(d11, { recursive: true, force: true }); }
 });
+
+test('the Taxes report always equals Finances: part gift card orders cancelled, invoices re-priced after a payment was removed', async () => {
+  const d12 = mkdtempSync(join(tmpdir(), 'pfsites12-'));
+  const app12 = createApp({ dataDir: d12, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app12);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'eqcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@eq.test', password: 'long-enough-pw', name: 'Eve' });
+    const site = (await me('POST', '/api/sites', { name: 'Eq Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price,Taxable\nTaco,3.50,yes\nTea,2.25,no' })).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25 } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const [taco, tea] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const sum = (st) => { const rows = st.totals.rates; return [rows.reduce((a, r) => a + r.taxable, 0), rows.reduce((a, r) => a + r.nontaxable, 0), rows.reduce((a, r) => a + r.tax, 0), st.money.tax]; };
+    // A $3.00 gift card pays part of an order; the order is then cancelled and the card gets its money back.
+    const card = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 300, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Ana', phone: '903-555-0100', email: 'ana@eq.test', method: 'pickup', promo: card, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
+    let order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.equal(order.gift, 300);
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' });
+    let st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.deepEqual(sum(st), [0, 0, 0, 0], 'a cancelled order leaves nothing in the Taxes report');
+    // The same, with the rest paid at the counter first: once paid it is all there, once refunded and cancelled it is gone.
+    const card2 = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 300, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Bo', phone: '903-555-0101', email: 'bo@eq.test', method: 'pickup', promo: card2, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
+    order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { method: 'Cash' });
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.deepEqual(sum(st), [350, 225, 29, 29]);
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { refund: order.total - order.gift });
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' });
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.deepEqual(sum(st), [0, 0, 0, 0]);
+    // An invoice paid, unpaid, re-priced and paid again: the report counts what was paid each time, like Finances.
+    const inv = (await me('POST', `/api/sites/${site.id}/invoices`, { customer: { name: 'Cy', email: 'cy@eq.test' }, items: [{ name: 'Catering', qty: 1, price: 10000 }], taxRate: 8.25 })).data.invoice;
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'paid', method: 'Cash' });
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'sent' });
+    await me('PUT', `/api/sites/${site.id}/invoices/${inv.id}`, { customer: { name: 'Cy', email: 'cy@eq.test' }, items: [{ name: 'Catering', qty: 1, price: 20000 }], taxRate: 8.25 });
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'paid', method: 'Cash' });
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    const [, , tax, moneyTax] = sum(st);
+    assert.equal(tax, moneyTax, 'net taxes equal Finances');
+    assert.equal(tax, 1650);
+  } finally { base = saved; srv.close(); app12.close(); rmSync(d12, { recursive: true, force: true }); }
+});

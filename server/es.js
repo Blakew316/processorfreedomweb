@@ -42,7 +42,7 @@ const EXACT = new Map([
 const PATTERNS = [
   [/^(.+) is sold out right now\. Please remove it and try again\.$/, '$1 está agotado. Quítalo e inténtalo de nuevo.'],
   [/^(.+) is no longer available\. Please remove it and try again\.$/, '$1 ya no está disponible. Quítalo e inténtalo de nuevo.'],
-  [/^Only (\d+) of (.+) left\. Please lower the quantity and try again\.$/, 'Solo quedan $1 de $2. Baja la cantidad e inténtalo de nuevo.'],
+  [/^Only (\d+) of (.+) left\. Please lower the quantity and try again\.$/, (m, n, name) => `${n === '1' ? 'Solo queda 1' : `Solo quedan ${n}`} de ${name}. Baja la cantidad e inténtalo de nuevo.`],
   [/^Prices just changed\. Your total is now (.+)\.$/, 'Los precios acaban de cambiar. Tu total ahora es $1.'],
 ];
 

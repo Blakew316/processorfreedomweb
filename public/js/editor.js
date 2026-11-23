@@ -504,7 +504,7 @@ export async function editor(id, mount, title, startTab = '') {
       return [
         group('Business information', text('Email', b, 'email', { type: 'email' }), text('Phone', b, 'phone', { type: 'tel' }), text('Street address', b, 'address1'),
           h('div', { class: 'pair' }, text('City', b, 'city'), h('div', { class: 'pair' }, text('State', b, 'state'), text('ZIP', b, 'zip')))),
-        group('Opening hours', null, hoursGrid(ordering.hours, () => { b.hours = hoursText(ordering.hours); snap(); saveHoursSoon(); liveHoursSoon(); repaint(); })),
+        group('Opening hours', null, hoursGrid(ordering.hours, () => { b.hours = hoursText(ordering.hours); saveHoursSoon(); liveHoursSoon(); repaint(); })),
         group('Payments', text('Online payment link', b, 'payUrl', { placeholder: 'https://', hint: 'Your Processor Freedom payment page. Adds “Pay online” to your footer and makes it available for buttons.' })),
         group('Social profiles', h('div', { class: 'socials' }, [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['tiktok', 'TikTok'], ['x', 'X'], ['youtube', 'YouTube'], ['linkedin', 'LinkedIn']].map(([k, l]) => h('label', { class: 'soc' }, h('span', {}, l), h('input', { value: str(draft.social[k]), placeholder: '@username or link', autocomplete: 'off', oninput: (e) => { draft.social[k] = e.target.value; changed(); } }))))),
       ];
@@ -2485,8 +2485,8 @@ export async function editor(id, mount, title, startTab = '') {
     const lab = (x) => (hourly ? `${Number(x.key) % 12 || 12}:00 ${Number(x.key) < 12 ? 'AM' : 'PM'}` : longDay(x.key, { weekday: 'short', month: 'short', day: 'numeric' }));
     const pick = (k) => { const out = {}; for (const x of ser) for (const [n, v] of Object.entries(x[k] || {})) { const o = out[n] ||= {}; for (const [f, a] of Object.entries(v)) o[f] = (o[f] || 0) + a; } return out; };
     const types = part === 'all' ? st.methods : Object.entries(pick('types')).map(([method, v]) => ({ method, ...v }));
-    const salesRows = clState.viewBy === 'type' ? types.filter((m) => m.orders).map((m) => ({ when: ORDER_METHODS[m.method]?.name || m.method, orders: String(m.orders), net: money(m.net), total: money(m.total), _n: m.net }))
-      : ser.filter((x) => x.orders).map((x) => ({ when: lab(x), orders: String(x.orders), net: money(x.net), tax: money(x.tax), tips: money(x.tips), _n: x.net }));
+    const salesRows = clState.viewBy === 'type' ? types.filter((m) => m.orders || m.net || m.total).map((m) => ({ when: ORDER_METHODS[m.method]?.name || m.method, orders: String(m.orders), net: money(m.net), total: money(m.total), _n: m.net }))
+      : ser.filter((x) => x.orders || x.net || x.tax || x.tips).map((x) => ({ when: lab(x), orders: String(x.orders), net: money(x.net), tax: money(x.tax), tips: money(x.tips), _n: x.net }));
     const tenders = part === 'all' ? (st.money ? st.money.tenders : []) : Object.entries(pick('paid')).map(([method, v]) => ({ method, ...v })).filter((x) => x.count || x.amount || x.refunds).sort((a, b) => b.amount - a.amount);
     return [h('div', { class: 'cl' }, cHead('Reports', 'Sales Report', [exportBtn('r-full'), dots('r-full')]),
       ...cDates(cDrop([['all', 'All day'], ['morning', 'Morning (5 AM – 11 AM)'], ['midday', 'Midday (11 AM – 4 PM)'], ['evening', 'Evening (4 PM – midnight)']], part, (k) => { clState.allDay = k; paintPanel(); }, { icon: 'clock', disabled: !hourly }), cFilters(() => rPanel('Filters', () => { const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; let v = clState.type; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
@@ -2587,7 +2587,7 @@ export async function editor(id, mount, title, startTab = '') {
     const rows = rates.map((r) => ({ r: `${r.rate || 0}%${from(r)}`, a: money(r.taxable), n: money(r.nontaxable), x: money(r.tax) }));
     const taxable = rates.reduce((a, r) => a + r.taxable, 0), taxed = rates.reduce((a, r) => a + r.tax, 0);
     return [h('div', { class: 'cl' }, cHead('Finances', 'Taxes Report', [exportBtn('r-taxes'), dots('r-taxes')], 'A table view of taxes and fees collected from your customers.'), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
-      cFigs([['Applicable sales', money(taxable), null, true], ['Net taxes', money(taxed), null, true], ['Delivery fees', money(t.fees || 0), null, true]]),
+      cFigs([['Applicable sales', money(taxable), null, true], ['Net taxes', money(taxed), null, true], ['Delivery fees', money(st.money ? st.money.fees : 0), null, true]]),
       cH2('Tax details'), cTable('r-taxes', [{ k: 'r', l: 'Tax rate' }, { k: 'a', l: 'Taxable sales', r: 1 }, { k: 'n', l: 'Non-taxable sales', r: 1 }, { k: 'x', l: 'Tax', r: 1 }], rows, cEmpty('No results found', NORES)))];
   };
   SVG.clock = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
@@ -3416,7 +3416,7 @@ export async function editor(id, mount, title, startTab = '') {
       const r = await api('PUT', `/api/sites/${id}/business`, { ...body, rev: draftRev }); meta = { ...meta, ...r.site }; draftRev = r.site.draftRev;
       pinLive((d) => {
         if (body.business) Object.assign((d.business ||= {}), body.business);
-        if (body.week) (d.business ||= {}).hours = hoursText(body.week);
+        if (body.week) (d.business ||= {}).hours = coreHoursText(body.week, d.lang === 'es' ? 'es' : 'en');
         if (body.logo !== undefined) { d.brand ||= {}; d.brand.logo = body.logo; if (body.logo && d.brand.logoMode === 'text') d.brand.logoMode = 'image'; }
       });
     });
@@ -4292,7 +4292,7 @@ export async function editor(id, mount, title, startTab = '') {
       const save = h('button', { type: 'button', class: 'btn cl-blue', disabled: true }, 'Save');
       save.onclick = async () => {
         const was = ordering.hours; ordering.hours = copy; save.disabled = true;
-        try { await putOrdering(); draft.business.hours = hoursText(copy); snap(); await liveBiz({ week: copy }).catch(() => changed()); close(); toast('Business hours saved'); paintPanel(); paint(true); } catch (e) { ordering.hours = was; toast(e.message, true); save.disabled = false; }
+        try { await putOrdering(); draft.business.hours = hoursText(copy); await liveBiz({ week: copy }).catch(() => changed()); close(); toast('Business hours saved'); paintPanel(); paint(true); } catch (e) { ordering.hours = was; toast(e.message, true); save.disabled = false; }
       };
       return [h('div', { class: 'swb-h' }, h('h2', {}, 'Hours of operation'), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         hoursGrid(copy, () => { save.disabled = false; }),
@@ -4795,7 +4795,7 @@ export async function editor(id, mount, title, startTab = '') {
   };
   const onKey = (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); quickFind(); return; }
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && modeOf(tab) === 'site' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); }
   };
   window.addEventListener('keydown', onKey);
   const onLeave = (e) => { if (saveState !== 'saved' && !staleSeen) { save.flush(); e.preventDefault(); e.returnValue = ''; } };

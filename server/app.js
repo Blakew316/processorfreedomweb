@@ -433,7 +433,7 @@ export function createApp(options = {}) {
       const totals = { orders: rows.length, net: 0, tax: 0, tips: 0, total: 0 };
       const sold = new Map();
       // Refunds made that day come off, as in the reports.
-      const back = db.all("SELECT m.amount, m.tax AS rtax, m.tip AS rtip, m.fee AS rfee, m.at, o.subtotal, o.discount, o.items FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day);
+      const back = db.all("SELECT m.id, m.ref_id, m.amount, m.tax AS rtax, m.tip AS rtip, m.fee AS rfee, m.at, o.subtotal, o.discount, o.items FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day);
       totals.refunds = 0; totals.fees = 0;
       // Each line's share of its order after the order's discount; refunded sales come off the same lines.
       const share = (items, subtotal, discount, amount) => { let left = discount, leftA = amount; const net = subtotal - discount; return items.map((l, i) => { const g = l.price * l.qty, last = i === items.length - 1, off = last ? left : subtotal ? Math.round((discount * g) / subtotal) : 0; left -= off; const a = last ? leftA : net ? Math.round((amount * (g - off)) / net) : 0; leftA -= a; return [l, a]; }); };
@@ -441,10 +441,13 @@ export function createApp(options = {}) {
         totals.net += o.subtotal - o.discount; totals.tax += o.tax; totals.tips += o.tip; totals.fees += o.fee; totals.total += o.total;
         for (const [l, a] of share(o.items, o.subtotal, o.discount, o.subtotal - o.discount)) { const it = sold.get(l.name) || sold.set(l.name, { name: l.name, qty: 0, sales: 0 }).get(l.name); it.qty += l.qty; it.sales += a; }
       }
+      const pre = new Map();
+      if (back.length) { const run = new Map(); for (const r of db.all("SELECT id, ref_id, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'refund' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify([...new Set(back.map((r) => r.ref_id))]))) { const was = run.get(r.ref_id) || 0; pre.set(r.id, was); run.set(r.ref_id, was + r.amount - r.tax - r.tip - r.fee); } }
       for (const r of back) {
-        const sales = r.amount - r.rtax - r.rtip - r.rfee;
+        const sales = r.amount - r.rtax - r.rtip - r.rfee, items = JSON.parse(r.items || '[]'), was = pre.get(r.id) || 0;
         totals.refunds += sales; totals.net -= sales; totals.tax -= r.rtax; totals.tips -= r.rtip; totals.fees -= r.rfee; totals.total -= r.amount;
-        for (const [l, a] of share(JSON.parse(r.items || '[]'), r.subtotal, r.discount, sales)) { const it = sold.get(l.name); if (it) it.sales -= a; }
+        const a0 = share(items, r.subtotal, r.discount, was), a1 = share(items, r.subtotal, r.discount, was + sales);
+        a1.forEach(([l, a], i) => { const it = sold.get(l.name); if (it) it.sales -= a - a0[i][1]; });
       }
       const restocked = Number(db.run('UPDATE menu_items SET stock = restock WHERE site_id = ? AND restock IS NOT NULL AND stock != restock', site.id).changes) || 0;
       const low = db.all('SELECT name, stock FROM menu_items WHERE site_id = ? AND available = 1 AND stock <= ? ORDER BY stock, name LIMIT 30', site.id, ordering.lowStockAt);
@@ -2032,14 +2035,21 @@ export function createApp(options = {}) {
       const ids = [...new Set([...orderPaid, ...orderBack].map((x) => x.refId))];
       const ord = new Map(ids.length ? db.all('SELECT id, items, subtotal, discount, tax, total, tax_rate FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify(ids)).map((o) => [o.id, o]) : []);
       const base = (o) => { const lines = JSON.parse(o.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net = o.subtotal - o.discount; const taxable = o.subtotal ? Math.round(taxed - (o.discount * taxed) / o.subtotal) : 0; return { net, taxable }; };
-      // Payments: each order once, for the share of it paid in the period (by its tax, or by its total when it had none).
-      const paidBy = new Map();
-      for (const x of orderPaid) { const t = paidBy.get(x.refId) || paidBy.set(x.refId, { tax: 0, amount: 0 }).get(x.refId); t.tax += x.tax || 0; t.amount += x.amount; }
-      for (const [oid, t] of paidBy) {
-        const o = ord.get(oid); if (!o) continue;
-        const share = o.tax ? t.tax / o.tax : o.total ? t.amount / o.total : 0, b = base(o), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
-        const taxable = Math.round(share * b.taxable);
-        r.taxable += taxable; r.nontaxable += Math.round(share * b.net) - taxable; r.tax += t.tax; r.orders += Math.sign(share);
+      // Payments: each row's own sales (less its tax, tip and fee), shared between taxable and not on the order's running paid
+      // total, so split, removed and changed payments all land exactly; an order counts once, when it becomes paid.
+      const paidBefore = new Map();
+      if (orderPaid.length) {
+        const run = new Map();
+        for (const r of db.all("SELECT id, ref_id, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'payment' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify([...new Set(orderPaid.map((x) => x.refId))]))) {
+          const was = run.get(r.ref_id) || 0; paidBefore.set(r.id, was); run.set(r.ref_id, was + r.amount - r.tax - r.tip - r.fee);
+        }
+      }
+      for (const x of orderPaid) {
+        const o = ord.get(x.refId); if (!o) continue;
+        const b = base(o), sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = paidBefore.get(x.id) || 0;
+        const cum = (v) => (b.net ? Math.round((v * b.taxable) / b.net) : 0), taxable = cum(pre + sales) - cum(pre), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
+        r.taxable += taxable; r.nontaxable += sales - taxable; r.tax += x.tax || 0;
+        if (pre <= 0 && pre + sales > 0) r.orders += 1; else if (pre > 0 && pre + sales <= 0) r.orders -= 1;
       }
       // Refunds: the tax each gave back, and its sales shared between taxable and not on the order's running total.
       for (const x of orderBack) {
@@ -2049,14 +2059,19 @@ export function createApp(options = {}) {
         r.taxable -= taxable; r.nontaxable -= sales - taxable; r.tax -= x.tax || 0; r.refunds = (r.refunds || 0) + 1;
       }
     }
-    if (!onlyType && invNet.size) {
-      for (const v of db.all('SELECT id, items, tax_rate, discount, discount_name, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...invNet.keys()]))) {
-        const k = Math.sign(invNet.get(v.id) || 0); if (!k) continue;
-        const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0);
-        const taxable = v.subtotal ? Math.round(taxed - (v.discount * taxed) / v.subtotal) : 0;
-        const r = rowFor(v.tax_rate);
-        r.taxable += k * taxable; r.nontaxable += k * (v.subtotal - v.discount - taxable); r.tax += k * v.tax; r.invoices += k;
-        if (v.discount) { const dn = v.discount_name || 'Invoice discount', pk = `invoice:${dn}`, pr = promos.get(pk) || promos.set(pk, { name: dn, uses: 0, amount: 0, invoice: true }).get(pk); pr.uses += k; pr.amount += k * v.discount; }
+    if (!onlyType && invoices.length) {
+      const inv = new Map(db.all('SELECT id, items, tax_rate, discount, discount_name, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(invoices.map((x) => x.refId))])).map((v) => [v.id, v]));
+      for (const x of invoices) {
+        const v = inv.get(x.refId), tax = x.tax || 0, sale = x.amount - tax;
+        let share = tax ? 1 : 0;
+        if (v) { const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount; share = net ? Math.max(0, Math.min(1, (v.subtotal ? taxed - (v.discount * taxed) / v.subtotal : 0) / net)) : 0; }
+        const taxable = Math.round(sale * share), r = rowFor(v ? v.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0);
+        r.taxable += taxable; r.nontaxable += sale - taxable; r.tax += tax; r.invoices += Math.sign(x.amount);
+      }
+      // The discount an invoice used is listed once per invoice paid in the period (a payment taken back takes it off again).
+      for (const [vid, k0] of invNet) {
+        const v = inv.get(vid), k = Math.sign(k0); if (!v || !k || !v.discount) continue;
+        const dn = v.discount_name || 'Invoice discount', pk = `invoice:${dn}`, pr = promos.get(pk) || promos.set(pk, { name: dn, uses: 0, amount: 0, invoice: true }).get(pk); pr.uses += k; pr.amount += k * v.discount;
       }
     }
     // Paid appointments join the Taxes report too, at the rate and on the part they were taxed (a void counts against it).

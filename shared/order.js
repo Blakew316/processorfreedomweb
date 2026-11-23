@@ -17,7 +17,7 @@ export const ORDER_CSS = `
 .ord-menu .tiles{grid-template-columns:1fr}
 .mi .tile,.tile.mi{align-items:stretch}
 .tile .act{margin-top:14px;display:flex;align-items:center;gap:12px}
-.add{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--accent);border-radius:980px;padding:7px 18px;cursor:pointer;transition:background .2s}
+.add{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--accent);border-radius:980px;padding:7px 18px;cursor:pointer;transition:background .2s;white-space:nowrap}
 .add:hover{background:var(--bg2)}
 .soldout{font-size:14px;color:var(--muted);font-weight:500}
 .tile.off h3,.tile.off p,.tile.off .price{opacity:.5}
@@ -336,7 +336,7 @@ function orderClient() {
     if (t.dataset.promo) {
       var code = (S.f.promo || '').trim(); S.perr = ''; S.promo = null;
       if (!code) { draw(); return; }
-      fetch(c.promoUrl + '?code=' + encodeURIComponent(code), { headers: { Accept: 'application/json' } }).then(function (r) { if (r.status === 429) throw { m: c.T.tooMany }; if (!r.ok) throw 0; return r.json(); }).then(function (j) { S.promo = j; draw(); }).catch(function (e) { S.perr = (e && e.m) || c.T.promoBad; draw(); });
+      fetch(c.promoUrl + '?code=' + encodeURIComponent(code), { headers: { Accept: 'application/json' } }).then(function (r) { if (r.status === 429) throw { m: c.T.tooMany }; if (r.status === 404) throw { m: c.T.promoBad }; if (!r.ok) throw 0; return r.json(); }).then(function (j) { S.promo = j; draw(); }).catch(function (e) { S.perr = (e && e.m) || c.T.formFailed; draw(); });
       return;
     }
     S.err = ''; keep(c); draw();
