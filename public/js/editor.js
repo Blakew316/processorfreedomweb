@@ -3685,12 +3685,17 @@ export async function editor(id, mount, title, startTab = '') {
         b('Change prices', async () => { const v = await ask({ title: `Change prices in ${what()}`, label: 'Percent change (-10 lowers prices)', type: 'text', value: '5' }); if (v === null || v === '') return; const n = Number(v.replace('%', '')); if (!Number.isFinite(n) || !n || n < -90 || n > 500) return toast('Enter a change from -90 to 500 percent.', true); bulk({ set: { pricePercent: n } }, `Prices updated in ${what()}`); }),
         b('Put on sale', async () => { const v = await ask({ title: `Put ${what()} on sale`, label: 'Percent off', type: 'text', value: '10', hint: 'Enter 0 to end a sale.' }); if (v === null || v === '') return; const n = Number(String(v).replace('%', '')); if (!Number.isInteger(n) || n < 0 || n > 90) return toast('Enter a whole percent from 0 to 90.', true); bulk({ set: { sale: n } }, `Sale updated in ${what()}`); })]),
       itTable({ key: 'cats', cols: [{ k: 'name', l: 'Category name', sort: (r) => r.id.toLowerCase(), cls: 'it-wide', w: '19%' }, { k: 'sub', l: 'Subcategory', w: '19%' }, { k: 'type', l: 'Type', w: '18%' }, { k: 'cid', l: 'Category ID', w: '21%' }, { k: 'items', l: 'Items' }],
-        rows, select: true, sortBy: 'name', empty: h('div', { class: 'it-none' }, cats.length ? 'No categories found' : 'You do not have any categories') }))];
+        rows, select: true, sortBy: 'name', per: true, perLabel: 'Categories per page', empty: h('div', { class: 'it-none' }, cats.length ? 'No categories found' : 'You do not have any categories') }))];
   };
 
   /* ---------- A category (photos: its details, its tabs and the items in it) ---------- */
   const CAT_COLORS = [['Red', '#d93f3f'], ['Orange', '#ef7d32'], ['Yellow', '#e7b416'], ['Green', '#3d9b5f'], ['Teal', '#1f9aa0'], ['Blue', '#3b74d6'], ['Indigo', '#5b5bd6'], ['Purple', '#8e4ec6'], ['Pink', '#c96b9c'], ['Brown', '#8a5a3c'], ['Grey', '#7d8590'], ['Black', '#2b2b2b']];
-  const openCategory = (c) => { clState.catEdit = c; clState.catDraft = null; clState.catOpen = true; goTab('cat-view'); };
+  const openCategory = (c) => {
+    clState.catEdit = c; clState.catDraft = null; clState.catOpen = true; clState.cvf = null;
+    if (clState.itq) clState.itq.cv = '';
+    const st = (clState.it || {}).cv; if (st) { st.page = 0; st.sel.clear(); }
+    goTab('cat-view');
+  };
   // Every item belongs to one category, so items taken out of one need another. Resolves to the category chosen, or '' if cancelled.
   const chooseCategory = ({ title, text, choices, action, danger }) => new Promise((done) => {
     let picked = '';
@@ -3711,14 +3716,14 @@ export async function editor(id, mount, title, startTab = '') {
     w.document.close(); w.focus(); w.print();
   }
   // Table columns, as in the photos: a side panel with a box for each column; the name column always shows.
-  function columnsDrawer(all, hid) {
+  function columnsDrawer(all, hid, soon = new Set()) {
     sheet((close) => {
       const next = new Set(hid), same = () => [...next].sort().join() === [...hid].sort().join();
       const save = h('button', { type: 'button', class: 'it-btn fill', disabled: true }, 'Save');
       save.onclick = () => { hid.clear(); for (const k of next) hid.add(k); close(); paintPanel(); };
       return [h('div', { class: 'itd-h' }, h('h2', {}, 'Table columns'), h('button', { type: 'button', class: 'itd-x ring', 'aria-label': 'Close', onclick: close }, ic('x', 22))),
         h('div', { class: 'itd-b' }, h('p', { class: 'itd-lead2' }, 'Select which columns you would like visible'),
-          h('div', { class: 'itd-checks' }, all.map(([k, l]) => { const lock = k === 'name'; return h('label', { class: lock ? 'off' : '' }, h('input', { type: 'checkbox', checked: lock || !next.has(k), disabled: lock, onchange: (ev) => { ev.target.checked ? next.delete(k) : next.add(k); save.disabled = same(); } }), h('span', {}, l)); }))),
+          h('div', { class: 'itd-checks' }, all.map(([k, l]) => { const lock = k === 'name', off = soon.has(k); return h('label', { class: lock || off ? 'off' : '', title: off ? 'Not available yet' : null }, h('input', { type: 'checkbox', checked: !off && (lock || !next.has(k)), disabled: lock || off, onchange: (ev) => { ev.target.checked ? next.delete(k) : next.add(k); save.disabled = same(); } }), h('span', {}, l)); }))),
         h('div', { class: 'itd-f end' }, h('button', { type: 'button', class: 'it-btn grey', onclick: close }, 'Cancel'), save)];
     }, 'drawer it-drawer itd-narrow');
   }
@@ -3752,37 +3757,43 @@ export async function editor(id, mount, title, startTab = '') {
     const check = (label, on, set, tip) => h('label', { class: 'it-checkrow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { set(e.target.checked); sync(); } }), h('span', { class: tip ? 'tipl' : '', title: tip || null }, label));
     const fromIn = h('input', { type: 'time', value: d.from, 'aria-label': 'From', onchange: (e) => { d.from = e.target.value; sync(); } }), toIn = h('input', { type: 'time', value: d.to, 'aria-label': 'Until', onchange: (e) => { d.to = e.target.value; sync(); } });
     saveBtn.onclick = async () => {
-      const name = d.name.trim(); if (!name) return;
-      if (name.toLowerCase() !== old.toLowerCase() && catNames().some((c) => c !== old && c.toLowerCase() === name.toLowerCase())) return toast('That category already exists.', true);
+      // Read now, not when the page was drawn: a rename that went through before a later step failed is the name from then on.
+      const from = clState.catEdit, name = d.name.trim(); if (!name) return;
+      if (name.toLowerCase() !== from.toLowerCase() && catNames().some((c) => c !== from && c.toLowerCase() === name.toLowerCase())) return toast('That category already exists.', true);
       if (!!d.from !== !!d.to) return toast('Choose both times, or leave both empty.', true);
-      const added = [...d.items].filter((x) => !was.has(x)), removed = [...was].filter((x) => !d.items.has(x));
+      const now = new Set(menu.filter((x) => x.category === from).map((x) => x.id));
+      const added = [...d.items].filter((x) => !now.has(x)), removed = [...now].filter((x) => !d.items.has(x));
       let dest = '';
       if (removed.length) {
-        const others = catNames().filter((c) => c !== old);
+        const others = catNames().filter((c) => c !== from);
         if (!others.length) return toast('Every item needs a category. Add another category first, then move items out of this one.', true);
         dest = await chooseCategory({ title: `Move ${removed.length === 1 ? '1 item' : `${removed.length} items`}`, text: 'Every item needs a category. Choose where the items you took out of this one go.', choices: others, action: 'Move' });
         if (!dest) return;
       }
       saveBtn.disabled = true;
+      let renamed = false;
       try {
-        if (name !== old) { const r = await api('POST', `/api/sites/${id}/menu/category`, { from: old, to: name }); menu = r.items; mergeInto(ordering, r.ordering); orderingRev = r.orderingRev; clState.catEdit = name; }
-        // Saved in the list's own order, so a category that had no settings yet keeps its place.
-        const known2 = new Map(ordering.cats.map((x) => [x.name, x])), online = d.online.trim();
-        ordering.cats = catNames().map((n) => known2.get(n) || { name: n, hidden: false, from: '', to: '' });
-        const at = ordering.cats.findIndex((x) => x.name === name);
-        ordering.cats[at] = { ...ordering.cats[at], id: ordering.cats[at].id || meta0.id || steadyId(old.toLowerCase()), name, onlineName: online && online !== name ? online : '', color: d.color, hidden: d.hidden, from: d.from && d.to ? d.from : '', to: d.from && d.to ? d.to : '' };
-        await putOrdering();
+        if (name !== from) { const r = await api('POST', `/api/sites/${id}/menu/category`, { from, to: name }); menu = r.items; mergeInto(ordering, r.ordering); orderingRev = r.orderingRev; clState.catEdit = name; renamed = true; }
+        // Saved in the list's own order, so a category that had no settings yet keeps its place. The settings in memory change
+        // only once the server has them.
+        const before = ordering.cats, known2 = new Map(before.map((x) => [x.name, x])), online = d.online.trim();
+        const next = catNames().map((n) => ({ ...(known2.get(n) || { name: n, hidden: false, from: '', to: '' }) }));
+        const at = next.findIndex((x) => x.name === name);
+        next[at] = { ...next[at], id: next[at].id || meta0.id || steadyId(old.toLowerCase()), name, onlineName: online && online !== name ? online : '', color: d.color, hidden: d.hidden, from: d.from && d.to ? d.from : '', to: d.from && d.to ? d.to : '' };
+        ordering.cats = next;
+        try { await putOrdering(); } catch (e) { ordering.cats = before; throw e; }
         if (added.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: added, set: { category: name } })).items;
         if (removed.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: removed, set: { category: dest } })).items;
         if (d.paint) { const ids = menu.filter((x) => x.category === name).map((x) => x.id); if (ids.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids, set: { color: d.color } })).items; }
         toast('Saved'); paint(true); leave();
-      } catch (e) { toast(e.message, true); saveBtn.disabled = false; }
+      } catch (e) { toast(e.message, true); saveBtn.disabled = false; if (renamed) { paint(true); paintPanel(); } }
     };
     const del = async () => {
       const n = was.size, others = catNames().filter((c) => c !== old);
       if (n && !others.length) return toast('Every item needs a category. Add another category first, then delete this one.', true);
-      const to = n ? await chooseCategory({ title: `Delete ${old}?`, text: `Its ${n === 1 ? 'item moves' : `${n} items move`} to the category you choose, and menus that list it list that one instead.`, choices: others, action: 'Delete category', danger: true })
-        : (await confirmSheet({ title: `Delete ${old}?`, text: 'It is taken off any menu that lists it.', action: 'Delete category', danger: true })) ? old : '';
+      const after = `It is taken off any menu that lists it${ordering.deals.some((x) => x.category === old) ? ', and its happy hour is switched off' : ''}.`;
+      const to = n ? await chooseCategory({ title: `Delete ${old}?`, text: `Its ${n === 1 ? 'item moves' : `${n} items move`} to the category you choose. ${after}`, choices: others, action: 'Delete category', danger: true })
+        : (await confirmSheet({ title: `Delete ${old}?`, text: after, action: 'Delete category', danger: true })) ? old : '';
       if (!to) return;
       try {
         const r = await api('POST', `/api/sites/${id}/menu/category/delete`, { name: old, to: n ? to : '' });
@@ -3797,9 +3808,9 @@ export async function editor(id, mount, title, startTab = '') {
     const assigned = menu.filter((x) => d.items.has(x.id));
     // Every item here is an item, none is a service.
     const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q)) && (f.item || !f.service) && (!f.out || it.stock === 0));
-    const COLS = [['image', 'Item image'], ['name', 'Item name'], ['iid', 'Item ID'], ['price', 'Price'], ['cost', 'Cost'], ['cats', 'Categories'], ['type', 'Item type'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
+    const COLS = [['image', 'Item image'], ['name', 'Item name'], ['iid', 'Item ID'], ['online', 'Online name'], ['price', 'Price'], ['cost', 'Cost'], ['cats', 'Categories'], ['type', 'Item type'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
     const W = { name: '29%', price: '13.5%', cost: '13%', type: '13%', pos: '13.5%' }, plain = ['image', 'iid', 'cats', 'mods'].every((k) => hid.has(k));
-    const cols = COLS.filter(([k]) => k === 'name' || !hid.has(k)).map(([k, l]) => ({ k, l, w: plain ? W[k] : null, cls: k === 'name' ? 'it-wide' : k === 'pos' || k === 'stock' ? 'it-c' : '', ...(k === 'name' ? { sort: (r) => r.label.toLowerCase() } : {}), tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }));
+    const cols = COLS.filter(([k]) => k !== 'online' && (k === 'name' || !hid.has(k))).map(([k, l]) => ({ k, l, w: plain ? W[k] : null, cls: k === 'name' ? 'it-wide' : k === 'pos' || k === 'stock' ? 'it-c' : '', ...(k === 'name' ? { sort: (r) => r.label.toLowerCase() } : {}), tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }));
     const rows = list.map((it) => ({ id: it.id, label: it.name, cells: {
       image: it.image ? h('img', { class: 'it-thumb', src: it.image, alt: '', loading: 'lazy' }) : '',
       name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))), iid: it.id,
@@ -3809,7 +3820,7 @@ export async function editor(id, mount, title, startTab = '') {
       stock: itSw(it.stock !== 0, (e) => itemsBulk([it.id], { set: { stock: e.target.checked ? (it.restock ?? DEFAULT_STOCK) : 0 } }, e.target.checked ? `${it.name} is in stock` : `${it.name} is sold out`), { label: `${it.name} in stock` }),
     } }));
     const listRows = () => assigned.map((x) => [x.name, (x.price / 100).toFixed(2), x.cost == null ? '' : (x.cost / 100).toFixed(2), 'Item', x.stock === 0 ? 'No' : 'Yes']);
-    const kebab = itKebab([['Export', II.download, () => csvDownload(`${here}-items`, [['Item name', 'Price', 'Cost', 'Item type', 'In stock'], ...listRows()])], ['Print', II.print, () => printList(here, ['Item name', 'Price', 'Cost', 'Item type', 'In stock'], listRows())]], `Actions for items in ${here}`);
+    const kebab = itKebab([['Export', II.download, () => csvDownload(`${here}-items`, [['Item name', 'Price', 'Cost', 'Item type', 'In stock'], ...listRows()])], ['Print', II.print, () => printList(here, ['Item name', 'Price', 'Cost', 'Item type', 'In stock'], listRows())]], `Actions for items in ${here}`, { below: true });
     const fold = h('button', { type: 'button', class: 'it-fold', 'aria-expanded': String(d.open), 'aria-label': d.open ? 'Hide items' : 'Show items', html: d.open ? II.chevU : II.chevD, onclick: () => { d.open = !d.open; paintPanel(); } });
     const remove = () => { for (const x of itSel('cv')) d.items.delete(x); itClear('cv'); paintPanel(); };
     return [h('div', { class: 'cl it it-form it-lv it-cv' }, h('div', { class: 'it-stick' }, itBack('Categories', 'menu')),
@@ -3823,7 +3834,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'it-field' }, h('span', {}, 'Only available between'), h('div', { class: 'it-times' }, fromIn, toIn))),
       h('section', { class: 'it-card it-items' }, h('div', { class: 'it-ch it-chline' }, h('div', {}, h('h2', { class: 'it-h3' }, 'Items'), h('p', { class: 'it-sub' }, 'Manage items assigned to this category.')), fold),
         d.open && [h('div', { class: 'it-krow' }, kebab),
-          h('div', { class: 'it-bar' }, itSearch('Search items', 'cv'), itBtn('Columns', { icon: II.columns, onclick: () => columnsDrawer(COLS, hid) }), itBtn('Filters', { icon: II.sliders, onclick: () => itemFilters(f) }),
+          h('div', { class: 'it-bar' }, itSearch('Search items', 'cv'), itBtn('Columns', { icon: II.columns, onclick: () => columnsDrawer(COLS, hid, new Set(['online'])) }), itBtn('Filters', { icon: II.sliders, onclick: () => itemFilters(f) }),
             itBtn('Assign items', { icon: II.plus, kind: 'fill', onclick: () => pickItems('Assign items', d.items, (sel) => { d.items = sel; paintPanel(); }) })),
           itBulk('cv', 'item', [h('button', { type: 'button', class: 'btn soft sm', onclick: remove }, 'Remove from category')]),
           itTable({ key: 'cv', cols, rows, select: true, sortBy: 'name', per: true, perLabel: 'Items per page', empty: h('div', { class: 'it-none' }, assigned.length ? 'No items found' : 'No items assigned') })]),
@@ -3941,15 +3952,16 @@ export async function editor(id, mount, title, startTab = '') {
 
   /* ---------- Menus ---------- */
   // A round grey button with a menu of actions. Each action may carry an icon, be shown in red, or be greyed out when it cannot be used.
-  function itKebab(items, label = 'More actions') {
+  function itKebab(items, label = 'More actions', { below = false } = {}) {
     const b = h('button', { type: 'button', class: 'it-more', 'aria-label': label, title: label, 'aria-haspopup': 'menu' }, h('span', { class: 'rep-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
     b.onclick = () => {
       popover(b, (close) => h('div', { class: 'it-menu', role: 'menu' }, items.filter(Boolean).map(([l, icon, fn, kind]) => h('button', { type: 'button', role: 'menuitem', class: kind || '', disabled: !fn, onclick: () => { close(); fn(); } }, icon && h('span', { class: 'it-mi', html: icon }), h('span', {}, l)))), 'right');
       requestAnimationFrame(() => {
         if (!popEl || popEl._for !== b) return;
         const r = b.getBoundingClientRect(), m = popEl.getBoundingClientRect();
-        const top = r.top - m.height - 8 > 72 ? r.top - m.height - 8 : r.bottom + 8;
-        Object.assign(popEl.style, { top: `${Math.round(top)}px`, right: 'auto', left: `${Math.round(Math.max(12, Math.min(window.innerWidth - 12 - m.width, r.left + r.width / 2 - m.width / 2)))}px` });
+        const top = below ? (r.bottom + 4 + m.height < window.innerHeight - 8 ? r.bottom + 4 : r.top - m.height - 4) : r.top - m.height - 8 > 72 ? r.top - m.height - 8 : r.bottom + 8;
+        const left = below ? r.right - m.width : r.left + r.width / 2 - m.width / 2;
+        Object.assign(popEl.style, { top: `${Math.round(top)}px`, right: 'auto', left: `${Math.round(Math.max(12, Math.min(window.innerWidth - 12 - m.width, left)))}px` });
         popEl.querySelector('button:not(:disabled)')?.focus();
       });
     };

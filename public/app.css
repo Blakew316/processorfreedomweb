@@ -5556,3 +5556,27 @@ html[data-theme=dark] .itd-x.ring{box-shadow:inset 0 0 0 2px #cfe0ff}
 .itd-f.end{justify-content:flex-end}
 .itd-narrow .itd-f .it-btn{border-radius:980px;padding:0 24px}
 @media (max-width:900px){.cl.it-form.it-cv>.it-utabs,.cl.it-form.it-cv>.it-card{margin-left:16px;margin-right:16px}.it-cv .it-cvhead{margin-top:28px}.it-cv .it-cvhead h1{font-size:32px}.it-cv .it-utabs{margin-top:32px}.it-cv .it-cvsec{margin-top:28px;font-size:24px}.cl.it-form.it-lv>.it-card.it-cvd{padding:24px 20px 28px}.itd-checks label,.itd-checks.pad label{padding-left:24px}}
+
+/* Settings and the category page, measured again against the reference photos */
+.set-clover .set-card{padding:28px 24px 32px!important;border-radius:2px!important}
+html:not([data-theme=dark]) .set-clover .set-card{box-shadow:0 1px 3px rgba(0,0,0,.3)!important}
+.set-clover .set-card h3{font-size:24px!important;line-height:30px!important;margin:0 0 12px!important}
+.set-clover .set-body p,.set-clover .set-body a,.set-clover .set-off{font-size:16px!important}
+.set-clover .set-body a,.set-clover .set-off{text-underline-offset:2px}
+.ed-body[data-mode=office] .panel[data-tab=settings] .page-head h2{font-size:24px!important;letter-spacing:0!important}
+html:not([data-theme=dark]) .ed-body[data-mode=office] .panel[data-tab=settings] .page-head h2{color:#374145}
+.ed-body[data-mode=office] .panel[data-tab=settings] .set-grid{margin-top:20px}
+html:not([data-theme=dark]) .ed-body[data-mode=office] .ed-side>.panel[data-tab=settings]{background:#fff!important}
+@media (min-width:901px){.ed-body[data-mode=office] .ed-side>.panel[data-tab=settings]{padding-left:26px!important;padding-right:26px!important}}
+@media (min-width:901px){
+  .cl.it-form.it-cv>*{padding-left:max(56px,calc((100% - 1116px)/2));padding-right:max(64px,calc((100% - 1116px)/2))}
+  .cl.it-form.it-cv>.it-utabs,.cl.it-form.it-cv>.it-card{margin-left:max(56px,calc((100% - 1116px)/2));margin-right:max(64px,calc((100% - 1116px)/2))}
+}
+.it-cvdel{margin-right:6px}
+.it-cv .it-utabs{margin-top:63px}
+.it-cv .it-utabs button{height:34px}
+@media (max-width:900px){
+  .it-cv .it-cvhead{flex-wrap:wrap;align-items:flex-start;gap:8px}
+  .it-cv .it-cvhead h1{flex:1 1 100%;overflow-wrap:break-word}
+  .it-cvdel{margin:0 0 0 -10px}
+}

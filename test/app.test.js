@@ -1910,6 +1910,7 @@ test('a category keeps its online name and colour, customers see the online name
     assert.match(page, /<h2>Cold drinks<\/h2>/);
     assert.doesNotMatch(page, /<h2>Drinks<\/h2>/);
     assert.match(page, /<h2>Food<\/h2>/);
+    assert.match((await anon('GET', '/', null, host)).data, /Cold drinks/, 'the home page menu section shows it too');
     // Items take a colour; anything else clears it.
     let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
     const drinks = items.filter((x) => x.category === 'Drinks').map((x) => x.id);
@@ -1921,13 +1922,13 @@ test('a category keeps its online name and colour, customers see the online name
     assert.equal((await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Drinks' })).status, 400);
     assert.equal((await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Drinks', to: 'Drinks' })).status, 400);
     assert.equal((await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Nope' })).status, 404);
-    // Deleting Drinks moves its items to Food, and the menu and the happy hour that named it follow them.
+    // Deleting Drinks moves its items to Food; the menu that named it just loses it, and its happy hour is switched off.
     r = await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Drinks', to: 'food' });
     assert.equal(r.status, 200);
     assert.deepEqual(r.data.items.map((x) => [x.name, x.category]), [['Tea', 'Food'], ['Soda', 'Food'], ['Taco', 'Food']]);
     assert.deepEqual(r.data.ordering.cats.map((c) => c.name), ['Food', 'Empty']);
     assert.deepEqual(r.data.ordering.menus[0].cats, ['Food']);
-    assert.equal(r.data.ordering.deals[0].category, 'Food');
+    assert.deepEqual([r.data.ordering.deals[0].category, r.data.ordering.deals[0].active], ['Drinks', false], 'no other item gets the discount');
     // An empty category just goes.
     r = await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Empty' });
     assert.deepEqual([r.status, r.data.ordering.cats.map((c) => c.name)], [200, ['Food']]);

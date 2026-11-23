@@ -1868,8 +1868,8 @@ export function createApp(options = {}) {
     json(res, 200, { items: menuOf(site.id), ordering: orderingOf(saved), orderingRev: revOf(saved.ordering) });
   });
 
-  // Deletes a category. Every item needs one, so its items move to the category chosen, and menus and timed prices that named it
-  // follow them there.
+  // Deletes a category. Every item needs one, so its items move to the category chosen. Menus that listed it just lose it, and a
+  // happy hour for it is switched off, so no other item changes price or when it can be ordered.
   route('POST', '/api/sites/:id/menu/category/delete', async (req, res, p) => {
     const { site: asked } = ownSite(req, p.id);
     const b = await readJson(req);
@@ -1884,8 +1884,8 @@ export function createApp(options = {}) {
       db.run('UPDATE menu_items SET category = ? WHERE site_id = ? AND category = ?', to, site.id, name);
     }
     o.cats = o.cats.filter((c) => c.name !== name);
-    o.menus = o.menus.map((m2) => ({ ...m2, cats: [...new Set(m2.cats.map((c) => (c === name ? to : c)).filter(Boolean))] }));
-    if (to) o.deals = o.deals.map((x) => (x.category === name ? { ...x, category: to } : x));
+    o.menus = o.menus.map((m2) => ({ ...m2, cats: m2.cats.filter((c) => c !== name) }));
+    o.deals = o.deals.map((x) => (x.category === name ? { ...x, active: false } : x));
     db.run('UPDATE sites SET ordering = ? WHERE id = ?', JSON.stringify(normalizeOrdering(o)), site.id);
     const saved = db.get('SELECT * FROM sites WHERE id = ?', site.id);
     json(res, 200, { items: menuOf(site.id), ordering: orderingOf(saved), orderingRev: revOf(saved.ordering) });
