@@ -7,7 +7,7 @@ const TABS = [
   ['sale', 'Virtual Terminal', 'cash', 'office'], ['sites', 'My sites', 'page', 'office'], ['start', 'Home', 'home', 'office'], ['orders', 'Orders', 'bag', 'office'], ['tx', 'Transactions', 'cash', 'office'], ['cash', 'Cash log', 'cash', 'office'], ['close', 'Closeout', 'cash', 'office'], ['est', 'Estimates', 'doc', 'office'], ['tips', 'Tips', 'cash', 'office'],
   ['r-full', 'Sales report', 'chart', 'office'], ['r-emp', 'Employee sales', 'chart', 'office'], ['r-tender', 'Tender types', 'chart', 'office'], ['r-disc', 'Discounts report', 'chart', 'office'], ['r-removed', 'Removed items', 'chart', 'office'], ['r-exports', 'Exports', 'dl', 'office'], ['insights', 'Insights', 'chart', 'office'], ['appts', 'Appointments', 'clock', 'office'], ['calendar', 'Calendar', 'clock', 'office'], ['booking', 'Online booking', 'clock', 'office'], ['schedule', 'Scheduling', 'f_users', 'office'], ['timesheets', 'Timesheets', 'f_users', 'office'], ['projects', 'Projects', 'doc', 'office'], ['plans', 'Recurring payments', 'doc', 'office'], ['gift', 'Gift cards', 'tag', 'office'], ['bizinfo', 'Business information', 'store', 'office'], ['devices', 'Devices', 'bell', 'office'], ['appearance', 'Appearance', 'brush', 'office'], ['settings', 'Settings', 'settings', 'office'], ['profile', 'Profile', 'person', 'office'],
   ['items', 'Items', 'tag', 'office'], ['menu', 'Categories', 'menu', 'office'], ['mods', 'Modifier groups', 'tag', 'office'], ['menus', 'Menus', 'menu', 'office'], ['labels', 'Printer labels', 'tag', 'office'], ['revs', 'Revenue classes', 'tag', 'office'], ['discs', 'Discounts', 'tag', 'office'],
-  ['mod-new', 'Add modifier group', 'tag', 'office'], ['mod-edit', 'Modifier group', 'tag', 'office'], ['menu-view', 'Menu', 'menu', 'office'], ['label-view', 'Printer label', 'tag', 'office'],
+  ['mod-new', 'Add modifier group', 'tag', 'office'], ['mod-edit', 'Modifier group', 'tag', 'office'], ['menu-view', 'Menu', 'menu', 'office'], ['label-view', 'Printer label', 'tag', 'office'], ['cat-view', 'Category', 'menu', 'office'],
   ['sales', 'Sales overview', 'chart', 'office'], ['r-items', 'Item sales', 'chart', 'office'], ['r-types', 'Order types', 'chart', 'office'], ['r-taxes', 'Taxes', 'chart', 'office'],
   ['customers', 'Customers', 'person', 'office'], ['invoices', 'Invoices', 'doc', 'office'],
   ['r-peer', 'Peer insights', 'chart', 'office'], ['r-gift', 'Gift cards report', 'chart', 'office'], ['fin', 'Finances', 'cash', 'office'], ['stmts', 'Statements', 'doc', 'office'], ['disputes', 'Disputes', 'doc', 'office'], ['capital', 'Capital', 'cash', 'office'], ['stax', 'Sales tax', 'doc', 'office'], ['bills', 'Pay bills', 'doc', 'office'],
@@ -53,7 +53,7 @@ const NAV = {
   ],
 };
 // Pages opened from a list (a menu, a modifier group, a printer label) keep their list lit in the sidebar.
-const PARENT = { 'mod-new': 'mods', 'mod-edit': 'mods', 'menu-view': 'menus', 'label-view': 'labels' };
+const PARENT = { 'mod-new': 'mods', 'mod-edit': 'mods', 'menu-view': 'menus', 'label-view': 'labels', 'cat-view': 'menu' };
 const navOf = (k) => PARENT[k] || k;
 // What each back-office screen is for, shown as its heading.
 const HEAD = {
@@ -1047,23 +1047,20 @@ export async function editor(id, mount, title, startTab = '') {
         typeBtn, detail, pay, receipt, bar)];
     },
     settings() {
-      const links = (...items) => items.filter(([, k]) => known(k)).map(([t, k]) => h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t));
-      const ICON = { Setup: 'settings', Profile: 'customers', 'About your business': 'business', Employees: 'team', 'Business operations': 'settings', Transactions: 'orders', Ecommerce: 'address', Inventory: 'menu', 'Customers and promotions': 'promo', Website: 'address' };
-      // On a computer every card is open; on a phone each one folds open with its arrow.
-      const card = (title, ...kids) => { const el = h('div', { class: 'set-card' }); const head = h('button', { type: 'button', class: 'set-head', 'aria-expanded': 'false', onclick: () => { const now = head.getAttribute('aria-expanded') !== 'true'; head.setAttribute('aria-expanded', String(now)); el.toggleAttribute('data-open', now); } }, navTile(ICON[title] || 'page', 32), h('span', {}, title), h('i', { class: 'fold-chev', 'aria-hidden': 'true' })); el.append(h('h3', {}, head), h('div', { class: 'set-body' }, h('div', {}, ...kids))); return el; };
       const u = state.user;
       // Same cards, order and names as the reference. Items with nothing behind them yet are shown greyed out, not linked.
       const L = (t, k) => (typeof k === 'function' ? h('a', { href: '#', onclick: (e) => { e.preventDefault(); k(); } }, t) : k && known(k) ? h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t) : h('span', { class: 'set-off', 'aria-disabled': 'true' }, t));
       const box = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, h('span', { class: 'set-head' }, h('span', {}, title))), h('div', { class: 'set-body' }, h('div', {}, ...kids)));
+      // The tiles, their order and their links are exactly those of the reference photos. A link with nothing behind it yet is greyed out.
+      const check = h('i', { class: u.twoFactor ? 'on' : '', 'aria-hidden': 'true', html: u.twoFactor ? '<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.6 10.3l2.9 2.8 5.9-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '' });
       return [h('div', { class: 'set-grid set-clover' },
-        box('Profile', h('p', {}, `${u.name || u.email}, ${roleName}`), h('p', {}, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-factor authentication is ', h('b', {}, u.twoFactor ? 'on' : 'off')), L('Edit your profile', 'profile')),
-        box('Employees', L('Employee jobs', null), L('Employee roles', 'team'), L('Employee permissions', null), L('Device passcode', null)),
+        box('Profile', h('p', {}, `${u.name || u.email}, ${roleName}`), h('p', {}, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, check, 'Two-factor authentication is ', h('b', {}, u.twoFactor ? 'on' : 'off')), L('Edit your profile', 'profile')),
+        box('Services and appointments', L('Appointment booking', 'booking')),
+        box('Employees', L('Employee jobs', null), L('Employee roles', 'team'), L('Employee permissions', null), L('Device passcode', null), L('Timesheets & Scheduling', 'timesheets')),
         box('About your business', L('Business information', 'bizinfo'), L('Merchants', 'sites'), L('Closeout settings', null)),
         box('Billing and statements', L('Monthly statements', 'stmts'), L('Service plan', null)),
-        box('Business operations', L('Notification preferences', 'alerts'), L('Online ordering', 'ordering'), L('Happy hour and timed prices', 'deals'), L('Customer communication preferences', 'alerts'), L('Reporting', () => reportSettings()), L('Taxes and fees', 'ordering'), L('Additional charges', null), L('Tips', 'ordering'), L('Business hours', 'hours'), L('Devices and printers', 'devices'), L('Online booking', 'booking'), L('Appearance', 'appearance'), L('Accounting Sync', () => quickbooks()), L('API tokens', null), L('Cellular data', null), L('Inventory', 'items'), L('Enterprise Wi-Fi', null)),
+        box('Business operations', L('Notification preferences', 'alerts'), L('Online booking', 'obook'), L('Customer communication preferences', 'alerts'), L('Reporting', () => reportSettings()), L('Taxes and fees', 'ordering'), L('Additional charges', null), L('Tips', 'ordering'), L('Business hours', 'hours'), L('Devices and printers', 'devices'), L('Accounting Sync', () => quickbooks()), L('API tokens', null), L('Cellular data', null), L('Inventory', 'items'), L('Enterprise Wi-Fi', null)),
         box('Transactions', L('Orders', 'orders'), L('Order receipts', null), L('Order types', 'ordering'), L('Payments', 'tx'), L('Payment receipts', null), L('Virtual Terminal', 'sale'), L('Invoices and estimates', 'invoices')),
-        box('My sites', L('All my sites', 'sites'), L('Create another site', async () => { await flush(); go('/app/new'); }), state.user.admin && L('Staff dashboard', async () => { await flush(); go('/app/admin'); })),
-        box('Website', L('Edit my website', () => goTab(lastTab.site)), L('Look and feel', 'design'), L('Home page', 'sections'), L('Web address', 'domain'), L('Policies', 'policies'), L('Search listing', 'seo'), meta.live && L('View my live site', () => window.open(meta.url, '_blank', 'noopener'))),
         box('Ecommerce', L('Ecommerce payments', null), L('Ecommerce API tokens', null), L('Hosted checkout', null), L('Custom fields', null), L('Payment links', 'business'), L('Fraud tools', null)))];
     },
     profile() {
@@ -1524,40 +1521,6 @@ export async function editor(id, mount, title, startTab = '') {
           h('div', { class: 'field cl-field' }, h('span', {}, 'Only available between (optional)'), h('div', { class: 'cl-grid2' }, fromIn, toIn))),
         h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), saveBtn)];
     }, 'swb');
-  }
-  function editCategory(c, cats) {
-    const cur = ordering.cats.find((x) => x.name === c) || { name: c, hidden: false, from: '', to: '' };
-    const d = { ...cur, name: c };
-    sheet((close) => {
-      const field = (label, el, hint) => h('label', { class: 'field' }, h('span', {}, label), el, null);
-      const nameIn = h('input', { value: c, maxlength: 60 });
-      const fromIn = h('input', { type: 'time', value: d.from }), toIn = h('input', { type: 'time', value: d.to });
-      const hide = h('input', { type: 'checkbox', checked: d.hidden });
-      const shift = async (by) => {
-        const i = cats.indexOf(c), j = i + by; if (j < 0 || j >= cats.length) return;
-        const order = [...cats]; [order[i], order[j]] = [order[j], order[i]];
-        try { await saveCatOrder(order); close(); } catch (e) { toast(e.message, true); }
-      };
-      return [h('h2', {}, 'Edit category'),
-        field('Name', nameIn),
-        h('label', { class: 'switch' }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Hide from customers'), null), hide, h('i')),
-        h('div', { class: 'field' }, h('span', {}, 'Only available between'), h('div', { class: 'pair' }, fromIn, toIn), null),
-        h('div', { class: 'row' }, h('button', { class: 'btn soft sm', disabled: cats.indexOf(c) === 0, onclick: () => shift(-1) }, ic('up', 14), 'Move up'), h('button', { class: 'btn soft sm', disabled: cats.indexOf(c) === cats.length - 1, onclick: () => shift(1) }, ic('down', 14), 'Move down')),
-        h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn', onclick: async (e) => {
-          e.currentTarget.disabled = true;
-          try {
-            const name = nameIn.value.trim() || c;
-            if (name.toLowerCase() !== c.toLowerCase() && cats.some((x) => x.toLowerCase() === name.toLowerCase())) { e.currentTarget.disabled = false; return toast('That category already exists.', true); }
-            if (name !== c) { const r = await api('POST', `/api/sites/${id}/menu/category`, { from: c, to: name }); menu = r.items; mergeInto(ordering, r.ordering); orderingRev = r.orderingRev; }
-            const both = fromIn.value && toIn.value;
-            const at = ordering.cats.findIndex((x) => x.name === name);
-            const row = { ...(at >= 0 ? ordering.cats[at] : { id: steadyId(c.toLowerCase()) }), name, hidden: hide.checked, from: both ? fromIn.value : '', to: both ? toIn.value : '' };
-            if (at >= 0) ordering.cats[at] = row; else ordering.cats.push(row);
-            await putOrdering();
-            close(); paintPanel(); paint(true);
-          } catch (ex) { toast(ex.message, true); e.currentTarget.disabled = false; }
-        } }, 'Save'))];
-    });
   }
   /* Matches photo file names to item names: "taco-al-pastor.jpg" goes on "Taco al pastor". */
   async function bulkPhotos() {
@@ -3496,6 +3459,8 @@ export async function editor(id, mount, title, startTab = '') {
     left: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 18),
     right: SV('<path d="M5 12h14M13 6l6 6-6 6"/>', 18),
     upk: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 18),
+    download: SV('<path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/>', 22),
+    print: SV('<path d="M7 8V4.5h10V8M7 16.5H5.5A1.5 1.5 0 0 1 4 15v-5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a1.5 1.5 0 0 1-1.5 1.5H17"/><rect x="7" y="13" width="10" height="7" rx="1"/>', 22),
   };
   const itBtn = (label, { icon, kind = 'grey', onclick, disabled = false, cls = '' } = {}) => h('button', { type: 'button', class: `it-btn ${kind} ${cls}`, onclick, disabled }, icon && h('span', { class: 'it-bic', html: icon }), label);
   const itHead = (title, ...right) => h('div', { class: 'it-head' }, h('h1', {}, title), right.filter(Boolean).length > 0 && h('div', { class: 'it-tools' }, ...right.filter(Boolean)));
@@ -3505,7 +3470,7 @@ export async function editor(id, mount, title, startTab = '') {
   // A switch like the photos: filled with a tick when on. Greyed out and disabled where the feature is not available yet.
   const itSw = (checked, onchange, { disabled = false, label = '', soon = false } = {}) => h('label', { class: `it-sw${soon ? ' soon' : ''}`, title: soon ? 'Not available yet' : null, onclick: (e) => e.stopPropagation() },
     h('input', { type: 'checkbox', checked: !!checked, disabled: disabled || soon, 'aria-label': label, onchange }), h('i', { 'aria-hidden': 'true' }));
-  const itSwatch = (src) => (src ? h('img', { class: 'it-swatch', src, alt: '', loading: 'lazy' }) : h('span', { class: 'it-swatch none', 'aria-hidden': 'true' }));
+  const itSwatch = (src, color) => (src ? h('img', { class: 'it-swatch', src, alt: '', loading: 'lazy' }) : /^#[0-9a-f]{6}$/i.test(color || '') ? h('span', { class: 'it-swatch', style: `background:${color}`, 'aria-hidden': 'true' }) : h('span', { class: 'it-swatch none', 'aria-hidden': 'true' }));
   const itLink = (text, onclick) => h('button', { type: 'button', class: 'it-link', onclick: (e) => { e.stopPropagation(); onclick(); } }, text);
   const itSeg = (opts, val, set) => h('div', { class: 'it-seg', role: 'tablist' }, opts.map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === val), onclick: () => { set(k); paintPanel(); panel.querySelector('.it-seg [aria-selected="true"]')?.focus(); } }, l)));
   const itBack = (label, tab) => h('div', { class: 'it-back' }, h('button', { type: 'button', onclick: () => goTab(tab) }, h('span', { html: II.back }), label));
@@ -3626,7 +3591,7 @@ export async function editor(id, mount, title, startTab = '') {
     sheet((close) => {
       const list = h('div', { class: 'pick-list' });
       const draw = () => list.replaceChildren(...menu.filter((it) => !q || `${it.name} ${it.category}`.toLowerCase().includes(q)).map((it) => h('label', { class: 'pick-row' },
-        h('input', { type: 'checkbox', checked: sel.has(it.id), onchange: (e) => { e.target.checked ? sel.add(it.id) : sel.delete(it.id); } }), itSwatch(it.image), h('span', { class: 'grow' }, h('b', {}, it.name), h('small', {}, it.category)), h('span', {}, money(it.price)))));
+        h('input', { type: 'checkbox', checked: sel.has(it.id), onchange: (e) => { e.target.checked ? sel.add(it.id) : sel.delete(it.id); } }), itSwatch(it.image, it.color), h('span', { class: 'grow' }, h('b', {}, it.name), h('small', {}, it.category)), h('span', {}, money(it.price)))));
       draw();
       return [h('div', { class: 'swb-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', 'aria-label': 'Search items', oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } })), list,
@@ -3659,7 +3624,7 @@ export async function editor(id, mount, title, startTab = '') {
     // In stock: off marks the item sold out; on puts back its daily refill amount, or the usual starting amount.
     const setStock = (it, on) => itemsBulk([it.id], { set: { stock: on ? (it.restock ?? DEFAULT_STOCK) : 0 } }, on ? `${it.name} is in stock` : `${it.name} is sold out`);
     const rows = list.map((it) => ({ id: it.id, label: it.name, it, cells: {
-      name: h('div', { class: 'it-name' }, itSwatch(it.image), itLink(it.name, () => openItem(it.id))),
+      name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))),
       price: money(it.price), cost: it.cost == null ? '' : money(it.cost), cats: it.category,
       mods: h('span', { class: 'it-clip' }, groupsOf(it).join(', ')),
       pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }),
@@ -3704,7 +3669,7 @@ export async function editor(id, mount, title, startTab = '') {
     const cats = catNames(), q = itQ('cats');
     const metaOf = (c) => ordering.cats.find((x) => x.name === c);
     const rows = cats.filter((c) => !q || c.toLowerCase().includes(q)).map((c) => { const n = menu.filter((x) => x.category === c).length; return { id: c, label: c, n, cells: {
-      name: h('div', { class: 'it-name' }, itSwatch(''), itLink(c, () => editCategory(c, cats))), sub: '— —', type: 'Category', cid: (metaOf(c) && metaOf(c).id) || steadyId(c.toLowerCase()), items: String(n),
+      name: h('div', { class: 'it-name' }, itSwatch('', metaOf(c) && metaOf(c).color), itLink(c, () => openCategory(c))), sub: '— —', type: 'Category', cid: (metaOf(c) && metaOf(c).id) || steadyId(c.toLowerCase()), items: String(n),
     } }; });
     const sel = () => itSel('cats'), what = () => { const n = sel().length; return n === 1 ? sel()[0] : `${n} categories`; };
     const ids = () => menu.filter((x) => sel().includes(x.category)).map((x) => x.id);
@@ -3721,6 +3686,148 @@ export async function editor(id, mount, title, startTab = '') {
         b('Put on sale', async () => { const v = await ask({ title: `Put ${what()} on sale`, label: 'Percent off', type: 'text', value: '10', hint: 'Enter 0 to end a sale.' }); if (v === null || v === '') return; const n = Number(String(v).replace('%', '')); if (!Number.isInteger(n) || n < 0 || n > 90) return toast('Enter a whole percent from 0 to 90.', true); bulk({ set: { sale: n } }, `Sale updated in ${what()}`); })]),
       itTable({ key: 'cats', cols: [{ k: 'name', l: 'Category name', sort: (r) => r.id.toLowerCase(), cls: 'it-wide', w: '19%' }, { k: 'sub', l: 'Subcategory', w: '19%' }, { k: 'type', l: 'Type', w: '18%' }, { k: 'cid', l: 'Category ID', w: '21%' }, { k: 'items', l: 'Items' }],
         rows, select: true, sortBy: 'name', empty: h('div', { class: 'it-none' }, cats.length ? 'No categories found' : 'You do not have any categories') }))];
+  };
+
+  /* ---------- A category (photos: its details, its tabs and the items in it) ---------- */
+  const CAT_COLORS = [['Red', '#d93f3f'], ['Orange', '#ef7d32'], ['Yellow', '#e7b416'], ['Green', '#3d9b5f'], ['Teal', '#1f9aa0'], ['Blue', '#3b74d6'], ['Indigo', '#5b5bd6'], ['Purple', '#8e4ec6'], ['Pink', '#c96b9c'], ['Brown', '#8a5a3c'], ['Grey', '#7d8590'], ['Black', '#2b2b2b']];
+  const openCategory = (c) => { clState.catEdit = c; clState.catDraft = null; clState.catOpen = true; goTab('cat-view'); };
+  // Every item belongs to one category, so items taken out of one need another. Resolves to the category chosen, or '' if cancelled.
+  const chooseCategory = ({ title, text, choices, action, danger }) => new Promise((done) => {
+    let picked = '';
+    sheet((close) => {
+      const sel = h('select', { 'aria-label': 'Category' }, choices.map((c) => h('option', { value: c }, c)));
+      const go = h('button', { type: 'button', class: `it-btn ${danger ? 'danger' : 'fill'}`, onclick: () => { picked = sel.value; close(); } }, action);
+      return [h('div', { class: 'swb-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
+        h('div', { class: 'cl-promoform' }, h('p', { class: 'it-sub' }, text), h('label', { class: 'it-field' }, h('span', {}, 'Move them to'), sel)),
+        h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'it-btn grey', onclick: close }, 'Cancel'), go)];
+    }, 'swb', () => done(picked));
+  });
+  // A table shown in a print window, for Print in an item menu.
+  function printList(title, head, rows) {
+    const w = window.open('', '_blank');
+    if (!w) return toast('Allow pop-ups for this site to print.', true);
+    const e = (t) => String(t ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>${e(title)}</title><style>body{font:14px system-ui,sans-serif;margin:32px;color:#111}h1{font-size:22px}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #ddd}</style><h1>${e(title)}</h1><table><thead><tr>${head.map((x) => `<th>${e(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((x) => `<td>${e(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+    w.document.close(); w.focus(); w.print();
+  }
+  // Table columns, as in the photos: a side panel with a box for each column; the name column always shows.
+  function columnsDrawer(all, hid) {
+    sheet((close) => {
+      const next = new Set(hid), same = () => [...next].sort().join() === [...hid].sort().join();
+      const save = h('button', { type: 'button', class: 'it-btn fill', disabled: true }, 'Save');
+      save.onclick = () => { hid.clear(); for (const k of next) hid.add(k); close(); paintPanel(); };
+      return [h('div', { class: 'itd-h' }, h('h2', {}, 'Table columns'), h('button', { type: 'button', class: 'itd-x ring', 'aria-label': 'Close', onclick: close }, ic('x', 22))),
+        h('div', { class: 'itd-b' }, h('p', { class: 'itd-lead2' }, 'Select which columns you would like visible'),
+          h('div', { class: 'itd-checks' }, all.map(([k, l]) => { const lock = k === 'name'; return h('label', { class: lock ? 'off' : '' }, h('input', { type: 'checkbox', checked: lock || !next.has(k), disabled: lock, onchange: (ev) => { ev.target.checked ? next.delete(k) : next.add(k); save.disabled = same(); } }), h('span', {}, l)); }))),
+        h('div', { class: 'itd-f end' }, h('button', { type: 'button', class: 'it-btn grey', onclick: close }, 'Cancel'), save)];
+    }, 'drawer it-drawer itd-narrow');
+  }
+  // Filter item results, as in the photos. What does not exist yet (point of sale, age limits) is greyed out.
+  function itemFilters(f) {
+    sheet((close) => {
+      const next = { ...f };
+      const row = (k, l, soon) => h('label', { class: soon ? 'off' : '', title: soon ? 'Not available yet' : null }, h('input', { type: 'checkbox', checked: !soon && !!next[k], disabled: !!soon, onchange: (ev) => { next[k] = ev.target.checked; } }), h('span', {}, l));
+      return [h('div', { class: 'itd-h' }, h('h2', {}, 'Filter item results'), h('button', { type: 'button', class: 'itd-x ring', 'aria-label': 'Close', onclick: close }, ic('x', 22))),
+        h('div', { class: 'itd-b' }, h('div', { class: 'itd-checks pad' }, row('item', 'Item'), row('service', 'Service'), row('out', 'Out of stock'), row('pos', 'POS items', true), row('nonpos', 'Non-POS items', true), row('age', 'Age-restricted', true))),
+        h('div', { class: 'itd-f end' }, h('button', { type: 'button', class: 'it-btn grey', onclick: () => { for (const k of Object.keys(f)) f[k] = false; close(); paintPanel(); } }, 'Reset filters'),
+          h('button', { type: 'button', class: 'it-btn fill', onclick: () => { Object.assign(f, next); close(); paintPanel(); } }, 'Show results'))];
+    }, 'drawer it-drawer itd-narrow');
+  }
+  CL['cat-view'] = () => {
+    const old = clState.catEdit;
+    // Opened from the list only: after a reload, or once the category is gone, the list comes back.
+    if (!clState.catOpen || !old || !catNames().includes(old)) { setTimeout(() => goTab('menu', false, true)); return [h('div', { class: 'cl it' })]; }
+    const meta0 = ordering.cats.find((x) => x.name === old) || { name: old, onlineName: '', color: '', hidden: false, from: '', to: '' };
+    const was = new Set(menu.filter((x) => x.category === old).map((x) => x.id));
+    const d = clState.catDraft ||= { name: old, online: meta0.onlineName || old, onlineSet: !!meta0.onlineName, color: meta0.color || '', paint: false, hidden: !!meta0.hidden, from: meta0.from || '', to: meta0.to || '', items: new Set(was), open: true };
+    const dirty = () => d.name.trim() !== old || d.online.trim() !== (meta0.onlineName || old) || d.color !== (meta0.color || '') || d.paint || d.hidden !== !!meta0.hidden || d.from !== (meta0.from || '') || d.to !== (meta0.to || '') || d.items.size !== was.size || [...d.items].some((x) => !was.has(x));
+    const saveBtn = h('button', { type: 'button', class: 'it-btn fill', disabled: !dirty() || !d.name.trim() }, 'Save');
+    const sync = () => { saveBtn.disabled = !dirty() || !d.name.trim(); };
+    const leave = () => { clState.catDraft = null; clState.catOpen = false; goTab('menu'); };
+    const field = (label, input) => h('label', { class: 'it-field' }, h('span', {}, label), input);
+    // The online name follows the name until it is changed on its own.
+    const onlineIn = h('input', { value: d.online, maxlength: 60, oninput: (e) => { d.online = e.target.value; d.onlineSet = true; sync(); } });
+    const nameIn = h('input', { value: d.name, maxlength: 60, 'aria-required': 'true', oninput: (e) => { d.name = e.target.value; if (!d.onlineSet) { d.online = d.name; onlineIn.value = d.name; } sync(); } });
+    const colorIn = h('select', { onchange: (e) => { d.color = e.target.value; sync(); } }, h('option', { value: '', selected: !d.color }, 'None'), CAT_COLORS.map(([l, v]) => h('option', { value: v, selected: d.color === v }, l)));
+    const check = (label, on, set, tip) => h('label', { class: 'it-checkrow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { set(e.target.checked); sync(); } }), h('span', { class: tip ? 'tipl' : '', title: tip || null }, label));
+    const fromIn = h('input', { type: 'time', value: d.from, 'aria-label': 'From', onchange: (e) => { d.from = e.target.value; sync(); } }), toIn = h('input', { type: 'time', value: d.to, 'aria-label': 'Until', onchange: (e) => { d.to = e.target.value; sync(); } });
+    saveBtn.onclick = async () => {
+      const name = d.name.trim(); if (!name) return;
+      if (name.toLowerCase() !== old.toLowerCase() && catNames().some((c) => c !== old && c.toLowerCase() === name.toLowerCase())) return toast('That category already exists.', true);
+      if (!!d.from !== !!d.to) return toast('Choose both times, or leave both empty.', true);
+      const added = [...d.items].filter((x) => !was.has(x)), removed = [...was].filter((x) => !d.items.has(x));
+      let dest = '';
+      if (removed.length) {
+        const others = catNames().filter((c) => c !== old);
+        if (!others.length) return toast('Every item needs a category. Add another category first, then move items out of this one.', true);
+        dest = await chooseCategory({ title: `Move ${removed.length === 1 ? '1 item' : `${removed.length} items`}`, text: 'Every item needs a category. Choose where the items you took out of this one go.', choices: others, action: 'Move' });
+        if (!dest) return;
+      }
+      saveBtn.disabled = true;
+      try {
+        if (name !== old) { const r = await api('POST', `/api/sites/${id}/menu/category`, { from: old, to: name }); menu = r.items; mergeInto(ordering, r.ordering); orderingRev = r.orderingRev; clState.catEdit = name; }
+        // Saved in the list's own order, so a category that had no settings yet keeps its place.
+        const known2 = new Map(ordering.cats.map((x) => [x.name, x])), online = d.online.trim();
+        ordering.cats = catNames().map((n) => known2.get(n) || { name: n, hidden: false, from: '', to: '' });
+        const at = ordering.cats.findIndex((x) => x.name === name);
+        ordering.cats[at] = { ...ordering.cats[at], id: ordering.cats[at].id || meta0.id || steadyId(old.toLowerCase()), name, onlineName: online && online !== name ? online : '', color: d.color, hidden: d.hidden, from: d.from && d.to ? d.from : '', to: d.from && d.to ? d.to : '' };
+        await putOrdering();
+        if (added.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: added, set: { category: name } })).items;
+        if (removed.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: removed, set: { category: dest } })).items;
+        if (d.paint) { const ids = menu.filter((x) => x.category === name).map((x) => x.id); if (ids.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids, set: { color: d.color } })).items; }
+        toast('Saved'); paint(true); leave();
+      } catch (e) { toast(e.message, true); saveBtn.disabled = false; }
+    };
+    const del = async () => {
+      const n = was.size, others = catNames().filter((c) => c !== old);
+      if (n && !others.length) return toast('Every item needs a category. Add another category first, then delete this one.', true);
+      const to = n ? await chooseCategory({ title: `Delete ${old}?`, text: `Its ${n === 1 ? 'item moves' : `${n} items move`} to the category you choose, and menus that list it list that one instead.`, choices: others, action: 'Delete category', danger: true })
+        : (await confirmSheet({ title: `Delete ${old}?`, text: 'It is taken off any menu that lists it.', action: 'Delete category', danger: true })) ? old : '';
+      if (!to) return;
+      try {
+        const r = await api('POST', `/api/sites/${id}/menu/category/delete`, { name: old, to: n ? to : '' });
+        menu = r.items; mergeInto(ordering, r.ordering); for (const k of ['cats', 'menus', 'deals']) ordering[k] = r.ordering[k]; orderingRev = r.orderingRev;
+        toast('Category deleted'); paint(true); leave();
+      } catch (e) { toast(e.message, true); }
+    };
+    // Items in this category: the same tools as the item list, as in the photos.
+    const f = clState.cvf ||= { item: false, service: false, out: false };
+    const hid = clState.cvcols ||= new Set(['image', 'iid', 'cats', 'mods']);
+    const q = itQ('cv'), here = d.name.trim() || old;
+    const assigned = menu.filter((x) => d.items.has(x.id));
+    // Every item here is an item, none is a service.
+    const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q)) && (f.item || !f.service) && (!f.out || it.stock === 0));
+    const COLS = [['image', 'Item image'], ['name', 'Item name'], ['iid', 'Item ID'], ['price', 'Price'], ['cost', 'Cost'], ['cats', 'Categories'], ['type', 'Item type'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
+    const W = { name: '29%', price: '13.5%', cost: '13%', type: '13%', pos: '13.5%' }, plain = ['image', 'iid', 'cats', 'mods'].every((k) => hid.has(k));
+    const cols = COLS.filter(([k]) => k === 'name' || !hid.has(k)).map(([k, l]) => ({ k, l, w: plain ? W[k] : null, cls: k === 'name' ? 'it-wide' : k === 'pos' || k === 'stock' ? 'it-c' : '', ...(k === 'name' ? { sort: (r) => r.label.toLowerCase() } : {}), tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }));
+    const rows = list.map((it) => ({ id: it.id, label: it.name, cells: {
+      image: it.image ? h('img', { class: 'it-thumb', src: it.image, alt: '', loading: 'lazy' }) : '',
+      name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))), iid: it.id,
+      price: money(it.price), cost: it.cost == null ? '' : money(it.cost), cats: here, type: 'Item',
+      mods: h('span', { class: 'it-clip' }, ordering.modGroups.filter((g) => (it.mods || []).includes(g.id)).map((g) => g.name).join(', ')),
+      pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }),
+      stock: itSw(it.stock !== 0, (e) => itemsBulk([it.id], { set: { stock: e.target.checked ? (it.restock ?? DEFAULT_STOCK) : 0 } }, e.target.checked ? `${it.name} is in stock` : `${it.name} is sold out`), { label: `${it.name} in stock` }),
+    } }));
+    const listRows = () => assigned.map((x) => [x.name, (x.price / 100).toFixed(2), x.cost == null ? '' : (x.cost / 100).toFixed(2), 'Item', x.stock === 0 ? 'No' : 'Yes']);
+    const kebab = itKebab([['Export', II.download, () => csvDownload(`${here}-items`, [['Item name', 'Price', 'Cost', 'Item type', 'In stock'], ...listRows()])], ['Print', II.print, () => printList(here, ['Item name', 'Price', 'Cost', 'Item type', 'In stock'], listRows())]], `Actions for items in ${here}`);
+    const fold = h('button', { type: 'button', class: 'it-fold', 'aria-expanded': String(d.open), 'aria-label': d.open ? 'Hide items' : 'Show items', html: d.open ? II.chevU : II.chevD, onclick: () => { d.open = !d.open; paintPanel(); } });
+    const remove = () => { for (const x of itSel('cv')) d.items.delete(x); itClear('cv'); paintPanel(); };
+    return [h('div', { class: 'cl it it-form it-lv it-cv' }, h('div', { class: 'it-stick' }, itBack('Categories', 'menu')),
+      h('div', { class: 'it-formhead it-cvhead' }, h('h1', {}, old), h('button', { type: 'button', class: 'it-cvdel', onclick: del }, h('span', { html: SV('<path d="M5 7h14M10 11v6M14 11v6M7 7l1 12h8l1-12M9.5 7V4.5h5V7"/>', 24), 'aria-hidden': 'true' }), 'Delete category')),
+      h('div', { class: 'it-utabs', role: 'tablist' }, h('button', { type: 'button', role: 'tab', 'aria-selected': 'true' }, 'Category'), h('button', { type: 'button', role: 'tab', 'aria-selected': 'false', disabled: true, title: 'Not available yet' }, 'Subcategories')),
+      h('h2', { class: 'it-cvsec' }, 'Category'),
+      h('section', { class: 'it-card it-cvd' }, h('h2', {}, 'Details'), h('p', { class: 'it-req' }, '*Required'),
+        field('Category name*', nameIn), field('Online category name', onlineIn), field('Category color', colorIn),
+        check('Apply category color to all items in this category', d.paint, (v) => { d.paint = v; }, 'Every item in this category takes this colour in your item lists.'),
+        check('Hide from customers', d.hidden, (v) => { d.hidden = v; }),
+        h('div', { class: 'it-field' }, h('span', {}, 'Only available between'), h('div', { class: 'it-times' }, fromIn, toIn))),
+      h('section', { class: 'it-card it-items' }, h('div', { class: 'it-ch it-chline' }, h('div', {}, h('h2', { class: 'it-h3' }, 'Items'), h('p', { class: 'it-sub' }, 'Manage items assigned to this category.')), fold),
+        d.open && [h('div', { class: 'it-krow' }, kebab),
+          h('div', { class: 'it-bar' }, itSearch('Search items', 'cv'), itBtn('Columns', { icon: II.columns, onclick: () => columnsDrawer(COLS, hid) }), itBtn('Filters', { icon: II.sliders, onclick: () => itemFilters(f) }),
+            itBtn('Assign items', { icon: II.plus, kind: 'fill', onclick: () => pickItems('Assign items', d.items, (sel) => { d.items = sel; paintPanel(); }) })),
+          itBulk('cv', 'item', [h('button', { type: 'button', class: 'btn soft sm', onclick: remove }, 'Remove from category')]),
+          itTable({ key: 'cv', cols, rows, select: true, sortBy: 'name', per: true, perLabel: 'Items per page', empty: h('div', { class: 'it-none' }, assigned.length ? 'No items found' : 'No items assigned') })]),
+      h('div', { class: 'it-foot' }, h('button', { type: 'button', class: 'it-btn grey', onclick: leave }, 'Cancel'), saveBtn))];
   };
 
   /* ---------- Modifier groups ---------- */
@@ -3825,7 +3932,7 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'it-opt' }, h('span', {}, 'Customers must choose one'), itSw(d.required, (e) => { d.required = e.target.checked; }, { label: 'Customers must choose one' })),
         h('div', { class: 'it-opt' }, h('span', {}, 'Customers can choose more than one'), itSw(d.multi, (e) => { d.multi = e.target.checked; }, { label: 'Customers can choose more than one' }))),
       h('section', { class: 'it-sec' }, h('h2', {}, 'Select items to assign to this modifier group'),
-        assigned.length > 0 && h('div', { class: 'it-assigned' }, assigned.map((it) => h('div', { class: 'it-arow' }, itSwatch(it.image), h('span', { class: 'grow' }, it.name), h('button', { type: 'button', class: 'it-x', 'aria-label': `Remove ${it.name}`, onclick: () => { d.items.delete(it.id); paintPanel(); } }, ic('x', 16))))),
+        assigned.length > 0 && h('div', { class: 'it-assigned' }, assigned.map((it) => h('div', { class: 'it-arow' }, itSwatch(it.image, it.color), h('span', { class: 'grow' }, it.name), h('button', { type: 'button', class: 'it-x', 'aria-label': `Remove ${it.name}`, onclick: () => { d.items.delete(it.id); paintPanel(); } }, ic('x', 16))))),
         h('div', { class: 'it-assignrow' }, assignBtn)),
       h('div', { class: 'it-foot' }, h('button', { type: 'button', class: 'it-btn grey', onclick: leave }, 'Cancel'), saveBtn))];
   }
@@ -3950,7 +4057,7 @@ export async function editor(id, mount, title, startTab = '') {
       const cats = m.cats.filter((c) => catNames().includes(c));
       body = [card('Categories and items', cats.length > 0 && itBtn('Edit', { icon: II.pencil, onclick: () => pickCats(m) }),
         cats.length ? h('div', { class: 'it-mcats' }, cats.map((c) => { const its = menu.filter((x) => x.category === c); return h('div', { class: 'it-mcat' }, h('div', { class: 'it-mcath' }, h('b', {}, c), h('span', {}, `${its.length} item${its.length === 1 ? '' : 's'}`)),
-          its.length > 0 && h('div', { class: 'it-mitems' }, its.map((it) => h('div', { class: 'it-mitem' }, itSwatch(it.image), itLink(it.name, () => openItem(it.id)), h('span', {}, money(it.price)))))); }))
+          its.length > 0 && h('div', { class: 'it-mitems' }, its.map((it) => h('div', { class: 'it-mitem' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id)), h('span', {}, money(it.price)))))); }))
           : h('div', { class: 'it-empty' }, h('b', {}, 'You do not have any categories in this menu'), h('div', {}, itBtn('Add categories', { icon: II.plus, kind: 'fill', onclick: () => pickCats(m) }))))];
     }
     return [h('div', { class: 'cl it it-detail' }, itBack('Menus', 'menus'),
@@ -4015,7 +4122,7 @@ export async function editor(id, mount, title, startTab = '') {
     const ALL = [['price', 'Price'], ['cost', 'Cost'], ['pos', 'Show on POS'], ['stock', 'In stock']];
     const W = { name: '27%', price: '15.5%', cost: '15%', pos: '15%' };
     const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: W.name }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, w: W[k], cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
-    const rows = list.map((it) => ({ id: it.id, label: it.name, cells: { name: h('div', { class: 'it-name' }, itSwatch(it.image), itLink(it.name, () => openItem(it.id))), price: money(it.price), cost: it.cost == null ? '' : money(it.cost),
+    const rows = list.map((it) => ({ id: it.id, label: it.name, cells: { name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))), price: money(it.price), cost: it.cost == null ? '' : money(it.cost),
       pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }), stock: itSw(it.stock !== 0, (e) => itemsBulk([it.id], { set: { stock: e.target.checked ? (it.restock ?? DEFAULT_STOCK) : 0 } }, e.target.checked ? `${it.name} is in stock` : `${it.name} is sold out`), { label: `${it.name} in stock` }) } }));
     const colsB = h('button', { type: 'button', class: 'it-btn grey' }, h('span', { class: 'it-bic', html: II.columns }), 'Columns');
     colsB.onclick = () => popover(colsB, () => h('div', { class: 'cl-menu it-cols' }, h('p', { class: 'tb-k' }, 'Columns'), ALL.map(([k, l]) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: !hid.has(k), onchange: (e) => { e.target.checked ? hid.delete(k) : hid.add(k); paintPanel(); } }), h('span', {}, l)))), 'right');
@@ -4691,7 +4798,7 @@ export async function editor(id, mount, title, startTab = '') {
   /* Where am I: Dashboard › Setup › Business information. Every step can be pressed.
      "Dashboard" goes home; the section name opens its pages and the ones you used last. */
   function crumbs() {
-    if (tab === 'start' || modeOf(tab) === 'site') return null;
+    if (tab === 'start' || tab === 'settings' || modeOf(tab) === 'site') return null;
     const g = [...NAV.office, SETUP].find((x) => x.tabs.includes(tab));
     const inSettings = g === SETUP || tab === 'profile';
     const home = h('a', { class: 'crumb', href: pathFor('start'), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab('start'); } }, 'Home');

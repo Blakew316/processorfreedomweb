@@ -300,7 +300,7 @@ export function createApp(options = {}) {
     return out;
   }
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
-  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, cost: r.cost ?? null, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, color: r.color || '', price: r.price, cost: r.cost ?? null, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
   const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '', gift: r.gift || 0, giftCode: r.gift_code ? `…${r.gift_code.slice(-4)}` : '', taxRate: r.tax_rate ?? null });
   function cleanItem(b, prev = {}) {
@@ -1868,6 +1868,29 @@ export function createApp(options = {}) {
     json(res, 200, { items: menuOf(site.id), ordering: orderingOf(saved), orderingRev: revOf(saved.ordering) });
   });
 
+  // Deletes a category. Every item needs one, so its items move to the category chosen, and menus and timed prices that named it
+  // follow them there.
+  route('POST', '/api/sites/:id/menu/category/delete', async (req, res, p) => {
+    const { site: asked } = ownSite(req, p.id);
+    const b = await readJson(req);
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
+    const name = str(b.name, 60).trim(), o = orderingOf(site);
+    const n = name ? db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ? AND category = ?', site.id, name).n : 0;
+    if (!name || (!n && !o.cats.some((c) => c.name === name))) bad(404, 'We could not find that category.');
+    let to = '';
+    if (n) {
+      to = canonCategory(site, str(b.to, 60));
+      if (!to || to === name) bad(400, 'Choose the category its items move to.');
+      db.run('UPDATE menu_items SET category = ? WHERE site_id = ? AND category = ?', to, site.id, name);
+    }
+    o.cats = o.cats.filter((c) => c.name !== name);
+    o.menus = o.menus.map((m2) => ({ ...m2, cats: [...new Set(m2.cats.map((c) => (c === name ? to : c)).filter(Boolean))] }));
+    if (to) o.deals = o.deals.map((x) => (x.category === name ? { ...x, category: to } : x));
+    db.run('UPDATE sites SET ordering = ? WHERE id = ?', JSON.stringify(normalizeOrdering(o)), site.id);
+    const saved = db.get('SELECT * FROM sites WHERE id = ?', site.id);
+    json(res, 200, { items: menuOf(site.id), ordering: orderingOf(saved), orderingRev: revOf(saved.ordering) });
+  });
+
   route('POST', '/api/push/subscribe', async (req, res) => {
     const user = requireUser(req);
     const sub = (await readJson(req)).subscription || {};
@@ -1909,6 +1932,7 @@ export function createApp(options = {}) {
         if (set.restock !== undefined) db.run('UPDATE menu_items SET restock = ? WHERE id = ?', set.restock === null || set.restock === '' ? null : num(set.restock, 0, 999999), row.id);
         if (typeof set.label === 'string') db.run('UPDATE menu_items SET label = ? WHERE id = ?', str(set.label, 40).trim(), row.id);
         if (typeof set.revclass === 'string') db.run('UPDATE menu_items SET revclass = ? WHERE id = ?', str(set.revclass, 40).trim(), row.id);
+        if (typeof set.color === 'string') db.run('UPDATE menu_items SET color = ? WHERE id = ?', /^#[0-9a-f]{6}$/i.test(set.color) ? set.color.toLowerCase() : '', row.id);
         if (typeof set.addMod === 'string' || typeof set.removeMod === 'string') { const cur = (row.mods ? JSON.parse(row.mods) : []).filter((x) => x !== set.removeMod && x !== set.addMod); if (typeof set.addMod === 'string') cur.push(str(set.addMod, 24)); db.run('UPDATE menu_items SET mods = ? WHERE id = ?', JSON.stringify(cur.slice(0, 30)), row.id); }
         if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
         if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', canonCategory(site, str(set.category, 60)), row.id);

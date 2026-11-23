@@ -3762,11 +3762,19 @@ html[data-theme=dark] .sh-chip{color:#e8eeff;background:color-mix(in srgb,#8fb3f
 html[data-theme=dark] .ss-step em{color:#9cc0ff}
 .ss-task{cursor:default!important}
 
-/* Settings page: cards flow in columns like the reference, no ragged gaps */
-.ed-body[data-mode=office] .set-grid.set-clover{display:block!important;columns:2 360px;column-gap:22px}
-.set-clover .set-card{break-inside:avoid;margin:0 0 22px!important;display:grid!important}
-@media (min-width:1500px){.ed-body[data-mode=office] .set-grid.set-clover{columns:3 340px}}
-@media (max-width:700px){.ed-body[data-mode=office] .set-grid.set-clover{columns:1}}
+/* Settings page: two tiles to a row as in the reference, each row's tiles the same height */
+.ed-body[data-mode=office] .set-grid.set-clover{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:stretch}
+.set-clover .set-card{margin:0!important;display:grid!important;align-content:start}
+/* Spacing measured from the reference: 24px in from the edges, lines of text 28px apart, links 32px apart */
+.set-clover .set-card{padding:24px 24px 32px!important;gap:0!important}
+.set-clover .set-card h3{font-size:32px!important;line-height:38px;margin:0 0 8px!important}
+.set-clover .set-body>div{gap:0!important}
+.set-clover .set-body p{line-height:28px}
+.set-clover .set-body a,.set-clover .set-off{line-height:28px;margin-top:4px!important}
+.set-clover .set-2fa i{background:none!important;color:#1d4f9e;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--line2,#cfd4dc)}
+.set-clover .set-2fa i.on{box-shadow:none}
+.set-clover .set-2fa i svg{display:block}
+html[data-theme=dark] .set-clover .set-2fa i{color:#9cc0ff}
 
 /* Items list: one grid for the header and every row, so columns line up */
 @media (min-width:901px){
@@ -5166,7 +5174,7 @@ html[data-theme=dark] .it-seg button[aria-selected=true]{background:#f5f5f7;colo
 .it-back span{display:inline-flex}
 .it-detail .it-back{margin-bottom:34px}
 .it-detail .it-back button{font-size:17px;gap:14px}
-.ed-body .panel[data-tab=mod-new],.ed-body[data-mode=office] .ed-side>.panel[data-tab=mod-new],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=mod-new],.ed-body .panel[data-tab=mod-edit],.ed-body[data-mode=office] .ed-side>.panel[data-tab=mod-edit],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=mod-edit],.ed-body .panel[data-tab=label-view],.ed-body[data-mode=office] .ed-side>.panel[data-tab=label-view],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=label-view]{display:flex!important;flex-direction:column;padding:0!important}
+.ed-body .panel[data-tab=mod-new],.ed-body[data-mode=office] .ed-side>.panel[data-tab=mod-new],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=mod-new],.ed-body .panel[data-tab=mod-edit],.ed-body[data-mode=office] .ed-side>.panel[data-tab=mod-edit],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=mod-edit],.ed-body .panel[data-tab=label-view],.ed-body[data-mode=office] .ed-side>.panel[data-tab=label-view],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=label-view],.ed-body .panel[data-tab=cat-view],.ed-body[data-mode=office] .ed-side>.panel[data-tab=cat-view],.ed-body[data-mode=office] .ed-side>.subnav+.panel[data-tab=cat-view]{display:flex!important;flex-direction:column;padding:0!important}
 .cl.it-form{display:flex;flex-direction:column;flex:1 0 auto;max-width:none;padding-bottom:0}
 .cl.it-form>*{padding-left:max(36px,calc((100% - 1320px)/2));padding-right:max(36px,calc((100% - 1320px)/2))}
 .cl.it-form>.it-card{margin-left:max(60px,calc((100% - 1320px)/2));margin-right:max(60px,calc((100% - 1320px)/2));padding-left:30px;padding-right:30px}
@@ -5506,3 +5514,45 @@ html[data-theme=dark] .obp-acts .it-btn.fill:disabled{background:#2c2c2e;color:#
 /* Card payments are not connected yet: shown, greyed out, not usable */
 .vt-off{opacity:.45;pointer-events:none}
 .btn.vt-off{cursor:not-allowed}
+
+/* A category, as in the reference photos: big name with Delete category, the Category and Subcategories tabs, the Details card and the Items card */
+.it-cv .it-cvhead{margin-top:56px}
+.it-cv .it-cvhead h1{font-size:44px;line-height:1.15;letter-spacing:-.02em}
+.it-cvdel{display:inline-flex;align-items:center;gap:10px;flex:none;padding:8px 10px;margin-right:-10px;border:0;border-radius:8px;background:none;font:inherit;font-size:17px;font-weight:600;color:#9b2226;cursor:pointer}
+.it-cvdel span{display:inline-flex}
+.it-cvdel:hover{background:color-mix(in srgb,#9b2226 8%,transparent)}
+html[data-theme=dark] .it-cvdel{color:#ff8a80}
+.it-cv .it-utabs{margin-top:58px}
+.cl.it-form.it-cv>.it-utabs,.cl.it-form.it-cv>.it-card{margin-left:max(36px,calc((100% - 1320px)/2));margin-right:max(36px,calc((100% - 1320px)/2))}
+.cl.it-form.it-cv>.it-utabs{padding-left:0;padding-right:0}
+.it-utabs button:disabled{color:var(--faint,#9aa3b2);cursor:not-allowed}
+.it-utabs button:disabled:hover{color:var(--faint,#9aa3b2)}
+.it-cv .it-cvsec{margin:26px 0 0;font-size:28px;font-weight:700;letter-spacing:-.015em}
+.cl.it-form.it-lv>.it-card.it-cvd{margin-top:22px;padding:20px 24px 28px;border-radius:24px;background:var(--card)}
+.it-cv .it-cvd h2{font-size:28px;font-weight:700}
+.it-cv .it-cvd .it-req{margin:16px 0 0}
+.it-cv .it-cvd .it-field{margin-top:15px}
+.it-cv .it-cvd .it-field{max-width:525px}
+.it-field select{height:48px;padding:0 44px 0 14px;border:1px solid var(--it-edge);border-radius:8px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23222' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center;-webkit-appearance:none;appearance:none;font:inherit;font-size:16px;color:var(--ink)}
+.it-field select:focus{outline:0;border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+html[data-theme=dark] .it-field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23eee' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+.it-checkrow{display:flex;align-items:center;gap:18px;width:fit-content;margin-top:18px;font-size:17px;cursor:pointer}
+.it-checkrow input{flex:none;width:20px;height:20px;margin:0 0 0 4px;accent-color:var(--it-fill)}
+.it-checkrow .tipl{text-decoration:underline dotted;text-decoration-thickness:1.5px;text-underline-offset:6px}
+.it-times{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.it-times input{min-width:0}
+.it-krow{display:flex;justify-content:flex-end;margin-top:24px}
+.it-thumb{display:block;width:40px;height:40px;border-radius:6px;object-fit:cover}
+.it-btn.danger{background:#9b2226;color:#fff}
+/* Table columns and Filter item results side panels, as in the reference photos */
+.sheet.drawer.it-drawer.itd-narrow{width:min(560px,100vw)}
+.itd-x.ring{box-shadow:inset 0 0 0 2px var(--it-fill)}
+html[data-theme=dark] .itd-x.ring{box-shadow:inset 0 0 0 2px #cfe0ff}
+.itd-lead2{margin:0;padding:30px 32px 28px 32px;font-size:21px;font-weight:700;letter-spacing:-.01em;border-bottom:1px solid var(--line)}
+.itd-checks label{display:flex;align-items:center;gap:18px;min-height:73px;padding:0 32px 0 44px;border-bottom:1px solid var(--line);font-size:17px;font-weight:600;cursor:pointer}
+.itd-checks.pad label{padding-left:76px}
+.itd-checks input{flex:none;width:20px;height:20px;margin:0;accent-color:var(--it-fill)}
+.itd-checks label.off{color:var(--faint,#9aa3b2);cursor:not-allowed}
+.itd-f.end{justify-content:flex-end}
+.itd-narrow .itd-f .it-btn{border-radius:980px;padding:0 24px}
+@media (max-width:900px){.cl.it-form.it-cv>.it-utabs,.cl.it-form.it-cv>.it-card{margin-left:16px;margin-right:16px}.it-cv .it-cvhead{margin-top:28px}.it-cv .it-cvhead h1{font-size:32px}.it-cv .it-utabs{margin-top:32px}.it-cv .it-cvsec{margin-top:28px;font-size:24px}.cl.it-form.it-lv>.it-card.it-cvd{padding:24px 20px 28px}.itd-checks label,.itd-checks.pad label{padding-left:24px}}

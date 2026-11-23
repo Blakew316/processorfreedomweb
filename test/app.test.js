@@ -667,7 +667,7 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
     // Renaming a category moves its items and its settings
     r = await me('POST', `/api/sites/${site.id}/menu/category`, { from: 'Secret', to: 'Specials' });
     assert.ok(r.data.items.some((x) => x.category === 'Specials'));
-    assert.deepEqual(r.data.ordering.cats.map(({ id, ...rest }) => rest), [{ name: 'Specials', hidden: true, from: '', to: '' }]);
+    assert.deepEqual(r.data.ordering.cats.map(({ id, ...rest }) => rest), [{ name: 'Specials', onlineName: '', color: '', hidden: true, from: '', to: '' }]);
     assert.match(r.data.ordering.cats[0].id, /^[A-Z0-9]{13}$/, 'each category has an id');
 
     // Category hours
@@ -1887,4 +1887,51 @@ test('a refund never carries more tax, tip and fee than itself, or less than non
     for (const body of [{ method: 'Cash' }, { method: 'Gift card', giftCode: card2 }]) assert.equal((await pay(c.id, body)).status, 409);
     assert.deepEqual(left(c.id), [0, 0, 0, 0]);
   } finally { base = saved; srv.close(); app15.close(); rmSync(d15, { recursive: true, force: true }); }
+});
+
+test('a category keeps its online name and colour, customers see the online name, items take colours, and deleting a category moves its items', async () => {
+  const d16 = mkdtempSync(join(tmpdir(), 'pfsites16-'));
+  const app16 = createApp({ dataDir: d16, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app16);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'huecafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@hue.test', password: 'long-enough-pw', name: 'Hue' });
+    const site = (await me('POST', '/api/sites', { name: 'Hue Cafe', template: 'order', kind: 'ordering', csv: 'Category,Item,Price\nDrinks,Tea,2.00\nDrinks,Soda,1.50\nFood,Taco,3.00' })).data.site;
+    // The online name and a colour are kept; a colour that is not one is dropped.
+    let r = await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, cats: [{ name: 'Drinks', onlineName: ' Cold drinks ', color: '#C96B9C' }, { name: 'Food', color: 'red' }, { name: 'Empty' }],
+      menus: [{ id: 'm1', name: 'All day', cats: ['Drinks', 'Food'] }], deals: [{ name: 'Happy hour', percent: 20, from: '15:00', to: '18:00', category: 'Drinks' }] } });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.data.ordering.cats.map((c) => [c.name, c.onlineName, c.color]), [['Drinks', 'Cold drinks', '#c96b9c'], ['Food', '', ''], ['Empty', '', '']]);
+    // Customers see the online name; the business still sees its own.
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const page = (await anon('GET', '/order', null, host)).data;
+    assert.match(page, /<h2>Cold drinks<\/h2>/);
+    assert.doesNotMatch(page, /<h2>Drinks<\/h2>/);
+    assert.match(page, /<h2>Food<\/h2>/);
+    // Items take a colour; anything else clears it.
+    let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const drinks = items.filter((x) => x.category === 'Drinks').map((x) => x.id);
+    items = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: drinks, set: { color: '#3B74D6' } })).data.items;
+    assert.deepEqual(items.map((x) => [x.name, x.color]), [['Tea', '#3b74d6'], ['Soda', '#3b74d6'], ['Taco', '']]);
+    items = (await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: drinks.slice(0, 1), set: { color: 'url(x)' } })).data.items;
+    assert.equal(items[0].color, '');
+    // A category with items needs somewhere for them to go; a missing one is not found.
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Drinks' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Drinks', to: 'Drinks' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Nope' })).status, 404);
+    // Deleting Drinks moves its items to Food, and the menu and the happy hour that named it follow them.
+    r = await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Drinks', to: 'food' });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.data.items.map((x) => [x.name, x.category]), [['Tea', 'Food'], ['Soda', 'Food'], ['Taco', 'Food']]);
+    assert.deepEqual(r.data.ordering.cats.map((c) => c.name), ['Food', 'Empty']);
+    assert.deepEqual(r.data.ordering.menus[0].cats, ['Food']);
+    assert.equal(r.data.ordering.deals[0].category, 'Food');
+    // An empty category just goes.
+    r = await me('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Empty' });
+    assert.deepEqual([r.status, r.data.ordering.cats.map((c) => c.name)], [200, ['Food']]);
+    // Only the business can delete its categories.
+    assert.equal((await anon('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Food', to: 'Food' })).status, 401);
+  } finally { base = saved; srv.close(); app16.close(); rmSync(d16, { recursive: true, force: true }); }
 });

@@ -88,6 +88,8 @@ export function openDb(dataDir) {
   addColumn('menu_items', 'label', "TEXT NOT NULL DEFAULT ''");
   addColumn('menu_items', 'revclass', "TEXT NOT NULL DEFAULT ''");
   addColumn('menu_items', 'cost', 'INTEGER');
+  // An item's colour, shown on its tile in the item lists when it has no photo.
+  addColumn('menu_items', 'color', "TEXT NOT NULL DEFAULT ''");
   addColumn('sites', 'day', 'TEXT');
   db.exec(`
     CREATE TABLE IF NOT EXISTS members (site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, role TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (site_id, user_id));

@@ -396,12 +396,13 @@ const tile = (x, { ordering, button, T }) => {
   return `<article class="tile mi${out ? ' off' : ''}"><div><div class="tl"><h3>${esc(x.name)}</h3><span class="price">${x.sale > 0 ? `<s>${money(x.price)}</s> ` : ''}${from ? esc(fill((T && T.from) || 'From {price}', { price: money(itemPrice(x) + extra) })) : money(itemPrice(x))}</span></div>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}${button ? `<div class="act">${out ? `<span class="soldout">${esc(T.soldOut)}</span>` : `<button class="add" type="button" data-add="${esc(x.id)}"${ordering ? '' : ' disabled'}>${esc(T.add)}</button>`}${!out && x.deal ? `<span class="dealtag">${esc(x.deal)}</span>` : ''}${!out && x.stock != null && x.stock <= 5 ? `<span class="soldout">${esc(fill(x.stock === 1 && T.onlyOne ? T.onlyOne : T.onlyLeft, { n: x.stock }))}</span>` : ''}</div>` : out ? `<div class="act"><span class="soldout">${esc(T.soldOut)}</span></div>` : ''}</div>${src ? `<div class="pic"><img src="${esc(src)}" alt="${esc(x.name)}" loading="lazy" decoding="async"></div>` : ''}</article>`;
 };
 
-export function groupMenu(menu) {
-  const cats = [];
+export function groupMenu(menu, ordering) {
+  const cats = [], metas = arr(ordering && ordering.cats);
   for (const it of arr(menu)) {
     const name = str(it.category, 60) || 'Menu';
     let c = cats.find((x) => x.name === name);
-    if (!c) cats.push((c = { name, id: `cat-${cats.length + 1}`, items: [] }));
+    // Customers see a category's online name when it has one.
+    if (!c) { const m = metas.find((x) => x.name === name); cats.push((c = { name, label: (m && str(m.onlineName, 60).trim()) || name, id: `cat-${cats.length + 1}`, items: [] })); }
     c.items.push(it);
   }
   return cats;
@@ -410,7 +411,7 @@ export function groupMenu(menu) {
 /** The menu shown as a section on the home page. */
 export function menuSection(d, { menu, ordering, preview, orderHref, lang }) {
   const T = strings(lang);
-  const cats = groupMenu(menu);
+  const cats = groupMenu(menu, ordering);
   if (!cats.length) return preview ? `<div class="wrap">${d.title ? `<div class="sec-head"><h2>${esc(d.title)}</h2></div>` : ''}<div class="empty">Your menu items appear here. Upload your item list in the Menu tab.</div></div>` : '';
   const strip = (x) => (d.showPhotos === false ? { ...x, image: '' } : x);
   return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.name)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { T })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>${esc(T.orderOnline)}</a></div>` : ''}</div>`;
@@ -426,7 +427,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const slot = (m) => orderSlots(o, m, now, taken).map((v) => [v, slotLabel(v, o, lang, now)]);
   const slots = { pickup: slot('pickup'), delivery: methods.includes('delivery') ? slot('delivery') : [] };
   const can = open && (asap || slots.pickup.length > 0 || slots.delivery.length > 0);
-  const cats = groupMenu(menu);
+  const cats = groupMenu(menu, o);
   const items = {};
   for (const it of arr(menu)) if (it.available !== false && it.stock !== 0 && !it.blocked) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, k: g.rank ?? -1, c: g.choices.map((c) => (c.hidden ? 0 : [c.name, c.price, c.soldOut ? 1 : 0])) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
@@ -441,7 +442,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const notice = !open ? T.notTaking : !asap ? (openNow ? (can ? T.busySchedule : T.busyNow) : can ? T.closedSchedule : T.closedNow) : '';
   const search = arr(menu).length > 5 ? `<div class="msearch"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.500-4.500"/></svg><input type="search" id="pf-q" placeholder="${esc(T.search)}" aria-label="${esc(T.search)}" autocomplete="off"></div><p class="nomatch" id="pf-nomatch" hidden>${esc(T.noMatch)}</p>` : '';
   const body = cats.length
-    ? `${search}${cats.length > 1 ? `<nav class="cats" aria-label="${esc(T.menu)}">${cats.map((c) => `<a href="#${c.id}">${esc(c.name)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.name)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: can, button: true, T })).join('')}</div></div>`).join('')}`
+    ? `${search}${cats.length > 1 ? `<nav class="cats" aria-label="${esc(T.menu)}">${cats.map((c) => `<a href="#${c.id}">${esc(c.label)}</a>`).join('')}</nav>` : ''}${cats.map((c) => `<div class="cat" id="${c.id}"><h2>${esc(c.label)}</h2><div class="tiles">${c.items.map((x) => tile(x, { ordering: can, button: true, T })).join('')}</div></div>`).join('')}`
     : `<div class="empty">${preview ? 'Your menu is empty. Upload your item list in the Menu tab.' : esc(T.menuSoon)}</div>`;
   return `<section class="order"><div class="wrap"><header class="ord-head"><h1>${esc(T.orderOnline)}</h1>${lede ? `<p>${esc(lede)}</p>` : ''}${notice ? `<p class="closed">${esc(notice)}</p>` : ''}</header>
 <div class="ord-grid"><div class="ord-menu">${body}</div><aside class="cart" id="cart" aria-live="polite"></aside></div></div><div class="cart-scrim"></div><a class="cartbar" id="cartbar" href="#cart" role="button" hidden></a></section>
