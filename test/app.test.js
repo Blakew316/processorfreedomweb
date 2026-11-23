@@ -1255,6 +1255,15 @@ test('gift cards, recurring payments, customer import, projects', async () => {
     assert.ok(plans[0].nextDate > new Date().toISOString().slice(0, 10) && plans[0].billed === 5500);
     app6.tick(Date.now());
     assert.equal((await me('GET', `/api/sites/${site.id}/invoices`)).data.invoices.length, 1, 'not billed twice');
+    // A monthly plan from the 31st stays on the 31st, or the month's last day, so no month is skipped. Bad schedules are refused.
+    assert.equal((await me('POST', `/api/sites/${site.id}/plans`, { name: 'Rent', customer: { name: 'Dana', email: 'dana@acme.test' }, amount: 1000, every: 'monthly', start: '2026-00-00' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/plans`, { name: 'Rent', customer: { name: 'Dana', email: 'dana@acme.test' }, amount: 1000, every: 'constructor' })).status, 400);
+    const monthly = (await me('POST', `/api/sites/${site.id}/plans`, { name: 'Rent', customer: { name: 'Dana', email: 'dana@acme.test' }, amount: 1000, every: 'monthly', start: '2020-01-31' })).data.plans.find((x) => x.name === 'Rent');
+    app6.tick(Date.now());
+    const after = (await me('GET', `/api/sites/${site.id}/plans`)).data.plans.find((x) => x.id === monthly.id).nextDate;
+    const [ny, nm] = after.split('-').map(Number), monthEnd = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+    assert.equal(Number(after.slice(8)), Math.min(31, monthEnd), `monthly plan stays on its day: ${after}`);
+    await me('DELETE', `/api/sites/${site.id}/plans/${monthly.id}`);
     plans = (await me('POST', `/api/sites/${site.id}/plans/${plans[0].id}`, { status: 'paused' })).data.plans;
     assert.equal(plans[0].status, 'paused');
 

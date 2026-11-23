@@ -1060,7 +1060,15 @@ export function createApp(options = {}) {
   /* Recurring payments: a plan sends the customer a fresh invoice on a schedule. */
   const EVERY = { weekly: 7, biweekly: 14, monthly: 'm1', quarterly: 'm3', yearly: 'm12' };
   const plansOf = (site) => db.all('SELECT * FROM plans WHERE site_id = ? ORDER BY created_at DESC', site.id).map((r) => ({ id: r.id, name: r.name, customer: JSON.parse(r.customer), amount: r.amount, taxRate: r.tax_rate, every: r.every, nextDate: r.next_date, status: r.status, billed: r.billed }));
-  const stepDate = (day, every) => { const d = new Date(`${day}T12:00:00Z`); const e = EVERY[every]; if (typeof e === 'number') d.setUTCDate(d.getUTCDate() + e); else d.setUTCMonth(d.getUTCMonth() + Number(e.slice(1))); return d.toISOString().slice(0, 10); };
+  // Weeks add days. Months keep the plan's day of the month, or the month's last day when it is shorter, so no month is skipped.
+  const stepDate = (day, every, anchor = 0) => {
+    const e = EVERY[every];
+    if (typeof e === 'number') { const d = new Date(`${day}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + e); return d.toISOString().slice(0, 10); }
+    const [y, m, dd] = day.split('-').map(Number), first = new Date(Date.UTC(y, m - 1 + Number(e.slice(1)), 1));
+    const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+    return `${first.getUTCFullYear()}-${String(first.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(anchor || dd, last)).padStart(2, '0')}`;
+  };
+  const realDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v)) && !Number.isNaN(Date.parse(`${v}T12:00:00Z`)) && new Date(`${v}T12:00:00Z`).toISOString().slice(0, 10) === v;
   route('GET', '/api/sites/:id/plans', (req, res, p) => json(res, 200, { plans: plansOf(ownSite(req, p.id).site) }));
   route('POST', '/api/sites/:id/plans', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -1072,9 +1080,10 @@ export function createApp(options = {}) {
     const amount = Math.round(Number(b.amount));
     if (!(amount > 0) || amount > 100_000_000) bad(400, 'Enter an amount above zero, up to $1,000,000.');
     if (!Object.hasOwn(EVERY, b.every)) bad(400, 'Choose how often to bill.');
-    const start = /^\d{4}-\d{2}-\d{2}$/.test(String(b.start)) ? b.start : new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
+    if (b.start !== undefined && b.start !== '' && !realDay(b.start)) bad(400, 'Choose a real date for the first invoice.');
+    const start = b.start ? b.start : new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
     const rate = Number(b.taxRate);
-    db.run('INSERT INTO plans (id, site_id, name, customer, amount, tax_rate, every, next_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, name, JSON.stringify(customer), amount, Number.isFinite(rate) ? Math.min(30, Math.max(0, rate)) : 0, b.every, start, Date.now());
+    db.run('INSERT INTO plans (id, site_id, name, customer, amount, tax_rate, every, next_date, anchor, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, name, JSON.stringify(customer), amount, Number.isFinite(rate) ? Math.min(30, Math.max(0, rate)) : 0, b.every, start, Number(start.slice(8, 10)), Date.now());
     keepContact(site.id, customer);
     json(res, 201, { plans: plansOf(site) });
   });
@@ -1093,17 +1102,28 @@ export function createApp(options = {}) {
   function billPlans(site, today) {
     const fake = { headers: { host: APP_HOST || 'localhost' }, socket: {} };
     for (const plan of db.all("SELECT * FROM plans WHERE site_id = ? AND status = 'active' AND next_date <= ?", site.id, today)) {
-      const customer = JSON.parse(plan.customer);
-      const v = { customer, items: [{ name: plan.name, qty: 1, price: plan.amount, taxable: true }], notes: '', project: '', due: stepDate(today, 'weekly'), taxRate: plan.tax_rate, payUrl: '' };
-      Object.assign(v, invoiceTotals(v.items, v.taxRate, 0));
-      const invId = newId(), now = Date.now();
-      const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
-      db.run("INSERT INTO invoices (id, site_id, number, token, kind, status, customer, items, created_at, updated_at, sent_at) VALUES (?, ?, ?, ?, 'invoice', 'sent', ?, ?, ?, ?, ?)", invId, site.id, number, newId(18), '{}', '[]', now, now, now);
-      saveInvoice(invId, v);
-      let next = stepDate(plan.next_date, plan.every); while (next <= today) next = stepDate(next, plan.every);
-      db.run('UPDATE plans SET next_date = ?, billed = billed + ? WHERE id = ?', next, v.total, plan.id);
-      const inv = toInvoice(ownInvoice(site, invId), fake, site), business = businessOf(site);
-      Promise.resolve().then(() => mailer.send({ to: customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Plan invoice email failed:', e.message));
+      // Each plan on its own, with its next date worked out before anything is made, so a plan with bad data can never bill
+      // again and again, or stop the others.
+      let inv;
+      try {
+        if (!Object.hasOwn(EVERY, plan.every) || !realDay(plan.next_date)) throw new Error(`plan ${plan.id} has an unknown schedule`);
+        let next = stepDate(plan.next_date, plan.every, plan.anchor); while (next <= today) next = stepDate(next, plan.every, plan.anchor);
+        const customer = JSON.parse(plan.customer);
+        const v = { customer, items: [{ name: plan.name, qty: 1, price: plan.amount, taxable: true }], notes: '', project: '', due: stepDate(today, 'weekly'), taxRate: plan.tax_rate, payUrl: '' };
+        Object.assign(v, invoiceTotals(v.items, v.taxRate, 0));
+        const invId = newId(), now = Date.now();
+        db.raw.exec('BEGIN IMMEDIATE');
+        try {
+          const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
+          db.run("INSERT INTO invoices (id, site_id, number, token, kind, status, customer, items, created_at, updated_at, sent_at) VALUES (?, ?, ?, ?, 'invoice', 'sent', ?, ?, ?, ?, ?)", invId, site.id, number, newId(18), '{}', '[]', now, now, now);
+          saveInvoice(invId, v);
+          db.run('UPDATE plans SET next_date = ?, billed = billed + ? WHERE id = ?', next, v.total, plan.id);
+          db.raw.exec('COMMIT');
+        } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
+        inv = { customer, row: toInvoice(ownInvoice(site, invId), fake, site) };
+      } catch (e) { console.error('Recurring payment not billed:', e.message); continue; }
+      const business = businessOf(site);
+      Promise.resolve().then(() => mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv.row, url: inv.row.url }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Plan invoice email failed:', e.message));
     }
   }
   recurring = billPlans;

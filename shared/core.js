@@ -567,7 +567,7 @@ export const ORDER_METHODS = {
 export const ORDER_STATUSES = { new: 'Received', confirmed: 'Confirmed', ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled' };
 export const readyLabel = (method, lang = 'en') => { const T = STRINGS[lang] || STRINGS.en; return method === 'delivery' ? T.outDelivery : method === 'curbside' ? T.readyCurb : T.readyPickup; };
 
-export const money = (cents) => `$${(Math.round(Number(cents) || 0) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+export const money = (cents) => { const c = Math.round(Number(cents) || 0); return `${c < 0 ? '−' : ''}$${(Math.abs(c) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`; };
 
 /** "$1,234.50", "12", "9,50", "Free" → cents. Returns null when it is not a price. */
 export function parsePrice(input) {
@@ -579,7 +579,10 @@ export function parsePrice(input) {
   if (!/\d/.test(t)) return null;
   const last = Math.max(t.lastIndexOf(','), t.lastIndexOf('.'));
   if (last >= 0) {
-    const decimals = t.length - last - 1;
+    const decimals = t.length - last - 1, seps = t.match(/[.,]/g).length;
+    // Three digits after a lone dot could be cents typed wrong (1.250), so it is not guessed; a comma there, or several groups, means thousands.
+    if (decimals === 3 && seps === 1 && t[last] === '.') return null;
+    if (decimals > 3) return null;
     t = decimals >= 1 && decimals <= 2 ? `${t.slice(0, last).replace(/[.,]/g, '')}.${t.slice(last + 1)}` : t.replace(/[.,]/g, '');
   }
   const n = Math.round(parseFloat(t) * 100);

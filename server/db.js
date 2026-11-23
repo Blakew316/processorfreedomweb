@@ -155,6 +155,8 @@ export function openDb(dataDir) {
   }
   // A gift card pays for an order like money: the part it paid, and which card, are kept on the order.
   addColumn('orders', 'gift', 'INTEGER NOT NULL DEFAULT 0');
+  // The day of the month a plan started on, so monthly bills stay on it (the 31st bills on the 30th in a short month, then the 31st again).
+  addColumn('plans', 'anchor', 'INTEGER NOT NULL DEFAULT 0');
   // The tax rate the order was taxed at, so the Taxes report groups sales by the rate really used.
   addColumn('orders', 'tax_rate', 'REAL');
   addColumn('orders', 'gift_code', "TEXT NOT NULL DEFAULT ''");
