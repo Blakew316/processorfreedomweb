@@ -234,7 +234,10 @@ function orderClient() {
     var c = conf(), el = d.getElementById('cart'); if (!c || !el) return;
     var T = c.T;
     if (c.methods.indexOf(S.method) < 0) S.method = c.methods[0] || '';
+    var cut = false;
+    S.lines.forEach(function (l) { var it = c.items[l.id]; if (it && l.q > it.max) { l.q = it.max; cut = true; } });
     S.lines = S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; });
+    if (cut) keep(c);
     var sl = slots(c), can = c.open && (c.asap || sl.length > 0);
     if (S.when && !sl.some(function (x) { return x[0] === S.when; })) S.when = '';
     if (!c.asap && !S.when && sl.length) S.when = sl[0][0];
@@ -262,7 +265,7 @@ function orderClient() {
     if (c.notes) out += '<label class="f">' + h(T.notes) + '<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
     if (c.promos) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.promo) + '</div><div class="prow"><input name="promo" maxlength="24" autocomplete="off" value="' + h(S.promo ? S.promo.code : S.f.promo) + '"><button type="button" data-promo="1">' + h(T.apply) + '</button></div>' + (S.perr ? '<p class="oerr" style="margin-top:6px">' + h(S.perr) + '</p>' : '') + '</div>';
     if (c.tips) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.tip) + '</div><div class="oseg" role="group">' + [0, 10, 15, 20].map(function (t) { return '<button type="button" data-tip="' + t + '" aria-pressed="' + (S.tip === t) + '">' + (t ? t + '%' : h(T.none)) + '</button>'; }).join('') + '</div></div>';
-    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : S.method === 'delivery' && c.zones && !zone ? '<span>' + h(T.delivery) + '</span><span>' + h(T.enterZip) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span>' + (gift ? '<span>' + h(T.giftCard) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(gift) + '</span><span class="g">' + h(T.toPay) + '</span><span class="g">' + fmt(due) + '</span>' : '') + '</div>';
+    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : S.method === 'delivery' && c.zones && !zone ? '<span>' + h(T.delivery) + '</span><span>' + h(T.enterZip) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span>' + (gift ? '<span>' + h(T.giftCard) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(gift) + '</span><span class="g">' + h(T.toPay) + '</span><span class="g">' + fmt(due) + '</span><span>' + h(T.giftLeft) + '</span><span>' + fmt(S.promo.value - gift) + '</span>' : '') + '</div>';
     var short = S.method === 'delivery' && (sub < c.min || (c.zones && (S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone));
     if (S.method === 'delivery' && sub < c.min) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
     if (S.err) out += '<p class="oerr" role="alert">' + h(S.err) + '</p>';
@@ -271,19 +274,27 @@ function orderClient() {
     el.innerHTML = out;
     if (an) { var n = el.querySelector('[name="' + an + '"]'); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (e) {} } }
   }
-  function choose(c, id) {
+  function choose(c, id, back) {
     var it = c.items[id], T = c.T, box = d.createElement('div'); box.className = 'osheet';
-    box.innerHTML = '<div role="dialog" aria-modal="true"><h2>' + h(it.n) + '</h2><form>' + shownGroups(it).map(function (gi) { var g = it.g[gi]; return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + g.c.map(function (ch, ci) { if (!ch) return ''; var first = g.c.findIndex(function (x) { return x && !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
-    var close = function () { box.remove(); };
+    box.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="osheet-h"><h2 id="osheet-h">' + h(it.n) + '</h2><form>' + shownGroups(it).map(function (gi) { var g = it.g[gi]; return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + (!g.r && !g.m ? '<label><input type="radio" name="g' + gi + '" value="-1" checked>' + h(T.none) + '</label>' : '') + g.c.map(function (ch, ci) { if (!ch) return ''; var first = g.c.findIndex(function (x) { return x && !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
+    var close = function () { box.remove(); if (back && back.isConnected) back.focus(); };
     box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('[data-x]')) close(); });
+    // Escape closes it, and Tab stays inside it while it is open.
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+      if (e.key !== 'Tab') return;
+      var f = [].filter.call(box.querySelectorAll('input:not([disabled]),button:not([disabled])'), function (x) { return x.offsetParent !== null; }); if (!f.length) return;
+      if (e.shiftKey && d.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && d.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+    });
     box.querySelector('form').addEventListener('submit', function (e) {
       e.preventDefault(); e.stopPropagation();
-      var o = it.g.map(function (g, gi) { return [].map.call(e.target.querySelectorAll('[name=g' + gi + ']:checked'), function (i) { return Number(i.value); }); });
+      var o = it.g.map(function (g, gi) { return [].map.call(e.target.querySelectorAll('[name=g' + gi + ']:checked'), function (i) { return Number(i.value); }).filter(function (n) { return n >= 0; }); });
       var miss = it.g.filter(function (g, gi) { return g.r && !o[gi].length; })[0];
       if (miss) { var p = e.target.querySelector('.oerr'); p.hidden = false; p.textContent = T.choose + ': ' + miss.n; return; }
       put(c, id, o); keep(c); close(); draw();
     });
     d.body.appendChild(box);
+    var first = box.querySelector('input:not([disabled]),button[type=submit]'); if (first) first.focus();
   }
   // On a phone the order is a sheet: the bar at the bottom opens it, the cross or a tap outside closes it.
   d.addEventListener('click', function (e) {
@@ -310,10 +321,10 @@ function orderClient() {
   }
   d.addEventListener('click', function (e) {
     var re = e.target.closest('[data-reorder]');
-    if (re) { try { var r = JSON.parse(re.getAttribute('data-reorder')); localStorage.setItem('pf-cart-' + r.key, JSON.stringify({ lines: r.lines, f: {} })); } catch (x) {} return; }
+    if (re) { try { var r = JSON.parse(re.getAttribute('data-reorder')); var old = {}; try { old = JSON.parse(localStorage.getItem('pf-cart-' + r.key)) || {}; } catch (y) {} localStorage.setItem('pf-cart-' + r.key, JSON.stringify({ lines: r.lines, method: old.method, f: old.f || {} })); } catch (x) {} return; }
     var c = conf(); if (!c) return;
     var t = e.target.closest('[data-add],[data-qty],[data-method],[data-tip],[data-promo]'); if (!t) return;
-    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (shownGroups(it).length) { choose(c, t.dataset.add); return; } put(c, t.dataset.add, []); }
+    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (shownGroups(it).length) { choose(c, t.dataset.add, t); return; } put(c, t.dataset.add, []); }
     if (t.dataset.qty) { var l = S.lines[Number(t.dataset.i)]; if (l) { l.q += Number(t.dataset.qty); if (l.q <= 0) S.lines.splice(Number(t.dataset.i), 1); else l.q = Math.min(l.q, c.items[l.id] ? c.items[l.id].max : l.q); } }
     if (t.dataset.method) S.method = t.dataset.method;
     if (t.dataset.tip) S.tip = Number(t.dataset.tip);
@@ -433,14 +444,14 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
 <script type="application/json" id="pf-order">${JSON.stringify(conf).replace(/</g, '\\u003c')}</script>`;
 }
 
-export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, orderHref, siteKey, lang, loyalty }) {
+export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, orderHref, siteKey, lang, loyalty, mailOn = true }) {
   const T = strings(lang);
   const steps = ['new', 'confirmed', 'ready', 'completed'];
   const at = steps.indexOf(order.status);
   const cancelled = order.status === 'cancelled';
   const label = (s) => (s === 'ready' ? readyLabel(order.method, lang) : { new: T.received, confirmed: T.confirmed, completed: T.completed }[s]);
   const headline = cancelled ? T.h_cancel : { new: T.h_new, confirmed: T.h_confirmed, ready: order.method === 'delivery' ? T.h_way : T.h_ready, completed: T.h_done }[order.status];
-  const sub = cancelled ? T.s_cancel : order.status === 'new' ? fill(T.s_new, { name: order.name.split(' ')[0], email: order.email }) : T.s_live;
+  const sub = cancelled ? T.s_cancel : order.status === 'new' ? fill(mailOn ? T.s_new : T.s_newQuiet, { name: order.name.split(' ')[0], email: order.email }) : T.s_live;
   const lines = arr(order.items).map((l) => `<div class="line"><b>${l.qty} × ${esc(l.name)}</b><span>${money(l.price * l.qty)}</span>${arr(l.opts).length ? `<span class="lopt">${esc(l.opts.join(', '))}</span>` : ''}</div>`).join('');
   const row = (k, v) => (v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : '');
   const again = JSON.stringify({ key: siteKey, lines: arr(order.items).map((l) => ({ id: l.id, o: l.picks || [], q: l.qty })) });
@@ -452,7 +463,7 @@ export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, 
 ${cancelled ? '' : `<div class="track" role="img" aria-label="${esc(label(order.status))}">${steps.map((s, i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div><div class="trackl">${steps.map((s, i) => (i === at ? `<b>${esc(label(s))}</b>` : `<span>${esc(label(s))}</span>`)).join('')}</div>`}
 <div class="box"><h2>${esc(methodName)} · ${esc(T.details)}</h2><dl class="kv">${row(T.scheduledFor, order.scheduled ? slotLabel(order.scheduled, ordering || {}, lang) : '')}${row(T.name, order.name)}${row(T.phone, order.phone)}${row(T.deliverTo, order.address)}${row(T.vehicleShort, order.vehicle)}${row(T.notesShort, order.notes)}</dl></div>
 ${loyalty && !cancelled ? `<div class="box">${loyalty.code ? `<h2>${esc(T.rewardEarned)}</h2><p style="font-size:17px">${esc(fill(T.rewardUse, { code: loyalty.code, value: loyalty.value }))}</p>` : ''}<div class="stamps" role="img" aria-label="${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}">${Array.from({ length: loyalty.every }, (_, i) => `<i class="${i < loyalty.have ? 'on' : ''}"></i>`).join('')}</div><p class="note">${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}</p></div>` : ''}
-<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span>${order.gift && !cancelled ? `<span>${esc(T.giftCard)}${order.giftCode ? ` (${esc(order.giftCode)})` : ''}</span><span>−${money(order.gift)}</span>` : ''}${refunded && !cancelled ? `<span>${esc(T.refunded)}</span><span>−${money(refunded)}</span>` : ''}${due > 0 && order.gift ? `<span class="g">${esc(T.toPay)}</span><span class="g">${money(due)}</span>` : ''}</div>
+<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span>${order.gift && !cancelled ? `<span>${esc(T.giftCard)}${order.giftCode ? ` (${esc(order.giftCode)})` : ''}</span><span>−${money(order.gift)}</span>` : ''}${refunded && !cancelled ? `<span>${esc(T.refunded)}</span><span>−${money(refunded)}</span>` : ''}${due > 0 && order.gift ? `<span class="g">${esc(T.toPay)}</span><span class="g">${money(due)}</span>` : ''}${order.giftCode && order.giftLeft != null ? `<span>${esc(T.giftLeft)}</span><span>${money(order.giftLeft)}</span>` : ''}</div>
 ${cancelled ? `<p class="note">${esc(order.gift ? T.giftBack : T.nothingOwed)}</p>` : paid ? `<p class="note">${esc(fill(T.paidWith, { method: tender(order.paidMethod) }))}</p>` : payUrl ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
 <div class="actions">${phoneHtml}${ordering?.enabled ? `<a class="btn${phoneHtml ? ' ghost' : ''}" ${orderHref} data-reorder="${esc(again)}">${esc(T.orderAgain)}</a>` : ''}<a class="btn ghost" ${homeHref}>${esc(T.backHome)}</a></div></div></section>`;
 }

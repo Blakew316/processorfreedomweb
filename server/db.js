@@ -125,6 +125,8 @@ export function openDb(dataDir) {
   addColumn('appointments', 'total', 'INTEGER NOT NULL DEFAULT 0');
   // Which statuses the customer was already emailed about, so flipping a booking back and forth never emails them again.
   addColumn('appointments', 'mailed', "TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'paid_at', 'INTEGER');
+  addColumn('appointments', 'paid_method', "TEXT NOT NULL DEFAULT ''");
   addColumn('members', 'details', "TEXT NOT NULL DEFAULT '{}'");
   addColumn('contacts', 'more', "TEXT NOT NULL DEFAULT '{}'");
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');

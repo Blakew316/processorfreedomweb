@@ -19,7 +19,7 @@ self.addEventListener('notificationclick', (e) => {
 const WAIT = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>One moment…</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;background:#fff;color:#1d1d1f;text-align:center;padding:24px}h1{font-size:30px;letter-spacing:-.025em;margin:18px 0 8px;font-weight:600}p{color:#6e6e73;font-size:17px;margin:0}i{display:block;width:26px;height:26px;margin:0 auto;border:2.5px solid #e8e8ed;border-top-color:#0a1f44;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head><body><div><i></i><h1 id="t">Just a moment</h1><p id="m">We’re updating. This page will come back on its own.</p></div><script>if(navigator.onLine===false){document.getElementById('t').textContent='You’re offline';document.getElementById('m').textContent='Check your connection. This page will come back on its own.';addEventListener('online',function(){location.reload()});setTimeout(function(){location.reload()},15000)}else{setTimeout(function(){location.reload()},3500)}</script></body></html>`;
 // The app's own files are kept on the device so it opens straight away from the Home Screen, even on a weak signal.
 // The network is always tried first, so an update is never held back by an old copy.
-const SHELL = 'pf-shell-v25';
+const SHELL = 'pf-shell-v26';
 const keep = (req, res) => { if (res && res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(req, copy)).catch(() => {}); } return res; };
 self.addEventListener('fetch', (e) => {
   const req = e.request;

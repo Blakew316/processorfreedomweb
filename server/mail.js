@@ -25,8 +25,8 @@ export function createMailer(env) {
 }
 
 const WORDS = {
-  en: { order: 'Order', sub: 'Subtotal', disc: 'Discount', tax: 'Tax', del: 'Delivery', tip: 'Tip', total: 'Total', gift: 'Gift card', due: 'Left to pay', view: 'View your order', about: (n) => `About ${n} minutes`, sched: (w) => `Scheduled for ${w}`, asap: 'As soon as possible', to: 'Deliver to', car: 'Vehicle', notes: 'Notes', pickup: 'Pickup', curbside: 'Curbside', delivery: 'Delivery' },
-  es: { order: 'Pedido', sub: 'Subtotal', disc: 'Descuento', tax: 'Impuesto', del: 'Entrega', tip: 'Propina', total: 'Total', gift: 'Tarjeta de regalo', due: 'Por pagar', view: 'Ver tu pedido', about: (n) => `Unos ${n} minutos`, sched: (w) => `Programado para ${w}`, asap: 'Lo antes posible', to: 'Entregar en', car: 'Vehículo', notes: 'Notas', pickup: 'Para recoger', curbside: 'En la acera', delivery: 'Entrega' },
+  en: { order: 'Order', sub: 'Subtotal', disc: 'Discount', tax: 'Tax', del: 'Delivery', tip: 'Tip', total: 'Total', gift: 'Gift card', due: 'Left to pay', left: 'Left on gift card', view: 'View your order', about: (n) => `About ${n} minutes`, sched: (w) => `Scheduled for ${w}`, asap: 'As soon as possible', to: 'Deliver to', car: 'Vehicle', notes: 'Notes', pickup: 'Pickup', curbside: 'Curbside', delivery: 'Delivery' },
+  es: { order: 'Pedido', sub: 'Subtotal', disc: 'Descuento', tax: 'Impuesto', del: 'Entrega', tip: 'Propina', total: 'Total', gift: 'Tarjeta de regalo', due: 'Por pagar', left: 'Queda en la tarjeta', view: 'Ver tu pedido', about: (n) => `Unos ${n} minutos`, sched: (w) => `Programado para ${w}`, asap: 'Lo antes posible', to: 'Entregar en', car: 'Vehículo', notes: 'Notas', pickup: 'Para recoger', curbside: 'En la acera', delivery: 'Entrega' },
 };
 const HEAD = {
   en: {
@@ -53,7 +53,7 @@ export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta, w
   const rows = order.items.map((l) => [`${l.qty} × ${l.name}${l.opts?.length ? ` (${l.opts.join(', ')})` : ''}`, money(l.price * l.qty)]);
   const totals = [[W.sub, order.subtotal], [`${W.disc}${order.promo ? ` (${order.promo})` : ''}`, -order.discount], [W.tax, order.tax], [W.del, order.fee], [W.tip, order.tip]].filter(([, v]) => v).map(([k, v]) => [k, v < 0 ? `−${money(-v)}` : money(v)]);
   // Paid with a gift card when ordering: shown after the total, with what is left to pay.
-  const paidBy = order.gift > 0 ? [[`${W.gift}${order.giftCode ? ` (${order.giftCode})` : ''}`, `−${money(order.gift)}`], [W.due, money(order.total - order.gift)]] : [];
+  const paidBy = order.gift > 0 ? [[`${W.gift}${order.giftCode ? ` (${order.giftCode})` : ''}`, `−${money(order.gift)}`], [W.due, money(order.total - order.gift)], ...(order.giftLeft != null ? [[W.left, money(order.giftLeft)]] : [])] : [];
   const details = [
     [(Object.hasOwn(W, order.method) && W[order.method]) || ORDER_METHODS[order.method]?.name || '', when ? W.sched(when) : kind === 'placed' && eta ? W.about(eta) : W.asap],
     forMerchant && ['Customer', `${order.name} · ${order.phone} · ${order.email}`],
@@ -141,21 +141,36 @@ export function inviteEmail({ business, role, link, inviter, fresh = true }) {
 }
 
 /** The email that carries an invoice: the amount, when it is due and one button to view and pay. */
-export function invoiceEmail({ business, invoice, url, reminder, estimate }) {
-  const word = estimate ? 'estimate' : 'invoice', Word = estimate ? 'Estimate' : 'Invoice';
+export function invoiceEmail({ business, invoice, url, reminder, estimate, lang = 'en' }) {
+  const es = lang === 'es';
+  const word = es ? (estimate ? 'presupuesto' : 'factura') : estimate ? 'estimate' : 'invoice', Word = es ? (estimate ? 'Presupuesto' : 'Factura') : estimate ? 'Estimate' : 'Invoice';
   const first = (invoice.customer.name || '').split(' ')[0];
-  const due = invoice.due ? new Date(`${invoice.due}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' }) : '';
-  const title = reminder ? `Reminder: ${word} ${invoice.label} for ${money(invoice.total)}` : `${Word} ${invoice.label} for ${money(invoice.total)}`;
-  const intro = `${first ? `Hi ${first}, here` : 'Here'} is ${reminder ? 'a reminder about ' : ''}your ${word} from ${business.name}.${due ? (estimate ? ` It is valid until ${due}.` : ` Payment is due ${due}.`) : ''}`;
-  const rows = [...invoice.items.map((l) => [`${l.qty} × ${l.name}`, money(l.price * l.qty)]), ...(invoice.discount ? [['Discount', `−${money(invoice.discount)}`]] : []), ...(invoice.tax ? [['Tax', money(invoice.tax)]] : []), [estimate ? 'Estimated total' : 'Amount due', money(invoice.total)]];
+  const due = invoice.due ? new Date(`${invoice.due}T12:00:00Z`).toLocaleDateString(es ? 'es-US' : 'en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const title = es ? (reminder ? `Recordatorio: ${word} ${invoice.label} por ${money(invoice.total)}` : `${Word} ${invoice.label} por ${money(invoice.total)}`)
+    : reminder ? `Reminder: ${word} ${invoice.label} for ${money(invoice.total)}` : `${Word} ${invoice.label} for ${money(invoice.total)}`;
+  const intro = es
+    ? `${first ? `Hola ${first}, aquí` : 'Aquí'} ${reminder ? 'te recordamos ' : 'tienes '}${estimate ? 'tu presupuesto' : 'tu factura'} de ${business.name}.${due ? (estimate ? ` Es válido hasta el ${due}.` : ` El pago vence el ${due}.`) : ''}`
+    : `${first ? `Hi ${first}, here` : 'Here'} is ${reminder ? 'a reminder about ' : ''}your ${word} from ${business.name}.${due ? (estimate ? ` It is valid until ${due}.` : ` Payment is due ${due}.`) : ''}`;
+  const L = es ? { disc: 'Descuento', tax: 'Impuesto', est: 'Total estimado', due: 'Monto a pagar', view: 'Ver presupuesto', pay: 'Ver y pagar', payBtn: 'Ver y pagar la factura' }
+    : { disc: 'Discount', tax: 'Tax', est: 'Estimated total', due: 'Amount due', view: 'View estimate', pay: 'View and pay', payBtn: 'View and pay invoice' };
+  const rows = [...invoice.items.map((l) => [`${l.qty} × ${l.name}`, money(l.price * l.qty)]), ...(invoice.discount ? [[L.disc, `−${money(invoice.discount)}`]] : []), ...(invoice.tax ? [[L.tax, money(invoice.tax)]] : []), [estimate ? L.est : L.due, money(invoice.total)]];
   return {
     subject: `${title} · ${business.name}`,
-    text: [intro, '', ...rows.map(([k, v]) => `${k}  ${v}`), '', `${estimate ? 'View estimate' : 'View and pay'}: ${url}`, '', [business.name, business.phone].filter(Boolean).join(' · ')].join('\n'),
-    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)} · ${Word} ${esc(invoice.label)}</p><h1 style="margin:0 0 10px;font-size:34px;line-height:1.1;letter-spacing:-.025em;font-weight:600">${money(invoice.total)}</h1><p style="margin:0 0 22px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p>${rowsHtml(rows)}${invoice.notes ? `<p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#1d1d1f;white-space:pre-wrap">${esc(invoice.notes)}</p>` : ''}${button(url, estimate ? 'View estimate' : 'View and pay invoice')}<p style="margin:26px 0 0;font-size:13px;line-height:1.5;color:#86868b">${esc([business.name, business.address, business.phone].filter(Boolean).join(' · '))}</p>`),
+    text: [intro, '', ...rows.map(([k, v]) => `${k}  ${v}`), '', `${estimate ? L.view : L.pay}: ${url}`, '', [business.name, business.phone].filter(Boolean).join(' · ')].join('\n'),
+    html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)} · ${Word} ${esc(invoice.label)}</p><h1 style="margin:0 0 10px;font-size:34px;line-height:1.1;letter-spacing:-.025em;font-weight:600">${money(invoice.total)}</h1><p style="margin:0 0 22px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p>${rowsHtml(rows)}${invoice.notes ? `<p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#1d1d1f;white-space:pre-wrap">${esc(invoice.notes)}</p>` : ''}${button(url, estimate ? L.view : L.payBtn)}<p style="margin:26px 0 0;font-size:13px;line-height:1.5;color:#86868b">${esc([business.name, business.address, business.phone].filter(Boolean).join(' · '))}</p>`),
   };
 }
 
-export function giftEmail({ business, code, amount, name, url }) {
+export function giftEmail({ business, code, amount, name, url, lang = 'en' }) {
+  const es = lang === 'es', first = name ? name.split(' ')[0] : '';
+  if (es) {
+    const how = url ? 'Escribe el código en la casilla de código de promoción cuando ordenes en línea, o muéstralo en el mostrador.' : 'Muestra el código en el mostrador cuando pagues.';
+    return {
+      subject: `Tu tarjeta de regalo de ${money(amount)} para ${business}`,
+      text: `${first ? `Hola ${first}, aquí` : 'Aquí'} tienes tu tarjeta de regalo de ${money(amount)} para ${business}.\n\nCódigo: ${code}\n\n${how}\n\n${url || ''}`,
+      html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business)} · Tarjeta de regalo</p><h1 style="margin:0 0 10px;font-size:34px;letter-spacing:-.025em;font-weight:600">${money(amount)}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(first ? `Hola ${first}, aquí` : 'Aquí')} tienes tu tarjeta de regalo. ${how}</p><p style="margin:0;font-size:26px;font-weight:600;letter-spacing:.08em;background:#f5f5f7;border-radius:14px;padding:18px;text-align:center">${esc(code)}</p>${button(url, 'Ordenar en línea')}`),
+    };
+  }
   return {
     subject: `Your ${money(amount)} gift card for ${business}`,
     text: `${name ? `Hi ${name.split(' ')[0]}, here` : 'Here'} is your ${money(amount)} gift card for ${business}.\n\nCode: ${code}\n\n${url ? 'Enter it in the promo code box when you order online, or show it at the counter.' : 'Show it at the counter when you pay.'}\n\n${url || ''}`,
@@ -163,7 +178,13 @@ export function giftEmail({ business, code, amount, name, url }) {
   };
 }
 
-export function bookingEmail(kind, { business, appt, when, manageUrl }) {
+export function bookingEmail(kind, { business, appt, when, manageUrl, lang = 'en' }) {
+  if (lang === 'es' && kind !== 'merchant') {
+    const head = { request: ['Recibimos tu solicitud de reserva', `Gracias, ${appt.name.split(' ')[0]}. ${business.name} confirmará tu reserva pronto.`], confirmed: ['Tu reserva está confirmada', `Te esperamos. Si cambian tus planes, avísale a ${business.name}.`], cancelled: ['Tu reserva fue cancelada', `Comunícate con ${business.name} si tienes alguna pregunta.`] }[kind];
+    const rows = [['Qué', appt.service], ['Cuándo', when], ['Personas', String(appt.party)], ...(appt.notes ? [['Notas', appt.notes]] : [])];
+    return { subject: `${head[0]} · ${business.name}`, text: [head[0], head[1], '', ...rows.map(([k, v]) => `${k}: ${v}`), '', [business.name, business.phone].filter(Boolean).join(' · ')].join('\n'),
+      html: shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">${esc(business.name)}</p><h1 style="margin:0 0 10px;font-size:26px;letter-spacing:-.02em;font-weight:600">${esc(head[0])}</h1><p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(head[1])}</p>${rowsHtml(rows)}`) };
+  }
   const head = { request: [`We have your booking request`, `Thanks, ${appt.name.split(' ')[0]}. ${business.name} will confirm your booking shortly.`], confirmed: ['Your booking is confirmed', `See you then. If your plans change, please let ${business.name} know.`], cancelled: ['Your booking was cancelled', `Please contact ${business.name} if you have any questions.`], merchant: ['New booking request', `${appt.name} asked for ${appt.service}.`] }[kind];
   const rows = [['What', appt.service], ['When', when], ['People', String(appt.party)], ...(kind === 'merchant' ? [['Customer', `${appt.name} · ${appt.phone} · ${appt.email}`]] : []), ...(appt.notes ? [['Notes', appt.notes]] : [])];
   return { subject: `${head[0]} · ${business.name}`, text: [head[0], head[1], '', ...rows.map(([k, v]) => `${k}: ${v}`), '', kind === 'merchant' ? manageUrl || '' : [business.name, business.phone].filter(Boolean).join(' · ')].join('\n'),

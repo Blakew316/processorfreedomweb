@@ -7,6 +7,7 @@ import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
 import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice } from '../shared/core.js';
+import { inSpanish } from './es.js';
 import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail, rewardEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
@@ -335,6 +336,7 @@ export function createApp(options = {}) {
     const g = c && db.get('SELECT code, balance FROM gift_cards WHERE site_id = ? AND code = ? AND balance > 0', site.id, c);
     return g ? { code: g.code, type: 'gift', value: g.balance, gift: true } : null;
   }
+  const langOf = (site) => { try { return JSON.parse(site.published || site.draft).lang === 'es' ? 'es' : 'en'; } catch { return 'en'; } };
   function businessOf(site) {
     const c = JSON.parse(site.published || site.draft);
     const b = c.business || {};
@@ -365,6 +367,16 @@ export function createApp(options = {}) {
     let details = {}; try { details = JSON.parse(m.details || '{}') || {}; } catch {}
     return { ...m, name: details.name ?? account, phone: details.phone || '', details };
   });
+
+  // The name a person goes by at this business: what the owner typed on the Employees list, or their own account name.
+  const staffName = (site, user) => {
+    if (site.user_id !== user.id) {
+      const m = db.get('SELECT details FROM members WHERE site_id = ? AND user_id = ?', site.id, user.id);
+      let d = {}; try { d = JSON.parse(m?.details || '{}') || {}; } catch {}
+      if (str(d.name).trim()) return str(d.name).trim();
+    }
+    return user.name || user.email;
+  };
 
   /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
   const takenSlots = (siteId) => Object.fromEntries(db.all("SELECT scheduled, COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled != '' AND status != 'cancelled' AND created_at > ? GROUP BY scheduled", siteId, Date.now() - 3 * DAY).map((r) => [r.scheduled, r.n]));
@@ -779,7 +791,7 @@ export function createApp(options = {}) {
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)), emailed: !!mailer.enabled });
   });
 
-  // The business details customers see (phone, email, address, logo) go live straight away, like the business name:
+  // The business details customers see (phone, email, address, opening hours, logo) go live straight away, like the business name:
   // they are written into the saved draft and the live copy together, so receipts, emails and the order page agree.
   route('PUT', '/api/sites/:id/business', async (req, res, p) => {
     const { site: asked } = ownSite(req, p.id);
@@ -791,6 +803,7 @@ export function createApp(options = {}) {
       const d = JSON.parse(raw);
       d.business = { ...(d.business || {}) };
       for (const k of KEYS) if (typeof b.business?.[k] === 'string') d.business[k] = b.business[k];
+      if (Array.isArray(b.business?.hours)) d.business.hours = b.business.hours.slice(0, 14).map((r) => ({ label: str(r?.label, 60), value: str(r?.value, 80) }));
       if (b.logo !== undefined) d.brand = { ...(d.brand || {}), logo: b.logo, ...(b.logo && d.brand?.logoMode === 'text' ? { logoMode: 'image' } : {}) };
       return packDraft(d);
     };
@@ -939,6 +952,7 @@ export function createApp(options = {}) {
     }
     db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
     // What the owner knows about the person lives with the membership; another account's own name is never changed.
+    const was = member ? str(details.name).trim() : '';
     if (!member || b.name !== undefined) details.name = name;
     if (b.details && typeof b.details === 'object') {
       const d = b.details, pass = str(d.passcode, 4).replace(/\D/g, '');
@@ -948,6 +962,16 @@ export function createApp(options = {}) {
       Object.assign(details, { nickname: str(d.nickname, 60).trim(), phone, payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass });
     }
     db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify(details), site.id, person.id);
+    if (member && name && name !== was) {
+      const acct = db.get('SELECT name, email FROM users WHERE id = ?', person.id);
+      const old = JSON.stringify([...new Set([was, acct.name, acct.email].filter(Boolean))]);
+      db.run('UPDATE timeclock SET name = ? WHERE site_id = ? AND user_id = ?', name, site.id, person.id);
+      if (was) db.run('UPDATE shifts SET name = ? WHERE site_id = ? AND name = ?', name, site.id, was);
+      if (was) db.run('UPDATE appointments SET employee = ? WHERE site_id = ? AND employee = ?', name, site.id, was);
+      db.run('UPDATE orders SET handled_by = ? WHERE site_id = ? AND handled_by IN (SELECT value FROM json_each(?))', name, site.id, old);
+      db.run('UPDATE money_log SET by_name = ? WHERE site_id = ? AND by_name IN (SELECT value FROM json_each(?))', name, site.id, old);
+      db.run('UPDATE cash_log SET by_name = ? WHERE site_id = ? AND by_name IN (SELECT value FROM json_each(?))', name, site.id, old);
+    }
     if (!member && mailOk(site)) {
       const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
       Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
@@ -971,7 +995,7 @@ export function createApp(options = {}) {
   route('GET', '/api/sites/:id/customers', (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const people = new Map();
-    // Spent is money really paid: paid orders less what was refunded on them, and paid invoices to the same address.
+    // Spent is money really paid: paid orders less what was refunded on them, and paid invoices and appointments to the same address.
     for (const o of db.all('SELECT name, email, phone, total, refunded, paid_at, status, items, created_at FROM orders WHERE site_id = ? ORDER BY created_at DESC LIMIT 20000', site.id)) {
       const key = o.email.toLowerCase();
       const c = people.get(key) || people.set(key, { name: o.name, email: key, phone: o.phone, orders: 0, spent: 0, last: o.created_at, first: o.created_at, items: new Map() }).get(key);
@@ -984,6 +1008,7 @@ export function createApp(options = {}) {
     const byEmail = new Map(customers.map((c) => [c.email, c]));
     const invoicePaid = new Map();
     for (const v of db.all("SELECT customer, total FROM invoices WHERE site_id = ? AND status = 'paid'", site.id)) { let e = ''; try { e = String(JSON.parse(v.customer).email || '').toLowerCase(); } catch { /* none */ } if (e) invoicePaid.set(e, (invoicePaid.get(e) || 0) + v.total); }
+    for (const v of db.all("SELECT lower(email) AS e, SUM(total) AS n FROM appointments WHERE site_id = ? AND paid_at IS NOT NULL AND email != '' GROUP BY lower(email)", site.id)) invoicePaid.set(v.e, (invoicePaid.get(v.e) || 0) + v.n);
     for (const [e, amount] of invoicePaid) { const hit = byEmail.get(e); if (hit) hit.spent += amount; }
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
@@ -1094,8 +1119,8 @@ export function createApp(options = {}) {
     const code = `GC${randomBytes(5).toString('hex').toUpperCase()}`, now = Date.now(), name = str(b.name, 120).trim();
     db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, name, email, str(b.note, 200).trim(), now);
     giftMove(site, code, 'issue', amount, paidWith, '', now);
-    if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: user.name || user.email, at: now });
-    if (email && mailOk(site)) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: orderingOf(site).enabled && site.published ? `${siteUrl(req, site).replace(/\/$/, '')}/order` : '' }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
+    if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: staffName(site, user), at: now });
+    if (email && mailOk(site)) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), lang: langOf(site), url: orderingOf(site).enabled && site.published ? `${siteUrl(req, site).replace(/\/$/, '')}/order` : '' }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
     json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site), loads: giftLoads(site) });
   });
   // Spend from a card at the counter, or top it up. The balance check is part of the write, so two at once can never take a card below zero.
@@ -1109,7 +1134,7 @@ export function createApp(options = {}) {
       const paidWith = GIFT_PAID.includes(b.paidWith) ? b.paidWith : bad(400, 'Choose how the top-up was paid for.');
       if (!db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ? AND balance + ? <= ?', change, site.id, card.code, change, GIFT_MAX).changes) bad(400, `A card can hold up to ${money(GIFT_MAX)}. This one has ${money(card.balance)}.`);
       giftMove(site, card.code, 'load', change, paidWith, '', now);
-      if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(card.code, card.name), method: paidWith, amount: change, note: 'Gift card topped up', by: user.name || user.email, at: now });
+      if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(card.code, card.name), method: paidWith, amount: change, note: 'Gift card topped up', by: staffName(site, user), at: now });
     } else {
       if (!db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ? AND balance + ? >= 0', change, site.id, card.code, change).changes) bad(400, `This card has ${money(db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, card.code).balance)} left.`);
       giftMove(site, card.code, 'spend', -change, '', '', now);
@@ -1183,14 +1208,14 @@ export function createApp(options = {}) {
         inv = { customer, row: toInvoice(ownInvoice(site, invId), fake, site) };
       } catch (e) { console.error('Recurring payment not billed:', e.message); continue; }
       const business = businessOf(site);
-      Promise.resolve().then(() => mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv.row, url: inv.row.url }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Plan invoice email failed:', e.message));
+      Promise.resolve().then(() => mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv.row, url: inv.row.url, lang: langOf(site) }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Plan invoice email failed:', e.message));
     }
   }
   recurring = billPlans;
 
   /* Appointments: customers ask for a time on the booking page; the business confirms or declines. */
-  const toAppt = (r) => ({ id: r.id, employee: r.employee || '', total: r.total || 0, service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
-  const apptWhen = (at) => new Date(`${at}:00Z`).toLocaleString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const toAppt = (r) => ({ id: r.id, employee: r.employee || '', total: r.total || 0, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
+  const apptWhen = (at, lang = 'en') => new Date(`${at}:00Z`).toLocaleString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   function makeAppt(site, ordering, b, viaPublic) {
     const svc = ordering.booking.services.find((x) => x.id === b.service) || (viaPublic ? bad(400, 'Choose what you would like to book.') : { name: str(b.serviceName, 80).trim() || 'Booking', minutes: 0 });
     const day = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) ? b.date : bad(400, 'Choose a date.');
@@ -1215,6 +1240,10 @@ export function createApp(options = {}) {
     }
     const id = newId();
     db.run('INSERT INTO appointments (id, site_id, service, minutes, at, name, email, phone, party, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, svc.name, svc.minutes, at, name, email, phone, Math.max(1, Math.min(100, Math.round(Number(b.party)) || 1)), str(b.notes, 500).trim(), viaPublic ? 'pending' : 'confirmed', Date.now());
+    if (viaPublic) {
+      if (svc.price > 0) db.run('UPDATE appointments SET total = ? WHERE id = ?', Math.round(svc.price), id);
+      keepContact(site.id, { name, company: '', email, phone, address: '', more: EMPTY_MORE });
+    }
     if (!viaPublic) db.run('UPDATE appointments SET employee = ?, total = ?, minutes = CASE WHEN ? > 0 THEN ? ELSE minutes END WHERE id = ?', str(b.employee, 80).trim(), Math.max(0, Math.min(10000000, Math.round(Number(b.total)) || 0)), Math.round(Number(b.minutes)) || 0, Math.max(0, Math.min(1440, Math.round(Number(b.minutes)) || 0)), id);
     return toAppt(db.get('SELECT * FROM appointments WHERE id = ?', id));
   }
@@ -1233,11 +1262,33 @@ export function createApp(options = {}) {
     const status = str((await readJson(req)).status, 20);
     if (!['pending', 'confirmed', 'completed', 'cancelled', 'noshow'].includes(status)) bad(400, 'Unknown status.');
     const row = db.get('SELECT * FROM appointments WHERE id = ? AND site_id = ?', p.appt, site.id) || bad(404, 'We could not find that appointment.');
+    if (row.paid_at && ['cancelled', 'noshow'].includes(status)) bad(409, `This appointment has a payment of ${money(row.total)} recorded. Void it first.`);
     db.run('UPDATE appointments SET status = ? WHERE id = ?', status, row.id);
     // The customer is emailed at most once about each status, within the business's hourly cap.
     const told = row.mailed ? row.mailed.split(',') : [];
     if (status !== row.status && ['confirmed', 'cancelled'].includes(status) && row.email && !told.includes(status) && mailOk(site)) {
-      db.run('UPDATE appointments SET mailed = ? WHERE id = ?', [...told, status].join(','), row.id); const business = businessOf(site); Promise.resolve().then(() => mailer.send({ to: row.email, ...bookingEmail(status, { business, appt: toAppt(row), when: apptWhen(row.at) }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Booking email failed:', e.message)); }
+      db.run('UPDATE appointments SET mailed = ? WHERE id = ?', [...told, status].join(','), row.id); const business = businessOf(site); Promise.resolve().then(() => mailer.send({ to: row.email, ...bookingEmail(status, { business, appt: toAppt(row), when: apptWhen(row.at, langOf(site)), lang: langOf(site) }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Booking email failed:', e.message)); }
+    json(res, 200, { appointment: toAppt(db.get('SELECT * FROM appointments WHERE id = ?', row.id)) });
+  });
+
+  // Recording what the customer paid for an appointment, or voiding it when it was recorded by mistake (a row with the amount negative).
+  const APPT_TENDERS = ['Cash', 'Card', 'Online payment', 'Check', 'Other'];
+  route('POST', '/api/sites/:id/appointments/:appt/payment', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id, 'kitchen');
+    const b = await readJson(req);
+    const row = db.get('SELECT * FROM appointments WHERE id = ? AND site_id = ?', p.appt, site.id) || bad(404, 'We could not find that appointment.');
+    const now = Date.now(), by = staffName(site, user), money1 = { source: 'Appointment', refId: row.id, ref: row.service || 'Booking', customer: row.name, by, at: now };
+    if (b.void === true) {
+      if (!row.paid_at) bad(400, 'No payment is recorded for this appointment.');
+      if (!db.run('UPDATE appointments SET paid_at = NULL, paid_method = \'\' WHERE id = ? AND paid_at = ?', row.id, row.paid_at).changes) bad(409, 'This appointment was just changed on another device. Refresh to see it.');
+      logMoney(site, { ...money1, method: row.paid_method || 'Other', amount: -row.total, note: 'Payment voided' });
+    } else {
+      const method = APPT_TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
+      if (['cancelled', 'noshow'].includes(row.status)) bad(400, 'This appointment did not go ahead, so there is nothing to pay.');
+      if (!(row.total > 0)) bad(400, 'This appointment has no price to pay.');
+      if (!db.run('UPDATE appointments SET paid_at = ?, paid_method = ? WHERE id = ? AND paid_at IS NULL', now, method, row.id).changes) bad(409, 'A payment is already recorded for this appointment.');
+      logMoney(site, { ...money1, method, amount: row.total });
+    }
     json(res, 200, { appointment: toAppt(db.get('SELECT * FROM appointments WHERE id = ?', row.id)) });
   });
 
@@ -1270,7 +1321,7 @@ export function createApp(options = {}) {
     const { site, user } = ownSite(req, p.id, 'kitchen');
     const open = db.get('SELECT id FROM timeclock WHERE site_id = ? AND user_id = ? AND out_at IS NULL', site.id, user.id);
     if ((await readJson(req)).action === 'out') { if (!open) bad(400, 'You are not clocked in.'); db.run('UPDATE timeclock SET out_at = ? WHERE id = ?', Date.now(), open.id); }
-    else { if (open) bad(400, 'You are already clocked in.'); db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at) VALUES (?, ?, ?, ?, ?)', newId(), site.id, user.id, user.name || user.email, Date.now()); }
+    else { if (open) bad(400, 'You are already clocked in.'); db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at) VALUES (?, ?, ?, ?, ?)', newId(), site.id, user.id, staffName(site, user), Date.now()); }
     json(res, 200, clockOf(site, user));
   });
   // Managers correct or add time: who, when they started, and when they finished (empty while still working).
@@ -1328,7 +1379,7 @@ export function createApp(options = {}) {
       const method = [...TENDERS, 'Bank transfer'].includes(str(raw.paidMethod, 40).trim()) ? str(raw.paidMethod, 40).trim() : 'Other', note = str(raw.paidNote, 300).trim();
       db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = ? WHERE id = ?", now, method, note, now, id);
       const made = ownInvoice(site, id);
-      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, note, by: user.name || user.email, at: now });
+      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, note, by: staffName(site, user), at: now });
     }
     if (raw.walkIn !== true) keepContact(site.id, v.customer);   // a counter sale with no customer picked is not added to Customers
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
@@ -1353,7 +1404,7 @@ export function createApp(options = {}) {
     limit(`invoice:${site.id}`, 60, 3600000);
     const reminder = row.status === 'sent';
     const business = businessOf(site);
-    await mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url, reminder, estimate: inv.kind === 'estimate' }), fromName: business.name, replyTo: business.email || orderingOf(site).notifyEmail }).catch((e) => { console.error('Invoice email failed:', e.message); bad(502, 'We could not send that email just now. Please try again, or copy the link and send it yourself.'); });
+    await mailer.send({ to: inv.customer.email, ...invoiceEmail({ business, invoice: inv, url: inv.url, reminder, estimate: inv.kind === 'estimate', lang: langOf(site) }), fromName: business.name, replyTo: business.email || orderingOf(site).notifyEmail }).catch((e) => { console.error('Invoice email failed:', e.message); bad(502, 'We could not send that email just now. Please try again, or copy the link and send it yourself.'); });
     db.run("UPDATE invoices SET status = 'sent', sent_at = COALESCE(sent_at, ?), reminders = reminders + ?, updated_at = ? WHERE id = ?", Date.now(), reminder && mailer.enabled ? 1 : 0, Date.now(), row.id);
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), emailed: !!mailer.enabled });
   });
@@ -1361,7 +1412,7 @@ export function createApp(options = {}) {
     const { site, user } = ownSite(req, p.id);
     const row = ownInvoice(site, p.inv);
     const b = await readJson(req);
-    const now = Date.now(), by = user.name || user.email;
+    const now = Date.now(), by = staffName(site, user);
     const v = ownInvoice(site, row.id), was = v.paid_method || 'Other';
     const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, note, by, at: now });
     if (b.status === 'paid') {
@@ -1440,7 +1491,7 @@ export function createApp(options = {}) {
     const { site, user, role } = ownSite(req, p.id, 'kitchen');
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     const b = await readJson(req);
-    const now = Date.now(), by = user.name || user.email;
+    const now = Date.now(), by = staffName(site, user);
     // The order is read again now the body is here, so two taps at once can never record the same payment twice.
     const o = db.get('SELECT * FROM orders WHERE id = ?', row.id);
     // What was paid at the counter: the total, less any gift card the customer paid with when ordering.
@@ -1563,7 +1614,7 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const amount = Math.round(Number(b.amount));
     if (!(amount > 0) || amount > 100_000_000) bad(400, 'Enter an amount above zero.');
-    db.run('INSERT INTO cash_log (id, site_id, kind, amount, note, by_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, b.kind === 'out' ? 'out' : 'in', amount, str(b.note, 200).trim(), user.name || user.email, Date.now());
+    db.run('INSERT INTO cash_log (id, site_id, kind, amount, note, by_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, b.kind === 'out' ? 'out' : 'in', amount, str(b.note, 200).trim(), staffName(site, user), Date.now());
     json(res, 201, { ok: true });
   });
   route('DELETE', '/api/sites/:id/cash/:entry', (req, res, p) => {
@@ -1592,7 +1643,7 @@ export function createApp(options = {}) {
     const { site, user } = ownSite(req, p.id);
     const open = openBatch(site);
     if (!open.totals.count && !open.totals.refundCount && !open.paidIn && !open.paidOut) bad(400, 'There is nothing in the open batch to close out.');
-    db.run('INSERT INTO closeouts (id, site_id, number, from_at, created_at, by_name, totals) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, open.number, open.since, Date.now(), user.name || user.email, JSON.stringify({ ...open.totals, tenders: open.tenders, paidIn: open.paidIn, paidOut: open.paidOut }));
+    db.run('INSERT INTO closeouts (id, site_id, number, from_at, created_at, by_name, totals) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, open.number, open.since, Date.now(), staffName(site, user), JSON.stringify({ ...open.totals, tenders: open.tenders, paidIn: open.paidIn, paidOut: open.paidOut }));
     json(res, 201, { ok: true });
   });
 
@@ -1818,6 +1869,7 @@ export function createApp(options = {}) {
       if (s1) { s1.orders++; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; }
       bump(staff, o.handledBy || 'Not recorded', o); bump(tenders, o.paidAt ? o.paidMethod || 'Other' : 'Not paid yet', o);
       if (o.discount) { const pk = o.promo || 'Other discount'; const pr = promos.get(pk) || promos.set(pk, { name: pk, uses: 0, amount: 0 }).get(pk); pr.uses++; pr.amount += o.discount; }
+      for (const l of o.items) if (l.list > l.price) { const pk = `item:${l.deal || 'Sale'}`; const pr = promos.get(pk) || promos.set(pk, { name: l.deal || 'Sale', uses: 0, amount: 0, item: true }).get(pk); pr.uses++; pr.amount += (l.list - l.price) * l.qty; }
       const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
       m.orders++; m.net += o.subtotal - o.discount; m.total += o.total;
       let left = o.discount;
@@ -1913,12 +1965,13 @@ export function createApp(options = {}) {
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     if (status !== row.status) {
       if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
-      const by = user.name || user.email, now = Date.now();
+      const by = staffName(site, user), now = Date.now();
       // Money taken at the counter is refunded first, so the books never keep a payment for an order that did not happen.
       // A gift card is given back by cancelling.
       const counter = row.paid_at && row.paid_method !== 'Gift card' ? row.total - row.gift : 0;
       if (status === 'cancelled' && counter > 0 && row.refunded < counter) bad(409, `This order has a payment of ${money(counter)} recorded. Refund it first, then cancel the order.`);
-      if (!db.run('UPDATE orders SET status = ?, handled_by = ?, updated_at = ? WHERE id = ? AND status = ?', status, by, now, row.id, row.status).changes) bad(409, 'This order was just changed on another device. Refresh to see it.');
+      // The first person to take the order on is the one credited with it; later status changes do not take it over.
+      if (!db.run("UPDATE orders SET status = ?, handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ? AND status = ?", status, by, now, row.id, row.status).changes) bad(409, 'This order was just changed on another device. Refresh to see it.');
       if (status === 'cancelled') cancelled(site, row, by, now);
       if (status === 'completed') earnReward(site, row, now, req);
       const order = toOrder({ ...row, status });
@@ -2014,7 +2067,16 @@ export function createApp(options = {}) {
 
   const simplePage = (title, text) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:#fff;color:#1d1d1f;text-align:center;padding:24px;-webkit-font-smoothing:antialiased}h1{font-size:40px;letter-spacing:-.025em;margin:0 0 10px;font-weight:600}p{color:#6e6e73;font-size:19px;margin:0}@media(prefers-color-scheme:dark){body{background:#000;color:#f5f5f7}p{color:#a1a1a6}}</style></head><body><div><h1>${esc(title)}</h1><p>${esc(text)}</p></div></body></html>`;
 
+  // A Spanish site's customers are told in Spanish when an order, booking or message cannot be sent.
   async function serveSite(req, res, site, base, sub, origin, draft = false) {
+    try { return await siteRequest(req, res, site, base, sub, origin, draft); }
+    catch (e) {
+      if (!(e instanceof HttpError) || req.method !== 'POST' || !site) throw e;
+      let lang = 'en'; try { lang = JSON.parse(draft ? site.draft : site.published || site.draft).lang; } catch { /* English */ }
+      throw lang === 'es' ? new HttpError(e.status, inSpanish(e.message), e.code) : e;
+    }
+  }
+  async function siteRequest(req, res, site, base, sub, origin, draft) {
     const path = sub.replace(/\/+$/, '') || '/';
     let config = site && JSON.parse(draft ? site.draft : site.published || 'null');
     // An invoice or an order's tracking page does not depend on the website being live, so links already sent keep working.
@@ -2043,7 +2105,8 @@ export function createApp(options = {}) {
       if (!ordering.booking.enabled) bad(409, 'Online booking is not available right now. Please call us.');
       const appt = makeAppt(site, ordering, await readJson(req, 20_000), true);
       const business = businessOf(site), owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
-      const send = (to, kind) => Promise.resolve().then(() => mailer.send({ to, ...bookingEmail(kind, { business, appt, when: apptWhen(appt.at), manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=appts` }), fromName: business.name, replyTo: kind === 'merchant' ? appt.email : business.email })).catch((e) => console.error('Booking email failed:', e.message));
+      const lang = kind => (kind === 'merchant' ? 'en' : langOf(site));
+      const send = (to, kind) => Promise.resolve().then(() => mailer.send({ to, ...bookingEmail(kind, { business, appt, when: apptWhen(appt.at, lang(kind)), lang: lang(kind), manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=appts` }), fromName: business.name, replyTo: kind === 'merchant' ? appt.email : business.email })).catch((e) => console.error('Booking email failed:', e.message));
       send(appt.email, 'request'); send(ordering.notifyEmail || business.email || owner?.email, 'merchant');
       notifySite(site, { title: 'New booking request', body: `${site.name} · ${appt.name} · ${apptWhen(appt.at)}`, url: `/app/site/${site.id}?tab=appts`, tag: `appt-${appt.id}` });
       return json(res, 201, { ok: true });
@@ -2120,6 +2183,7 @@ export function createApp(options = {}) {
         if (promo?.reward) db.run('UPDATE rewards SET used_order = ? WHERE site_id = ? AND code = ? AND used_order IS NULL', oid, site.id, promo.code);
         db.raw.exec('COMMIT');
         order = toOrder(db.get('SELECT * FROM orders WHERE id = ?', oid));
+        if (gift) order.giftLeft = db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, promo.code)?.balance ?? null;
         order.low = [...need].map(([itemId, qty]) => ({ name: before.get(itemId).name, was: before.get(itemId).stock, stock: Math.max(0, before.get(itemId).stock - qty) })).filter((x) => x.was > ordering.lowStockAt && x.stock <= ordering.lowStockAt);
       } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
       mail('placed', req, site, order, order.email);
@@ -2139,7 +2203,7 @@ export function createApp(options = {}) {
 
     const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? applyMods(pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering),
       // The code box shows when there is something to type in it: a promo code, a gift card or a loyalty reward.
-      codes: ordering.loyalty.enabled || !!db.get('SELECT 1 FROM gift_cards WHERE site_id = ? AND balance > 0 LIMIT 1', site.id) };
+      codes: ordering.loyalty.enabled || !!db.get('SELECT 1 FROM gift_cards WHERE site_id = ? AND balance > 0 LIMIT 1', site.id), mailOn: !!mailer.enabled };
     const tracked = path.match(/^\/order\/([\w-]{10,40})$/);
     if (tracked) {
       const row = db.get('SELECT * FROM orders WHERE token = ? AND site_id = ?', tracked[1], site.id);
@@ -2149,7 +2213,8 @@ export function createApp(options = {}) {
         const earned = db.get('SELECT code, type, value FROM rewards WHERE site_id = ? AND earned_order = ? AND used_order IS NULL', site.id, row.id);
         loyalty = { every: ordering.loyalty.every, have: earned ? ordering.loyalty.every : count % ordering.loyalty.every, code: earned?.code, value: earned ? rewardText(earned) : '' };
       }
-      const out = renderPage(config, row ? 'order-status' : 'missing', { ...shared, order: row && toOrder(row), loyalty });
+      const giftLeft = row && row.gift_code ? db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, row.gift_code)?.balance ?? null : null;
+      const out = renderPage(config, row ? 'order-status' : 'missing', { ...shared, order: row && { ...toOrder(row), giftLeft }, loyalty });
       return html(res, out.status, out.html, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
     }
 

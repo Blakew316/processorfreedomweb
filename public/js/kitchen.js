@@ -24,8 +24,9 @@ export async function kitchen(id, mount, title) {
       h('ul', {}, o.items.map((l) => h('li', {}, h('b', {}, `${l.qty}×`), h('span', {}, l.name, l.opts?.length > 0 && h('small', {}, l.opts.join(', ')))))),
       o.notes && h('p', { class: 'k-note' }, o.notes),
       (o.vehicle || o.address) && h('p', { class: 'k-meta' }, o.vehicle || o.address),
+      // The order moves on as a whole, so its status is changed from All stations, not from one station's part of it.
       h('div', { class: 'k-acts' },
-        h('button', { class: 'btn lg', onclick: async (e) => { e.currentTarget.disabled = true; try { const fresh = (await api('POST', `/api/sites/${id}/orders/${o.id}`, { status: NEXT[o.status] })).order; Object.assign(orders.find((x) => x.id === o.id) || o, fresh); } catch (x) { toast(x.message, true); } draw(); } }, o.status === 'new' ? 'Confirm' : o.status === 'confirmed' ? readyLabel(o.method) : 'Complete'),
+        !station && h('button', { class: 'btn lg', onclick: async (e) => { e.currentTarget.disabled = true; try { const fresh = (await api('POST', `/api/sites/${id}/orders/${o.id}`, { status: NEXT[o.status] })).order; Object.assign(orders.find((x) => x.id === o.id) || o, fresh); } catch (x) { toast(x.message, true); } draw(); } }, o.status === 'new' ? 'Confirm' : o.status === 'confirmed' ? readyLabel(o.method) : 'Complete'),
         h('button', { class: 'btn soft lg', 'aria-label': 'Print ticket', onclick: () => printTicket(o, site.name, { method: ORDER_METHODS[o.method]?.name || o.method, when: o.scheduled ? slotLabel(o.scheduled, site.ordering) : 'As soon as possible', total: money(o.total) }) }, ic('print', 20))))));
   }
   async function load() {

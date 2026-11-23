@@ -1,6 +1,7 @@
 // Shared between the server and the browser. Pure functions only — no Node or DOM APIs.
 
 import { ION } from './icons.js';
+import { legalEs } from './legal-es.js';
 
 export const PLATFORM = 'Processor Freedom';
 
@@ -168,8 +169,8 @@ export const SECTION_DEFAULTS = {
 
 const feats = (title, items) => sec('features', '', { title, subtitle: '', items: items.map(([icon, t, desc]) => ({ icon, title: t, desc })) });
 const reviews = (items) => sec('testimonials', 'Reviews', { title: 'Loved by our customers', items: items.map(([quote, name, role]) => ({ quote, name, role: role || '' })) });
-const faq = (items) => sec('faq', 'FAQ', { title: 'Questions, answered', items: items.map(([q, a]) => ({ q, a })) });
-const offer = (nav, title, subtitle, layout, items) => sec('services', nav, { title, subtitle, layout, items: items.map(([name, desc, price]) => ({ name, desc, price: price || '', image: '' })) });
+const faq = (items) => ({ ...sec('faq', 'FAQ', { title: 'Questions, answered', items: items.map(([q, a]) => ({ q, a })) }), enabled: false });
+const offer = (nav, title, subtitle, layout, items) => sec('services', nav, { title, subtitle, layout, items: items.map(([name, desc]) => ({ name, desc, price: '', image: '' })) });
 const hero = (eyebrow, title, subtitle, primary, secondary, layout = 'center') => sec('hero', '', { eyebrow, title, subtitle, primary, secondary: secondary || link('', ''), image: '', layout });
 const about = (title, body, stats = []) => sec('about', 'About', { title, body, image: '', stats: stats.map(([value, label]) => ({ value, label })) });
 const cta = (title, subtitle, button) => sec('cta', '', { title, subtitle, button });
@@ -221,7 +222,7 @@ export const TEMPLATES = [
       sections: [
         hero('New arrivals in store', 'Things worth keeping.', `${n} is an independent shop with a carefully edited collection of pieces made to last.`, link('Browse collections', '#collections'), link('Visit the shop', '#contact'), 'split'),
         offer('Collections', 'Collections', 'A look at what is on the shelves right now.', 'cards', [['Everyday essentials', 'Well-made basics you will reach for daily.', 'From $28'], ['Home and living', 'Ceramics, textiles and objects with character.', 'From $18'], ['Gifts', 'Wrapped and ready, for every occasion.', 'From $12']]),
-        feats('Shopping, made easy', [['gift', 'Complimentary gift wrap', 'On every purchase, all year.'], ['truck', 'Local delivery', 'Same-day delivery within the city.'], ['card', 'Easy returns', '30 days, no questions asked.']]),
+        feats('Shopping, made easy', [['gift', 'Gift wrap', 'Ask us to wrap your purchase.'], ['truck', 'Local delivery', 'Ask about delivery in your area.'], ['card', 'Returns', 'Ask us about returns and exchanges.']]),
         about('Independent and proud of it', `Every item at ${n} is chosen by hand. We work directly with small makers and only stock what we would bring home ourselves.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -273,7 +274,7 @@ export const TEMPLATES = [
       hours: hours(['Monday – Friday', '7:00 AM – 6:00 PM'], ['Saturday', '8:00 AM – 2:00 PM'], ['Emergencies', '24 / 7']),
       sections: [
         hero('Licensed and insured', 'Done right, the first time.', `${n} provides dependable repairs, installations and maintenance for homes and small businesses, with upfront pricing.`, link('Get a free quote', '#contact'), link('Our services', '#services'), 'split'),
-        feats('Why homeowners call us', [['clock', 'On-time arrival', 'We give you a real appointment window and keep it.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Work guaranteed', 'Every job is backed by a written warranty.']]),
+        feats('Why homeowners call us', [['clock', 'On-time arrival', 'We give you a real appointment window and keep it.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Work you can count on', 'We stand behind the work we do.']]),
         offer('Services', 'Services', 'No job too small.', 'cards', [['Repairs', 'Fast diagnosis and lasting fixes.'], ['Installations', 'Done to code with quality materials.'], ['Maintenance plans', 'Seasonal checkups that prevent expensive surprises.']]),
         about('Local, family owned', `${n} has served this community for years. Our technicians are background-checked, trained, and treat your home like their own.`),
         gallery(),
@@ -292,7 +293,7 @@ export const TEMPLATES = [
       sections: [
         hero('First class free', 'Feel stronger. Move better.', `${n} is a welcoming studio with expert coaching, small classes and programs for every level.`, link('Start a free trial', '#contact'), link('See memberships', '#memberships')),
         feats('Built around you', [['users', 'Small classes', 'Coaches who know your name and your goals.'], ['bolt', 'Smart programming', 'Structured training that keeps you progressing.'], ['heart', 'Supportive community', 'All levels welcome, always.']]),
-        offer('Memberships', 'Memberships', 'No contracts. Pause or cancel any time.', 'cards', [['Drop-in', 'A single class, whenever you like.', '$22'], ['Unlimited', 'Every class, every day.', '$149 / mo'], ['Personal training', 'One-on-one sessions with a dedicated coach.', 'From $75']]),
+        offer('Memberships', 'Memberships', 'Find the option that fits you.', 'cards', [['Drop-in', 'A single class, whenever you like.', '$22'], ['Unlimited', 'Every class, every day.', '$149 / mo'], ['Personal training', 'One-on-one sessions with a dedicated coach.', 'From $75']]),
         about('More than a workout', `${n} was founded on the idea that fitness should fit your life. Whether you are just starting or training for something big, we will meet you where you are.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -309,7 +310,7 @@ export const TEMPLATES = [
       sections: [
         hero('Certified technicians', 'Back on the road, with confidence.', `${n} handles everything from oil changes to major repairs, and explains every recommendation in plain language.`, link('Schedule service', '#contact'), link('What we fix', '#services')),
         offer('Services', 'Services', 'All makes and models.', 'cards', [['Maintenance', 'Oil, filters, fluids and factory-scheduled service.', 'From $49'], ['Brakes and tires', 'Inspection, replacement, alignment and balancing.'], ['Diagnostics and repair', 'Check-engine lights, electrical, engine and transmission.']]),
-        feats('The shop you can trust', [['tool', 'Certified technicians', 'Trained, experienced and equipped with the right tools.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', '12-month warranty', 'On parts and labor.']]),
+        feats('The shop you can trust', [['tool', 'Experienced technicians', 'Equipped with the right tools for the job.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', 'Straight answers', 'We explain what needs doing and what can wait.']]),
         about('Family owned and operated', `${n} has kept this community moving for years. We only recommend what your vehicle actually needs.`),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Schedule service', 'Tell us your vehicle’s year, make and model, and what is going on.'),
@@ -354,14 +355,15 @@ const today = () => new Date().toLocaleDateString('en-US', { year: 'numeric', mo
 
 /** Builds a complete, ready-to-publish site from a business name and a template. */
 /** Business hours as the rows the website shows: days with the same hours run together. */
-export function hoursText(week) {
-  const order = [1, 2, 3, 4, 5, 6, 0], rows = [];
-  const clock12 = (t) => { const [hh, mm] = String(t).split(':').map(Number); return `${hh % 12 || 12}:${String(mm || 0).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+export function hoursText(week, lang = 'en') {
+  const order = [1, 2, 3, 4, 5, 6, 0], rows = [], es = lang === 'es', names = es ? DIAS : DAYS;
+  const clock12 = (t) => { const [hh, mm] = String(t).split(':').map(Number); return `${hh % 12 || 12}:${String(mm || 0).padStart(2, '0')} ${es ? (hh < 12 ? 'a. m.' : 'p. m.') : hh < 12 ? 'AM' : 'PM'}`; };
   for (const d of order) {
-    const x = week[d], value = x.closed ? 'Closed' : `${clock12(x.open)} – ${clock12(x.close)}`, last = rows[rows.length - 1];
+    const x = week[d], value = x.closed ? (es ? 'Cerrado' : 'Closed') : `${clock12(x.open)} – ${clock12(x.close)}`, last = rows[rows.length - 1];
     if (last && last.value === value) last.to = d; else rows.push({ from: d, to: d, value });
   }
-  return rows.map((r) => ({ label: r.from === r.to ? DAYS[r.from] : `${DAYS[r.from]} – ${DAYS[r.to]}`, value: r.value }));
+  return rows.map((r) => ({ label: r.from === r.to ? names[r.from] : `${names[r.from]} – ${names[r.to]}`, value: r.value }));
 }
 export function createSite(name, templateId, o = {}) {
   const t = getTemplate(templateId);
@@ -383,7 +385,7 @@ export function createSite(name, templateId, o = {}) {
     lang: o.lang === 'es' ? 'es' : 'en',
     brand: { name: n, tagline: b.tagline, logo: '', logoMode: 'text' },
     theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', bg: '', font: Object.hasOwn(FONTS, o.font) ? o.font : t.font, radius: Object.hasOwn(RADII, o.radius) ? o.radius : t.radius },
-    business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: hoursText(defaultOrdering().hours), payUrl: '' },
+    business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: hoursText(defaultOrdering().hours, o.lang === 'es' ? 'es' : 'en'), payUrl: '' },
     social: { instagram: '', facebook: '', tiktok: '', x: '', youtube: '', linkedin: '' },
     header: { sticky: true, cta: b.cta, showPhone: false, layout: 'left', style: 'glass' },
     announcement: { enabled: false, text: '', href: '' },
@@ -460,6 +462,7 @@ export const SERVICE_LAYOUTS = { cards: 'Cards', tiles: 'Tiles with photo', list
 export function legalText(kind, site) {
   const custom = str(site.legal?.[kind]?.custom, 60000).trim();
   if (custom) return custom;
+  if (site.lang === 'es') return legalEs(kind, site, str);
   const b = site.business || {};
   const name = site.brand?.name || 'This business';
   const legal = str(b.legalName).trim() || name;
@@ -541,7 +544,7 @@ Questions about these terms? ${contactLine}`;
 Orders and appointments are confirmed once you receive a confirmation from us. If we cannot fulfil a request, we will let you know promptly and refund any amount already paid.
 
 ## Payments
-We accept Visa, Mastercard, American Express and Discover, along with other methods offered at checkout. Payment is due at the time of purchase unless we have agreed otherwise in writing. Prices are shown in U.S. dollars and may be subject to applicable taxes.
+We accept Visa, Mastercard, American Express and Discover. Unless we have agreed otherwise, you pay when you pick up or receive your order, or online through our payment link where we offer one. Prices are shown in U.S. dollars and may be subject to applicable taxes.
 
 ## Cancellations and changes
 Please give us as much notice as you can if you need to cancel or reschedule. We ask for at least 24 hours' notice for appointments and reservations. Late cancellations and missed appointments may be subject to a fee.
@@ -920,17 +923,18 @@ export function resolveOptions(item, picks) {
 export const LANGS = { en: 'English', es: 'Español' };
 export const STRINGS = {
   en: {
-    orderOnline: 'Order online', add: 'Add', added: 'Added', soldOut: 'Sold out', onlyLeft: 'Only {n} left', yourOrder: 'Your order', emptyCart: 'Add items from the menu to get started.', paused: 'Online ordering is paused right now.',
+    orderOnline: 'Order online', bookOnline: 'Book online', add: 'Add', added: 'Added', soldOut: 'Sold out', onlyLeft: 'Only {n} left', yourOrder: 'Your order', emptyCart: 'Add items from the menu to get started.', paused: 'Online ordering is paused right now.',
     closedNow: 'We are closed right now.', busyNow: 'We have as many orders as we can make right now. Please try again in a few minutes.', busySchedule: 'We have as many orders as we can make right now. You can choose a later time.', search: 'Search the menu', noMatch: 'Nothing on the menu matches that.', closedSchedule: 'We are closed right now. You can schedule an order for later.', notTaking: 'We are not taking online orders right now. Please check back soon or give us a call.',
     name: 'Name', phone: 'Phone', emailConfirm: 'Email for your confirmation', address: 'Delivery address', vehicle: 'Vehicle make, model and colour', notes: 'Notes for us', tip: 'Add a tip', none: 'None',
     subtotal: 'Subtotal', discount: 'Discount', tax: 'Tax', delivery: 'Delivery', tipLine: 'Tip', total: 'Total', place: 'Place order', placing: 'Placing order…', pausedBtn: 'Ordering is paused',
     pickup: 'Pickup', curbside: 'Curbside', when: 'When', asap: 'As soon as possible', today: 'Today', tomorrow: 'Tomorrow', inAbout: 'in about {n} minutes',
-    promo: 'Promo code or gift card', apply: 'Apply', promoBad: 'That code is not valid.', giftCard: 'Gift card', toPay: 'Left to pay', giftPaid: 'Paid in full with your gift card.', refunded: 'Refunded', giftBack: 'Your gift card balance was put back.', nothingOwed: 'Nothing is owed for this order.', paidWith: 'Paid · {method}', pricesChanged: 'Prices just changed. Updating your order…', minOrder: 'Delivery orders start at {a}. Add {b} more.', fillAll: 'Please fill in every field so we can get your order to you.', badEmail: 'Enter a valid email address for your confirmation.',
-    failed: 'We could not place your order. Please try again or call us.', viewOrder: 'View order', item: 'item', items: 'items', choose: 'Choose', required: 'Required', optional: 'Optional', addToOrder: 'Add to order', cancel: 'Cancel', close: 'Close',
+    promo: 'Promo code or gift card', apply: 'Apply', promoBad: 'That code is not valid.', giftCard: 'Gift card', toPay: 'Left to pay', giftLeft: 'Left on gift card', giftPaid: 'Paid in full with your gift card.', refunded: 'Refunded', giftBack: 'Your gift card balance was put back.', nothingOwed: 'Nothing is owed for this order.', paidWith: 'Paid · {method}', pricesChanged: 'Prices just changed. Updating your order…', minOrder: 'Delivery orders start at {a}. Add {b} more.', fillAll: 'Please fill in every field so we can get your order to you.', badEmail: 'Enter a valid email address for your confirmation.',
+    failed: 'We could not place your order. Please try again or call us.', viewOrder: 'View order', item: 'item', items: 'items', choose: 'Choose', required: 'Required', optional: 'Optional', none: 'None', addToOrder: 'Add to order', cancel: 'Cancel', close: 'Close',
     orderAhead: 'Order ahead for {ways}.', readyIn: 'Most orders are ready in about {n} minutes.', or: 'or', menuSoon: 'Our menu is being updated. Please check back soon.',
     payLater: 'Payment is collected when you receive your order.', payEither: 'You can pay online after placing your order, or when you receive it.', payOnline: 'Pay online', orPayLater: 'Or pay when you receive your order.',
     order: 'Order', received: 'Received', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', readyPickup: 'Ready for pickup', readyCurb: 'Ready for curbside', outDelivery: 'Out for delivery',
     h_new: 'We have your order.', h_confirmed: 'Your order is confirmed.', h_ready: 'Your order is ready.', h_way: 'Your order is on its way.', h_done: 'Thank you. Enjoy!', h_cancel: 'This order was cancelled.',
+    s_newQuiet: 'Thanks, {name}. We will update this page as your order moves along.',
     s_new: 'Thanks, {name}. We sent a confirmation to {email} and will update this page as your order moves along.', s_live: 'This page updates automatically.', s_cancel: 'If this is a surprise, please get in touch with us.',
     details: 'details', yourItems: 'Your items', deliverTo: 'Deliver to', vehicleShort: 'Vehicle', notesShort: 'Notes', scheduledFor: 'Scheduled for', call: 'Call', backHome: 'Back to home', orderAgain: 'Order again',
     explore: 'Explore', contact: 'Contact', legal: 'Legal', location: 'Location', hours: 'Hours', directions: 'Get directions', rights: 'All rights reserved.', cards: 'Visa · Mastercard · American Express · Discover accepted', websiteBy: 'Website by',
@@ -940,17 +944,18 @@ export const STRINGS = {
     privacy: 'Privacy Policy', terms: 'Terms of Service', policies: 'Store Policies', accessibility: 'Accessibility', effective: 'Effective', skip: 'Skip to content', menu: 'Menu', notFound: 'Page not found.', notFoundSub: 'The page you are looking for does not exist or has moved.', learnMore: 'Learn more',
   },
   es: {
-    orderOnline: 'Ordenar en línea', add: 'Agregar', added: 'Agregado', soldOut: 'Agotado', onlyLeft: 'Solo quedan {n}', yourOrder: 'Tu pedido', emptyCart: 'Agrega artículos del menú para comenzar.', paused: 'Los pedidos en línea están en pausa.',
+    orderOnline: 'Ordenar en línea', bookOnline: 'Reservar en línea', add: 'Agregar', added: 'Agregado', soldOut: 'Agotado', onlyLeft: 'Solo quedan {n}', yourOrder: 'Tu pedido', emptyCart: 'Agrega artículos del menú para comenzar.', paused: 'Los pedidos en línea están en pausa.',
     closedNow: 'Estamos cerrados en este momento.', busyNow: 'Tenemos todos los pedidos que podemos preparar ahora. Inténtalo de nuevo en unos minutos.', busySchedule: 'Tenemos todos los pedidos que podemos preparar ahora. Puedes elegir una hora más tarde.', search: 'Buscar en el menú', noMatch: 'Nada en el menú coincide.', closedSchedule: 'Estamos cerrados en este momento. Puedes programar un pedido para más tarde.', notTaking: 'No estamos tomando pedidos en línea en este momento. Vuelve pronto o llámanos.',
     name: 'Nombre', phone: 'Teléfono', emailConfirm: 'Correo para tu confirmación', address: 'Dirección de entrega', vehicle: 'Marca, modelo y color del vehículo', notes: 'Notas para nosotros', tip: 'Agregar propina', none: 'Ninguna',
     subtotal: 'Subtotal', discount: 'Descuento', tax: 'Impuesto', delivery: 'Entrega', tipLine: 'Propina', total: 'Total', place: 'Hacer pedido', placing: 'Enviando pedido…', pausedBtn: 'Pedidos en pausa',
     pickup: 'Para recoger', curbside: 'En la acera', when: 'Cuándo', asap: 'Lo antes posible', today: 'Hoy', tomorrow: 'Mañana', inAbout: 'en unos {n} minutos',
-    promo: 'Código de promoción o tarjeta de regalo', apply: 'Aplicar', promoBad: 'Ese código no es válido.', giftCard: 'Tarjeta de regalo', toPay: 'Por pagar', giftPaid: 'Pagado por completo con tu tarjeta de regalo.', refunded: 'Reembolsado', giftBack: 'El saldo de tu tarjeta de regalo fue devuelto.', nothingOwed: 'No se debe nada por este pedido.', paidWith: 'Pagado · {method}', pricesChanged: 'Los precios acaban de cambiar. Actualizando tu pedido…', minOrder: 'Los pedidos a domicilio comienzan en {a}. Agrega {b} más.', fillAll: 'Completa todos los campos para poder entregarte tu pedido.', badEmail: 'Ingresa un correo válido para tu confirmación.',
-    failed: 'No pudimos enviar tu pedido. Inténtalo de nuevo o llámanos.', viewOrder: 'Ver pedido', item: 'artículo', items: 'artículos', choose: 'Elige', required: 'Obligatorio', optional: 'Opcional', addToOrder: 'Agregar al pedido', cancel: 'Cancelar', close: 'Cerrar',
+    promo: 'Código de promoción o tarjeta de regalo', apply: 'Aplicar', promoBad: 'Ese código no es válido.', giftCard: 'Tarjeta de regalo', toPay: 'Por pagar', giftLeft: 'Queda en la tarjeta', giftPaid: 'Pagado por completo con tu tarjeta de regalo.', refunded: 'Reembolsado', giftBack: 'El saldo de tu tarjeta de regalo fue devuelto.', nothingOwed: 'No se debe nada por este pedido.', paidWith: 'Pagado · {method}', pricesChanged: 'Los precios acaban de cambiar. Actualizando tu pedido…', minOrder: 'Los pedidos a domicilio comienzan en {a}. Agrega {b} más.', fillAll: 'Completa todos los campos para poder entregarte tu pedido.', badEmail: 'Ingresa un correo válido para tu confirmación.',
+    failed: 'No pudimos enviar tu pedido. Inténtalo de nuevo o llámanos.', viewOrder: 'Ver pedido', item: 'artículo', items: 'artículos', choose: 'Elige', required: 'Obligatorio', optional: 'Opcional', none: 'Ninguno', addToOrder: 'Agregar al pedido', cancel: 'Cancelar', close: 'Cerrar',
     orderAhead: 'Ordena con anticipación: {ways}.', readyIn: 'La mayoría de los pedidos están listos en unos {n} minutos.', or: 'o', menuSoon: 'Estamos actualizando nuestro menú. Vuelve pronto.',
     payLater: 'El pago se realiza al recibir tu pedido.', payEither: 'Puedes pagar en línea después de ordenar, o al recibir tu pedido.', payOnline: 'Pagar en línea', orPayLater: 'O paga al recibir tu pedido.',
     order: 'Pedido', received: 'Recibido', confirmed: 'Confirmado', completed: 'Completado', cancelled: 'Cancelado', readyPickup: 'Listo para recoger', readyCurb: 'Listo en la acera', outDelivery: 'En camino',
     h_new: 'Recibimos tu pedido.', h_confirmed: 'Tu pedido está confirmado.', h_ready: 'Tu pedido está listo.', h_way: 'Tu pedido va en camino.', h_done: '¡Gracias! Que lo disfrutes.', h_cancel: 'Este pedido fue cancelado.',
+    s_newQuiet: 'Gracias, {name}. Actualizaremos esta página conforme avance tu pedido.',
     s_new: 'Gracias, {name}. Enviamos una confirmación a {email} y actualizaremos esta página conforme avance tu pedido.', s_live: 'Esta página se actualiza automáticamente.', s_cancel: 'Si esto es una sorpresa, por favor contáctanos.',
     details: 'detalles', yourItems: 'Tus artículos', deliverTo: 'Entregar en', vehicleShort: 'Vehículo', notesShort: 'Notas', scheduledFor: 'Programado para', call: 'Llamar', backHome: 'Volver al inicio', orderAgain: 'Pedir de nuevo',
     explore: 'Explorar', contact: 'Contacto', legal: 'Legal', location: 'Ubicación', hours: 'Horario', directions: 'Cómo llegar', rights: 'Todos los derechos reservados.', cards: 'Aceptamos Visa · Mastercard · American Express · Discover', websiteBy: 'Sitio web por',

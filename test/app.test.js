@@ -1349,3 +1349,100 @@ test('strangers guessing a password cannot lock the owner out; business details 
   // New sites show no invented reviews.
   assert.doesNotMatch((await anon('GET', '/', null, { host: `${site.slug}.pfsites.test` })).data, /Dana R\.|Chris L\./);
 });
+
+test('appointments take payments, bookings keep their price, renames follow, hours go live, Spanish sites answer in Spanish', async () => {
+  const d8 = mkdtempSync(join(tmpdir(), 'pfsites8-'));
+  const sent = [];
+  const app8 = createApp({ dataDir: d8, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const srv = createServer(app8);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'paycafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'pay@shop.test', password: 'long-enough-pw', name: 'Pat Owner' });
+    let site = (await me('POST', '/api/sites', { name: 'Pay Cafe', template: 'order', kind: 'ordering', csv: 'Taco,3.50\nSoda,2.00' })).data.site;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, booking: { enabled: true, perSlot: 2, services: [{ id: 's1', name: 'Haircut', minutes: 45, price: 4500 }] } } });
+
+    // A booking made online keeps the price the customer was shown, and the customer joins Customers.
+    const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+    assert.equal((await anon('POST', '/_book', { service: 's1', date: day, time: '12:00', name: 'Ana Ruiz', phone: '903-555-0100', email: 'ana@example.com', party: 1 }, host)).status, 201);
+    let appt = (await me('GET', `/api/sites/${site.id}/appointments`)).data.appointments[0];
+    assert.deepEqual([appt.total, appt.paidAt], [4500, null]);
+    let people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
+    assert.ok(people.some((c) => c.email === 'ana@example.com'), 'the booker is on the customer list');
+
+    // Recording the payment puts it in Transactions and the customer's spend; it cannot be taken twice, and cancelling waits for a void.
+    const pay = (b) => me('POST', `/api/sites/${site.id}/appointments/${appt.id}/payment`, b);
+    assert.equal((await pay({ method: 'Bitcoin' })).status, 400);
+    appt = (await pay({ method: 'Cash' })).data.appointment;
+    assert.deepEqual([appt.paidMethod, appt.paidAt > 0], ['Cash', true]);
+    assert.equal((await pay({ method: 'Card' })).status, 409, 'already paid');
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments/${appt.id}`, { status: 'cancelled' })).status, 409, 'void the payment first');
+    let tx = (await me('GET', `/api/sites/${site.id}/transactions?range=last30`)).data;
+    assert.ok(tx.payments.some((x) => x.source === 'Appointment' && x.amount === 4500 && x.method === 'Cash' && x.by === 'Pat Owner'));
+    people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
+    assert.equal(people.find((c) => c.email === 'ana@example.com').spent, 4500);
+    appt = (await pay({ void: true })).data.appointment;
+    assert.equal(appt.paidAt, null);
+    tx = (await me('GET', `/api/sites/${site.id}/transactions?range=last30`)).data;
+    assert.equal(tx.payments.filter((x) => x.source === 'Appointment').reduce((a, x) => a + x.amount, 0), 0, 'a void takes the payment back out');
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments/${appt.id}`, { status: 'cancelled' })).status, 200);
+
+    // Whoever first takes an order on keeps the credit; later status changes do not take it over.
+    const items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const taco = items.find((x) => x.name === 'Taco');
+    assert.equal((await anon('POST', '/_order', { name: 'Bo Lee', phone: '903-555-0101', email: 'bo@example.com', method: 'pickup', items: [{ id: taco.id, qty: 1 }] }, host)).status, 201);
+    let order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    const cook = client();
+    await cook('POST', '/api/auth/signup', { email: 'cook@paycafe.test', password: 'long-enough-pw', name: 'samuel-account' });
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'cook@paycafe.test', name: 'Sam', role: 'manager' });
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'confirmed' });
+    order = (await cook('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready' })).data.order;
+    assert.equal(order.handledBy, 'Pat Owner');
+    // Work is filed under the name on the Employees list, and a rename carries over to it.
+    await cook('POST', `/api/sites/${site.id}/timeclock`, { action: 'in' });
+    let clock = (await me('GET', `/api/sites/${site.id}/timeclock`)).data;
+    assert.equal(clock.entries[0].name, 'Sam');
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'cook@paycafe.test', name: 'Samuel', role: 'manager' });
+    clock = (await me('GET', `/api/sites/${site.id}/timeclock`)).data;
+    assert.equal(clock.entries[0].name, 'Samuel');
+
+    // Opening hours saved in the back office reach the live website at once.
+    site = (await me('GET', `/api/sites/${site.id}`)).data.site;
+    const hours = [{ label: 'Monday – Friday', value: '7:00 AM – 3:00 PM' }];
+    assert.equal((await me('PUT', `/api/sites/${site.id}/business`, { business: { hours }, rev: site.draftRev })).status, 200);
+    assert.match((await anon('GET', '/', null, host)).data, /7:00 AM – 3:00 PM/);
+
+    // A gift card's balance is shown to the customer who paid with it.
+    const card = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 1000, paidWith: 'Cash' })).data.code;
+    assert.equal((await anon('POST', '/_order', { name: 'Cy Doe', phone: '903-555-0102', email: 'cy@example.com', method: 'pickup', promo: card, items: [{ id: taco.id, qty: 1 }] }, host)).status, 201);
+    order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    const page = (await anon('GET', `/order/${order.token}`, null, host)).data;
+    assert.match(page, new RegExp(`Left on gift card</span><span>\\$${((1000 - order.gift) / 100).toFixed(2)}`));
+
+    // A Spanish site's customers are told what went wrong in Spanish.
+    site = (await me('GET', `/api/sites/${site.id}`)).data.site;
+    await me('PUT', `/api/sites/${site.id}`, { draft: { ...site.draft, lang: 'es' }, rev: site.draftRev });
+    await me('POST', `/api/sites/${site.id}/publish`, { rev: (await me('GET', `/api/sites/${site.id}`)).data.site.draftRev });
+    const r = await anon('POST', '/_order', { name: 'Di', phone: '903-555-0103', email: 'di@example.com', method: 'pickup', items: [] }, host);
+    assert.deepEqual([r.status, r.data.error], [400, 'Tu pedido está vacío.']);
+  } finally { base = saved; srv.close(); app8.close(); rmSync(d8, { recursive: true, force: true }); }
+});
+
+test('links on the page only go to sections that are there; templates make no price or promise', () => {
+  const site = createSite('Link Cafe', 'restaurant');
+  const gal = site.sections.find((s) => s.type === 'gallery');
+  gal.enabled = true; gal.nav = 'Photos';
+  const hero = site.sections.find((s) => s.type === 'hero');
+  hero.data.primary = { label: 'See photos', href: '#photos' };
+  const out = (x) => (typeof x === 'string' ? x : x.html);
+  assert.doesNotMatch(out(renderPage(site, 'home', {})), /href="#photos"/, 'an empty gallery is not linked');
+  gal.data.images = [{ src: 'https://example.com/a.jpg', alt: '' }];
+  assert.match(out(renderPage(site, 'home', {})), /href="#photos"/);
+  for (const t of TEMPLATES) {
+    const s = createSite('X', t.id);
+    for (const sec of s.sections.filter((x) => x.type === 'services')) assert.ok(sec.data.items.every((i) => !i.price), `${t.id} has no invented prices`);
+    assert.ok(s.sections.filter((x) => x.type === 'faq').every((x) => x.enabled === false), `${t.id} questions start switched off`);
+  }
+});

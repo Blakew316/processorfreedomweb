@@ -317,8 +317,13 @@ export function richText(text) {
   return out.join('\n');
 }
 
-const anchorFor = (s) => (s.nav ? str(s.nav, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '') || s.id;
+export const anchorFor = (s) => (s.nav ? str(s.nav, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '') || s.id;
 
+// "November 23, 2026" as the site's language writes it; anything else the owner typed is shown as it is.
+const effectiveDate = (v, lang) => {
+  const t = str(v, 60).trim(), ms = Date.parse(t);
+  return lang === 'es' && /^[A-Za-z]+ \d{1,2}, \d{4}$/.test(t) && !Number.isNaN(ms) ? new Date(ms).toLocaleDateString('es-US', { year: 'numeric', month: 'long', day: 'numeric' }) : t;
+};
 export function renderPage(site, page = 'home', opts = {}) {
   const base = str(opts.base, 200).replace(/\/$/, '');
   const preview = !!opts.preview;
@@ -341,11 +346,16 @@ export function renderPage(site, page = 'home', opts = {}) {
     if (s === '/order') return ordering?.enabled ? pageHref('order') : '';
     if (s === '/book') return ordering?.booking?.enabled && arr(ordering.booking.services).length ? pageHref('book') : '';
     if (/^\/(privacy|terms|policies|accessibility)$/.test(s)) return pageHref(s.slice(1));
+    if (s[0] === '#' && missing.has(s.slice(1))) return '';
     if (s[0] === '#') return isHome ? `href="${esc(s)}"` : `href="${esc(home + s)}" data-page="home" data-hash="${esc(s.slice(1))}"`;
     return /^https?:/i.test(s) ? `href="${esc(s)}" target="_blank" rel="noopener"` : `href="${esc(s)}"`;
   };
   const pageHref = (p) => `href="${esc(p === 'home' ? home : `${base}/${p}`)}" data-page="${p}"`;
+  // Links to sections that are switched off, or show nothing, are left out.
+  let missing = new Set(arr(site.sections).filter((x) => x && x.enabled === false).map(anchorFor).filter((k) => !sections.some((x) => anchorFor(x) === k)));
   const bookOn = !!(ordering?.booking?.enabled && arr(ordering.booking.services).length);
+  // The merchant's own name for booking, or 'Book online' in the site's language.
+  const bookName = str(ordering?.booking?.title).trim() && ordering.booking.title !== 'Book online' ? ordering.booking.title : T.bookOnline;
   const btn = (l, cls = '') => (l && str(l.label).trim() && href(l.href) ? `<a class="btn ${cls}" ${href(l.href)}>${esc(l.label)}</a>` : '');
   const img = (src, alt, eager) => `<img src="${esc(safeImg(src))}" alt="${esc(alt || '')}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async">`;
   const head = (d) => (str(d.title).trim() || str(d.subtitle).trim() ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : '');
@@ -415,12 +425,17 @@ export function renderPage(site, page = 'home', opts = {}) {
       return `<div class="wrap"><div class="cols${form ? '' : ' one'}"><div><h2>${esc(d.title)}</h2>${d.subtitle ? `<p class="sub">${esc(d.subtitle)}</p>` : ''}<div class="info">${info}</div></div>${form}</div></div>`;
     },
   };
+  // Each section drawn once to see which ones show anything; if some do not, they are drawn again without links to them.
+  const drawAll = () => sections.map((s, i) => ({ s, inner: R[s.type] ? R[s.type](s.data || {}, s, i === 0) : '' }));
+  let drawn = drawAll();
+  if (drawn.some((x) => !x.inner)) { missing = new Set([...missing, ...drawn.filter((x) => !x.inner).map((x) => anchorFor(x.s))]); drawn = drawAll(); }
+  const linked = sections.filter((s) => str(s.nav).trim() && !missing.has(anchorFor(s)));
 
   /* Header */
   const logo = safeImg(brand.logo);
   const mode = logo ? brand.logoMode || 'image' : 'text';
   const brandHtml = `${logo && mode !== 'text' ? `<img src="${esc(logo)}" alt="${mode === 'image' ? esc(name) : ''}">` : ''}${mode !== 'image' ? `<span>${esc(name)}</span>` : ''}`;
-  const navLinks = sections.filter((s) => str(s.nav).trim()).map((s) => `<a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a>`).join('');
+  const navLinks = linked.map((s) => `<a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a>`).join('');
   const hc = site.header || {};
   const ann = site.announcement || {};
   const header = `<a class="skip" href="#main">${esc(T.skip)}</a>${ann.enabled && str(ann.text).trim() ? `<div class="bar">${esc(ann.text)}${href(ann.href) ? `<a ${href(ann.href)}>${esc(T.learnMore)} ›</a>` : ''}</div>` : ''}
@@ -431,12 +446,9 @@ export function renderPage(site, page = 'home', opts = {}) {
   let pageTitle = '';
   let status = 200;
   if (isHome) {
-    main = sections.map((s, i) => {
-      const fn = R[s.type];
-      if (!fn) return '';
-      const d = s.data || {};
-      const inner = fn(d, s, i === 0);
+    main = drawn.map(({ s, inner }) => {
       if (!inner) return '';
+      const d = s.data || {};
       const cls = s.type === 'hero' ? `hero ${d.layout === 'cover' && safeImg(d.image) ? 'cover' : d.layout === 'split' ? 'split' : 'center'}` : s.type === 'about' ? `about${safeImg(d.image) ? ' has-img' : ''}` : s.type;
       return `<section class="${cls}${s.bg === 'soft' ? ' bg-soft' : s.bg === 'brand' && !cls.includes('cover') ? ' on-brand' : ''}" id="${esc(anchorFor(s))}" data-sec="${esc(s.id)}">${inner}</section>`;
     }).join('\n');
@@ -446,19 +458,19 @@ export function renderPage(site, page = 'home', opts = {}) {
     main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now, taken: opts.taken, busy: opts.busy, codes: !!opts.codes });
   } else if (page === 'order-status' && opts.order) {
     pageTitle = `${T.order} #${opts.order.number}`;
-    main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty });
+    main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty, mailOn: opts.mailOn !== false });
   } else if (page === 'book' && ordering?.booking?.enabled && ordering.booking.services.length) {
-    pageTitle = ordering.booking.title || 'Book online';
-    main = bookingPage({ lang, ordering, base, done: opts.booked, today: str(opts.today, 10) || new Date().toISOString().slice(0, 10) });
+    pageTitle = bookName;
+    main = bookingPage({ lang, ordering, base, done: opts.booked, mailOn: opts.mailOn !== false, today: str(opts.today, 10) || new Date().toISOString().slice(0, 10) });
   } else if (page === 'invoice' && opts.invoice) {
     pageTitle = `${opts.invoice.kind === 'estimate' ? T.estimate : T.invoice} ${opts.invoice.label}`;
     main = invoicePage({ invoice: opts.invoice, business: { name: site.brand?.name || '', address: [biz.address1, biz.city, biz.state, biz.zip].filter(Boolean).join(', '), phone: str(biz.phone) }, payUrl: safeUrl(opts.invoice.payUrl) || safeUrl(biz.payUrl), lang, timezone: opts.ordering?.timezone, nowMs: opts.now });
   } else if (LEGAL_PAGES[page] && legalOn.includes(page)) {
     pageTitle = T[page] || LEGAL_PAGES[page];
-    main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">${esc(T.effective)} ${esc(site.legal?.effective || '')}</p>${richText(legalText(page, site))}</div></section>`;
+    main = `<section class="legal"><div class="wrap narrow"><h1>${esc(pageTitle)}</h1><p class="date">${esc(T.effective)} ${esc(effectiveDate(site.legal?.effective, lang))}</p>${richText(legalText(page, site))}</div></section>`;
   } else {
     status = 404;
-    pageTitle = 'Page not found';
+    pageTitle = T.notFound.replace(/\.$/, '');
     main = `<section class="hero center"><div class="wrap"><p class="eyebrow">404</p><h1>${esc(T.notFound)}</h1><p class="lede">${esc(T.notFoundSub)}</p><div class="actions"><a class="btn" ${pageHref('home')}>${esc(T.backHome)}</a></div></div></section>`;
   }
 
@@ -468,11 +480,11 @@ export function renderPage(site, page = 'home', opts = {}) {
   const payUrl = safeUrl(biz.payUrl);
   const footCols = `<div class="top">
 <div><a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}</div>
-<div><h3>${esc(T.explore)}</h3><ul>${sections.filter((s) => str(s.nav).trim()).map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : ''}${bookOn ? `<li><a ${pageHref('book')}>${esc(ordering.booking.title || 'Book online')}</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>${esc(T.payOnline)}</a></li>` : ''}</ul></div>
+<div><h3>${esc(T.explore)}</h3><ul>${linked.map((s) => `<li><a ${href('#' + anchorFor(s))}>${esc(s.nav)}</a></li>`).join('')}${ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : ''}${bookOn ? `<li><a ${pageHref('book')}>${esc(bookName)}</a></li>` : ''}${payUrl ? `<li><a ${href(payUrl)}>${esc(T.payOnline)}</a></li>` : ''}</ul></div>
 <div><h3>${esc(T.contact)}</h3><ul>${biz.phone ? `<li><a ${href(biz.phone)}>${esc(biz.phone)}</a></li>` : ''}${biz.email ? `<li><a ${href(biz.email)}>${esc(biz.email)}</a></li>` : ''}${address.length ? `<li>${address.map(esc).join('<br>')}</li>` : ''}</ul></div>
 <div><h3>${esc(T.legal)}</h3><ul>${legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`).join('')}</ul></div>
 </div>`;
-  const footLinks = [...sections.filter((x) => str(x.nav).trim()).map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : '', bookOn ? `<li><a ${pageHref('book')}>${esc(ordering.booking.title || 'Book online')}</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`)].join('');
+  const footLinks = [...linked.map((x) => `<li><a ${href('#' + anchorFor(x))}>${esc(x.nav)}</a></li>`), ordering?.enabled ? `<li><a ${pageHref('order')}>${esc(T.orderOnline)}</a></li>` : '', bookOn ? `<li><a ${pageHref('book')}>${esc(bookName)}</a></li>` : '', ...legalOn.map((k) => `<li><a ${pageHref(k)}>${esc(T[k] || LEGAL_PAGES[k])}</a></li>`)].join('');
   const footSimple = `<a class="brand" ${pageHref('home')}>${brandHtml}</a><p>${esc(str(ft.blurb).trim() || brand.tagline || '')}</p>${socials ? `<div class="soc">${socials}</div>` : ''}<ul class="links">${footLinks}</ul>`;
   const footCls = `${ft.style === 'simple' ? ' simple' : ''}${ft.color === 'brand' ? ' on-brand' : ft.color === 'dark' ? ' on-dark' : ft.color === 'plain' ? ' plain' : ''}`;
   const footer = `<footer class="ftr${footCls}"><div class="wrap">${ft.style === 'simple' ? footSimple : footCols}<div class="base"><span>© ${new Date().getFullYear()} ${esc(str(biz.legalName).trim() || name)}. ${esc(T.rights)}</span><span>${ft.showPayments !== false ? esc(T.cards) : ''}${ft.showPayments !== false && ft.showCredit !== false ? ' · ' : ''}${ft.showCredit !== false ? `${esc(T.websiteBy)} <a href="https://processorfreedom.com" target="_blank" rel="noopener">${PLATFORM}</a>` : ''}${ft.showMode !== false ? `<button class="mode" type="button" aria-label="Light or dark" title="Light / dark"><svg class="sun" viewBox="0 0 512 512" width="18" height="18" fill="currentColor">${ION.moon}</svg><svg class="moon" viewBox="0 0 512 512" width="18" height="18" fill="currentColor">${ION.sun}</svg></button>` : ''}</span></div></div></footer>`;

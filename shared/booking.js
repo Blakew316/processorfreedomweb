@@ -19,8 +19,8 @@ const CSS = `
 `;
 
 const WORDS = {
-  en: { title: 'Book online', what: 'What would you like to book', date: 'Date', time: 'Time', name: 'Name', people: 'Number of people', phone: 'Phone', email: 'Email', notes: 'Anything we should know', send: 'Request booking', sent: 'Request sent.', thanks: 'Thank you. We have your request and will email you as soon as it is confirmed.', closed: 'Closed that day', preview: 'This is a preview. Bookings can be made once your site is published.', failed: 'We could not send your request. Please try again or call us.' },
-  es: { title: 'Reservar en línea', what: '¿Qué te gustaría reservar?', date: 'Fecha', time: 'Hora', name: 'Nombre', people: 'Número de personas', phone: 'Teléfono', email: 'Correo electrónico', notes: '¿Algo que debamos saber?', send: 'Solicitar reserva', sent: 'Solicitud enviada.', thanks: 'Gracias. Recibimos tu solicitud y te escribiremos en cuanto esté confirmada.', closed: 'Cerrado ese día', preview: 'Esta es una vista previa. Las reservas se podrán hacer cuando el sitio esté publicado.', failed: 'No pudimos enviar tu solicitud. Inténtalo de nuevo o llámanos.' },
+  en: { title: 'Book online', what: 'What would you like to book', date: 'Date', time: 'Time', name: 'Name', people: 'Number of people', phone: 'Phone', email: 'Email', notes: 'Anything we should know', send: 'Request booking', sent: 'Request sent.', thanks: 'Thank you. We have your request and will email you as soon as it is confirmed.', thanksQuiet: 'Thank you. We have your request and will be in touch as soon as it is confirmed.', closed: 'Closed that day', preview: 'This is a preview. Bookings can be made once your site is published.', failed: 'We could not send your request. Please try again or call us.' },
+  es: { title: 'Reservar en línea', what: '¿Qué te gustaría reservar?', date: 'Fecha', time: 'Hora', name: 'Nombre', people: 'Número de personas', phone: 'Teléfono', email: 'Correo electrónico', notes: '¿Algo que debamos saber?', send: 'Solicitar reserva', sent: 'Solicitud enviada.', thanks: 'Gracias. Recibimos tu solicitud y te escribiremos en cuanto esté confirmada.', thanksQuiet: 'Gracias. Recibimos tu solicitud y nos pondremos en contacto en cuanto esté confirmada.', closed: 'Cerrado ese día', preview: 'Esta es una vista previa. Las reservas se podrán hacer cuando el sitio esté publicado.', failed: 'No pudimos enviar tu solicitud. Inténtalo de nuevo o llámanos.' },
 };
 
 /* Runs in the visitor's browser: offers only times the business is open, and sends the request. */
@@ -55,10 +55,10 @@ function bookClient() {
   });
 }
 
-export function bookingPage({ ordering, base, done, today, lang }) {
+export function bookingPage({ ordering, base, done, today, lang, mailOn = true }) {
   const b = ordering.booking;
   const T = WORDS[lang] || WORDS.en;
-  if (done) return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${T.sent}</h1><div class="done">${T.thanks}</div></div></section>`;
+  if (done) return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${T.sent}</h1><div class="done">${mailOn ? T.thanks : T.thanksQuiet}</div></div></section>`;
   const wall = new Date(wallNow(ordering));
   const conf = { post: `${base}/_book`, done: `${base}/book?done=1`, hours: ordering.hours, today: wall.toISOString().slice(0, 10), now: wall.getUTCHours() * 60 + wall.getUTCMinutes(), len: Object.fromEntries(arr(b.services).map((s) => [s.id, s.minutes || 0])), t: { closed: T.closed, preview: T.preview, failed: T.failed } };
   return `<style>${CSS}</style><section class="book"><div class="wrap"><h1>${esc(b.title && b.title !== WORDS.en.title ? b.title : T.title)}</h1>${b.note ? `<p class="lede">${esc(b.note)}</p>` : ''}
