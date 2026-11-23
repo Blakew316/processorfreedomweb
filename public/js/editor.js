@@ -3255,22 +3255,22 @@ export async function editor(id, mount, title, startTab = '') {
      Laid out like the owner's photos. Things that cannot work here yet (point of sale, third-party channels) are greyed out. ---------- */
   const II = {
     columns: SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M14.5 4.5v15"/>', 24),
-    plus: SV('<path d="M12 5v14M5 12h14"/>', 18),
+    plus: SV('<path d="M12 5v14M5 12h14"/>', 20),
     layout: SV('<rect x="3" y="4.5" width="13" height="10" rx="1.5"/><path d="M6.5 18.5h6M9.5 14.5v4"/><rect x="14.5" y="9" width="6.5" height="10.5" rx="1.2"/>', 24),
     up: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 24),
     down: SV('<path d="M12 5v14M6 13l6 6 6-6"/>', 24),
     both: SV('<path d="M8 5v14M4.5 15.5 8 19l3.5-3.5M16 19V5M12.5 8.5 16 5l3.5 3.5"/>', 16),
     info: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>', 20),
-    pencil: SV('<path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13 7 4 4"/>', 18),
+    pencil: SV('<path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13 7 4 4"/>', 22),
     pub: SV('<path d="M12 15V4M8 8l4-4 4 4M5 18.5h14"/>', 16),
     sliders: SV('<path d="M8 4v8.4M8 17.6V20M16 4v2.4M16 11.6V20"/><circle cx="8" cy="15" r="2.6"/><circle cx="16" cy="9" r="2.6"/>', 26),
-    chevD: SV('<path d="m6 9 6 6 6-6"/>', 18),
-    chevU: SV('<path d="m6 15 6-6 6 6"/>', 18),
+    chevD: SV('<path d="m6 9 6 6 6-6"/>', 22),
+    chevU: SV('<path d="m6 15 6-6 6 6"/>', 22),
     chevL: SV('<path d="m15 6-6 6 6 6"/>', 18),
     chevR: SV('<path d="m9 6 6 6-6 6"/>', 18),
-    back: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 20),
+    back: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 24),
     handle: SV('<path d="M5 10h14M5 14h14"/>', 26),
-    copy: SV('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>', 18),
+    copy: SV('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>', 22),
     unpub: SV('<path d="M12 4v10M8 10.5l4 4 4-4M5 18.5h14"/>', 16),
     bin: SV('<path d="M5 7h14M10 11v6M14 11v6M7 7l1 12h8l1-12M9.5 7V4.5h5V7"/>', 16),
     reset: SV('<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/>', 16),
@@ -3288,7 +3288,7 @@ export async function editor(id, mount, title, startTab = '') {
     h('input', { type: 'checkbox', checked: !!checked, disabled: disabled || soon, 'aria-label': label, onchange }), h('i', { 'aria-hidden': 'true' }));
   const itSwatch = (src) => (src ? h('img', { class: 'it-swatch', src, alt: '', loading: 'lazy' }) : h('span', { class: 'it-swatch none', 'aria-hidden': 'true' }));
   const itLink = (text, onclick) => h('button', { type: 'button', class: 'it-link', onclick: (e) => { e.stopPropagation(); onclick(); } }, text);
-  const itSeg = (opts, val, set) => h('div', { class: 'it-seg', role: 'tablist' }, opts.map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === val), onclick: () => { set(k); paintPanel(); } }, l)));
+  const itSeg = (opts, val, set) => h('div', { class: 'it-seg', role: 'tablist' }, opts.map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === val), onclick: () => { set(k); paintPanel(); panel.querySelector('.it-seg [aria-selected="true"]')?.focus(); } }, l)));
   const itBack = (label, tab) => h('div', { class: 'it-back' }, h('button', { type: 'button', onclick: () => goTab(tab) }, h('span', { html: II.back }), label));
   const itCard = (...kids) => h('div', { class: 'it-card' }, ...kids);
   const csvDownload = (name, rows) => csvFile(`${meta.slug}-${name}`, rows);
@@ -3319,10 +3319,9 @@ export async function editor(id, mount, title, startTab = '') {
     });
     const foot = per && total > 0 && h('div', { class: 'it-pager' },
       h('label', { class: 'it-per' }, h('span', {}, perLabel || 'Items per page'), h('select', { onchange: (e) => { st.per = Number(e.target.value); st.page = 0; paintPanel(); } }, [10, 25, 50, 100].map((n) => h('option', { value: n, selected: st.per === n }, String(n))))),
-      h('span', { class: 'grow' }),
-      h('span', { class: 'it-range' }, `${st.page * size + 1} - ${Math.min(total, st.page * size + size)}`),
-      h('button', { type: 'button', class: 'it-pg', 'aria-label': 'Previous page', disabled: st.page === 0, html: II.chevL, onclick: () => { st.page -= 1; paintPanel(); } }),
-      h('button', { type: 'button', class: 'it-pg', 'aria-label': 'Next page', disabled: st.page >= pages - 1, html: II.chevR, onclick: () => { st.page += 1; paintPanel(); } }));
+      h('span', { class: 'it-pages' }, h('span', { class: 'it-range' }, `${st.page * size + 1} - ${Math.min(total, st.page * size + size)}`),
+        h('button', { type: 'button', class: 'it-pg', 'aria-label': 'Previous page', disabled: st.page === 0, html: II.chevL, onclick: () => { st.page -= 1; paintPanel(); } }),
+        h('button', { type: 'button', class: 'it-pg', 'aria-label': 'Next page', disabled: st.page >= pages - 1, html: II.chevR, onclick: () => { st.page += 1; paintPanel(); } })));
     const fixed = cols.some((c) => c.w);
     const colgroup = fixed && h('colgroup', {}, expand && h('col', { style: '--w:54px' }), select && h('col', { style: '--w:66px' }), cols.map((c) => h('col', { style: c.w ? `--w:${c.w}` : null })));
     return h('div', { class: `it-table${plain ? ' plain' : ''}` }, h('div', { class: 'tscroll' }, h('table', { class: fixed ? 'fixed' : null }, colgroup, h('thead', {}, head), h('tbody', {}, body))), !total && empty, foot);
@@ -3602,8 +3601,8 @@ export async function editor(id, mount, title, startTab = '') {
       field('Modifier group name*', nameIn), field('Online modifier group name', onlineIn),
       g && h('section', { class: 'it-sec' }, h('h2', {}, 'Modifiers'), h('div', { class: 'it-choices' }, d.choices.map(choiceRow)),
         h('button', { type: 'button', class: 'it-textbtn on', onclick: () => { d.choices.push({ name: '', price: 0, online: true, inStock: true }); paintPanel(); requestAnimationFrame(() => [...panel.querySelectorAll('.it-choice input[aria-label="Modifier name"]')].at(-1)?.focus()); } }, '+ Add modifier'),
-        h('label', { class: 'switch it-opt' }, h('span', {}, 'Customers must choose one'), h('input', { type: 'checkbox', checked: d.required, onchange: (e) => { d.required = e.target.checked; } }), h('i')),
-        h('label', { class: 'switch it-opt' }, h('span', {}, 'Customers can choose more than one'), h('input', { type: 'checkbox', checked: d.multi, onchange: (e) => { d.multi = e.target.checked; } }), h('i'))),
+        h('div', { class: 'it-opt' }, h('span', {}, 'Customers must choose one'), itSw(d.required, (e) => { d.required = e.target.checked; }, { label: 'Customers must choose one' })),
+        h('div', { class: 'it-opt' }, h('span', {}, 'Customers can choose more than one'), itSw(d.multi, (e) => { d.multi = e.target.checked; }, { label: 'Customers can choose more than one' }))),
       h('section', { class: 'it-sec' }, h('h2', {}, 'Select items to assign to this modifier group'),
         assigned.length > 0 && h('div', { class: 'it-assigned' }, assigned.map((it) => h('div', { class: 'it-arow' }, itSwatch(it.image), h('span', { class: 'grow' }, it.name), h('button', { type: 'button', class: 'it-x', 'aria-label': `Remove ${it.name}`, onclick: () => { d.items.delete(it.id); paintPanel(); } }, ic('x', 16))))),
         h('div', { class: 'it-assignrow' }, assignBtn)),
@@ -3757,7 +3756,7 @@ export async function editor(id, mount, title, startTab = '') {
     return [h('div', { class: 'cl it' }, itHead('Printer labels', itMore([['Download printer labels', () => csvDownload('printer-labels', [['Label name', 'Items'], ...ordering.labels.map((n) => [n, labelCount(n)])])]])),
       h('div', { class: 'it-bar' }, itSearch('Search labels', 'labels'), itBtn('Add label', { icon: II.plus, kind: 'fill', onclick: () => openLabel(null) })),
       itBulk('labels', 'label', [h('button', { type: 'button', class: 'btn soft sm danger', onclick: del }, 'Delete')]),
-      itTable({ key: 'labels', cols: [{ k: 'name', l: 'Label name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: '45%' }, { k: 'items', l: 'Items' }], rows, select: true, sortBy: 'name', per: true, perLabel: 'Labels per page',
+      itTable({ key: 'labels', cols: [{ k: 'name', l: 'Label name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: '47%' }, { k: 'items', l: 'Items' }], rows, select: true, sortBy: 'name', per: true, perLabel: 'Labels per page',
         empty: h('div', { class: 'it-none' }, ordering.labels.length ? 'No labels found' : 'You do not have any printer labels') }))];
   };
   CL['label-view'] = () => {
