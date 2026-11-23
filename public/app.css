@@ -5363,4 +5363,8 @@ html[data-theme=dark] .it-lv .it-card.it-items .it-sub{color:var(--muted)}
   .it-choice{grid-template-columns:minmax(0,1fr) 90px 36px}
   .it-seg{width:100%;margin-top:20px}
   .it-seg button{min-width:0;padding:0 12px}
+  .scrim:has(>.sheet.it-drawer){padding:0!important;place-items:stretch!important}
+  .sheet.drawer.it-drawer{position:fixed!important;inset:0!important;width:100%!important;max-width:none!important;height:100dvh!important;max-height:none!important;border-radius:0!important;padding:0!important}
+  .sheet.drawer.it-drawer::before{display:none}
+  .itd-h{padding-top:env(safe-area-inset-top);min-height:calc(64px + env(safe-area-inset-top))}
 }
