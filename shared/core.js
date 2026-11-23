@@ -239,7 +239,7 @@ export const TEMPLATES = [
       sections: [
         hero('By appointment', 'Leave feeling like yourself, only better.', `${n} is a calm, modern studio for hair, skin and nails, with stylists who listen first.`, link('Book an appointment', '#contact'), link('View services', '#services')),
         offer('Services', 'Services', 'Every visit starts with a consultation.', 'list', [['Signature cut and style', 'Consultation, wash, cut and finish', '$65+'], ['Color and gloss', 'Single process with a shine treatment', '$95+'], ['Balayage', 'Hand-painted, lived-in color', '$180+'], ['Classic facial', 'Cleanse, exfoliate, mask and massage', '$85'], ['Gel manicure', 'Shape, cuticle care and long-wear polish', '$45'], ['Blowout', 'Wash and style', '$45']]),
-        feats('The details matter', [['sparkle', 'Expert stylists', 'Continuously trained in the latest techniques.'], ['leaf', 'Gentle products', 'Professional-grade care for hair and skin.'], ['calendar', 'Easy booking', 'Book a time that suits you.']]),
+        feats('The details matter', [['sparkle', 'Hair, skin and nails', 'Cuts, color, facials and manicures.'], ['leaf', 'Time for yourself', 'A calm place to sit back and relax.'], ['calendar', 'Easy booking', 'Book a time that suits you.']]),
         about('A studio built around you', `At ${n} we believe great service starts with listening. Tell us how you live, and we will give you a look that works every day, not just the day you leave the chair.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -258,7 +258,7 @@ export const TEMPLATES = [
         hero('Trusted advisors', 'Expert guidance, without the runaround.', `${n} helps individuals and growing businesses make confident decisions, with straight answers and a plan you can act on.`, link('Book a consultation', '#contact'), link('What we do', '#services')),
         offer('Services', 'How we help', '', 'cards', [['Consulting', 'Practical strategy shaped around your goals and budget.'], ['Planning', 'A clear roadmap with milestones you can measure.'], ['Ongoing support', 'A dedicated point of contact who knows your situation.']]),
         about('Experience you can rely on', `${n} works with clients who want things done properly.`),
-        feats('Working with us', [['users', 'Senior attention', 'You work directly with the people doing the work.'], ['check', 'Plain language', 'No jargon, no surprises on the invoice.'], ['shield', 'Confidential', 'Your information is protected at every step.']]),
+        feats('Working with us', [['users', 'Senior attention', 'You work directly with the people doing the work.'], ['check', 'Plain language', 'No jargon, no surprises on the invoice.'], ['shield', 'A clear plan', 'Next steps you can act on.']]),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         faq([['How does the first consultation work?', 'We start with a conversation to understand your situation.'], ['How do you bill?', 'You receive a clear written quote before any work begins.'], ['Do you work remotely?', 'Yes. We meet in person, by phone or by video, whichever you prefer.']]),
         cta('Let’s talk about what you need.', 'Tell us a little about your situation.', link('Book a consultation', '#contact')),
@@ -275,7 +275,7 @@ export const TEMPLATES = [
       sections: [
         hero('Home repairs and installations', 'Done right, the first time.', `${n} provides repairs, installations and maintenance for homes and small businesses.`, link('Get a quote', '#contact'), link('Our services', '#services'), 'split'),
         feats('Why homeowners call us', [['clock', 'Clear scheduling', 'We agree on a time that works for you.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Straight talk', 'We explain the work before we start.']]),
-        offer('Services', 'Services', 'No job too small.', 'cards', [['Repairs', 'Fast diagnosis and lasting fixes.'], ['Installations', 'Done to code with quality materials.'], ['Maintenance plans', 'Seasonal checkups that prevent expensive surprises.']]),
+        offer('Services', 'Services', 'No job too small.', 'cards', [['Repairs', 'Diagnosis and repair around the home.'], ['Installations', 'Fixtures, appliances and equipment, installed.'], ['Maintenance', 'Regular checkups for your home.']]),
         about('About us', `${n} takes care of homes and small businesses in this community, and treats every home with respect.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
@@ -291,7 +291,7 @@ export const TEMPLATES = [
       cta: link('Book a class', '#contact'),
       hours: hours(['Monday – Friday', '5:30 AM – 9:00 PM'], ['Saturday – Sunday', '7:00 AM – 5:00 PM']),
       sections: [
-        hero('Classes for every level', 'Feel stronger. Move better.', `${n} is a welcoming studio with expert coaching, small classes and programs for every level.`, link('Book a class', '#contact'), link('See memberships', '#memberships')),
+        hero('Classes for every level', 'Feel stronger. Move better.', `${n} is a welcoming studio with classes and programs for every level.`, link('Book a class', '#contact'), link('See memberships', '#memberships')),
         feats('Built around you', [['users', 'Small classes', 'Coaches who know your name and your goals.'], ['bolt', 'Smart programming', 'Structured training that keeps you progressing.'], ['heart', 'Supportive community', 'All levels welcome, always.']]),
         offer('Memberships', 'Memberships', 'Find the option that fits you.', 'cards', [['Drop-in', 'A single class, whenever you like.', '$22'], ['Unlimited', 'Every class, every day.', '$149 / mo'], ['Personal training', 'One-on-one sessions with a dedicated coach.', 'From $75']]),
         about('More than a workout', `${n} was founded on the idea that fitness should fit your life. Whether you are just starting or training for something big, we will meet you where you are.`),
@@ -310,7 +310,7 @@ export const TEMPLATES = [
       sections: [
         hero('Repairs and maintenance', 'Back on the road, with confidence.', `${n} handles everything from oil changes to major repairs, and explains every recommendation in plain language.`, link('Schedule service', '#contact'), link('What we fix', '#services')),
         offer('Services', 'Services', 'Everyday service and repairs.', 'cards', [['Maintenance', 'Oil, filters, fluids and factory-scheduled service.', 'From $49'], ['Brakes and tires', 'Inspection, replacement, alignment and balancing.'], ['Diagnostics and repair', 'Check-engine lights, electrical, engine and transmission.']]),
-        feats('The shop you can trust', [['tool', 'Experienced technicians', 'Equipped with the right tools for the job.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', 'Straight answers', 'We explain what needs doing and what can wait.']]),
+        feats('The shop you can trust', [['tool', 'Everyday service', 'From oil changes to major repairs.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', 'Straight answers', 'We explain what needs doing and what can wait.']]),
         about('About us', `${n} keeps this community moving, and only recommends what your vehicle actually needs.`),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Schedule service', 'Tell us your vehicle’s year, make and model, and what is going on.'),

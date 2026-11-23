@@ -1486,7 +1486,12 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const now = Date.now(), by = staffName(site, user), byId = user.id;
     const v = ownInvoice(site, row.id), was = v.paid_method || 'Other';
-    const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, ...invoiceTax(v, -1), note, by, byId, at: now });
+    // Taking the payment back, or recording it as paid another way, moves exactly what the payment standing on the invoice carried.
+    const standing = () => {
+      const s = db.get("SELECT amount, tax, taxable, rate FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Invoice' AND kind = 'payment' AND amount > 0 ORDER BY at DESC, rowid DESC LIMIT 1", site.id, v.id), t = invoiceTax(v);
+      return s ? { amount: s.amount, tax: s.tax, taxable: s.taxable ?? t.taxable, rate: s.rate ?? t.rate } : { amount: v.total, tax: v.tax, ...t };
+    };
+    const reverse = (note) => { const s = standing(); logMoney(site, { ...invoiceMoney(v), method: was, amount: -s.amount, tax: -s.tax, taxable: -s.taxable, rate: s.rate, note, by, byId, at: now }); return s; };
     if (b.status === 'paid') {
       if (v.kind === 'estimate') bad(400, 'Convert this estimate to an invoice before taking payment.');
       if (v.status === 'void') bad(409, 'A cancelled invoice cannot be paid. Duplicate it instead.');
@@ -1497,7 +1502,7 @@ export function createApp(options = {}) {
       } else {
         // Already paid: the date it was paid stays. A different way of paying is recorded as the old way taken back and the new one added.
         db.run('UPDATE invoices SET paid_method = ?, paid_note = ?, updated_at = ? WHERE id = ?', method, note, now, v.id);
-        if (method !== was) { reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, ...invoiceTax(v), note: `Changed from ${was}`, by, byId, at: now }); }
+        if (method !== was) { const s = reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: s.amount, tax: s.tax, taxable: s.taxable, rate: s.rate, note: `Changed from ${was}`, by, byId, at: now }); }
       }
     } else if (b.status === 'sent') {
       if (v.status === 'paid') reverse('Payment removed');
@@ -1535,7 +1540,7 @@ export function createApp(options = {}) {
         db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', back, site.id, o.gift_code);
         giftMove(site, o.gift_code, 'restore', back, '', o.id, now);
         db.run("UPDATE orders SET refunded = refunded + ?, refunded_at = ?, refund_note = 'Put back on the gift card' WHERE id = ?", back, now, o.id);
-        const part = refundParts(site, o, back);
+        const part = refundParts(site, o, back, 'Gift card');
         logMoney(site, { ...orderMoney(o), kind: 'refund', method: 'Gift card', amount: back, tax: part.tax, tip: part.tip, fee: part.fee, note: 'Order cancelled: put back on the gift card', by, byId, at: now });
       }
     }
@@ -1586,7 +1591,7 @@ export function createApp(options = {}) {
       const note = str(b.note, 300).trim();
       db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, note, now, now, o.id);
       if (viaCard) { db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', amount, site.id, o.gift_code); giftMove(site, o.gift_code, 'restore', amount, '', o.id, now); }
-      const part = refundParts(site, o, amount);
+      const part = refundParts(site, o, amount, viaCard ? 'Gift card' : was);
       logMoney(site, { ...orderMoney(o), kind: 'refund', method: viaCard ? 'Gift card' : was, amount, tax: part.tax, tip: part.tip, fee: part.fee, note: note || (viaCard ? 'Put back on the gift card' : ''), by, byId, at: now });
     } else if (b.clear === true) {
       if (role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
@@ -1646,13 +1651,17 @@ export function createApp(options = {}) {
     db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, taxable, rate, note, by_name, by_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, x.taxable ?? null, x.rate ?? null, str(x.note, 300), str(x.by, 120), x.byId || '', x.at || Date.now());
   }
-  // What a refund gave back of the order's tax, tip and delivery fee: its share of what the order's payments carried, worked out
-  // on the running total, so refunds made in parts add up to exactly what was paid. The rest is sales.
-  const refundParts = (site, o, amount) => {
-    const paid = db.get("SELECT COALESCE(SUM(amount), 0) AS a, COALESCE(SUM(tax), 0) AS t, COALESCE(SUM(tip), 0) AS p, COALESCE(SUM(fee), 0) AS f FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'payment'", site.id, o.id);
-    const before = db.get("SELECT COALESCE(SUM(amount), 0) AS a FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'refund'", site.id, o.id).a;
+  // What a refund gave back of the order's tax, tip and delivery fee: its share of what was taken the way it goes back (the gift
+  // card's part, or what was paid at the counter), on that way's running refunded total, so refunds add up to exactly what that
+  // payment carried. The rest is sales.
+  const refundParts = (site, o, amount, method) => {
+    const way = method === 'Gift card' ? "AND method = 'Gift card'" : "AND method <> 'Gift card'";
+    const sums = (kind, w) => db.get(`SELECT COALESCE(SUM(amount), 0) AS a, COALESCE(SUM(tax), 0) AS t, COALESCE(SUM(tip), 0) AS p, COALESCE(SUM(fee), 0) AS f FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = ? ${w}`, site.id, o.id, kind);
+    let paid = sums('payment', way), back = sums('refund', way);
+    // Nothing recorded that way (an order from before payments were kept apart): the order's payments as a whole.
+    if (!(paid.a > 0)) { paid = sums('payment', ''); back = sums('refund', ''); }
     const cum = (x) => (paid.a > 0 ? [Math.round((x * paid.t) / paid.a), Math.round((x * paid.p) / paid.a), Math.round((x * paid.f) / paid.a)] : [0, 0, 0]);
-    const was = cum(before), now = cum(before + amount), tax = now[0] - was[0], tip = now[1] - was[1], fee = now[2] - was[2];
+    const now = cum(back.a + amount), tax = now[0] - back.t, tip = now[1] - back.p, fee = now[2] - back.f;
     return { sales: amount - tax - tip - fee, tax, tip, fee };
   };
   const orderMoney = (o) => ({ source: 'Order', refId: o.id, ref: `#${o.number}`, customer: o.name, channel: o.method });
@@ -1661,7 +1670,7 @@ export function createApp(options = {}) {
   // deleting the invoice later never restates a day already reported. A row taking a payment back carries them negated.
   const invoiceTax = (v, k = 1) => {
     const lines = JSON.parse(v.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount;
-    return { taxable: k * Math.max(0, Math.min(net, v.subtotal ? Math.round(taxed - (v.discount * taxed) / v.subtotal) : 0)), rate: Number(v.tax_rate) || 0 };
+    return { taxable: k * (v.subtotal ? Math.max(0, Math.min(net, Math.round((net * taxed) / v.subtotal))) : 0), rate: Number(v.tax_rate) || 0 };
   };
   function moneyMoves(site, lo, hi) {
     const payments = [], refunds = [];
@@ -2044,28 +2053,40 @@ export function createApp(options = {}) {
       const orderPaid = paidNow.filter((x) => x.source === 'Order'), orderBack = mv.refunds.filter((x) => x.source === 'Order' && within(x.at) && ofType(x));
       const ids = [...new Set([...orderPaid, ...orderBack].map((x) => x.refId))];
       const ord = new Map(ids.length ? db.all('SELECT id, items, subtotal, discount, tax, total, tax_rate FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify(ids)).map((o) => [o.id, o]) : []);
-      const base = (o) => { const lines = JSON.parse(o.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net = o.subtotal - o.discount; const taxable = o.subtotal ? Math.round(taxed - (o.discount * taxed) / o.subtotal) : 0; return { net, taxable }; };
+      const cums = new Map();
+      const cumOf = (o) => cums.get(o.id) || cums.set(o.id, (() => { const lines = JSON.parse(o.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net = o.subtotal - o.discount; const taxable = o.subtotal ? Math.round(taxed - (o.discount * taxed) / o.subtotal) : 0; return (v) => (net ? Math.round((v * taxable) / net) : 0); })()).get(o.id);
       // Payments: each row's own sales (less its tax, tip and fee), shared between taxable and not on the order's running paid
-      // total, so split, removed and changed payments all land exactly; an order counts once, when it becomes paid.
-      const paidBefore = new Map();
-      if (orderPaid.length) {
+      // total, so split, removed and changed payments all land exactly; an order counts once, when it becomes paid. What each way
+      // of paying took (the gift card's part, or the counter's) is kept too, so a refund gives back exactly its share of that.
+      const paidBefore = new Map(), rowTaxable = new Map(), ways = new Map(), wayOf = (oid, method) => `${oid}|${method === 'Gift card' ? 'card' : 'counter'}`;
+      if (ids.length) {
         const run = new Map();
-        for (const r of db.all("SELECT id, ref_id, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'payment' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify([...new Set(orderPaid.map((x) => x.refId))]))) {
-          const was = run.get(r.ref_id) || 0; paidBefore.set(r.id, was); run.set(r.ref_id, was + r.amount - r.tax - r.tip - r.fee);
+        for (const r of db.all("SELECT id, ref_id, method, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'payment' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify(ids))) {
+          const o = ord.get(r.ref_id); if (!o) continue;
+          const cum = cumOf(o), was = run.get(r.ref_id) || 0, sales = r.amount - r.tax - r.tip - r.fee, taxable = cum(was + sales) - cum(was);
+          paidBefore.set(r.id, was); rowTaxable.set(r.id, taxable); run.set(r.ref_id, was + sales);
+          const k = wayOf(r.ref_id, r.method), w = ways.get(k) || ways.set(k, { sales: 0, taxable: 0 }).get(k); w.sales += sales; w.taxable += taxable;
         }
       }
       for (const x of orderPaid) {
-        const o = ord.get(x.refId); if (!o) continue;
-        const b = base(o), sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = paidBefore.get(x.id) || 0;
-        const cum = (v) => (b.net ? Math.round((v * b.taxable) / b.net) : 0), taxable = cum(pre + sales) - cum(pre), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
+        const o = ord.get(x.refId); if (!o || !rowTaxable.has(x.id)) continue;
+        const sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = paidBefore.get(x.id), taxable = rowTaxable.get(x.id), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
         r.taxable += taxable; r.nontaxable += sales - taxable; r.tax += x.tax || 0;
         if (pre <= 0 && pre + sales > 0) r.orders += 1; else if (pre > 0 && pre + sales <= 0) r.orders -= 1;
       }
-      // Refunds: the tax each gave back, and its sales shared between taxable and not on the order's running total.
+      // Refunds: the tax each gave back, and its sales shared between taxable and not on what was taken the way it went back,
+      // on that way's running refunded total, so a payment given back in full cancels exactly.
+      const backBefore = new Map();
+      if (orderBack.length) {
+        const run = new Map();
+        for (const r of db.all("SELECT id, ref_id, method, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'refund' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify([...new Set(orderBack.map((x) => x.refId))]))) {
+          const k = wayOf(r.ref_id, r.method), was = run.get(k) || 0; backBefore.set(r.id, was); run.set(k, was + r.amount - r.tax - r.tip - r.fee);
+        }
+      }
       for (const x of orderBack) {
         const o = ord.get(x.refId); if (!o) continue;
-        const b = base(o), sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = refundedBefore.get(x.id) || 0;
-        const cum = (v) => (b.net ? Math.round((v * b.taxable) / b.net) : 0), taxable = cum(pre + sales) - cum(pre), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
+        const w = ways.get(wayOf(x.refId, x.method)), sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = backBefore.get(x.id) || 0;
+        const cum = w && w.sales > 0 ? (v) => Math.round((v * w.taxable) / w.sales) : cumOf(o), taxable = cum(pre + sales) - cum(pre), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
         r.taxable -= taxable; r.nontaxable -= sales - taxable; r.tax -= x.tax || 0; r.refunds = (r.refunds || 0) + 1;
       }
     }
@@ -2076,10 +2097,9 @@ export function createApp(options = {}) {
         let taxable, rate;
         if (x.taxable != null) { taxable = x.taxable; rate = x.rate ?? 0; }
         else {
-          // A row from before each row kept its own figures: shared on the invoice as it is, rounded the same way either side of zero.
-          let share = tax ? 1 : 0;
-          if (v) { const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount; share = net ? Math.max(0, Math.min(1, (v.subtotal ? taxed - (v.discount * taxed) / v.subtotal : 0) / net)) : 0; }
-          taxable = Math.sign(sale) * Math.round(Math.abs(sale) * share); rate = v ? v.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0;
+          // A row of an invoice since deleted: all taxable when it carried tax. Either side of zero rounds the same way.
+          const taxed = v ? JSON.parse(v.items).reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0) : 0;
+          taxable = v ? (v.subtotal ? Math.sign(sale) * Math.round((Math.abs(sale) * taxed) / v.subtotal) : 0) : tax ? sale : 0; rate = v ? v.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0;
         }
         const r = rowFor(rate);
         r.taxable += taxable; r.nontaxable += sale - taxable; r.tax += tax; r.invoices += Math.sign(x.amount);

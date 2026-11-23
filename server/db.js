@@ -212,11 +212,37 @@ export function openDb(dataDir) {
     db.exec('BEGIN');
     for (const r of db.prepare("SELECT m.id, m.amount, m.tax, v.items, v.subtotal, v.discount, v.tax_rate FROM money_log m JOIN invoices v ON v.id = m.ref_id AND v.site_id = m.site_id WHERE m.source = 'Invoice' AND m.taxable IS NULL").all()) {
       let lines = []; try { lines = JSON.parse(r.items || '[]'); } catch { /* none */ }
-      const taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = r.subtotal - r.discount, sale = r.amount - r.tax;
-      const share = net ? Math.max(0, Math.min(1, (r.subtotal ? taxed - (r.discount * taxed) / r.subtotal : 0) / net)) : 0;
-      upd.run(Math.sign(sale) * Math.round(Math.abs(sale) * share), Number(r.tax_rate) || 0, r.id);
+      // The taxable lines' part of the subtotal, in one rounding, as invoices work it out when a payment is recorded.
+      const taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), sale = r.amount - r.tax;
+      upd.run(r.subtotal ? Math.sign(sale) * Math.round((Math.abs(sale) * taxed) / r.subtotal) : 0, Number(r.tax_rate) || 0, r.id);
     }
     db.prepare("INSERT INTO settings (key, value) VALUES ('invoice_tax_parts', '1')").run();
+    db.exec('COMMIT');
+  }
+  // A row taking an invoice payment back carries exactly what that payment carried. Any written otherwise is matched once here.
+  if (!db.prepare("SELECT 1 FROM settings WHERE key = 'invoice_tax_pairs'").get()) {
+    const upd = db.prepare('UPDATE money_log SET taxable = ?, rate = ? WHERE id = ?'), last = new Map();
+    db.exec('BEGIN');
+    for (const r of db.prepare("SELECT id, ref_id, amount, taxable, rate FROM money_log WHERE source = 'Invoice' AND kind = 'payment' AND ref_id IN (SELECT ref_id FROM money_log WHERE source = 'Invoice' AND kind = 'payment' AND amount < 0) ORDER BY ref_id, at, rowid").all()) {
+      if (r.amount > 0) last.set(r.ref_id, r);
+      else if (r.amount < 0 && last.has(r.ref_id)) { const p = last.get(r.ref_id); if (p.taxable != null && (r.taxable !== -p.taxable || r.rate !== p.rate)) upd.run(-p.taxable, p.rate, r.id); }
+    }
+    db.prepare("INSERT INTO settings (key, value) VALUES ('invoice_tax_pairs', '1')").run();
+    db.exec('COMMIT');
+  }
+  // A gift card's part taken when ordering carries its share of the order's tax, tip and delivery fee. An order still waiting on
+  // the rest when that started gets the share on its card row once here, so the counter payment then carries only what is left.
+  if (!db.prepare("SELECT 1 FROM settings WHERE key = 'gift_parts'").get()) {
+    const upd = db.prepare('UPDATE money_log SET tax = ?, tip = ?, fee = ? WHERE id = ?');
+    db.exec('BEGIN');
+    for (const r of db.prepare(`SELECT m.id, m.amount, o.tax, o.tip, o.fee, o.total FROM money_log m JOIN orders o ON o.id = m.ref_id AND o.site_id = m.site_id
+      WHERE m.source = 'Order' AND m.kind = 'payment' AND m.method = 'Gift card' AND m.by_name = '' AND m.at = o.created_at AND m.tax = 0 AND m.tip = 0 AND m.fee = 0
+        AND m.amount > 0 AND m.amount < o.total AND o.tax + o.tip + o.fee > 0
+        AND (SELECT COUNT(*) FROM money_log x WHERE x.site_id = m.site_id AND x.ref_id = m.ref_id AND x.source = 'Order') = 1`).all()) {
+      const share = (n) => Math.round((r.amount * n) / r.total);
+      upd.run(share(r.tax), share(r.tip), share(r.fee), r.id);
+    }
+    db.prepare("INSERT INTO settings (key, value) VALUES ('gift_parts', '1')").run();
     db.exec('COMMIT');
   }
   // Every order refund carries the tax, tip and fee it gave back: its share of what the order's payments carried, refund by refund,

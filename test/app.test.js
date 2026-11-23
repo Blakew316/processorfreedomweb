@@ -1448,7 +1448,7 @@ test('links on the page only go to sections that are there; templates make no pr
     const s = createSite('X', t.id);
     for (const sec of s.sections.filter((x) => x.type === 'services')) assert.ok(sec.data.items.every((i) => !i.price), `${t.id} has no invented prices`);
     assert.ok(s.sections.filter((x) => x.type === 'faq').every((x) => x.enabled === false), `${t.id} questions start switched off`);
-    assert.doesNotMatch(JSON.stringify(s), /from scratch|best ingredients|fresh bakes|single-origin|laminated|made to last|well-made|chosen by hand|handmade|wood-fired|slow-braised|real ingredients|seasons do|carefully edited/i, `${t.id} says nothing about how goods are made or sourced`);
+    assert.doesNotMatch(JSON.stringify(s), /from scratch|best ingredients|fresh bakes|single-origin|laminated|made to last|well-made|chosen by hand|handmade|wood-fired|slow-braised|real ingredients|seasons do|carefully edited|quality materials|done to code|lasting fixes|professional-grade|continuously trained|experienced technicians|expert coaching|protected at every step/i, `${t.id} says nothing about how goods are made or sourced, or the business's credentials`);
   }
 });
 
@@ -1739,25 +1739,77 @@ test('each ledger row keeps its own tax: a gift card part paid on one day and th
   } finally { base = saved; srv.close(); app13.close(); rmSync(d13, { recursive: true, force: true }); }
 });
 
-test('rows written before invoices kept their own tax figures get them once, from the invoice as it is', async () => {
+test('older ledger rows get their figures once; a payment taken back mirrors what it carried; refunds give back what their way took', async () => {
   const d14 = mkdtempSync(join(tmpdir(), 'pfsites14-'));
   const opts = { dataDir: d14, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } };
   let app14 = createApp(opts), srv = createServer(app14);
   await new Promise((r) => srv.listen(0, r));
   const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
   const sql = (fn) => { const db = new DatabaseSync(join(d14, 'sites.db')); try { return fn(db); } finally { db.close(); } };
+  const restart = async (change) => { srv.close(); app14.close(); sql(change); app14 = createApp(opts); srv = createServer(app14); await new Promise((r) => srv.listen(0, r)); base = `http://127.0.0.1:${srv.address().port}`; };
   try {
-    const me = client();
+    const me = client(), anon = client(), host = { host: 'oldshop.pfsites.test' };
     await me('POST', '/api/auth/signup', { email: 'own@old.test', password: 'long-enough-pw', name: 'Old' });
-    const site = (await me('POST', '/api/sites', { name: 'Old Shop', template: 'order', kind: 'ordering' })).data.site;
-    const inv = (await me('POST', `/api/sites/${site.id}/invoices`, { customer: { name: 'Cy' }, items: [{ name: 'Labor', qty: 1, price: 5000, taxable: false }, { name: 'Parts', qty: 1, price: 5000 }], discount: 525, taxRate: 7 })).data.invoice;
+    const site = (await me('POST', '/api/sites', { name: 'Old Shop', template: 'order', kind: 'ordering', csv: 'Item,Price,Taxable\nTaco,10.20,yes\nTea,2.25,no' })).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25, tips: true } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const [taco, tea] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const tx = async () => (await me('GET', `/api/sites/${site.id}/transactions?range=today`)).data;
+    const rate = async (r) => { const st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data, x = st.totals.rates.find((y) => y.rate === r) || { taxable: 0, nontaxable: 0, tax: 0 }; return [x.taxable, x.nontaxable, x.tax, st.money.tax]; };
+
+    // Invoice rows. Parts $7.00 (taxable) and Labor $3.00 with a $2.75 discount: the taxable part is exactly $5.075.
+    const inv = (await me('POST', `/api/sites/${site.id}/invoices`, { customer: { name: 'Cy' }, items: [{ name: 'Parts', qty: 1, price: 700 }, { name: 'Labor', qty: 1, price: 300, taxable: false }], discount: 275, taxRate: 7 })).data.invoice;
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'paid', method: 'Card' });
+    const invRow = () => sql((db) => db.prepare("SELECT amount, tax, taxable, rate FROM money_log WHERE source = 'Invoice' ORDER BY at, rowid").all().map((r) => [r.amount, r.tax, r.taxable, r.rate]));
+    assert.deepEqual(invRow(), [[761, 36, 508, 7]]);
+    // A row from before rows kept their own figures gets them once, in the same single rounding.
+    await restart((db) => db.exec("UPDATE money_log SET taxable = NULL, rate = NULL; DELETE FROM settings WHERE key IN ('invoice_tax_parts', 'invoice_tax_pairs')"));
+    assert.deepEqual(invRow(), [[761, 36, 508, 7]]);
+    // Whatever a payment row carries, taking it back carries the same, so the pair always cancels.
+    sql((db) => db.exec("UPDATE money_log SET taxable = 507 WHERE source = 'Invoice'"));
     await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'paid', method: 'Cash' });
-    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'sent' });
-    srv.close(); app14.close();
-    sql((db) => { db.exec("UPDATE money_log SET taxable = NULL, rate = NULL; DELETE FROM settings WHERE key = 'invoice_tax_parts'"); });
-    app14 = createApp(opts); srv = createServer(app14);
-    await new Promise((r) => srv.listen(0, r));
-    base = `http://127.0.0.1:${srv.address().port}`;
-    assert.deepEqual(sql((db) => db.prepare('SELECT amount, taxable, rate FROM money_log ORDER BY at, rowid').all().map((r) => [r.amount, r.taxable, r.rate])), [[9807, 4738, 7], [-9807, -4738, 7]]);
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'void' });
+    assert.deepEqual(invRow(), [[761, 36, 507, 7], [-761, -36, -507, 7], [761, 36, 507, 7], [-761, -36, -507, 7]]);
+    assert.deepEqual(await rate(7), [0, 0, 0, 0]);
+    // A pair written before that rule is matched once.
+    await restart((db) => db.exec("UPDATE money_log SET taxable = -508 WHERE source = 'Invoice' AND amount < 0; DELETE FROM settings WHERE key = 'invoice_tax_pairs'"));
+    assert.deepEqual(invRow().map((r) => r[2]), [507, -507, 507, -507]);
+
+    // Taco $10.20 (taxable) and Tea $2.25, 8.25% tax and a 20% tip: $15.78. A $7.89 card pays half; its share of the $2.49 tip
+    // lands on half a cent, so the card carries $1.25 and the counter $1.24. Refunding the counter part gives back exactly $1.24.
+    const card = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 789, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Ana', phone: '903-555-0100', email: 'ana@old.test', method: 'pickup', tip: 20, promo: card, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
+    const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.deepEqual([order.total, order.tax, order.tip, order.gift], [1578, 84, 249, 789]);
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { method: 'Cash' });
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { refund: 789 });
+    let t = await tx();
+    assert.deepEqual(t.payments.filter((x) => x.ref === '#1001').map((x) => [x.method, x.amount, x.tax, x.tip]).sort(), [['Cash', 789, 42, 124], ['Gift card', 789, 42, 125]]);
+    assert.deepEqual(t.refunds.map((x) => [x.method, x.amount, x.tax, x.tip]), [['Cash', 789, 42, 124]]);
+    assert.deepEqual(await rate(8.25), [510, 112, 42, 42], 'what is left is exactly the card part');
+    // Cancelled, the card gets its part back with exactly what that part carried: nothing is left anywhere.
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' });
+    t = await tx();
+    assert.deepEqual(t.refunds.map((x) => [x.method, x.amount, x.tax, x.tip]).sort(), [['Cash', 789, 42, 124], ['Gift card', 789, 42, 125]]);
+    assert.deepEqual(await rate(8.25), [0, 0, 0, 0]);
+
+    // An order whose card part was taken before card parts carried their share, still waiting on the rest, gets the share once.
+    const card2 = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 789, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Bo', phone: '903-555-0101', email: 'bo@old.test', method: 'pickup', tip: 20, promo: card2, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
+    const card3 = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 789, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Cy', phone: '903-555-0102', email: 'cy@old.test', method: 'pickup', tip: 20, promo: card3, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
+    const [o3, o2] = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    await me('POST', `/api/sites/${site.id}/orders/${o3.id}/payment`, { method: 'Cash' });
+    // As the earlier release wrote them: the card part with no tax, tip or fee, and a counter payment with all of it.
+    await restart((db) => {
+      db.prepare("UPDATE money_log SET tax = 0, tip = 0, fee = 0 WHERE ref_id IN (?, ?) AND method = 'Gift card'").run(o2.id, o3.id);
+      db.prepare("UPDATE money_log SET tax = 84, tip = 249 WHERE ref_id = ? AND method = 'Cash'").run(o3.id);
+      db.exec("DELETE FROM settings WHERE key = 'gift_parts'");
+    });
+    const parts = (oid) => sql((db) => db.prepare("SELECT method, amount, tax, tip FROM money_log WHERE ref_id = ? ORDER BY at, rowid").all(oid).map((r) => [r.method, r.amount, r.tax, r.tip]));
+    assert.deepEqual(parts(o2.id), [['Gift card', 789, 42, 125]], 'still open: the card part gets its share');
+    assert.deepEqual(parts(o3.id), [['Gift card', 789, 0, 0], ['Cash', 789, 84, 249]], 'already paid at the counter: left as it was recorded');
+    await me('POST', `/api/sites/${site.id}/orders/${o2.id}/payment`, { method: 'Card' });
+    assert.deepEqual(parts(o2.id), [['Gift card', 789, 42, 125], ['Card', 789, 42, 124]]);
   } finally { base = saved; srv.close(); app14.close(); rmSync(d14, { recursive: true, force: true }); }
 });
