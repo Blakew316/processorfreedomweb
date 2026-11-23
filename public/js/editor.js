@@ -3574,14 +3574,14 @@ export async function editor(id, mount, title, startTab = '') {
       const choices = d.choices.map((c) => ({ ...c, name: c.name.trim() })).filter((c) => c.name);
       if (!g && ordering.modGroups.length >= 100) return toast('You can have up to 100 modifier groups.', true);
       saveBtn.disabled = true;
-      const was = g && { name: g.name, onlineName: g.onlineName, required: g.required, multi: g.multi, choices: g.choices };
+      const snap = g && { name: g.name, onlineName: g.onlineName, required: g.required, multi: g.multi, choices: g.choices };
       try {
         // A retry after a failed save reuses the same new group rather than adding a second one.
         let gid = g ? g.id : (d.newId ||= uid('g'));
         if (g) Object.assign(g, { name, onlineName: d.onlineName.trim(), required: d.required, multi: d.multi, choices });
         else if (!ordering.modGroups.some((x) => x.id === gid)) ordering.modGroups.push({ id: gid, name, onlineName: d.onlineName.trim(), required: false, multi: false, choices: [] });
         // A failed save puts the group back as it was (in place, so this page keeps working with it).
-        try { await putOrdering(); } catch (e) { if (g) Object.assign(g, was); else ordering.modGroups = ordering.modGroups.filter((x) => x.id !== gid); throw e; }
+        try { await putOrdering(); } catch (e) { if (g) Object.assign(g, snap); else ordering.modGroups = ordering.modGroups.filter((x) => x.id !== gid); throw e; }
         const was = new Set(g ? usedBy(g).map((x) => x.id) : []);
         const add = [...d.items].filter((x) => !was.has(x)), drop = [...was].filter((x) => !d.items.has(x));
         if (add.length) menu = (await api('POST', `/api/sites/${id}/menu/bulk`, { ids: add, set: { addMod: gid } })).items;
