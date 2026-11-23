@@ -249,6 +249,15 @@ export function openDb(dataDir) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('refund_parts', '1')").run();
     db.exec('COMMIT');
   }
+  // Files attached to an invoice, and its payment terms (Upon receipt, Net 15...), so its due date can follow the day it is sent.
+  addColumn('invoices', 'attachments', "TEXT NOT NULL DEFAULT '[]'");
+  addColumn('invoices', 'terms', "TEXT NOT NULL DEFAULT ''");
+  // Projects: a larger job for one customer. Its invoices and estimates are filed under its name.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL, phase TEXT NOT NULL DEFAULT 'proposal', type TEXT NOT NULL DEFAULT '',
+      customer TEXT NOT NULL DEFAULT '{}', start TEXT NOT NULL DEFAULT '', finish TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', attachments TEXT NOT NULL DEFAULT '[]', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS projects_site ON projects(site_id, created_at);
+  `);
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
   db.exec(`

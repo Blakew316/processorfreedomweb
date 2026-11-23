@@ -1936,3 +1936,84 @@ test('a category keeps its online name and colour, customers see the online name
     assert.equal((await anon('POST', `/api/sites/${site.id}/menu/category/delete`, { name: 'Food', to: 'Food' })).status, 401);
   } finally { base = saved; srv.close(); app16.close(); rmSync(d16, { recursive: true, force: true }); }
 });
+
+test('invoices and projects keep their files: PDFs upload as files, attachments are checked, payment terms are kept, projects carry their invoices, and the sweep keeps attached files', async () => {
+  const d17 = mkdtempSync(join(tmpdir(), 'pfsites17-'));
+  const app17 = createApp({ dataDir: d17, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app17);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), other = client();
+    await me('POST', '/api/auth/signup', { email: 'own@files.test', password: 'long-enough-pw', name: 'Files' });
+    const site = (await me('POST', '/api/sites', { name: 'File Works', template: 'restaurant' })).data.site;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const host = { host: `${site.slug}.pfsites.test` };
+    // A PDF uploads only as a file, never as a photo. Files are JPG, PNG or PDF.
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+    const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64');
+    assert.equal((await me('POST', '/api/uploads', pdf, { raw: true })).status, 415);
+    assert.equal((await me('POST', '/api/uploads?kind=file', gif, { raw: true })).status, 415);
+    assert.equal((await anon('POST', '/api/uploads?kind=file', pdf, { raw: true })).status, 401);
+    const up = await me('POST', '/api/uploads?kind=file', pdf, { raw: true });
+    assert.equal(up.status, 201);
+    assert.match(up.data.url, /^\/u\/[\w-]+\.pdf$/);
+    const img = (await me('POST', '/api/uploads?kind=file', png, { raw: true })).data.url;
+    // A PDF is handed over as a download, sandboxed, never opened as a page of the site.
+    const got = await anon('GET', up.data.url, null, host);
+    assert.equal(got.headers.get('content-type'), 'application/pdf');
+    assert.equal(got.headers.get('content-disposition'), 'attachment');
+    assert.match(got.headers.get('content-security-policy'), /sandbox/);
+    // An invoice keeps its files by name with their real size. Links that are not uploads here, and repeats, are dropped.
+    const body = { customer: { name: 'Ann', email: 'ann@x.test' }, items: [{ name: 'Job', qty: 1, price: 10000 }], terms: 'net15', due: '2026-12-08',
+      attachments: [{ url: up.data.url, name: 'Quote.pdf', size: 1 }, { url: '/u/nothere123.pdf', name: 'x' }, { url: 'https://evil.test/a.pdf', name: 'y' }, { url: up.data.url, name: 'again' }] };
+    let r = await me('POST', `/api/sites/${site.id}/invoices`, body);
+    assert.equal(r.status, 201);
+    const inv = r.data.invoice;
+    assert.deepEqual(inv.attachments, [{ url: up.data.url, name: 'Quote.pdf', size: pdf.length }]);
+    assert.equal(inv.terms, 'net15');
+    assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, attachments: [], terms: 'whenever' })).data.invoice.terms, '');
+    const four = [];
+    for (let i = 0; i < 4; i++) four.push((await me('POST', '/api/uploads?kind=file', pdf, { raw: true })).data.url);
+    r = await me('PUT', `/api/sites/${site.id}/invoices/${inv.id}`, { ...body, attachments: four.map((url, i) => ({ url, name: `f${i}.pdf` })) });
+    assert.equal(r.status, 400);
+    // The customer's page offers the file as a download.
+    const page = await anon('GET', `/invoice/${inv.url.split('/invoice/')[1]}`, null, host);
+    assert.equal(page.status, 200);
+    assert.match(page.data, new RegExp(`href="${up.data.url}" download="Quote.pdf"`));
+    // Projects need a name, a phase and a customer; dates must be in order; names are not repeated.
+    const pbody = { name: 'Deck', phase: 'in_progress', type: 'Build', customer: { name: 'Ann', email: 'ann@x.test' }, start: '2026-12-01', end: '2026-12-20', notes: 'Back deck', attachments: [{ url: img, name: 'Plan.png' }] };
+    assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, name: ' ' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, phase: 'someday' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, customer: {} })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, start: '2026-12-21' })).status, 400);
+    r = await me('POST', `/api/sites/${site.id}/projects`, pbody);
+    assert.equal(r.status, 201);
+    const proj = r.data.project;
+    assert.deepEqual([proj.name, proj.phase, proj.type, proj.customer.name, proj.start, proj.end, proj.notes, proj.attachments], ['Deck', 'in_progress', 'Build', 'Ann', '2026-12-01', '2026-12-20', 'Back deck', [{ url: img, name: 'Plan.png', size: png.length }]]);
+    assert.equal((await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, name: 'deck', attachments: [] })).status, 409);
+    // A file over 10 MB, or more than 10 files, is refused on a project.
+    const big = Buffer.concat([pdf, Buffer.alloc(10 * 1024 * 1024)]);
+    const bigUrl = (await me('POST', '/api/uploads?kind=file', big, { raw: true })).data.url;
+    assert.equal((await me('PUT', `/api/sites/${site.id}/projects/${proj.id}`, { ...pbody, attachments: [{ url: bigUrl, name: 'big.pdf' }] })).status, 400);
+    // Another business cannot see or change them.
+    await other('POST', '/api/auth/signup', { email: 'other@files.test', password: 'long-enough-pw', name: 'Other' });
+    assert.equal((await other('GET', `/api/sites/${site.id}/projects`)).status, 404);
+    assert.equal((await other('PUT', `/api/sites/${site.id}/projects/${proj.id}`, pbody)).status, 404);
+    // Its invoices follow a rename, and stay, without the project, when it is deleted.
+    await me('PUT', `/api/sites/${site.id}/invoices/${inv.id}`, { ...body, project: 'Deck' });
+    r = await me('PUT', `/api/sites/${site.id}/projects/${proj.id}`, { ...pbody, name: 'Deck rebuild' });
+    assert.equal(r.status, 200);
+    assert.equal(r.data.invoices.find((v) => v.id === inv.id).project, 'Deck rebuild');
+    const second = (await me('POST', `/api/sites/${site.id}/projects`, { ...pbody, name: 'Fence' })).data.project;
+    r = await me('DELETE', `/api/sites/${site.id}/projects/${proj.id}`);
+    assert.deepEqual(r.data.projects.map((x) => x.id), [second.id]);
+    assert.equal(r.data.invoices.find((v) => v.id === inv.id).project, '');
+    // A week on, files an invoice or a project uses stay; the rest are cleared away.
+    await app17.sweepUploads(Date.now() + 8 * 86400000);
+    assert.equal((await anon('GET', up.data.url, null, host)).status, 200);
+    assert.equal((await anon('GET', img, null, host)).status, 200);
+    for (const url of [...four, bigUrl]) assert.equal((await anon('GET', url, null, host)).status, 404, url);
+  } finally { srv.close(); app17.close(); base = saved; rmSync(d17, { recursive: true, force: true }); }
+});
