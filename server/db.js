@@ -230,21 +230,6 @@ export function openDb(dataDir) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('invoice_tax_pairs', '1')").run();
     db.exec('COMMIT');
   }
-  // A gift card's part taken when ordering carries its share of the order's tax, tip and delivery fee. An order still waiting on
-  // the rest when that started gets the share on its card row once here, so the counter payment then carries only what is left.
-  if (!db.prepare("SELECT 1 FROM settings WHERE key = 'gift_parts'").get()) {
-    const upd = db.prepare('UPDATE money_log SET tax = ?, tip = ?, fee = ? WHERE id = ?');
-    db.exec('BEGIN');
-    for (const r of db.prepare(`SELECT m.id, m.amount, o.tax, o.tip, o.fee, o.total FROM money_log m JOIN orders o ON o.id = m.ref_id AND o.site_id = m.site_id
-      WHERE m.source = 'Order' AND m.kind = 'payment' AND m.method = 'Gift card' AND m.by_name = '' AND m.at = o.created_at AND m.tax = 0 AND m.tip = 0 AND m.fee = 0
-        AND m.amount > 0 AND m.amount < o.total AND o.tax + o.tip + o.fee > 0
-        AND (SELECT COUNT(*) FROM money_log x WHERE x.site_id = m.site_id AND x.ref_id = m.ref_id AND x.source = 'Order') = 1`).all()) {
-      const share = (n) => Math.round((r.amount * n) / r.total);
-      upd.run(share(r.tax), share(r.tip), share(r.fee), r.id);
-    }
-    db.prepare("INSERT INTO settings (key, value) VALUES ('gift_parts', '1')").run();
-    db.exec('COMMIT');
-  }
   // Every order refund carries the tax, tip and fee it gave back: its share of what the order's payments carried, refund by refund,
   // so a refund made in parts adds up exactly. Refunds recorded before this was kept are worked out once here.
   if (!db.prepare("SELECT 1 FROM settings WHERE key = 'refund_parts'").get()) {

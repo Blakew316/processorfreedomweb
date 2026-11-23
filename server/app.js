@@ -1651,17 +1651,23 @@ export function createApp(options = {}) {
     db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, taxable, rate, note, by_name, by_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, x.taxable ?? null, x.rate ?? null, str(x.note, 300), str(x.by, 120), x.byId || '', x.at || Date.now());
   }
-  // What a refund gave back of the order's tax, tip and delivery fee: its share of what was taken the way it goes back (the gift
-  // card's part, or what was paid at the counter), on that way's running refunded total, so refunds add up to exactly what that
-  // payment carried. The rest is sales.
+  // What a refund gave back of the order's tax, tip and delivery fee. The refund that gives back the last of the order's money gives
+  // back exactly what is left of them, whatever earlier refunds took. Any other takes a share, on the running refunded total, of
+  // what was taken the way it goes back (the gift card's part, or what was paid at the counter). An order whose gift card part
+  // carries none of the order's tax, tip and fee (recorded before card parts carried their share) is shared on its payments as a
+  // whole, as it always was. The rest is sales. The Taxes report shares refunded sales by the same rules.
   const refundParts = (site, o, amount, method) => {
-    const way = method === 'Gift card' ? "AND method = 'Gift card'" : "AND method <> 'Gift card'";
-    const sums = (kind, w) => db.get(`SELECT COALESCE(SUM(amount), 0) AS a, COALESCE(SUM(tax), 0) AS t, COALESCE(SUM(tip), 0) AS p, COALESCE(SUM(fee), 0) AS f FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = ? ${w}`, site.id, o.id, kind);
-    let paid = sums('payment', way), back = sums('refund', way);
-    // Nothing recorded that way (an order from before payments were kept apart): the order's payments as a whole.
-    if (!(paid.a > 0)) { paid = sums('payment', ''); back = sums('refund', ''); }
-    const cum = (x) => (paid.a > 0 ? [Math.round((x * paid.t) / paid.a), Math.round((x * paid.p) / paid.a), Math.round((x * paid.f) / paid.a)] : [0, 0, 0]);
-    const now = cum(back.a + amount), tax = now[0] - back.t, tip = now[1] - back.p, fee = now[2] - back.f;
+    const sums = (kind, w = '') => db.get(`SELECT COALESCE(SUM(amount), 0) AS a, COALESCE(SUM(tax), 0) AS t, COALESCE(SUM(tip), 0) AS p, COALESCE(SUM(fee), 0) AS f FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = ? ${w}`, site.id, o.id, kind);
+    const CARD = "AND method = 'Gift card'", COUNTER = "AND method <> 'Gift card'", paid = sums('payment'), back = sums('refund');
+    let tax, tip, fee;
+    if (back.a + amount >= paid.a) [tax, tip, fee] = [paid.t - back.t, paid.p - back.p, paid.f - back.f];
+    else {
+      const card = sums('payment', CARD), counter = sums('payment', COUNTER), w = method === 'Gift card' ? CARD : COUNTER;
+      const whole = !(card.a > 0 && counter.a > 0) || (card.t + card.p + card.f === 0 && paid.t + paid.p + paid.f > 0);
+      const [p, b] = whole ? [paid, back] : [sums('payment', w), sums('refund', w)];
+      const now = p.a > 0 ? [Math.round(((b.a + amount) * p.t) / p.a), Math.round(((b.a + amount) * p.p) / p.a), Math.round(((b.a + amount) * p.f) / p.a)] : [0, 0, 0];
+      [tax, tip, fee] = [now[0] - b.t, now[1] - b.p, now[2] - b.f];
+    }
     return { sales: amount - tax - tip - fee, tax, tip, fee };
   };
   const orderMoney = (o) => ({ source: 'Order', refId: o.id, ref: `#${o.number}`, customer: o.name, channel: o.method });
@@ -2055,17 +2061,31 @@ export function createApp(options = {}) {
       const ord = new Map(ids.length ? db.all('SELECT id, items, subtotal, discount, tax, total, tax_rate FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify(ids)).map((o) => [o.id, o]) : []);
       const cums = new Map();
       const cumOf = (o) => cums.get(o.id) || cums.set(o.id, (() => { const lines = JSON.parse(o.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net = o.subtotal - o.discount; const taxable = o.subtotal ? Math.round(taxed - (o.discount * taxed) / o.subtotal) : 0; return (v) => (net ? Math.round((v * taxable) / net) : 0); })()).get(o.id);
-      // Payments: each row's own sales (less its tax, tip and fee), shared between taxable and not on the order's running paid
-      // total, so split, removed and changed payments all land exactly; an order counts once, when it becomes paid. What each way
-      // of paying took (the gift card's part, or the counter's) is kept too, so a refund gives back exactly its share of that.
-      const paidBefore = new Map(), rowTaxable = new Map(), ways = new Map(), wayOf = (oid, method) => `${oid}|${method === 'Gift card' ? 'card' : 'counter'}`;
+      // Every ledger row of these orders, in the order written. A payment's sales (less its tax, tip and fee) are shared between
+      // taxable and not on the order's running paid total, so split, removed and changed payments all land exactly; an order counts
+      // once, when it becomes paid. A refund's sales are shared by the rules refundParts splits its tax by: exactly what is left for
+      // the refund that gives back the last of the order's money, otherwise on what was taken the way it went back, or on the order
+      // as a whole when its gift card part carries none of its tax, tip and fee.
+      const paidBefore = new Map(), rowTaxable = new Map();
       if (ids.length) {
-        const run = new Map();
-        for (const r of db.all("SELECT id, ref_id, method, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'payment' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify(ids))) {
+        const st = new Map(), blank = () => ({ a: 0, parts: 0, sales: 0, taxable: 0, backA: 0, backSales: 0, backTaxable: 0 });
+        for (const r of db.all("SELECT id, ref_id, kind, method, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify(ids))) {
           const o = ord.get(r.ref_id); if (!o) continue;
-          const cum = cumOf(o), was = run.get(r.ref_id) || 0, sales = r.amount - r.tax - r.tip - r.fee, taxable = cum(was + sales) - cum(was);
-          paidBefore.set(r.id, was); rowTaxable.set(r.id, taxable); run.set(r.ref_id, was + sales);
-          const k = wayOf(r.ref_id, r.method), w = ways.get(k) || ways.set(k, { sales: 0, taxable: 0 }).get(k); w.sales += sales; w.taxable += taxable;
+          const s = st.get(r.ref_id) || st.set(r.ref_id, { all: blank(), card: blank(), counter: blank() }).get(r.ref_id);
+          const way = r.method === 'Gift card' ? s.card : s.counter, sales = r.amount - r.tax - r.tip - r.fee;
+          let taxable;
+          if (r.kind === 'payment') {
+            const cum = cumOf(o); taxable = cum(s.all.sales + sales) - cum(s.all.sales); paidBefore.set(r.id, s.all.sales);
+            for (const t of [s.all, way]) { t.a += r.amount; t.parts += r.tax + r.tip + r.fee; t.sales += sales; t.taxable += taxable; }
+          } else {
+            if (s.all.backA + r.amount >= s.all.a) taxable = s.all.taxable - s.all.backTaxable;
+            else {
+              const p = !(s.card.a > 0 && s.counter.a > 0) || (s.card.parts === 0 && s.all.parts > 0) ? s.all : way;
+              taxable = (p.sales > 0 ? Math.round(((p.backSales + sales) * p.taxable) / p.sales) : 0) - p.backTaxable;
+            }
+            for (const t of [s.all, way]) { t.backA += r.amount; t.backSales += sales; t.backTaxable += taxable; }
+          }
+          rowTaxable.set(r.id, taxable);
         }
       }
       for (const x of orderPaid) {
@@ -2074,19 +2094,10 @@ export function createApp(options = {}) {
         r.taxable += taxable; r.nontaxable += sales - taxable; r.tax += x.tax || 0;
         if (pre <= 0 && pre + sales > 0) r.orders += 1; else if (pre > 0 && pre + sales <= 0) r.orders -= 1;
       }
-      // Refunds: the tax each gave back, and its sales shared between taxable and not on what was taken the way it went back,
-      // on that way's running refunded total, so a payment given back in full cancels exactly.
-      const backBefore = new Map();
-      if (orderBack.length) {
-        const run = new Map();
-        for (const r of db.all("SELECT id, ref_id, method, amount, tax, tip, fee FROM money_log WHERE site_id = ? AND kind = 'refund' AND source = 'Order' AND ref_id IN (SELECT value FROM json_each(?)) ORDER BY at, rowid", site.id, JSON.stringify([...new Set(orderBack.map((x) => x.refId))]))) {
-          const k = wayOf(r.ref_id, r.method), was = run.get(k) || 0; backBefore.set(r.id, was); run.set(k, was + r.amount - r.tax - r.tip - r.fee);
-        }
-      }
+      // Refunds: the tax each gave back, and its sales shared as worked out above.
       for (const x of orderBack) {
-        const o = ord.get(x.refId); if (!o) continue;
-        const w = ways.get(wayOf(x.refId, x.method)), sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), pre = backBefore.get(x.id) || 0;
-        const cum = w && w.sales > 0 ? (v) => Math.round((v * w.taxable) / w.sales) : cumOf(o), taxable = cum(pre + sales) - cum(pre), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
+        const o = ord.get(x.refId); if (!o || !rowTaxable.has(x.id)) continue;
+        const sales = x.amount - (x.tax || 0) - (x.tip || 0) - (x.fee || 0), taxable = rowTaxable.get(x.id), r = rowFor(o.tax_rate ?? ordering.taxRate ?? 0);
         r.taxable -= taxable; r.nontaxable -= sales - taxable; r.tax -= x.tax || 0; r.refunds = (r.refunds || 0) + 1;
       }
     }

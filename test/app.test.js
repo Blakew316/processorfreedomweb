@@ -1793,23 +1793,30 @@ test('older ledger rows get their figures once; a payment taken back mirrors wha
     assert.deepEqual(t.refunds.map((x) => [x.method, x.amount, x.tax, x.tip]).sort(), [['Cash', 789, 42, 124], ['Gift card', 789, 42, 125]]);
     assert.deepEqual(await rate(8.25), [0, 0, 0, 0]);
 
-    // An order whose card part was taken before card parts carried their share, still waiting on the rest, gets the share once.
-    const card2 = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 789, paidWith: 'Cash' })).data.code;
-    await anon('POST', '/_order', { name: 'Bo', phone: '903-555-0101', email: 'bo@old.test', method: 'pickup', tip: 20, promo: card2, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
-    const card3 = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 789, paidWith: 'Cash' })).data.code;
-    await anon('POST', '/_order', { name: 'Cy', phone: '903-555-0102', email: 'cy@old.test', method: 'pickup', tip: 20, promo: card3, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host);
-    const [o3, o2] = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    // Orders recorded before card parts carried their share keep the rows they were recorded with: the card part with no tax, tip
+    // or fee, and the counter payment with all of them. A refund then takes the order-wide share, as it always did, and the cancel
+    // exactly what is left. An order with a refund written the old way also ends at exactly zero when cancelled.
+    const place = async (nm, i) => { const c = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 789, paidWith: 'Cash' })).data.code; await anon('POST', '/_order', { name: nm, phone: `903-555-01${10 + i}`, email: `${nm.toLowerCase()}@old.test`, method: 'pickup', tip: 20, promo: c, items: [{ id: taco.id, qty: 1 }, { id: tea.id, qty: 1 }] }, host); return (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0]; };
+    const o2 = await place('Bo', 1), o3 = await place('Cy', 2), o4 = await place('Di', 3);
     await me('POST', `/api/sites/${site.id}/orders/${o3.id}/payment`, { method: 'Cash' });
-    // As the earlier release wrote them: the card part with no tax, tip or fee, and a counter payment with all of it.
-    await restart((db) => {
+    await me('POST', `/api/sites/${site.id}/orders/${o4.id}/payment`, { method: 'Cash' });
+    sql((db) => {
       db.prepare("UPDATE money_log SET tax = 0, tip = 0, fee = 0 WHERE ref_id IN (?, ?) AND method = 'Gift card'").run(o2.id, o3.id);
       db.prepare("UPDATE money_log SET tax = 84, tip = 249 WHERE ref_id = ? AND method = 'Cash'").run(o3.id);
-      db.exec("DELETE FROM settings WHERE key = 'gift_parts'");
     });
-    const parts = (oid) => sql((db) => db.prepare("SELECT method, amount, tax, tip FROM money_log WHERE ref_id = ? ORDER BY at, rowid").all(oid).map((r) => [r.method, r.amount, r.tax, r.tip]));
-    assert.deepEqual(parts(o2.id), [['Gift card', 789, 42, 125]], 'still open: the card part gets its share');
-    assert.deepEqual(parts(o3.id), [['Gift card', 789, 0, 0], ['Cash', 789, 84, 249]], 'already paid at the counter: left as it was recorded');
+    const parts = (oid) => sql((db) => db.prepare("SELECT kind, method, amount, tax, tip FROM money_log WHERE ref_id = ? ORDER BY at, rowid").all(oid).map((r) => [r.kind, r.method, r.amount, r.tax, r.tip]));
     await me('POST', `/api/sites/${site.id}/orders/${o2.id}/payment`, { method: 'Card' });
-    assert.deepEqual(parts(o2.id), [['Gift card', 789, 42, 125], ['Card', 789, 42, 124]]);
+    assert.deepEqual(parts(o2.id), [['payment', 'Gift card', 789, 0, 0], ['payment', 'Card', 789, 84, 249]], 'the counter payment carries what the card part did not');
+    await me('POST', `/api/sites/${site.id}/orders/${o3.id}/payment`, { refund: 789 });
+    assert.deepEqual(parts(o3.id).slice(-1), [['refund', 'Cash', 789, 42, 125]], 'the order-wide share, not all of it');
+    // o4 was recorded the new way, but its counter refund carries the order-wide split an earlier release wrote.
+    await me('POST', `/api/sites/${site.id}/orders/${o4.id}/payment`, { refund: 789 });
+    sql((db) => db.prepare("UPDATE money_log SET tip = 125 WHERE ref_id = ? AND kind = 'refund'").run(o4.id));
+    assert.deepEqual(await rate(8.25), [2041, 450, 168, 168], 'o2 in full, and the kept card halves of o3 and o4 with their share');
+    for (const o of [o3, o4]) await me('POST', `/api/sites/${site.id}/orders/${o.id}`, { status: 'cancelled' });
+    assert.deepEqual(parts(o3.id).slice(-1), [['refund', 'Gift card', 789, 42, 124]]);
+    assert.deepEqual(parts(o4.id).slice(-1), [['refund', 'Gift card', 789, 42, 124]]);
+    for (const o of [o3, o4]) { const left = parts(o.id).reduce((a, r) => [a[0] + (r[0] === 'payment' ? 1 : -1) * r[3], a[1] + (r[0] === 'payment' ? 1 : -1) * r[4]], [0, 0]); assert.deepEqual(left, [0, 0], `#${o.number} gives back all its tax and tip`); }
+    assert.deepEqual(await rate(8.25), [1020, 225, 84, 84], 'only o2 is left, exactly');
   } finally { base = saved; srv.close(); app14.close(); rmSync(d14, { recursive: true, force: true }); }
 });
