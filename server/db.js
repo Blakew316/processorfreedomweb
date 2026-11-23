@@ -153,6 +153,26 @@ export function openDb(dataDir) {
     }
     db.exec('COMMIT');
   }
+  // A gift card pays for an order like money: the part it paid, and which card, are kept on the order.
+  addColumn('orders', 'gift', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('orders', 'gift_code', "TEXT NOT NULL DEFAULT ''");
+  // Every change to a gift card's balance: issued, loaded, spent, or given back. The method says how a load was paid, or 'Complimentary'.
+  const movesAreNew = !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gift_moves'").get();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gift_moves (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, code TEXT NOT NULL, kind TEXT NOT NULL,
+      amount INTEGER NOT NULL, method TEXT NOT NULL DEFAULT '', order_id TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS gift_moves_card ON gift_moves(site_id, code);
+  `);
+  if (movesAreNew) {
+    // Cards made before this was kept: what they were issued with, and whatever has changed since as one move.
+    const add = db.prepare('INSERT INTO gift_moves (id, site_id, code, kind, amount, method, order_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    db.exec('BEGIN');
+    for (const g of db.prepare('SELECT * FROM gift_cards').all()) {
+      add.run(newId(), g.site_id, g.code, 'issue', g.initial, '', '', g.created_at);
+      if (g.balance !== g.initial) add.run(newId(), g.site_id, g.code, g.balance < g.initial ? 'spend' : 'load', Math.abs(g.initial - g.balance), '', '', g.created_at);
+    }
+    db.exec('COMMIT');
+  }
   // Every uploaded photo, so storage can be counted per account and files nothing uses any more can be cleared away.
   db.exec('CREATE TABLE IF NOT EXISTS uploads (name TEXT PRIMARY KEY, user_id TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS uploads_user ON uploads(user_id);');
   // Only a link that went to the mailbox alone proves the address. Links handed to an inviter or made by staff set a password but confirm nothing.

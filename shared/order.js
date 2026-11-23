@@ -239,11 +239,14 @@ function orderClient() {
     if (S.when && !sl.some(function (x) { return x[0] === S.when; })) S.when = '';
     if (!c.asap && !S.when && sl.length) S.when = sl[0][0];
     var L = lines(c), sub = L.reduce(function (s, l) { return s + l.price * l.qty; }, 0), count = L.reduce(function (s, l) { return s + l.qty; }, 0);
-    var disc = !S.promo ? 0 : S.promo.type === 'amount' ? Math.min(sub, S.promo.value) : Math.round(sub * S.promo.value / 100);
+    // A gift card is not money off: it pays after tax, tip and delivery, up to its balance.
+    var giftOn = !!(S.promo && S.promo.type === 'gift');
+    var disc = !S.promo || giftOn ? 0 : S.promo.type === 'amount' ? Math.min(sub, S.promo.value) : Math.round(sub * S.promo.value / 100);
     var zone = c.zones && S.method === 'delivery' ? c.zones.filter(function (z) { return z[0].indexOf(((S.f.zip || '').match(/\d{5}/) || [''])[0]) >= 0; })[0] : null;
     var txs = L.reduce(function (s, l) { return s + (l.tx ? l.price * l.qty : 0); }, 0);
     var tax = sub ? Math.round((txs - disc * txs / sub) * c.tax / 100) : 0, fee = S.method !== 'delivery' ? 0 : zone ? zone[1] : c.fee, tip = c.tips ? Math.round(sub * S.tip / 100) : 0, total = sub - disc + tax + fee + tip;
-    var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(total) + '</span>'; }
+    var gift = giftOn ? Math.min(S.promo.value, total) : 0, due = total - gift; S.total = total;
+    var bar = d.getElementById('cartbar'); if (bar) { bar.hidden = !count; bar.innerHTML = '<span>' + h(T.viewOrder) + ' · ' + count + ' ' + h(count === 1 ? T.item : T.items) + '</span><span>' + fmt(due) + '</span>'; }
     var out = '<div class="cart-h"><h2>' + h(T.yourOrder) + '</h2><button type="button" class="cart-x" data-cart-close="1" aria-label="' + h(T.close) + '">×</button></div>';
     if (!L.length) { d.documentElement.classList.remove('cart-open'); el.innerHTML = out + '<p class="none">' + h(can ? T.emptyCart : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.paused) + '</p>'; return; }
     out += L.map(function (l) { return '<div class="line"><b>' + h(l.name) + '</b><span>' + fmt(l.price * l.qty) + '</span>' + (l.opt ? '<span class="lopt">' + h(l.opt) + '</span>' : '') + '<div class="step"><button type="button" data-qty="-1" data-i="' + l.i + '" aria-label="−">−</button><span>' + l.qty + '</span><button type="button" data-qty="1" data-i="' + l.i + '" aria-label="+">+</button></div></div>'; }).join('');
@@ -259,11 +262,11 @@ function orderClient() {
     if (c.notes) out += '<label class="f">' + h(T.notes) + '<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
     if (c.promos) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.promo) + '</div><div class="prow"><input name="promo" maxlength="24" autocomplete="off" value="' + h(S.promo ? S.promo.code : S.f.promo) + '"><button type="button" data-promo="1">' + h(T.apply) + '</button></div>' + (S.perr ? '<p class="oerr" style="margin-top:6px">' + h(S.perr) + '</p>' : '') + '</div>';
     if (c.tips) out += '<div><div class="mnote" style="margin-bottom:6px">' + h(T.tip) + '</div><div class="oseg" role="group">' + [0, 10, 15, 20].map(function (t) { return '<button type="button" data-tip="' + t + '" aria-pressed="' + (S.tip === t) + '">' + (t ? t + '%' : h(T.none)) + '</button>'; }).join('') + '</div></div>';
-    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span></div>';
+    out += '<div class="tot"><span>' + h(T.subtotal) + '</span><span>' + fmt(sub) + '</span>' + (disc ? '<span>' + h(T.discount) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(disc) + '</span>' : '') + (tax ? '<span>' + h(T.tax) + '</span><span>' + fmt(tax) + '</span>' : '') + (fee ? '<span>' + h(T.delivery) + '</span><span>' + fmt(fee) + '</span>' : '') + (tip ? '<span>' + h(T.tipLine) + '</span><span>' + fmt(tip) + '</span>' : '') + '<span class="g">' + h(T.total) + '</span><span class="g">' + fmt(total) + '</span>' + (gift ? '<span>' + h(T.giftCard) + ' (' + h(S.promo.code) + ')</span><span>−' + fmt(gift) + '</span><span class="g">' + h(T.toPay) + '</span><span class="g">' + fmt(due) + '</span>' : '') + '</div>';
     var short = S.method === 'delivery' && (sub < c.min || (c.zones && (S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone));
     if (S.method === 'delivery' && sub < c.min) out += '<p class="mnote">' + h(T.minOrder.replace('{a}', fmt(c.min)).replace('{b}', fmt(c.min - sub))) + '</p>';
     if (S.err) out += '<p class="oerr" role="alert">' + h(S.err) + '</p>';
-    out += '<button class="btn" type="submit"' + (short || !can || S.busy ? ' disabled' : '') + '>' + h(S.busy ? T.placing : can ? T.place + ' · ' + fmt(total) : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.pausedBtn) + '</button><p class="note">' + h(c.pay) + '</p></form>';
+    out += '<button class="btn" type="submit"' + (short || !can || S.busy ? ' disabled' : '') + '>' + h(S.busy ? T.placing : can ? T.place + ' · ' + fmt(due) : c.open ? (c.busy ? T.busyNow : T.closedNow) : T.pausedBtn) + '</button><p class="note">' + h(c.pay) + '</p></form>';
     var a = d.activeElement, an = a && a.form && a.form.id === 'checkout' ? a.name : '';
     el.innerHTML = out;
     if (an) { var n = el.querySelector('[name="' + an + '"]'); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (e) {} } }
@@ -351,11 +354,15 @@ function orderClient() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(S.f.email || '')) { S.err = c.T.badEmail; draw(); return; }
     if (P) { S.err = 'This is a preview. Orders can be placed once your site is published.'; draw(); return; }
     S.busy = true; S.err = ''; draw();
-    var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, zip: S.f.zip, vehicle: S.f.vehicle, notes: S.f.notes };
+    var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', expect: S.total, name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, zip: S.f.zip, vehicle: S.f.vehicle, notes: S.f.notes };
     fetch(c.post, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'x'); return j; }); })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) { var er = new Error(j.error || 'x'); er.code = j.code; throw er; } return j; }); })
       .then(function (j) { S.lines = []; keep(c); location.href = j.url; })
-      .catch(function (x) { S.busy = false; S.err = x.message && x.message !== 'x' ? x.message : c.T.failed; draw(); });
+      .catch(function (x) {
+        // A price changed while the page was open: keep the cart and load the page again, so the new prices show before anything is sent.
+        if (x.code === 'prices') { S.err = c.T.pricesChanged; draw(); keep(c); setTimeout(function () { location.reload(); }, 1800); return; }
+        S.busy = false; S.err = x.message && x.message !== 'x' ? x.message : c.T.failed; draw();
+      });
   });
   window.pfOrderInit = function () { var c = conf(); if (c) { if (!S.loaded) { load(c); S.loaded = 1; } draw(); spy(); } };
   window.pfOrderInit();
@@ -389,7 +396,7 @@ export function menuSection(d, { menu, ordering, preview, orderHref, lang }) {
   return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.name)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { T })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>${esc(T.orderOnline)}</a></div>` : ''}</div>`;
 }
 
-export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy }) {
+export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy, codes }) {
   const o = ordering;
   const T = strings(lang);
   const methods = openMethods(o);
@@ -405,7 +412,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
     key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,
-    tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes, promos: arr(o.promos).some((x) => x.active),
+    tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes, promos: arr(o.promos).some((x) => x.active) || !!codes,
     zones: arr(o.zones).length ? o.zones.map((z) => [z.zips, z.fee]) : null,
     pickupNote: o.pickupNote, curbsideNote: o.curbsideNote, area: o.deliveryArea, pay: hasPayUrl ? T.payEither : T.payLater,
   };
@@ -437,7 +444,7 @@ export function orderStatusPage({ order, ordering, payUrl, phoneHtml, homeHref, 
 ${cancelled ? '' : `<div class="track" role="img" aria-label="${esc(label(order.status))}">${steps.map((s, i) => `<i class="${i <= at ? 'on' : ''}"></i>`).join('')}</div><div class="trackl">${steps.map((s, i) => (i === at ? `<b>${esc(label(s))}</b>` : `<span>${esc(label(s))}</span>`)).join('')}</div>`}
 <div class="box"><h2>${esc(methodName)} · ${esc(T.details)}</h2><dl class="kv">${row(T.scheduledFor, order.scheduled ? slotLabel(order.scheduled, ordering || {}, lang) : '')}${row(T.name, order.name)}${row(T.phone, order.phone)}${row(T.deliverTo, order.address)}${row(T.vehicleShort, order.vehicle)}${row(T.notesShort, order.notes)}</dl></div>
 ${loyalty && !cancelled ? `<div class="box">${loyalty.code ? `<h2>${esc(T.rewardEarned)}</h2><p style="font-size:17px">${esc(fill(T.rewardUse, { code: loyalty.code, value: loyalty.value }))}</p>` : ''}<div class="stamps" role="img" aria-label="${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}">${Array.from({ length: loyalty.every }, (_, i) => `<i class="${i < loyalty.have ? 'on' : ''}"></i>`).join('')}</div><p class="note">${esc(fill(T.stamps, { n: loyalty.have, m: loyalty.every }))}</p></div>` : ''}
-<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span></div>
-${payUrl && !cancelled ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
+<div class="box"><h2>${esc(T.yourItems)}</h2>${lines}<div class="tot"><span>${esc(T.subtotal)}</span><span>${money(order.subtotal)}</span>${order.discount ? `<span>${esc(T.discount)}${order.promo ? ` (${esc(order.promo)})` : ''}</span><span>−${money(order.discount)}</span>` : ''}${order.tax ? `<span>${esc(T.tax)}</span><span>${money(order.tax)}</span>` : ''}${order.fee ? `<span>${esc(T.delivery)}</span><span>${money(order.fee)}</span>` : ''}${order.tip ? `<span>${esc(T.tipLine)}</span><span>${money(order.tip)}</span>` : ''}<span class="g">${esc(T.total)}</span><span class="g">${money(order.total)}</span>${order.gift ? `<span>${esc(T.giftCard)}${order.giftCode ? ` (${esc(order.giftCode)})` : ''}</span><span>−${money(order.gift)}</span><span class="g">${esc(T.toPay)}</span><span class="g">${money(order.total - order.gift)}</span>` : ''}</div>
+${order.gift && order.gift >= order.total && !cancelled ? `<p class="note">${esc(T.giftPaid)}</p>` : payUrl && !cancelled ? `<div class="actions" style="margin-top:8px"><a class="btn" href="${esc(payUrl)}" target="_blank" rel="noopener">${esc(T.payOnline)}</a></div><p class="note">${esc(T.orPayLater)}</p>` : `<p class="note">${esc(T.payLater)}</p>`}</div>
 <div class="actions">${phoneHtml}<a class="btn${phoneHtml ? ' ghost' : ''}" ${orderHref} data-reorder="${esc(again)}">${esc(T.orderAgain)}</a><a class="btn ghost" ${homeHref}>${esc(T.backHome)}</a></div></div></section>`;
 }

@@ -679,11 +679,11 @@ export async function editor(id, mount, title, startTab = '') {
           h('div', { class: 'small' }, h('a', { href: `tel:${x.phone.replace(/[^\d+]/g, '')}` }, x.phone), ' · ', h('a', { href: `mailto:${x.email}` }, x.email)),
           x.scheduled && h('div', { class: 'small' }, h('b', {}, 'Scheduled for '), slotLabel(x.scheduled, ordering)),
           x.address && h('div', { class: 'small' }, h('b', {}, 'Deliver to '), x.address), x.vehicle && h('div', { class: 'small' }, h('b', {}, 'Vehicle '), x.vehicle), x.notes && h('div', { class: 'small' }, h('b', {}, 'Notes '), x.notes),
-          x.status !== 'cancelled' && h('div', { class: 'row payline', style: 'flex-wrap:wrap' }, x.paidAt ? h('span', { class: 'status ok' }, `Paid · ${x.paidMethod}`) : h('span', { class: 'status' }, 'Not paid yet'), x.refunded > 0 && h('span', { class: 'status bad' }, `Refunded ${money(x.refunded)}`), h('span', { class: 'grow' }),
-            !x.paidAt && h('button', { class: 'btn soft sm', onclick: () => takePayment(x) }, 'Record payment'), x.paidAt && x.refunded < x.total && h('button', { class: 'btn text sm', onclick: () => refundOrder(x) }, 'Refund')),
+          x.status !== 'cancelled' && h('div', { class: 'row payline', style: 'flex-wrap:wrap' }, x.paidAt ? h('span', { class: 'status ok' }, `Paid · ${x.paidMethod}`) : h('span', { class: 'status' }, x.gift ? `Gift card paid ${money(x.gift)} · ${money(x.total - x.gift)} to pay` : 'Not paid yet'), x.refunded > 0 && h('span', { class: 'status bad' }, `Refunded ${money(x.refunded)}`), h('span', { class: 'grow' }),
+            !x.paidAt && h('button', { class: 'btn soft sm', onclick: () => takePayment(x) }, 'Record payment'), x.paidAt && refundable(x) > 0 && h('button', { class: 'btn text sm', onclick: () => refundOrder(x) }, 'Refund')),
           next[x.status] && h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => setStatus(x, next[x.status][0]) }, next[x.status][0] === 'ready' ? `Mark ${readyLabel(x.method).toLowerCase()}` : next[x.status][1]),
             h('button', { class: 'btn soft sm', onclick: () => printTicket(x, meta.name, { method: ORDER_METHODS[x.method]?.name || x.method, when: x.scheduled ? slotLabel(x.scheduled, ordering) : 'As soon as possible', total: money(x.total) }) }, ic('print', 14), 'Print'),
-            h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Cancel order #${x.number}?`, text: 'The customer is told by email and any stock is returned.', action: 'Cancel order', danger: true })) setStatus(x, 'cancelled'); } }, 'Cancel')))))];
+            h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Cancel order #${x.number}?`, text: `The customer is told by email and any stock is returned.${x.gift ? ' The gift card gets its balance back.' : ''}`, action: 'Cancel order', danger: true })) setStatus(x, 'cancelled'); } }, 'Cancel')))))];
     },
 
     sales(V = 'overview') {
@@ -898,19 +898,28 @@ export async function editor(id, mount, title, startTab = '') {
           : h('div', { class: 'inv-list' }, emptyState('doc', 'No recurring payments yet', '', ['New plan', add])))];
     },
     gift() {
-      const issue = () => formSheet('Issue a gift card', [['amount', 'Amount', { inputmode: 'decimal', placeholder: '25.00' }], ['name', 'For (name)', { maxlength: 120, placeholder: 'Optional' }], ['email', 'Email the code to', { type: 'email', placeholder: 'Optional' }], ['note', 'Note', { maxlength: 200, placeholder: 'Optional, e.g. Paid in cash' }]], { amount: '', name: '', email: '', note: '' },
-        async (v) => { const c = parsePrice(v.amount || ''); if (!c) throw new Error('Enter an amount.'); const r = await api('POST', `/api/sites/${id}/gift-cards`, { amount: c, name: v.name, email: v.email, note: v.note }); giftData = r; setTimeout(() => sheet((close) => [h('h2', {}, 'Gift card ready'), h('p', { class: 'muted' }, r.emailed ? `We emailed the code to ${v.email}.` : 'Give this code to your customer. They type it in the promo code box at checkout, or you can redeem it for them here.'), h('div', { class: 'urlbox', style: 'font-size:24px;letter-spacing:.06em;text-align:center' }, r.code), h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: close }, 'Done'))]), 300); });
+      // Selling a card is money taken, so how it was paid is recorded with it; a card given away is Complimentary.
+      const PAID = { Cash: 'Cash', Card: 'Card', Check: 'Check', Other: 'Other', Complimentary: 'Complimentary (no payment taken)' };
+      const issue = () => formSheet('Issue a gift card', [['amount', 'Amount', { inputmode: 'decimal', placeholder: '25.00' }], ['paidWith', 'Paid with', { options: PAID }], ['name', 'For (name)', { maxlength: 120, placeholder: 'Optional' }], ['email', 'Email the code to', { type: 'email', placeholder: 'Optional' }], ['note', 'Note', { maxlength: 200, placeholder: 'Optional' }]], { amount: '', paidWith: 'Cash', name: '', email: '', note: '' },
+        async (v) => { const c = parsePrice(v.amount || ''); if (!c) throw new Error('Enter an amount.'); const r = await api('POST', `/api/sites/${id}/gift-cards`, { amount: c, paidWith: v.paidWith, name: v.name, email: v.email, note: v.note }); giftData = r; setTimeout(() => sheet((close) => [h('h2', {}, 'Gift card ready'), h('p', { class: 'muted' }, r.emailed ? `We emailed the code to ${v.email}.` : 'Give this code to your customer. They type it in the promo code box at checkout, or you can redeem it for them here.'), h('div', { class: 'urlbox', style: 'font-size:24px;letter-spacing:.06em;text-align:center' }, r.code), h('div', { class: 'acts' }, h('button', { class: 'btn', onclick: close }, 'Done'))]), 300); });
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Gift cards'), null), h('button', { class: 'btn', onclick: issue }, ic('plus', 16), 'Issue gift card'));
       if (!giftData) { api('GET', `/api/sites/${id}/gift-cards`).then((r) => { giftData = r; if (tab === 'gift') paintPanel(); }).catch((e) => { toast(e.message, true); giftData = { cards: [] }; if (tab === 'gift') paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(3, 'row'))]; }
       const cards = giftData.cards;
       const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
-      const sold = cards.reduce((a, c) => a + c.initial, 0), left = cards.reduce((a, c) => a + c.balance, 0);
-      const change = async (c, sign) => { const v = await ask({ title: sign < 0 ? `Redeem from ${c.code}` : `Top up ${c.code}`, label: 'Amount', hint: sign < 0 ? `${money(c.balance)} is left on this card.` : 'Adds to the balance.', action: sign < 0 ? 'Redeem' : 'Top up' }); const cents = v && parsePrice(v); if (!cents) return; try { giftData = await api('POST', `/api/sites/${id}/gift-cards/${c.code}`, { change: sign * cents }); toast(sign < 0 ? 'Redeemed' : 'Topped up'); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const sold = cards.reduce((a, c) => a + c.loaded, 0), spent = cards.reduce((a, c) => a + c.redeemed, 0), left = cards.reduce((a, c) => a + c.balance, 0);
+      const redeem = async (c) => { const v = await ask({ title: `Redeem from ${c.code}`, label: `Amount (${money(c.balance)} left)`, action: 'Redeem' }); const cents = v && parsePrice(v); if (!cents) return; try { giftData = await api('POST', `/api/sites/${id}/gift-cards/${c.code}`, { change: -cents }); toast('Redeemed'); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const topUp = (c) => sheet((close) => {
+        const amt = h('input', { inputmode: 'decimal', placeholder: '25.00', autofocus: true, 'aria-label': 'Amount' }), how = h('select', { 'aria-label': 'Paid with' }, Object.entries(PAID).map(([k, l]) => h('option', { value: k }, l))), err = h('p', { class: 'error', role: 'alert' });
+        return [h('h2', {}, `Top up ${c.code}`), h('p', { class: 'muted' }, `${money(c.balance)} on the card now.`),
+          h('form', { class: 'stack', onsubmit: async (e) => { e.preventDefault(); const cents = parsePrice(amt.value || ''); if (!cents) { err.textContent = 'Enter an amount.'; return; } try { giftData = await api('POST', `/api/sites/${id}/gift-cards/${c.code}`, { change: cents, paidWith: how.value }); close(); toast('Topped up'); paintPanel(); } catch (ex) { err.textContent = ex.message; } } },
+            h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), h('label', { class: 'field' }, h('span', {}, 'Paid with'), how), err,
+            h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Top up')))];
+      });
       return [h('div', { class: 'inv' }, head,
-        h('div', { class: 'inv-kpis' }, kpi('Cards issued', cards.length, 'in total'), kpi('Value issued', money(sold), 'loaded onto cards'), kpi('Redeemed', money(sold - left), 'spent so far'), kpi('Outstanding', money(left), 'still to be spent')),
+        h('div', { class: 'inv-kpis' }, kpi('Cards issued', cards.length, 'in total'), kpi('Value loaded', money(sold), 'onto cards in total'), kpi('Redeemed', money(spent), 'spent so far'), kpi('Outstanding', money(left), 'still to be spent')),
         cards.length ? h('div', { class: 'scard' }, h('div', { class: 'tscroll' }, h('table', { class: 'table stable' }, h('thead', {}, h('tr', {}, ['Code', 'For', 'Balance', 'Loaded', 'Issued', 'Action'].map((x) => h('th', {}, x)))),
-          h('tbody', {}, cards.map((c) => h('tr', {}, h('td', {}, h('b', { style: 'letter-spacing:.04em' }, c.code)), h('td', {}, c.name || c.email || '—', c.note && h('div', { class: 'small muted' }, c.note)), h('td', {}, h('b', {}, money(c.balance))), h('td', {}, money(c.initial)), h('td', { class: 'muted' }, fmtDate(c.createdAt)),
-            h('td', { style: 'white-space:nowrap' }, c.balance > 0 && h('button', { class: 'btn soft sm', onclick: () => change(c, -1) }, 'Redeem'), ' ', h('button', { class: 'btn text sm', onclick: () => change(c, 1) }, 'Top up'))))))))
+          h('tbody', {}, cards.map((c) => h('tr', {}, h('td', {}, h('b', { style: 'letter-spacing:.04em' }, c.code)), h('td', {}, c.name || c.email || '—', c.note && h('div', { class: 'small muted' }, c.note)), h('td', {}, h('b', {}, money(c.balance))), h('td', {}, money(c.loaded)), h('td', { class: 'muted' }, fmtDate(c.createdAt)),
+            h('td', { style: 'white-space:nowrap' }, c.balance > 0 && h('button', { class: 'btn soft sm', onclick: () => redeem(c) }, 'Redeem'), ' ', h('button', { class: 'btn text sm', onclick: () => topUp(c) }, 'Top up'))))))))
           : h('div', { class: 'inv-list' }, emptyState('tag', 'Grow your business with gift cards', '', ['Issue gift card', issue])))];
     },
     sale() {
@@ -1702,16 +1711,24 @@ export async function editor(id, mount, title, startTab = '') {
   }
   const putOrder = (x, fresh) => { Object.assign(x, fresh); const live = (orders || []).find((o) => o.id === fresh.id); if (live && live !== x) Object.assign(live, fresh); };
   const TENDERS = ['Cash', 'Card', 'Online payment', 'Check', 'Gift card', 'Other'];
+  // What can still be refunded: all of it when a gift card paid in full (it goes back on the card), otherwise the part paid at the counter.
+  const refundable = (x) => (x.paidMethod === 'Gift card' && x.giftCode ? x.total : x.total - (x.gift || 0)) - (x.refunded || 0);
   function takePayment(x) {
-    sheet((close) => [h('h2', {}, `Record payment for #${x.number}`), h('p', { class: 'muted' }, `${money(x.total)} from ${x.name}.`),
-      h('div', { class: 'tender-grid' }, TENDERS.map((m) => h('button', { class: 'btn soft', onclick: async () => { try { putOrder(x, (await api('POST', `/api/sites/${id}/orders/${x.id}/payment`, { method: m })).order); close(); toast(`#${x.number} paid by ${m.toLowerCase()}`); paintPanel(); } catch (e) { toast(e.message, true); } } }, m))),
+    const due = x.total - (x.gift || 0);
+    sheet((close) => [h('h2', {}, `Record payment for #${x.number}`), h('p', { class: 'muted' }, `${money(due)} from ${x.name}${x.gift ? `, after ${money(x.gift)} paid by gift card` : ''}.`),
+      h('div', { class: 'tender-grid' }, TENDERS.map((m) => h('button', { class: 'btn soft', onclick: async () => {
+        const body = { method: m };
+        // A gift card pays from its balance, so its code is needed.
+        if (m === 'Gift card') { const code = await ask({ title: `Gift card for #${x.number}`, label: 'Gift card code', action: `Pay ${money(due)}` }); if (!code) return; body.giftCode = code; }
+        try { putOrder(x, (await api('POST', `/api/sites/${id}/orders/${x.id}/payment`, body)).order); close(); toast(`#${x.number} paid by ${m.toLowerCase()}`); paintPanel(); } catch (e) { toast(e.message, true); }
+      } }, m))),
       h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'))]);
   }
   function refundOrder(x) {
     sheet((close) => {
-      const left = x.total - x.refunded;
+      const left = refundable(x), card = x.paidMethod === 'Gift card' && !!x.giftCode;
       const amt = h('input', { value: (left / 100).toFixed(2), inputmode: 'decimal', autofocus: true }), noteIn = h('input', { placeholder: 'Reason (optional)', maxlength: 300 }), err = h('p', { class: 'error', role: 'alert' });
-      return [h('h2', {}, `Refund order #${x.number}`), h('p', { class: 'muted' }, `Up to ${money(left)}.`),
+      return [h('h2', {}, `Refund order #${x.number}`), h('p', { class: 'muted' }, `Up to ${money(left)}.${card ? ' It goes back on the gift card.' : x.gift ? ` The ${money(x.gift)} paid by gift card goes back on the card if the order is cancelled.` : ''}`),
         h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), h('label', { class: 'field' }, h('span', {}, 'Note'), noteIn), err,
         h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn', onclick: async () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } try { putOrder(x, (await api('POST', `/api/sites/${id}/orders/${x.id}/payment`, { refund: c, note: noteIn.value })).order); close(); toast('Refund recorded'); paintPanel(); } catch (e) { err.textContent = e.message; } } }, 'Record refund'))];
     });
@@ -2444,14 +2461,15 @@ export async function editor(id, mount, title, startTab = '') {
   };
   CL['r-gift'] = () => {
     const g = need('gift', 'gift-cards'); if (!g) return loadingPage('Gift cards', 'Reports');
-    const cards = (g.cards || []).filter((c) => inPeriod(c.createdAt) && (clState.giftLoad === 'all' || clState.giftLoad === 'person'));
-    const total = cards.reduce((a, c) => a + c.initial, 0);
+    // Every load in the period (a card sold, or topped up), with what was paid and what was given away. Cards are only loaded in person.
+    const cards = (g.loads || []).filter((m) => inPeriod(m.at) && (clState.giftLoad === 'all' || clState.giftLoad === 'person'));
+    const total = cards.reduce((a, m) => a + m.amount, 0), comp = cards.filter((m) => m.method === 'Complimentary').reduce((a, m) => a + m.amount, 0);
     const cols = [{ k: 'c', l: 'Gift card' }, { k: 'n', l: 'Customer' }, { k: 'd', l: 'Issued' }, { k: 'm', l: 'Load method' }, { k: 'a', l: 'Amount', r: 1, sort: (r) => r._a }, { k: 'b', l: 'Balance', r: 1 }];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Gift cards', [exportBtn('r-gift'), dots('r-gift')]),
       ...cDates(h('div', { class: 'cl-labelled' }, h('label', { class: 'cl-lab' }, 'Load method'), cDrop([['all', 'All'], ['person', 'In person'], ['online', 'Online']], clState.giftLoad, (k) => { clState.giftLoad = k; paintPanel(); }))),
-      cFigs([['Total', money(total)], ['Paid', money(total)], ['Complimentary', money(0)]]),
+      cFigs([['Total', money(total)], ['Paid', money(total - comp)], ['Complimentary', money(comp)]]),
       cH2('Gift card reporting', colsBtn('r-gift', cols)),
-      cTable('r-gift', cols, cards.map((c) => ({ c: h('b', {}, c.code), n: c.name || '—', d: fmtDate(c.createdAt), m: 'In person', a: money(c.initial), b: money(c.balance), _a: c.initial })), cEmpty('No results found', NORES)))];
+      cTable('r-gift', cols, cards.map((m) => ({ c: h('b', {}, m.code), n: m.name || '—', d: fmtDate(m.at), m: m.kind === 'load' ? 'In person · top-up' : 'In person', a: money(m.amount), b: money(m.balance), _a: m.amount })), cEmpty('No results found', NORES)))];
   };
   CL['r-types'] = () => {
     const st = needStats(); if (!st) return loadingPage('Order types', 'Reports');
@@ -2481,10 +2499,11 @@ export async function editor(id, mount, title, startTab = '') {
     const set = async (status, close) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); putOrder(x, r.order); stats = null; close(); paintPanel(); } catch (e) { toast(e.message, true); } };
     sheet((close) => [h('h2', {}, `#${x.number} · ${x.name}`), h('p', { class: 'muted' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status]}`),
       h('div', { class: 'cl-lines' }, x.items.map((l) => h('div', {}, h('span', {}, `${l.qty} × ${l.name}`, l.opts?.length > 0 && h('small', {}, l.opts.join(', '))), h('b', {}, money(l.price * l.qty)))),
-        x.discount > 0 && h('div', {}, h('span', {}, 'Discount'), h('b', {}, `−${money(x.discount)}`)), x.tax > 0 && h('div', {}, h('span', {}, 'Tax'), h('b', {}, money(x.tax))), x.fee > 0 && h('div', {}, h('span', {}, 'Delivery fee'), h('b', {}, money(x.fee))), x.tip > 0 && h('div', {}, h('span', {}, 'Tip'), h('b', {}, money(x.tip))), h('div', { class: 'tot' }, h('span', {}, 'Total'), h('b', {}, money(x.total)))),
+        x.discount > 0 && h('div', {}, h('span', {}, 'Discount'), h('b', {}, `−${money(x.discount)}`)), x.tax > 0 && h('div', {}, h('span', {}, 'Tax'), h('b', {}, money(x.tax))), x.fee > 0 && h('div', {}, h('span', {}, 'Delivery fee'), h('b', {}, money(x.fee))), x.tip > 0 && h('div', {}, h('span', {}, 'Tip'), h('b', {}, money(x.tip))), h('div', { class: 'tot' }, h('span', {}, 'Total'), h('b', {}, money(x.total))),
+        x.gift > 0 && h('div', {}, h('span', {}, `Gift card${x.giftCode ? ` (${x.giftCode})` : ''}`), h('b', {}, `−${money(x.gift)}`)), x.gift > 0 && h('div', {}, h('span', {}, 'Left to pay'), h('b', {}, money(x.total - x.gift)))),
       h('p', { class: 'small' }, h('a', { href: `tel:${(x.phone || '').replace(/[^\d+]/g, '')}` }, x.phone), ' · ', h('a', { href: `mailto:${x.email}` }, x.email)), x.address && h('p', { class: 'small' }, h('b', {}, 'Deliver to '), x.address), x.notes && h('p', { class: 'small' }, h('b', {}, 'Notes '), x.notes),
       h('div', { class: 'acts' }, x.status !== 'cancelled' && x.status !== 'completed' && h('button', { class: 'btn text', style: 'color:var(--red);margin-right:auto', onclick: () => set('cancelled', close) }, 'Cancel order'),
-        !x.paidAt && x.status !== 'cancelled' && h('button', { class: 'btn soft', onclick: () => { close(); takePayment(x); } }, 'Record payment'), x.paidAt && x.refunded < x.total && h('button', { class: 'btn soft', onclick: () => { close(); refundOrder(x); } }, 'Refund'),
+        !x.paidAt && x.status !== 'cancelled' && h('button', { class: 'btn soft', onclick: () => { close(); takePayment(x); } }, 'Record payment'), x.paidAt && refundable(x) > 0 && h('button', { class: 'btn soft', onclick: () => { close(); refundOrder(x); } }, 'Refund'),
         next[x.status] && h('button', { class: 'btn', onclick: () => set(next[x.status][0], close) }, next[x.status][1]))], 'wide');
   }
   CL.orders = () => {

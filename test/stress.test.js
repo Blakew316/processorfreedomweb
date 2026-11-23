@@ -48,12 +48,16 @@ test('a rush of customers cannot oversell stock, double-spend a gift card or ove
     const numbers = (await me('GET', `${S}/orders`)).data.orders.map((o) => o.number);
     assert.equal(new Set(numbers).size, numbers.length, 'every order has its own number');
 
-    await me('POST', `${S}/gift-cards`, { amount: 2500 });
+    await me('POST', `${S}/gift-cards`, { amount: 2500, paidWith: 'Cash' });
     const code = (await me('GET', `${S}/gift-cards`)).data.cards[0].code;
     await Promise.all(Array.from({ length: 15 }, (_, i) => anon('POST', '/_order', { ...who(100 + i), promo: code, items: [{ id: soda.id, qty: 4 }] }, host)));
-    const given = (await me('GET', `${S}/orders`)).data.orders.filter((o) => o.promo === code).reduce((a, o) => a + o.discount, 0);
-    const left = (await me('GET', `${S}/gift-cards`)).data.cards[0].balance;
-    assert.equal(given + left, 2500, 'the card paid out exactly what was on it');
+    const given = (await me('GET', `${S}/orders`)).data.orders.filter((o) => o.giftCode === `…${code.slice(-4)}`).reduce((a, o) => a + o.gift, 0);
+    // Two spends at the counter at once can never take the card below zero either.
+    await Promise.all(Array.from({ length: 6 }, () => me('POST', `${S}/gift-cards/${code}`, { change: -400 })));
+    assert.ok((await me('GET', `${S}/gift-cards`)).data.cards[0].balance >= 0);
+    const card = (await me('GET', `${S}/gift-cards`)).data.cards[0], left = card.balance;
+    assert.equal(given + left + (card.redeemed - given), 2500, 'the card paid out exactly what was on it');
+    assert.equal(card.loaded - card.redeemed, left);
     assert.ok(given <= 2500);
 
     const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);

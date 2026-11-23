@@ -21,7 +21,8 @@ const IDLE_MS = 16 * 60000;   // no requests for this long ends a session (the a
 const MAX_SITES = 25;
 
 class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  // code: a short word the page can act on, such as 'prices' when an order's total changed.
+  constructor(status, message, code) { super(message); this.status = status; if (code) this.code = code; }
 }
 const bad = (status, message) => { throw new HttpError(status, message); };
 const sha = (s) => createHash('sha256').update(s).digest('hex');
@@ -293,7 +294,7 @@ export function createApp(options = {}) {
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
   const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, price: r.price, cost: r.cost ?? null, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
-  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '' });
+  const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '', gift: r.gift || 0, giftCode: r.gift_code ? `…${r.gift_code.slice(-4)}` : '' });
   function cleanItem(b, prev = {}) {
     const price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
     const name = str(b.name ?? prev.name, 120).trim();
@@ -316,9 +317,9 @@ export function createApp(options = {}) {
     const c = str(code, 24).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const r = c && db.get('SELECT code, type, value FROM rewards WHERE site_id = ? AND code = ? AND used_order IS NULL', site.id, c);
     if (r) return { ...r, reward: true };
-    // A gift card works like money off, up to what is left on it.
+    // A gift card is not money off: it pays for the order like cash, after tax, tip and delivery, up to what is left on it.
     const g = c && db.get('SELECT code, balance FROM gift_cards WHERE site_id = ? AND code = ? AND balance > 0', site.id, c);
-    return g ? { code: g.code, type: 'amount', value: g.balance, gift: true } : null;
+    return g ? { code: g.code, type: 'gift', value: g.balance, gift: true } : null;
   }
   function businessOf(site) {
     const c = JSON.parse(site.published || site.draft);
@@ -1000,28 +1001,51 @@ export function createApp(options = {}) {
   });
 
   /* Gift cards: a code with a balance, spent like money off at checkout or at the counter. */
-  const giftsOf = (site) => db.all('SELECT code, initial, balance, name, email, note, created_at AS createdAt FROM gift_cards WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id);
-  route('GET', '/api/sites/:id/gift-cards', (req, res, p) => json(res, 200, { cards: giftsOf(ownSite(req, p.id).site) }));
+  // Each card with what was loaded onto it, how much of that was complimentary, and what has been spent (less any given back).
+  const giftsOf = (site) => db.all(`SELECT g.code, g.initial, g.balance, g.name, g.email, g.note, g.created_at AS createdAt,
+      COALESCE(SUM(CASE WHEN m.kind IN ('issue', 'load') THEN m.amount END), 0) AS loaded,
+      COALESCE(SUM(CASE WHEN m.kind IN ('issue', 'load') AND m.method = 'Complimentary' THEN m.amount END), 0) AS comp,
+      COALESCE(SUM(CASE WHEN m.kind = 'spend' THEN m.amount WHEN m.kind = 'restore' THEN -m.amount END), 0) AS redeemed,
+      COALESCE(MAX(CASE WHEN m.kind = 'issue' THEN m.method END), '') AS paidWith
+    FROM gift_cards g LEFT JOIN gift_moves m ON m.site_id = g.site_id AND m.code = g.code WHERE g.site_id = ? GROUP BY g.code ORDER BY g.created_at DESC LIMIT 2000`, site.id);
+  const giftLoads = (site) => db.all("SELECT m.code, m.kind, m.amount, m.method, m.at, g.name, g.balance FROM gift_moves m JOIN gift_cards g ON g.site_id = m.site_id AND g.code = m.code WHERE m.site_id = ? AND m.kind IN ('issue', 'load') ORDER BY m.at DESC LIMIT 5000", site.id);
+  const GIFT_MAX = 100_000_00, GIFT_PAID = ['Cash', 'Card', 'Check', 'Other', 'Complimentary'];
+  const giftMoney = (code, name) => ({ source: 'Gift card', refId: code, ref: `Card …${code.slice(-4)}`, customer: name });
+  route('GET', '/api/sites/:id/gift-cards', (req, res, p) => { const { site } = ownSite(req, p.id); json(res, 200, { cards: giftsOf(site), loads: giftLoads(site) }); });
+  // Selling a card is money taken, recorded with the tender used, unless the card was given away.
   route('POST', '/api/sites/:id/gift-cards', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site, user } = ownSite(req, p.id);
     const b = await readJson(req);
     const amount = Math.round(Number(b.amount));
-    if (!(amount >= 100) || amount > 100_000_00) bad(400, 'Enter an amount of at least $1.00.');
+    if (!Number.isFinite(amount) || amount < 100 || amount > GIFT_MAX) bad(400, 'Enter an amount from $1.00 to $100,000.00.');
+    const paidWith = GIFT_PAID.includes(b.paidWith) ? b.paidWith : bad(400, 'Choose how the card was paid for.');
     const email = str(b.email, 200).trim().toLowerCase();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'That email address does not look right.');
-    const code = `GC${randomBytes(5).toString('hex').toUpperCase()}`;
-    db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, str(b.name, 120).trim(), email, str(b.note, 200).trim(), Date.now());
+    limit(`gift:${site.id}`, 300, DAY);
+    const code = `GC${randomBytes(5).toString('hex').toUpperCase()}`, now = Date.now(), name = str(b.name, 120).trim();
+    db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, name, email, str(b.note, 200).trim(), now);
+    giftMove(site, code, 'issue', amount, paidWith, '', now);
+    if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: user.name || user.email, at: now });
     if (email) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: `${siteUrl(req, site).replace(/\/$/, '')}/order` }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
-    json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site) });
+    json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site), loads: giftLoads(site) });
   });
-  // Spend from a card at the counter, or top it up.
+  // Spend from a card at the counter, or top it up. The balance check is part of the write, so two at once can never take a card below zero.
   route('POST', '/api/sites/:id/gift-cards/:code', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site, user } = ownSite(req, p.id);
+    const b = await readJson(req);
     const card = db.get('SELECT * FROM gift_cards WHERE site_id = ? AND code = ?', site.id, str(p.code, 24).toUpperCase()) || bad(404, 'We could not find that gift card.');
-    const change = Math.round(Number((await readJson(req)).change));
-    if (!change || card.balance + change < 0) bad(400, `This card has ${money(card.balance)} left.`);
-    db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', change, site.id, card.code);
-    json(res, 200, { cards: giftsOf(site) });
+    const change = Math.round(Number(b.change)), now = Date.now();
+    if (!Number.isFinite(change) || !change || Math.abs(change) > GIFT_MAX) bad(400, 'Enter an amount from $0.01 to $100,000.00.');
+    if (change > 0) {
+      const paidWith = GIFT_PAID.includes(b.paidWith) ? b.paidWith : bad(400, 'Choose how the top-up was paid for.');
+      if (!db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ? AND balance + ? <= ?', change, site.id, card.code, change, GIFT_MAX).changes) bad(400, `A card can hold up to ${money(GIFT_MAX)}. This one has ${money(card.balance)}.`);
+      giftMove(site, card.code, 'load', change, paidWith, '', now);
+      if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(card.code, card.name), method: paidWith, amount: change, note: 'Gift card topped up', by: user.name || user.email, at: now });
+    } else {
+      if (!db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ? AND balance + ? >= 0', change, site.id, card.code, change).changes) bad(400, `This card has ${money(db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, card.code).balance)} left.`);
+      giftMove(site, card.code, 'spend', -change, '', '', now);
+    }
+    json(res, 200, { cards: giftsOf(site), loads: giftLoads(site) });
   });
 
   /* Recurring payments: a plan sends the customer a fresh invoice on a schedule. */
@@ -1269,6 +1293,38 @@ export function createApp(options = {}) {
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site) });
   });
 
+  /* Gift card balance changes, one row each, so loads, spending and cards given back can be reported. */
+  function giftMove(site, code, kind, amount, method = '', orderId = '', at = Date.now()) {
+    db.run('INSERT INTO gift_moves (id, site_id, code, kind, amount, method, order_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, code, kind, amount, method, orderId, at);
+  }
+  // Cancelling gives back what the order took: stock (never above a daily quantity that has refilled since), the gift card's part,
+  // and a reward it used. A reward it earned and nobody used is withdrawn.
+  function cancelled(site, o, by, now) {
+    const ordering = orderingOf(site), refilled = bizDay(ordering, o.created_at) !== bizDay(ordering, now);
+    for (const l of JSON.parse(o.items)) {
+      if (refilled) db.run('UPDATE menu_items SET stock = MIN(stock + ?, MAX(stock, COALESCE(restock, stock + ?))) WHERE id = ? AND site_id = ? AND stock IS NOT NULL', l.qty, l.qty, l.id, site.id);
+      else db.run('UPDATE menu_items SET stock = stock + ? WHERE id = ? AND site_id = ? AND stock IS NOT NULL', l.qty, l.id, site.id);
+    }
+    if (o.gift > 0 && o.gift_code) {
+      const back = o.gift - db.get("SELECT COALESCE(SUM(amount), 0) AS n FROM gift_moves WHERE site_id = ? AND order_id = ? AND kind = 'restore'", site.id, o.id).n;
+      if (back > 0) {
+        db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', back, site.id, o.gift_code);
+        giftMove(site, o.gift_code, 'restore', back, '', o.id, now);
+        db.run("UPDATE orders SET refunded = refunded + ?, refunded_at = ?, refund_note = 'Put back on the gift card' WHERE id = ?", back, now, o.id);
+        logMoney(site, { ...orderMoney(o), kind: 'refund', method: 'Gift card', amount: back, note: 'Order cancelled: put back on the gift card', by, at: now });
+      }
+    }
+    db.run('UPDATE rewards SET used_order = NULL WHERE site_id = ? AND used_order = ?', site.id, o.id);
+    db.run('DELETE FROM rewards WHERE site_id = ? AND earned_order = ? AND used_order IS NULL', site.id, o.id);
+  }
+  // Every Nth completed order earns a one-time reward code for next time. Orders only placed, or cancelled, never count.
+  function earnReward(site, o, now) {
+    const L = orderingOf(site).loyalty;
+    if (!L.enabled || db.get('SELECT 1 FROM rewards WHERE site_id = ? AND earned_order = ?', site.id, o.id)) return;
+    const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status = 'completed'", site.id, o.email).n;
+    if (count > 0 && count % L.every === 0) db.run('INSERT INTO rewards (code, site_id, email, type, value, earned_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', `THANKS${randomBytes(4).toString('hex').toUpperCase()}`, site.id, o.email.toLowerCase(), L.type, L.value, o.id, now);
+  }
+
   /* Payments taken at the counter are recorded here, so the books add up. Nothing is charged by this system. */
   const TENDERS = ['Cash', 'Card', 'Online payment', 'Check', 'Gift card', 'Other'];
   route('POST', '/api/sites/:id/orders/:order/payment', async (req, res, p) => {
@@ -1280,17 +1336,23 @@ export function createApp(options = {}) {
     const o = db.get('SELECT * FROM orders WHERE id = ?', row.id);
     // What was paid at the counter: the total, less any gift card the customer paid with when ordering.
     const due = o.total - (o.gift || 0), was = o.paid_method || 'Other';
+    // Paid in full by a gift card, when ordering or at the counter.
+    const viaCard = o.paid_method === 'Gift card' && !!o.gift_code;
     const reverse = (note) => logMoney(site, { ...orderMoney(o), method: was, amount: -due, tip: -o.tip, tax: -o.tax, fee: -o.fee, note, by, at: now });
     if (b.refund !== undefined) {
       if (role === 'kitchen') bad(403, 'Your login does not allow refunds. Ask a manager.');
       if (!o.paid_at) bad(400, 'This order has no payment recorded, so there is nothing to refund.');
       const amount = Math.round(Number(b.refund));
-      if (!(amount > 0) || amount > o.total - o.refunded) bad(400, `Enter an amount up to ${money(o.total - o.refunded)}.`);
+      // A refund goes back the way the money came: onto the gift card that paid, or to the counter tender for the part paid there.
+      const most = (viaCard ? o.total : o.total - o.gift) - o.refunded;
+      if (!(amount > 0) || amount > most) bad(400, most > 0 ? `Enter an amount up to ${money(most)}.` : 'There is nothing left to refund on this order.');
       const note = str(b.note, 300).trim();
       db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, note, now, now, o.id);
-      logMoney(site, { ...orderMoney(o), kind: 'refund', method: was, amount, note, by, at: now });
+      if (viaCard) { db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', amount, site.id, o.gift_code); giftMove(site, o.gift_code, 'restore', amount, '', o.id, now); }
+      logMoney(site, { ...orderMoney(o), kind: 'refund', method: viaCard ? 'Gift card' : was, amount, note: note || (viaCard ? 'Put back on the gift card' : ''), by, at: now });
     } else if (b.clear === true) {
       if (role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
+      if (viaCard) bad(400, 'This order was paid with a gift card. Refund it to the card, or cancel the order to give the card its balance back.');
       if (o.refunded) bad(400, 'This payment has a refund against it and cannot be removed.');
       if (!o.paid_at) bad(400, 'This order has no payment recorded.');
       db.run("UPDATE orders SET paid_at = NULL, paid_method = '', updated_at = ? WHERE id = ?", now, o.id);
@@ -1299,10 +1361,21 @@ export function createApp(options = {}) {
     } else {
       const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
       if (role === 'kitchen' && o.paid_at && method !== o.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
-      if (!o.paid_at) {
+      if (method === 'Gift card' && !o.paid_at) {
+        // Paid at the counter with a gift card: the card has to cover what is due, and pays it now.
+        const code = str(b.giftCode, 24).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (!code) bad(400, 'Enter the gift card code.');
+        if (o.gift_code && o.gift_code !== code) bad(400, 'This order already used another gift card. Take the rest another way.');
+        const card = db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, code) || bad(404, 'We could not find that gift card.');
+        if (!db.run('UPDATE gift_cards SET balance = balance - ? WHERE site_id = ? AND code = ? AND balance >= ?', due, site.id, code, due).changes) bad(409, `This card has ${money(card.balance)} left, and ${money(due)} is due.`);
+        giftMove(site, code, 'spend', due, '', o.id, now);
+        db.run("UPDATE orders SET gift = gift + ?, gift_code = ?, paid_at = ?, paid_method = 'Gift card', handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?", due, code, now, by, now, o.id);
+        logMoney(site, { ...orderMoney(o), method: 'Gift card', amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Card …${code.slice(-4)}`, by, at: now });
+      } else if (!o.paid_at) {
         db.run('UPDATE orders SET paid_at = ?, paid_method = ?, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, by, now, o.id);
         logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, by, at: now });
       } else if (method !== o.paid_method) {
+        if (viaCard || method === 'Gift card') bad(400, 'A gift card payment cannot be swapped for another tender. Refund it, then record the payment again.');
         if (o.refunded) bad(400, 'This payment has a refund against it, so how it was paid cannot be changed.');
         // The date it was paid stays. The change is recorded as the old way taken back and the new way added.
         db.run('UPDATE orders SET paid_method = ?, updated_at = ? WHERE id = ?', method, now, o.id);
@@ -1670,15 +1743,21 @@ export function createApp(options = {}) {
   });
 
   route('POST', '/api/sites/:id/orders/:order', async (req, res, p) => {
-    const { site } = ownSite(req, p.id, 'kitchen');
-    const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
+    const { site, user } = ownSite(req, p.id, 'kitchen');
     const status = str((await readJson(req)).status, 20);
     if (!Object.hasOwn(ORDER_STATUSES, status)) bad(400, 'Unknown status.');
+    // Read now the body is here, and changed only from the status read, so two taps on Cancel can never return the stock twice.
+    const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     if (status !== row.status) {
       if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
-      const who = requireUser(req);
-      db.run('UPDATE orders SET status = ?, handled_by = ?, updated_at = ? WHERE id = ?', status, who.name || who.email, Date.now(), row.id);
-      if (status === 'cancelled') for (const l of JSON.parse(row.items)) db.run('UPDATE menu_items SET stock = stock + ? WHERE id = ? AND stock IS NOT NULL', l.qty, l.id);
+      const by = user.name || user.email, now = Date.now();
+      // Money taken at the counter is refunded first, so the books never keep a payment for an order that did not happen.
+      // A gift card is given back by cancelling.
+      const counter = row.paid_at && row.paid_method !== 'Gift card' ? row.total - row.gift : 0;
+      if (status === 'cancelled' && counter > 0 && row.refunded < counter) bad(409, `This order has a payment of ${money(counter)} recorded. Refund it first, then cancel the order.`);
+      if (!db.run('UPDATE orders SET status = ?, handled_by = ?, updated_at = ? WHERE id = ? AND status = ?', status, by, now, row.id, row.status).changes) bad(409, 'This order was just changed on another device. Refresh to see it.');
+      if (status === 'cancelled') cancelled(site, row, by, now);
+      if (status === 'completed') earnReward(site, row, now);
       const order = toOrder({ ...row, status });
       if (['confirmed', 'ready', 'cancelled'].includes(status)) mail(status, req, site, order, order.email);
     }
@@ -1845,21 +1924,29 @@ export function createApp(options = {}) {
           if (it.stock != null && it.stock < need.get(it.id)) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
           lines.push({ id: it.id, name: it.name, price: picked.price, qty: w.qty, opts: picked.labels, picks: w.picks, taxable: it.taxable, label: it.label, rev: it.revclass });
         }
-        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo, zone ? zone.fee : null);
+        const t = orderTotals(lines, method, ordering, [0, 10, 15, 20].includes(Number(b.tip)) ? Number(b.tip) : 0, promo?.gift ? null : promo, zone ? zone.fee : null);
         if (method === 'delivery' && t.subtotal < ordering.deliveryMin) bad(400, 'Your order is below the delivery minimum.');
+        // The page sends the total it showed. If a price changed since then (a timed price ended), the order is not taken at another total without saying so.
+        if (b.expect !== undefined && b.expect !== null && Math.round(Number(b.expect)) !== t.total) throw new HttpError(409, `Prices just changed. Your total is now ${money(t.total)}.`, 'prices');
+        // The card is read again here, inside the transaction, so two orders can never spend the same balance.
+        let gift = 0;
+        if (promo?.gift) {
+          gift = Math.min(db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, promo.code)?.balance || 0, t.total);
+          if (!(gift > 0)) bad(409, 'That gift card has nothing left on it.');
+          db.run('UPDATE gift_cards SET balance = balance - ? WHERE site_id = ? AND code = ?', gift, site.id, promo.code);
+        }
         for (const [itemId, qty] of need) db.run('UPDATE menu_items SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL', qty, itemId);
         const number = (db.get('SELECT MAX(number) AS n FROM orders WHERE site_id = ?', site.id).n || 1000) + 1;
         const oid = newId(); const now = Date.now();
-        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, now, now);
-        if (promo?.gift) db.run('UPDATE gift_cards SET balance = MAX(0, balance - ?) WHERE site_id = ? AND code = ?', t.discount, site.id, promo.code);
-        if (promo?.reward) db.run('UPDATE rewards SET used_order = ? WHERE site_id = ? AND code = ? AND used_order IS NULL', oid, site.id, promo.code);
-        // Every Nth order earns a one-time reward code for next time.
-        const L = ordering.loyalty;
-        if (L.enabled) {
-          const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status != 'cancelled'", site.id, who.email).n;
-          if (count > 0 && count % L.every === 0) db.run('INSERT INTO rewards (code, site_id, email, type, value, earned_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', `THANKS${randomBytes(4).toString('hex').toUpperCase()}`, site.id, who.email.toLowerCase(), L.type, L.value, oid, now);
+        db.run('INSERT INTO orders (id, site_id, number, token, method, name, email, phone, address, vehicle, notes, items, subtotal, discount, promo, scheduled, tax, fee, tip, total, gift, gift_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          oid, site.id, number, newId(18), method, who.name, who.email, who.phone, who.address, who.vehicle, who.notes, JSON.stringify(lines), t.subtotal, t.discount, promo && !promo.gift ? promo.code : '', scheduled, t.tax, t.fee, t.tip, t.total, gift, gift ? promo.code : '', now, now);
+        if (gift) {
+          // The card's part is a payment taken now. If it covers everything, the order is paid.
+          giftMove(site, promo.code, 'spend', gift, '', oid, now);
+          if (gift === t.total) db.run("UPDATE orders SET paid_at = ?, paid_method = 'Gift card' WHERE id = ?", now, oid);
+          logMoney(site, { source: 'Order', refId: oid, ref: `#${number}`, customer: who.name, channel: method, method: 'Gift card', amount: gift, ...(gift === t.total ? { tip: t.tip, tax: t.tax, fee: t.fee } : {}), note: `Card …${promo.code.slice(-4)}`, at: now });
         }
+        if (promo?.reward) db.run('UPDATE rewards SET used_order = ? WHERE site_id = ? AND code = ? AND used_order IS NULL', oid, site.id, promo.code);
         db.raw.exec('COMMIT');
         order = toOrder(db.get('SELECT * FROM orders WHERE id = ?', oid));
         order.low = [...need].map(([itemId, qty]) => ({ name: before.get(itemId).name, was: before.get(itemId).stock, stock: Math.max(0, before.get(itemId).stock - qty) })).filter((x) => x.was > ordering.lowStockAt && x.stock <= ordering.lowStockAt);
@@ -1878,13 +1965,15 @@ export function createApp(options = {}) {
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
 
-    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? applyMods(pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering) };
+    const shared = { base, ordering, menu: ordering.enabled || config.sections?.some((x) => x.type === 'menu') ? applyMods(pricedMenu(visibleMenu(menuOf(site.id), ordering), ordering), ordering) : [], siteKey: site.id, taken: ordering.slotLimit ? takenSlots(site.id) : null, busy: busyNow(site.id, ordering),
+      // The code box shows when there is something to type in it: a promo code, a gift card or a loyalty reward.
+      codes: ordering.loyalty.enabled || !!db.get('SELECT 1 FROM gift_cards WHERE site_id = ? AND balance > 0 LIMIT 1', site.id) };
     const tracked = path.match(/^\/order\/([\w-]{10,40})$/);
     if (tracked) {
       const row = db.get('SELECT * FROM orders WHERE token = ? AND site_id = ?', tracked[1], site.id);
       let loyalty;
       if (row && ordering.loyalty.enabled) {
-        const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status != 'cancelled' AND created_at <= ?", site.id, row.email, row.created_at).n;
+        const count = db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND lower(email) = lower(?) AND status = 'completed' AND created_at <= ?", site.id, row.email, row.created_at).n;
         const earned = db.get('SELECT code, type, value FROM rewards WHERE site_id = ? AND earned_order = ? AND used_order IS NULL', site.id, row.id);
         loyalty = { every: ordering.loyalty.every, have: earned ? ordering.loyalty.every : count % ordering.loyalty.every, code: earned?.code, value: earned ? rewardText(earned) : '' };
       }
@@ -2039,7 +2128,7 @@ export function createApp(options = {}) {
       if (res.headersSent) return res.end();
       const message = status === 500 ? 'Something went wrong on our side. Please try again.' : err.message || 'Bad request';
       const wantsJson = req.url.startsWith('/api/') || String(req.headers.accept || '').includes('json') || String(req.headers['content-type'] || '').includes('json');
-      wantsJson ? json(res, status, { error: message }) : html(res, status, simplePage(status === 429 ? 'Slow down' : 'Something went wrong', message));
+      wantsJson ? json(res, status, { error: message, ...(err instanceof HttpError && err.code ? { code: err.code } : {}) }) : html(res, status, simplePage(status === 429 ? 'Slow down' : 'Something went wrong', message));
     });
   };
   handler.db = db;

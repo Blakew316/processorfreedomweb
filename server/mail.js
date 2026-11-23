@@ -25,8 +25,8 @@ export function createMailer(env) {
 }
 
 const WORDS = {
-  en: { order: 'Order', sub: 'Subtotal', disc: 'Discount', tax: 'Tax', del: 'Delivery', tip: 'Tip', total: 'Total', view: 'View your order', about: (n) => `About ${n} minutes`, sched: (w) => `Scheduled for ${w}`, to: 'Deliver to', car: 'Vehicle', notes: 'Notes', pickup: 'Pickup', curbside: 'Curbside', delivery: 'Delivery' },
-  es: { order: 'Pedido', sub: 'Subtotal', disc: 'Descuento', tax: 'Impuesto', del: 'Entrega', tip: 'Propina', total: 'Total', view: 'Ver tu pedido', about: (n) => `Unos ${n} minutos`, sched: (w) => `Programado para ${w}`, to: 'Entregar en', car: 'Vehículo', notes: 'Notas', pickup: 'Para recoger', curbside: 'En la acera', delivery: 'Entrega' },
+  en: { order: 'Order', sub: 'Subtotal', disc: 'Discount', tax: 'Tax', del: 'Delivery', tip: 'Tip', total: 'Total', gift: 'Gift card', due: 'Left to pay', view: 'View your order', about: (n) => `About ${n} minutes`, sched: (w) => `Scheduled for ${w}`, to: 'Deliver to', car: 'Vehicle', notes: 'Notes', pickup: 'Pickup', curbside: 'Curbside', delivery: 'Delivery' },
+  es: { order: 'Pedido', sub: 'Subtotal', disc: 'Descuento', tax: 'Impuesto', del: 'Entrega', tip: 'Propina', total: 'Total', gift: 'Tarjeta de regalo', due: 'Por pagar', view: 'Ver tu pedido', about: (n) => `Unos ${n} minutos`, sched: (w) => `Programado para ${w}`, to: 'Entregar en', car: 'Vehículo', notes: 'Notas', pickup: 'Para recoger', curbside: 'En la acera', delivery: 'Entrega' },
 };
 const HEAD = {
   en: {
@@ -52,6 +52,8 @@ export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta, w
   const forMerchant = kind === 'merchant';
   const rows = order.items.map((l) => [`${l.qty} × ${l.name}${l.opts?.length ? ` (${l.opts.join(', ')})` : ''}`, money(l.price * l.qty)]);
   const totals = [[W.sub, order.subtotal], [`${W.disc}${order.promo ? ` (${order.promo})` : ''}`, -order.discount], [W.tax, order.tax], [W.del, order.fee], [W.tip, order.tip]].filter(([, v]) => v).map(([k, v]) => [k, v < 0 ? `−${money(-v)}` : money(v)]);
+  // Paid with a gift card when ordering: shown after the total, with what is left to pay.
+  const paidBy = order.gift > 0 ? [[`${W.gift}${order.giftCode ? ` (${order.giftCode})` : ''}`, `−${money(order.gift)}`], [W.due, money(order.total - order.gift)]] : [];
   const details = [
     [(Object.hasOwn(W, order.method) && W[order.method]) || ORDER_METHODS[order.method]?.name || '', when ? W.sched(when) : kind === 'placed' && eta ? W.about(eta) : ''],
     forMerchant && ['Customer', `${order.name} · ${order.phone} · ${order.email}`],
@@ -66,11 +68,11 @@ export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta, w
 <h1 style="margin:0 0 10px;font-size:28px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1>
 <p style="margin:0 0 24px;font-size:17px;line-height:1.45;color:#6e6e73">${esc(intro)}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px">${details.map(([k, v]) => `<tr><td style="${td};color:#6e6e73;width:110px;vertical-align:top">${esc(k)}</td><td style="${td}">${esc(v)}</td></tr>`).join('')}</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([k, v]) => `<tr><td style="${td}">${esc(k)}</td><td align="right" style="${td}">${v}</td></tr>`).join('')}${totals.map(([k, v]) => `<tr><td style="padding:6px 0;font-size:14px;color:#6e6e73">${k}</td><td align="right" style="padding:6px 0;font-size:14px;color:#6e6e73">${v}</td></tr>`).join('')}<tr><td style="padding:10px 0;font-size:17px;font-weight:600">${W.total}</td><td align="right" style="padding:10px 0;font-size:17px;font-weight:600">${money(order.total)}</td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([k, v]) => `<tr><td style="${td}">${esc(k)}</td><td align="right" style="${td}">${v}</td></tr>`).join('')}${totals.map(([k, v]) => `<tr><td style="padding:6px 0;font-size:14px;color:#6e6e73">${k}</td><td align="right" style="padding:6px 0;font-size:14px;color:#6e6e73">${v}</td></tr>`).join('')}<tr><td style="padding:10px 0;font-size:17px;font-weight:600">${W.total}</td><td align="right" style="padding:10px 0;font-size:17px;font-weight:600">${money(order.total)}</td></tr>${paidBy.map(([k, v]) => `<tr><td style="padding:6px 0;font-size:14px;color:#6e6e73">${k}</td><td align="right" style="padding:6px 0;font-size:14px;color:#6e6e73">${v}</td></tr>`).join('')}</table>
 ${url ? `<p style="margin:24px 0 0"><a href="${esc(url)}" style="display:inline-block;background:#1d1d1f;color:#fff;text-decoration:none;border-radius:980px;padding:12px 24px;font-size:15px;font-weight:500">${forMerchant ? 'Open orders' : W.view}</a></p>` : ''}
 ${forMerchant ? '' : `<p style="margin:28px 0 0;font-size:13px;line-height:1.5;color:#86868b">${esc([business.name, business.address, business.phone].filter(Boolean).join(' · '))}</p>`}
 </td></tr></table></td></tr></table></body></html>`;
-  const text = [`${business.name} · ${W.order} #${order.number}`, '', title, intro, '', ...details.map(([k, v]) => `${k}: ${v}`), '', ...rows.map(([k, v]) => `${k}  ${v}`), ...totals.map(([k, v]) => `${k}: ${v}`), `${W.total}: ${money(order.total)}`, '', url || ''].join('\n');
+  const text = [`${business.name} · ${W.order} #${order.number}`, '', title, intro, '', ...details.map(([k, v]) => `${k}: ${v}`), '', ...rows.map(([k, v]) => `${k}  ${v}`), ...totals.map(([k, v]) => `${k}: ${v}`), `${W.total}: ${money(order.total)}`, ...paidBy.map(([k, v]) => `${k}: ${v}`), '', url || ''].join('\n');
   return { subject: forMerchant ? `${title} #${order.number} · ${money(order.total)}` : `${title} · ${business.name} #${order.number}`, html, text };
 }
 

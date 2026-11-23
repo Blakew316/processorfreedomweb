@@ -50,7 +50,7 @@ async function fillShop(me, anon, mark, slug) {
   const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
   await ok(me('POST', `${S}/contacts`, { name: `${mark} Dana`, email: 'dana@acme.test' }), 'contact');
   await ok(me('POST', `${S}/invoices`, { customer: { name: `${mark} Dana`, email: 'dana@acme.test' }, items: [{ name: `${mark} tray`, qty: 1, price: 5000 }] }), 'invoice');
-  await ok(me('POST', `${S}/gift-cards`, { amount: 2500, name: `${mark} Gia` }), 'gift');
+  await ok(me('POST', `${S}/gift-cards`, { amount: 2500, name: `${mark} Gia`, paidWith: 'Cash' }), 'gift');
   await ok(me('POST', `${S}/plans`, { name: `${mark} plan`, customer: { name: `${mark} Dana`, email: 'dana@acme.test' }, amount: 5000, every: 'weekly' }), 'plan');
   await ok(me('POST', `${S}/appointments`, { serviceName: `${mark} walk-in`, date: day, time: '18:30', name: `${mark} Bo` }), 'appt');
   await ok(me('POST', `${S}/shifts`, { name: `${mark} Bea`, day, start: '09:00', finish: '17:00' }), 'shift');

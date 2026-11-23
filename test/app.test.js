@@ -640,8 +640,12 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
     assert.ok(sent.some((m) => m.to === 'Ana@Example.com' && /Recibimos tu pedido/.test(m.subject)));
     assert.ok(sent.some((m) => m.to !== 'Ana@Example.com' && /New pickup order/.test(m.subject)));
 
-    // Loyalty: the second order earned a one-time code worth $4
+    // Loyalty: rewards come from completed orders only. Placing orders earns nothing.
     orders = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    assert.doesNotMatch((await anon('GET', `/order/${orders[0].token}`, null, host)).data, /THANKS/, 'an order only placed earns nothing');
+    // Once both are completed, the second one earns a one-time code worth $4.
+    await me('POST', `/api/sites/${site.id}/orders/${orders[1].id}`, { status: 'completed' });
+    await me('POST', `/api/sites/${site.id}/orders/${orders[0].id}`, { status: 'completed' });
     r = await anon('GET', `/order/${orders[0].token}`, null, host);
     const code = r.data.match(/THANKS[0-9A-F]{8}/)[0];
     assert.match(r.data, /Ganaste una recompensa/);
@@ -1201,17 +1205,30 @@ test('gift cards, recurring payments, customer import, projects', async () => {
     const site = (await me('POST', '/api/sites', { name: 'Gift Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
     const [taco] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
     await me('POST', `/api/sites/${site.id}/publish`, {});
-    // A $15 gift card pays for a $10 order and keeps $5.
-    assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 50 })).status, 400);
-    const made = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 1500, name: 'Ana', email: 'ana@example.com' })).data;
+    // A $15 gift card pays for a $10 order and keeps $5. Selling it is money taken, so it says how it was paid.
+    assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 50, paidWith: 'Cash' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 1500 })).status, 400, 'how it was paid is required');
+    assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 1e999, paidWith: 'Cash' })).status, 400);
+    const made = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 1500, name: 'Ana', email: 'ana@example.com', paidWith: 'Cash' })).data;
     assert.match(made.code, /^GC[0-9A-F]{10}$/);
     await new Promise((r) => setTimeout(r, 20));
     assert.ok(sent.some((m) => m.to === 'ana@example.com' && m.html.includes(made.code)));
-    assert.deepEqual((await anon('GET', `/_promo?code=${made.code}`, null, host)).data, { code: made.code, type: 'amount', value: 1500 });
+    assert.deepEqual((await anon('GET', `/_promo?code=${made.code}`, null, host)).data, { code: made.code, type: 'gift', value: 1500 });
     const who = { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com' };
     assert.equal((await anon('POST', '/_order', { ...who, promo: made.code, items: [{ id: taco.id, qty: 1 }] }, host)).status, 201);
     let cards = (await me('GET', `/api/sites/${site.id}/gift-cards`)).data.cards;
-    assert.deepEqual([cards[0].balance, (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0].total], [500, 0]);
+    // The card is a payment, not money off: the sale is still $10, and the order is paid by the card.
+    const giftOrder = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.deepEqual([cards[0].balance, giftOrder.total, giftOrder.discount, giftOrder.gift, giftOrder.paidMethod, !!giftOrder.paidAt], [500, 1000, 0, 1000, 'Gift card', true]);
+    assert.deepEqual([cards[0].loaded, cards[0].redeemed], [1500, 1000]);
+    const giftTx = (await me('GET', `/api/sites/${site.id}/transactions?range=today`)).data;
+    assert.deepEqual(giftTx.payments.map((x) => [x.source, x.method, x.amount]).sort(), [['Gift card', 'Cash', 1500], ['Order', 'Gift card', 1000]], 'the card sale and the order it paid are both recorded');
+    // Cancelling gives the card its money back.
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${giftOrder.id}`, { status: 'cancelled' })).status, 200);
+    assert.equal((await me('GET', `/api/sites/${site.id}/gift-cards`)).data.cards[0].balance, 1500);
+    assert.equal((await anon('POST', '/_order', { ...who, promo: made.code, items: [{ id: taco.id, qty: 1 }] }, host)).status, 201);
+    cards = (await me('GET', `/api/sites/${site.id}/gift-cards`)).data.cards;
+    assert.equal(cards[0].balance, 500);
     assert.equal((await me('POST', `/api/sites/${site.id}/gift-cards/${made.code}`, { change: -900 })).status, 400, 'cannot spend more than is left');
     cards = (await me('POST', `/api/sites/${site.id}/gift-cards/${made.code}`, { change: -500 })).data.cards;
     assert.equal(cards[0].balance, 0);
