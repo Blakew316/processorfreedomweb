@@ -200,6 +200,26 @@ export function openDb(dataDir) {
   addColumn('appointments', 'tax', 'INTEGER NOT NULL DEFAULT 0');
   // The name of the saved discount an invoice used, so the Discounts report can list it.
   addColumn('invoices', 'discount_name', "TEXT NOT NULL DEFAULT ''");
+  // What part of an appointment was taxed, and at what rate, so the Taxes report shows it as it was charged.
+  addColumn('appointments', 'taxable', 'INTEGER');
+  addColumn('appointments', 'tax_rate', 'REAL');
+  // Every order refund carries the tax, tip and fee it gave back: its share of what the order's payments carried, refund by refund,
+  // so a refund made in parts adds up exactly. Refunds recorded before this was kept are worked out once here.
+  if (!db.prepare("SELECT 1 FROM settings WHERE key = 'refund_parts'").get()) {
+    const upd = db.prepare('UPDATE money_log SET tax = ?, tip = ?, fee = ? WHERE id = ?');
+    db.exec('BEGIN');
+    for (const o of db.prepare("SELECT DISTINCT site_id, ref_id FROM money_log WHERE kind = 'refund' AND source = 'Order'").all()) {
+      const paid = db.prepare("SELECT COALESCE(SUM(amount), 0) AS a, COALESCE(SUM(tax), 0) AS t, COALESCE(SUM(tip), 0) AS p, COALESCE(SUM(fee), 0) AS f FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'payment'").get(o.site_id, o.ref_id);
+      const cum = (x) => (paid.a > 0 ? [Math.round((x * paid.t) / paid.a), Math.round((x * paid.p) / paid.a), Math.round((x * paid.f) / paid.a)] : [0, 0, 0]);
+      let sum = 0;
+      for (const r of db.prepare("SELECT id, amount FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'refund' ORDER BY at, rowid").all(o.site_id, o.ref_id)) {
+        const was = cum(sum), now = cum(sum + r.amount); sum += r.amount;
+        upd.run(now[0] - was[0], now[1] - was[1], now[2] - was[2], r.id);
+      }
+    }
+    db.prepare("INSERT INTO settings (key, value) VALUES ('refund_parts', '1')").run();
+    db.exec('COMMIT');
+  }
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
   db.exec(`

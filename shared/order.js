@@ -228,7 +228,7 @@ function orderClient() {
   function labels(it, o) { var out = []; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) out.push(g.c[ci][0]); }); }); return out.join(', '); }
   function lines(c) { return S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; }).map(function (l, i) { var it = c.items[l.id]; return { i: i, id: l.id, o: l.o || [], name: it.n, opt: labels(it, l.o), price: price(it, l.o), qty: Math.min(l.q, it.max), tx: it.t !== 0 }; }); }
   function inCart(id) { return S.lines.reduce(function (a, l) { return a + (l.id === id ? l.q : 0); }, 0); }
-  function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it || inCart(id) >= it.max) return; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q += 1; else S.lines.push({ id: id, o: o || [], q: 1 }); }
+  function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it || inCart(id) >= it.max) return false; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q += 1; else S.lines.push({ id: id, o: o || [], q: 1 }); return true; }
   function field(name, label, type, req, ac) { return '<label class="f">' + h(label) + '<input name="' + name + '" type="' + (type || 'text') + '"' + (req ? ' required' : '') + (ac ? ' autocomplete="' + ac + '"' : '') + ' maxlength="200" value="' + h(S.f[name]) + '"></label>'; }
   function slots(c) { return c.slots[S.method === 'delivery' ? 'delivery' : 'pickup'] || []; }
   function draw() {
@@ -294,7 +294,8 @@ function orderClient() {
       var o = it.g.map(function (g, gi) { return [].map.call(e.target.querySelectorAll('[name=g' + gi + ']:checked'), function (i) { return Number(i.value); }).filter(function (n) { return n >= 0; }); });
       var miss = it.g.filter(function (g, gi) { return g.r && !o[gi].length; })[0];
       if (miss) { var p = e.target.querySelector('.oerr'); p.hidden = false; p.textContent = T.choose + ': ' + miss.n; return; }
-      put(c, id, o); keep(c); close(); draw();
+      if (!put(c, id, o)) { var q = e.target.querySelector('.oerr'); q.hidden = false; q.textContent = T.onlyLeft.replace('{n}', it.max); return; }
+      keep(c); close(); draw();
     });
     d.body.appendChild(box);
     var first = box.querySelector('input:not([disabled]),button[type=submit]'); if (first) first.focus();
@@ -327,7 +328,8 @@ function orderClient() {
     if (re) { try { var r = JSON.parse(re.getAttribute('data-reorder')); var old = {}; try { old = JSON.parse(localStorage.getItem('pf-cart-' + r.key)) || {}; } catch (y) {} localStorage.setItem('pf-cart-' + r.key, JSON.stringify({ lines: r.lines, method: old.method, f: old.f || {} })); } catch (x) {} return; }
     var c = conf(); if (!c) return;
     var t = e.target.closest('[data-add],[data-qty],[data-method],[data-tip],[data-promo]'); if (!t) return;
-    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (shownGroups(it).length) { choose(c, t.dataset.add, t); return; } put(c, t.dataset.add, []); }
+    var full = false;
+    if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (shownGroups(it).length) { choose(c, t.dataset.add, t); return; } full = !put(c, t.dataset.add, []); }
     if (t.dataset.qty) { var l = S.lines[Number(t.dataset.i)], by = Number(t.dataset.qty); if (l && !(by > 0 && c.items[l.id] && inCart(l.id) >= c.items[l.id].max)) { l.q += by; if (l.q <= 0) S.lines.splice(Number(t.dataset.i), 1); } }
     if (t.dataset.method) S.method = t.dataset.method;
     if (t.dataset.tip) S.tip = Number(t.dataset.tip);
@@ -338,7 +340,7 @@ function orderClient() {
       return;
     }
     S.err = ''; keep(c); draw();
-    if (t.dataset.add) { var o = t.textContent; t.textContent = c.T.added; t.classList.add('ok'); setTimeout(function () { t.textContent = o; t.classList.remove('ok'); }, 900); fly(t); }
+    if (t.dataset.add) { var o = t.textContent; t.textContent = full ? c.T.onlyLeft.replace('{n}', it.max) : c.T.added; if (!full) t.classList.add('ok'); setTimeout(function () { t.textContent = o; t.classList.remove('ok'); }, full ? 1600 : 900); if (!full) fly(t); }
   });
   // A small dot travels from the button to the cart, then the cart gives a soft bounce.
   function fly(from) {

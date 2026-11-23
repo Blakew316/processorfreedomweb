@@ -393,20 +393,27 @@ export function createApp(options = {}) {
   const idForName = (site, name) => { const n = str(name).trim(), hits = n ? staffNames(site).filter(([, x]) => x === n) : []; return hits.length === 1 ? hits[0][0] : ''; };
   // A person's new name reaches everything they did. Records kept by account follow at once; older ones that only
   // carry a name follow when no one else here goes by that name, so nobody else's work is ever moved.
-  const NAMED = [['orders', 'handled_by', 'handled_by_id'], ['money_log', 'by_name', 'by_id'], ['cash_log', 'by_name', 'by_id'], ['timeclock', 'name', 'user_id'], ['shifts', 'name', 'user_id'], ['appointments', 'employee', 'employee_id']];
-  function carryName(site, userId, name, oldNames) {
+  const NAMED = [['orders', 'handled_by', 'handled_by_id', 'updated_at'], ['money_log', 'by_name', 'by_id', 'at'], ['cash_log', 'by_name', 'by_id', 'created_at'], ['timeclock', 'name', 'user_id', 'in_at'], ['shifts', 'name', 'user_id', 'day'], ['appointments', 'employee', 'employee_id', 'created_at']];
+  // since: when the person joined this business. Older records with only a name may belong to someone who went by it before.
+  function carryName(site, userId, name, oldNames, since = 0) {
     if (!name) return;
     for (const [t, col, idCol] of NAMED) db.run(`UPDATE ${t} SET ${col} = ? WHERE site_id = ? AND ${idCol} = ?`, name, site.id, userId);
     const taken = namesInUse(site, userId);
     const old = [...new Set(oldNames.map((x) => str(x).trim()).filter((x) => x && x !== name && !taken.has(x)))];
     if (!old.length) return;
-    for (const [t, col, idCol] of NAMED) db.run(`UPDATE ${t} SET ${col} = ?, ${idCol} = ? WHERE site_id = ? AND ${idCol} = '' AND ${col} IN (SELECT value FROM json_each(?))`, name, userId, site.id, JSON.stringify(old));
+    const sinceDay = new Date(since || 0).toISOString().slice(0, 10);
+    for (const [t, col, idCol, at] of NAMED) db.run(`UPDATE ${t} SET ${col} = ?, ${idCol} = ? WHERE site_id = ? AND ${idCol} = '' AND ${col} IN (SELECT value FROM json_each(?)) AND ${at} >= ?`, name, userId, site.id, JSON.stringify(old), at === 'day' ? sinceDay : since || 0);
   }
   // An account's own name changed: on every business where people know them by it, their records follow.
+  // The businesses where people know this account by its own name: the ones it owns, and teams where it has no list name.
+  const knownByAccountName = (user, name) => db.all('SELECT * FROM sites WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?)', user.id, user.id)
+    .filter((site) => staffName(site, { ...user, name: name === user.email ? '' : name }) === name);
   function accountRenamed(user, before, after) {
     if (!after || before === after) return;
-    for (const site of db.all('SELECT * FROM sites WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?)', user.id, user.id))
-      if (staffName(site, { ...user, name: after === user.email ? '' : after }) === after) carryName(site, user.id, after, [before]);
+    for (const site of knownByAccountName(user, after)) {
+      const since = site.user_id === user.id ? site.created_at : db.get('SELECT created_at FROM members WHERE site_id = ? AND user_id = ?', site.id, user.id)?.created_at || 0;
+      carryName(site, user.id, after, [before], since);
+    }
   }
 
   /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
@@ -426,12 +433,18 @@ export function createApp(options = {}) {
       const totals = { orders: rows.length, net: 0, tax: 0, tips: 0, total: 0 };
       const sold = new Map();
       // Refunds made that day come off, as in the reports.
-      const back = db.all("SELECT m.amount, m.at, o.subtotal, o.discount, o.tax, o.tip, o.fee, o.total FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day);
-      totals.refunds = 0;
-      for (const r of back) { const part = refundParts(r, r.amount); totals.refunds += part.sales; totals.net -= part.sales; totals.tax -= part.tax; totals.tips -= part.tip; totals.total -= r.amount; }
+      const back = db.all("SELECT m.amount, m.tax AS rtax, m.tip AS rtip, m.fee AS rfee, m.at, o.subtotal, o.discount, o.items FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day);
+      totals.refunds = 0; totals.fees = 0;
+      // Each line's share of its order after the order's discount; refunded sales come off the same lines.
+      const share = (items, subtotal, discount, amount) => { let left = discount, leftA = amount; const net = subtotal - discount; return items.map((l, i) => { const g = l.price * l.qty, last = i === items.length - 1, off = last ? left : subtotal ? Math.round((discount * g) / subtotal) : 0; left -= off; const a = last ? leftA : net ? Math.round((amount * (g - off)) / net) : 0; leftA -= a; return [l, a]; }); };
       for (const o of rows) {
-        totals.net += o.subtotal - o.discount; totals.tax += o.tax; totals.tips += o.tip; totals.total += o.total;
-        for (const l of o.items) { const it = sold.get(l.name) || sold.set(l.name, { name: l.name, qty: 0, sales: 0 }).get(l.name); it.qty += l.qty; it.sales += l.price * l.qty; }
+        totals.net += o.subtotal - o.discount; totals.tax += o.tax; totals.tips += o.tip; totals.fees += o.fee; totals.total += o.total;
+        for (const [l, a] of share(o.items, o.subtotal, o.discount, o.subtotal - o.discount)) { const it = sold.get(l.name) || sold.set(l.name, { name: l.name, qty: 0, sales: 0 }).get(l.name); it.qty += l.qty; it.sales += a; }
+      }
+      for (const r of back) {
+        const sales = r.amount - r.rtax - r.rtip - r.rfee;
+        totals.refunds += sales; totals.net -= sales; totals.tax -= r.rtax; totals.tips -= r.rtip; totals.fees -= r.rfee; totals.total -= r.amount;
+        for (const [l, a] of share(JSON.parse(r.items || '[]'), r.subtotal, r.discount, sales)) { const it = sold.get(l.name); if (it) it.sales -= a; }
       }
       const restocked = Number(db.run('UPDATE menu_items SET stock = restock WHERE site_id = ? AND restock IS NOT NULL AND stock != restock', site.id).changes) || 0;
       const low = db.all('SELECT name, stock FROM menu_items WHERE site_id = ? AND available = 1 AND stock <= ? ORDER BY stock, name LIMIT 30', site.id, ordering.lowStockAt);
@@ -624,6 +637,7 @@ export function createApp(options = {}) {
     const name = b.name === undefined ? user.name : str(b.name, 80).trim();
     const phone = b.phone === undefined ? user.phone : str(b.phone, 40).trim();
     if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
+    if (name && name !== user.name) { const clash = knownByAccountName(user, name).find((site) => namesInUse(site, user.id).has(name)); if (clash) bad(400, `Someone at ${clash.name} already goes by that name. Add a last name or an initial.`); }
     db.run('UPDATE users SET name = ?, phone = ? WHERE id = ?', name, phone, user.id);
     accountRenamed(user, user.name || user.email, name || user.email);
     json(res, 200, { user: { ...user, name, phone } });
@@ -984,25 +998,17 @@ export function createApp(options = {}) {
     // Staff addresses carry powers over every account, so they are never set up through someone's team.
     if (ADMINS.has(email)) bad(400, 'That address cannot be added to a team.');
     let person = db.get('SELECT id FROM users WHERE email = ?', email);
-    const member = person && db.get('SELECT details FROM members WHERE site_id = ? AND user_id = ?', site.id, person.id);
+    const member = person && db.get('SELECT details, created_at FROM members WHERE site_id = ? AND user_id = ?', site.id, person.id);
     let details = {}; try { details = JSON.parse(member?.details || '{}') || {}; } catch {}
     if (!member) {
       if (teamOf(site).length >= 25) bad(400, 'A site can have up to 25 team logins.');
       limit(`invite:${site.id}`, 40, 3600000);
     }
-    let link = '';
-    if (!person) {
-      person = { id: newId() };
-      // A password nobody knows; the person chooses their own from the link. Choosing it does not confirm the address.
-      db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', person.id, email, name, await hashPassword(randomBytes(24).toString('hex')), Date.now());
-      link = resetLinkFor(req, person.id, 72, 'invite');
-    }
-    db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
-    // What the owner knows about the person lives with the membership; another account's own name is never changed.
-    const acct = db.get('SELECT name, email FROM users WHERE id = ?', person.id);
+    // Every check comes before anything is written, so a refused save leaves no login, membership or role change behind.
+    const acct = person ? db.get('SELECT name, email FROM users WHERE id = ?', person.id) : { name, email };
     const before = member ? str(details.name).trim() || acct.name || acct.email : '';
     // Two people with one name could not be told apart in sales, time cards or the schedule.
-    if (name && (!member || name !== str(details.name).trim()) && namesInUse(site, person.id).has(name)) bad(400, 'Someone at this business already goes by that name. Add a last name or an initial.');
+    if (name && (!member || name !== str(details.name).trim()) && namesInUse(site, person ? person.id : '').has(name)) bad(400, 'Someone at this business already goes by that name. Add a last name or an initial.');
     if (!member || b.name !== undefined) details.name = name;
     if (b.details && typeof b.details === 'object') {
       const d = b.details, pass = str(d.passcode, 4).replace(/\D/g, '');
@@ -1011,9 +1017,20 @@ export function createApp(options = {}) {
       if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
       Object.assign(details, { nickname: str(d.nickname, 60).trim(), phone, payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass });
     }
-    db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify(details), site.id, person.id);
-    const after = str(details.name).trim() || acct.name || acct.email;
-    if (member && after !== before) carryName(site, person.id, after, [before, acct.name, acct.email]);
+    // A password nobody knows; the person chooses their own from the link. Choosing it does not confirm the address.
+    const hash = person ? '' : await hashPassword(randomBytes(24).toString('hex'));
+    const fresh = !person;
+    db.raw.exec('BEGIN');
+    try {
+      if (fresh) { person = { id: newId() }; db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', person.id, email, name, hash, Date.now()); }
+      db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
+      // What the owner knows about the person lives with the membership; another account's own name is never changed.
+      db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify(details), site.id, person.id);
+      const after = str(details.name).trim() || acct.name || acct.email;
+      if (member && after !== before) carryName(site, person.id, after, [before], member.created_at);
+      db.raw.exec('COMMIT');
+    } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
+    const link = fresh ? resetLinkFor(req, person.id, 72, 'invite') : '';
     if (!member && mailOk(site)) {
       const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
       Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
@@ -1052,7 +1069,8 @@ export function createApp(options = {}) {
     for (const v of db.all("SELECT customer, total FROM invoices WHERE site_id = ? AND status = 'paid'", site.id)) { let e = ''; try { e = String(JSON.parse(v.customer).email || '').toLowerCase(); } catch { /* none */ } if (e) invoicePaid.set(e, (invoicePaid.get(e) || 0) + v.total); }
     for (const v of db.all("SELECT lower(email) AS e, SUM(total) AS n FROM appointments WHERE site_id = ? AND paid_at IS NOT NULL AND email != '' GROUP BY lower(email)", site.id)) invoicePaid.set(v.e, (invoicePaid.get(v.e) || 0) + v.n);
     for (const [e, amount] of invoicePaid) { const hit = byEmail.get(e); if (hit) hit.spent += amount; }
-    const phoneOnly = new Map(db.all("SELECT lower(name) AS n, phone, SUM(total) AS t FROM appointments WHERE site_id = ? AND paid_at IS NOT NULL AND email = '' AND phone != '' GROUP BY lower(name), phone", site.id).map((r) => [`${r.n}|${r.phone}`, r.t]));
+    const phoneOnly = new Map();
+    for (const r of db.all("SELECT name, phone, total FROM appointments WHERE site_id = ? AND paid_at IS NOT NULL AND email = '' AND phone != ''", site.id)) { const k = `${String(r.name).toLowerCase()}|${r.phone}`; phoneOnly.set(k, (phoneOnly.get(k) || 0) + r.total); }
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
       const hit = k.email && byEmail.get(k.email.toLowerCase());
@@ -1291,7 +1309,8 @@ export function createApp(options = {}) {
     }
     if (!viaPublic) {
       const total = Math.max(0, Math.min(10000000, Math.round(Number(b.total)) || 0));
-      db.run('UPDATE appointments SET employee_id = ?, tax = ? WHERE id = ?', idForName(site, b.employee), Math.max(0, Math.min(total, Math.round(Number(b.tax)) || 0)), id);
+      const tax = Math.max(0, Math.min(total, Math.round(Number(b.tax)) || 0)), taxable = tax ? Math.max(0, Math.min(total - tax, Math.round(Number(b.taxable)) || total - tax)) : 0;
+      db.run('UPDATE appointments SET employee_id = ?, tax = ?, taxable = ?, tax_rate = ? WHERE id = ?', idForName(site, b.employee), tax, taxable, tax ? Number(ordering.taxRate) || 0 : 0, id);
     }
     if (!viaPublic) db.run('UPDATE appointments SET employee = ?, total = ?, minutes = CASE WHEN ? > 0 THEN ? ELSE minutes END WHERE id = ?', str(b.employee, 80).trim(), Math.max(0, Math.min(10000000, Math.round(Number(b.total)) || 0)), Math.round(Number(b.minutes)) || 0, Math.max(0, Math.min(1440, Math.round(Number(b.minutes)) || 0)), id);
     return toAppt(db.get('SELECT * FROM appointments WHERE id = ?', id));
@@ -1513,7 +1532,8 @@ export function createApp(options = {}) {
         db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', back, site.id, o.gift_code);
         giftMove(site, o.gift_code, 'restore', back, '', o.id, now);
         db.run("UPDATE orders SET refunded = refunded + ?, refunded_at = ?, refund_note = 'Put back on the gift card' WHERE id = ?", back, now, o.id);
-        logMoney(site, { ...orderMoney(o), kind: 'refund', method: 'Gift card', amount: back, note: 'Order cancelled: put back on the gift card', by, byId, at: now });
+        const part = refundParts(site, o, back);
+        logMoney(site, { ...orderMoney(o), kind: 'refund', method: 'Gift card', amount: back, tax: part.tax, tip: part.tip, fee: part.fee, note: 'Order cancelled: put back on the gift card', by, byId, at: now });
       }
     }
     db.run('UPDATE rewards SET used_order = NULL WHERE site_id = ? AND used_order = ?', site.id, o.id);
@@ -1559,7 +1579,7 @@ export function createApp(options = {}) {
       const note = str(b.note, 300).trim();
       db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, note, now, now, o.id);
       if (viaCard) { db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', amount, site.id, o.gift_code); giftMove(site, o.gift_code, 'restore', amount, '', o.id, now); }
-      const part = refundParts(o, amount);
+      const part = refundParts(site, o, amount);
       logMoney(site, { ...orderMoney(o), kind: 'refund', method: viaCard ? 'Gift card' : was, amount, tax: part.tax, tip: part.tip, fee: part.fee, note: note || (viaCard ? 'Put back on the gift card' : ''), by, byId, at: now });
     } else if (b.clear === true) {
       if (role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
@@ -1619,11 +1639,13 @@ export function createApp(options = {}) {
     db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, note, by_name, by_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, str(x.note, 300), str(x.by, 120), x.byId || '', x.at || Date.now());
   }
-  // What a refund gave back, split the way the order was made up: sales, tax, tip and delivery fee.
-  const refundParts = (o, amount) => {
-    const total = o.total || 0;
-    if (!total || amount <= 0) return { sales: amount, tax: 0, tip: 0, fee: 0 };
-    const tax = Math.round((amount * (o.tax || 0)) / total), tip = Math.round((amount * (o.tip || 0)) / total), fee = Math.round((amount * (o.fee || 0)) / total);
+  // What a refund gave back of the order's tax, tip and delivery fee: its share of what the order's payments carried, worked out
+  // on the running total, so refunds made in parts add up to exactly what was paid. The rest is sales.
+  const refundParts = (site, o, amount) => {
+    const paid = db.get("SELECT COALESCE(SUM(amount), 0) AS a, COALESCE(SUM(tax), 0) AS t, COALESCE(SUM(tip), 0) AS p, COALESCE(SUM(fee), 0) AS f FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'payment'", site.id, o.id);
+    const before = db.get("SELECT COALESCE(SUM(amount), 0) AS a FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'refund'", site.id, o.id).a;
+    const cum = (x) => (paid.a > 0 ? [Math.round((x * paid.t) / paid.a), Math.round((x * paid.p) / paid.a), Math.round((x * paid.f) / paid.a)] : [0, 0, 0]);
+    const was = cum(before), now = cum(before + amount), tax = now[0] - was[0], tip = now[1] - was[1], fee = now[2] - was[2];
     return { sales: amount - tax - tip - fee, tax, tip, fee };
   };
   const orderMoney = (o) => ({ source: 'Order', refId: o.id, ref: `#${o.number}`, customer: o.name, channel: o.method });
@@ -1854,7 +1876,7 @@ export function createApp(options = {}) {
         if (typeof set.addMod === 'string' || typeof set.removeMod === 'string') { const cur = (row.mods ? JSON.parse(row.mods) : []).filter((x) => x !== set.removeMod && x !== set.addMod); if (typeof set.addMod === 'string') cur.push(str(set.addMod, 24)); db.run('UPDATE menu_items SET mods = ? WHERE id = ?', JSON.stringify(cur.slice(0, 30)), row.id); }
         if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
         if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', canonCategory(site, str(set.category, 60)), row.id);
-        if (set.pricePercent !== undefined) db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + num(set.pricePercent, -90, 500))) / 100))), row.id);
+        if (set.pricePercent !== undefined) { const pct = Math.max(-90, Math.min(500, Number(set.pricePercent) || 0)); db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + pct)) / 100))), row.id); }
       }
       db.raw.exec('COMMIT');
     } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
@@ -1910,7 +1932,7 @@ export function createApp(options = {}) {
     const totals = blank(), prev = blank();
     const byHour = days === 1;
     const series = new Map();
-    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, gross: 0, net: 0, tax: 0, tips: 0, collected: 0 });
+    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, gross: 0, net: 0, tax: 0, tips: 0, collected: 0, types: {}, paid: {} });
     else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, gross: 0, net: 0, tax: 0, tips: 0, collected: 0 }); }
     const methods = new Map(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
     const items = new Map(), cats = new Map(), revs = new Map(), list = [], staff = new Map(), tenders = new Map(), promos = new Map(), removed = new Map();
@@ -1925,7 +1947,7 @@ export function createApp(options = {}) {
       if (o.status === 'cancelled') { cancelled++; for (const l of o.items) { const rm = removed.get(l.name) || removed.set(l.name, { name: l.name, qty: 0, value: 0 }).get(l.name); rm.qty += l.qty; rm.value += l.price * l.qty; } continue; }
       add(totals, o);
       const s1 = series.get(byHour ? String(w.getUTCHours()).padStart(2, '0') : day);
-      if (s1) { s1.orders++; s1.gross += o.subtotal; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; }
+      if (s1) { s1.orders++; s1.gross += o.subtotal; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; if (s1.types) { const ty = s1.types[o.method] ||= { orders: 0, net: 0, total: 0 }; ty.orders++; ty.net += o.subtotal - o.discount; ty.total += o.total; } }
       bump(staff, o.handledBy || 'Not recorded', o); bump(tenders, o.paidAt ? o.paidMethod || 'Other' : 'Not paid yet', o);
       if (o.discount) { const pk = o.promo || 'Other discount'; const pr = promos.get(pk) || promos.set(pk, { name: pk, uses: 0, amount: 0 }).get(pk); pr.uses++; pr.amount += o.discount; }
       for (const l of o.items) if (l.list > l.price) { const pk = `item:${l.deal || 'Sale'}`; const pr = promos.get(pk) || promos.set(pk, { name: l.deal || 'Sale', uses: 0, amount: 0, item: true }).get(pk); pr.uses++; pr.amount += (l.list - l.price) * l.qty; }
@@ -1955,7 +1977,8 @@ export function createApp(options = {}) {
       const o = refOrders.get(x.refId);
       if (!o || o.status === 'cancelled') continue;
       // The refunded sales come off Net sales; the tax, tip and delivery fee given back come off their own lines, so every row still adds up.
-      const part = refundParts(o, x.amount), day = dayOf(x.at);
+      const part = { tax: x.tax || 0, tip: x.tip || 0, fee: x.fee || 0 }, day = dayOf(x.at);
+      part.sales = x.amount - part.tax - part.tip - part.fee;
       if (day >= prevFrom && day <= prevTo) { prev.refunds += part.sales; prev.net -= part.sales; prev.tax -= part.tax; prev.total -= x.amount; }
       if (day < from || day > to) continue;
       totals.refunds += part.sales; totals.net -= part.sales; totals.tax -= part.tax; totals.tips -= part.tip; totals.fees -= part.fee; totals.total -= x.amount;
@@ -1973,9 +1996,9 @@ export function createApp(options = {}) {
         const rk = l.rev || 'No revenue class'; (revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk)).sales -= back;
       });
       const rate = o.tax_rate ?? ordering.taxRate ?? 0, rr = totals.rates.get(rate) || totals.rates.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0 }).get(rate);
-      rr.taxable -= taxablePart; rr.nontaxable -= part.sales - taxablePart; rr.tax -= part.tax;
+      rr.taxable -= taxablePart; rr.nontaxable -= part.sales - taxablePart; rr.tax -= part.tax; rr.refunds = (rr.refunds || 0) + 1;
       const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : day);
-      if (s1) { s1.net -= part.sales; s1.tax -= part.tax; s1.tips -= part.tip; }
+      if (s1) { s1.net -= part.sales; s1.tax -= part.tax; s1.tips -= part.tip; if (s1.types) { const ty = s1.types[o.method] ||= { orders: 0, net: 0, total: 0 }; ty.net -= part.sales; ty.total -= x.amount; } }
       const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
       m.net -= part.sales; m.total -= x.amount;
       const who = o.handled_by || 'Not recorded', e = staff.get(who) || staff.set(who, { name: who, orders: 0, net: 0, tips: 0, total: 0 }).get(who);
@@ -1984,7 +2007,9 @@ export function createApp(options = {}) {
       tr.net -= part.sales; tr.tips -= part.tip; tr.total -= x.amount;
     }
     const paidNow = mv.payments.filter((x) => within(x.at) && ofType(x));
-    for (const x of paidNow) { const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : dayOf(x.at)); if (s1) s1.collected += x.amount; }
+    const hourOf = (ms) => series.get(byHour ? String(new Date(wall(ms)).getUTCHours()).padStart(2, '0') : dayOf(ms));
+    for (const x of paidNow) { const s1 = hourOf(x.at); if (s1) { s1.collected += x.amount; if (s1.paid) { const m = s1.paid[x.method] ||= { count: 0, amount: 0, refunds: 0 }; m.count += Math.sign(x.amount); m.amount += x.amount; } } }
+    for (const x of mv.refunds.filter((y) => within(y.at) && ofType(y))) { const s1 = hourOf(x.at); if (s1 && s1.paid) (s1.paid[x.method] ||= { count: 0, amount: 0, refunds: 0 }).refunds += x.amount; }
     const moved = tally({ payments: paidNow, refunds: mv.refunds.filter((x) => within(x.at) && ofType(x)) });
     const invoices = paidNow.filter((x) => x.source === 'Invoice'), inStore = paidNow.filter((x) => x.source === 'Invoice' || x.source === 'Appointment');
     const backNow = mv.refunds.filter((x) => within(x.at) && ofType(x));
@@ -2003,12 +2028,14 @@ export function createApp(options = {}) {
         if (v.discount) { const dn = v.discount_name || 'Invoice discount', pk = `invoice:${dn}`, pr = promos.get(pk) || promos.set(pk, { name: dn, uses: 0, amount: 0, invoice: true }).get(pk); pr.uses += k; pr.amount += k * v.discount; }
       }
     }
-    // Paid appointments join the Taxes report too, at the rate in use (a void counts against it).
-    if (!onlyType) for (const x of paidNow.filter((y) => y.source === 'Appointment')) {
-      const rate = x.tax ? Number(ordering.taxRate) || 0 : 0, k = Math.sign(x.amount), sale = x.amount - (x.tax || 0);
+    // Paid appointments join the Taxes report too, at the rate and on the part they were taxed (a void counts against it).
+    const apptPaid = paidNow.filter((y) => y.source === 'Appointment');
+    const apptRow = new Map(apptPaid.length ? db.all('SELECT id, total, tax, taxable, tax_rate FROM appointments WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(apptPaid.map((x) => x.refId))])).map((a) => [a.id, a]) : []);
+    if (!onlyType) for (const x of apptPaid) {
+      const a = apptRow.get(x.refId), k = Math.sign(x.amount), tax = Math.abs(x.tax || 0), sale = Math.abs(x.amount) - tax;
+      const rate = a && a.tax_rate != null ? a.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0, taxable = a && a.taxable != null ? Math.min(sale, a.taxable) : tax ? sale : 0;
       const r = taxRows.get(rate) || taxRows.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(rate);
-      if (x.tax) r.taxable += sale; else r.nontaxable += sale;
-      r.tax += x.tax || 0; r.appointments = (r.appointments || 0) + k;
+      r.taxable += k * taxable; r.nontaxable += k * (sale - taxable); r.tax += k * tax; r.appointments = (r.appointments || 0) + k;
     }
     const { rates, ...sums } = totals;
     json(res, 200, {
@@ -2156,9 +2183,9 @@ export function createApp(options = {}) {
     try { return await siteRequest(req, res, site, base, sub, origin, draft); }
     catch (e) {
       if (req.method !== 'POST' || !site) throw e;
-      if (!(e instanceof HttpError)) { console.error(e); e = new HttpError(500, 'Something went wrong on our side. Please try again.'); }
       let lang = 'en'; try { lang = JSON.parse(draft ? site.draft : site.published || site.draft).lang; } catch { /* English */ }
       if (lang !== 'es') throw e;
+      if (!(e instanceof HttpError)) { console.error(e); e = new HttpError(500, 'Something went wrong on our side. Please try again.'); }
       const es = new HttpError(e.status, inSpanish(e.message), e.code);
       if (String(req.headers.accept || '').includes('json') || String(req.headers['content-type'] || '').includes('json')) throw es;
       return html(res, es.status, simplePage(es.status === 429 ? 'Más despacio' : 'Algo salió mal', es.message, 'es'));
@@ -2180,6 +2207,7 @@ export function createApp(options = {}) {
       const isJson = String(req.headers['content-type'] || '').includes('json');
       let b = {};
       try { b = isJson ? JSON.parse(raw.toString('utf8')) : Object.fromEntries(new URLSearchParams(raw.toString('utf8'))); } catch { bad(400, 'Could not read that message.'); }
+      if (!b || typeof b !== 'object' || Array.isArray(b)) b = {};
       const lead = { name: str(b.name, 120).trim(), email: str(b.email, 200).trim(), phone: str(b.phone, 40).trim(), message: str(b.message, 4000).trim() };
       const spam = str(b.company_website).trim() !== '';
       if (!spam) {
@@ -2194,8 +2222,10 @@ export function createApp(options = {}) {
       limit(`book:${site.id}:${ipOf(req)}`, 8, 10 * 60000);
       if (!ordering.booking.enabled) bad(409, 'Online booking is not available right now. Please call us.');
       // The shop-wide cap counts bookings that went through, so requests that were refused never use it up.
+      // The body is read first, so the check, the booking and the count happen together.
+      const body = await readJson(req, 20_000);
       if (counted(`book:${site.id}`) >= 80) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
-      const appt = makeAppt(site, ordering, await readJson(req, 20_000), true);
+      const appt = makeAppt(site, ordering, body, true);
       bump(`book:${site.id}`, 10 * 60000);
       const business = businessOf(site), owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
       const lang = kind => (kind === 'merchant' ? 'en' : langOf(site));
@@ -2410,10 +2440,6 @@ export function createApp(options = {}) {
       if (!m[2]) return redirect(res, `/s/${m[1]}/`, 301);
       const site = db.get('SELECT * FROM sites WHERE slug = ?', m[1]);
       if (!site) return html(res, 404, simplePage('Nothing here yet', 'There is no website at this address.'));
-      if (site.custom_domain && site.domain_verified && (req.method === 'GET' || req.method === 'HEAD') && !m[2].startsWith('/_')) {
-        const q = req.url.indexOf('?');
-        return redirect(res, `https://${site.custom_domain}${m[2]}${q >= 0 ? req.url.slice(q) : ''}`, 301);
-      }
       return serveSite(req, res, site, `/s/${m[1]}`, m[2], appOrigin(req));
     }
     if ((m = path.match(/^\/preview\/([\w-]+)(\/.*)?$/))) {
@@ -2464,9 +2490,9 @@ export function createApp(options = {}) {
     res.req = req;
     handle(req, res).catch((err) => {
       const status = err instanceof HttpError ? err.status : err instanceof URIError ? 400 : 500;
-      if (status === 500) console.error(err);
+      if (status === 500 && !(err instanceof HttpError)) console.error(err);
       if (res.headersSent) return res.end();
-      const message = status === 500 ? 'Something went wrong on our side. Please try again.' : err.message || 'Bad request';
+      const message = status === 500 && !(err instanceof HttpError) ? 'Something went wrong on our side. Please try again.' : err.message || 'Bad request';
       const wantsJson = req.url.startsWith('/api/') || String(req.headers.accept || '').includes('json') || String(req.headers['content-type'] || '').includes('json');
       wantsJson ? json(res, status, { error: message, ...(err instanceof HttpError && err.code ? { code: err.code } : {}) }) : html(res, status, simplePage(status === 429 ? 'Slow down' : 'Something went wrong', message));
     });

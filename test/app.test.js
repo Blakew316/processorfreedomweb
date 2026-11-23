@@ -1515,3 +1515,71 @@ test('a rename follows the person, never anyone else; appointment tax is reporte
     assert.deepEqual([jane.name, jane.phone], ['Dr. Jane Smith', '903-555-1111']);
   } finally { base = saved; srv.close(); app9.close(); rmSync(d9, { recursive: true, force: true }); }
 });
+
+test('a refused employee save leaves nothing behind; refunds in parts add up exactly; cancels give back their tax; appointment tax as charged', async () => {
+  const d10 = mkdtempSync(join(tmpdir(), 'pfsites10-'));
+  const sent = [];
+  const app10 = createApp({ dataDir: d10, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } } });
+  const srv = createServer(app10);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'partcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@part.test', password: 'long-enough-pw', name: 'Pat' });
+    let site = (await me('POST', '/api/sites', { name: 'Part Cafe', template: 'order', kind: 'ordering', csv: 'Taco,3.50\nSoda,2.00' })).data.site;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    // A refused save adds no one, changes no role, and the corrected save still sends the invite.
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'sam@part.test', name: 'Sam', role: 'kitchen' });
+    assert.equal((await me('POST', `/api/sites/${site.id}/team`, { email: 'sam2@part.test', name: 'Sam', role: 'manager' })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/team`, { email: 'sam3@part.test', name: 'Sam C.', role: 'manager', details: { phone: 'ext. 12' } })).status, 400);
+    assert.equal((await me('POST', `/api/sites/${site.id}/team`, { email: 'sam@part.test', name: 'Pat', role: 'manager' })).status, 400);
+    let team = (await me('GET', `/api/sites/${site.id}/team`)).data.members;
+    assert.deepEqual(team.map((m) => [m.email, m.role]), [['sam@part.test', 'kitchen']], 'nothing was added or changed');
+    sent.length = 0;
+    const ok = (await me('POST', `/api/sites/${site.id}/team`, { email: 'sam2@part.test', name: 'Sam B.', role: 'manager' })).data;
+    assert.deepEqual([ok.added, ok.emailed], [true, true]);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(sent.some((m) => m.to === 'sam2@part.test'), 'the invite goes out');
+    // The owner cannot take on a name someone at the business already goes by.
+    assert.equal((await me('PUT', '/api/me', { name: 'Sam' })).status, 400);
+
+    // A full refund made in three parts takes back exactly the order's tax: net sales and tax both end at zero.
+    site = (await me('GET', `/api/sites/${site.id}`)).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25 } });
+    const items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items, taco = items.find((x) => x.name === 'Taco');
+    const who = { name: 'Ana', phone: '903-555-0100', email: 'ana@part.test', method: 'pickup' };
+    await anon('POST', '/_order', { ...who, items: [{ id: taco.id, qty: 1 }] }, host);
+    let order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.equal(order.total, 379);
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { method: 'Cash' });
+    for (const part of [126, 126, 127]) assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}/payment`, { refund: part })).status, 200);
+    let st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.deepEqual([st.totals.net, st.totals.tax, st.totals.total, st.money.tax], [0, 0, 0, 0]);
+
+    // An order paid in full with a gift card, then cancelled, leaves no tax behind in Finances.
+    const card = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 5000, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { ...who, promo: card, items: [{ id: taco.id, qty: 2 }] }, host);
+    order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.ok(order.paidAt && order.tax > 0);
+    await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' });
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.equal(st.money.tax, 0);
+
+    // An appointment's untaxed service charge is not counted as taxable sales.
+    site = (await me('GET', `/api/sites/${site.id}`)).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, booking: { enabled: true, perSlot: 2, services: [{ id: 's1', name: 'Haircut', minutes: 30, price: 2500 }] } } });
+    const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const appt = (await me('POST', `/api/sites/${site.id}/appointments`, { serviceName: 'Haircut', date: day, time: '10:00', name: 'Ángel Núñez', phone: '903-555-0177', email: '', minutes: 30, total: 3706, tax: 206, taxable: 2500 })).data.appointment;
+    await me('POST', `/api/sites/${site.id}/appointments/${appt.id}/payment`, { method: 'Card' });
+    st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    const row = st.totals.rates.find((r) => r.appointments === 1);
+    assert.deepEqual([row.rate, row.taxable, row.nontaxable, row.tax], [8.25, 2500, 1000, 206]);
+    // A customer saved with only a phone number, accented name and all, gets the appointment in their spend.
+    await me('POST', `/api/sites/${site.id}/contacts`, { name: 'Ángel Núñez', phone: '903-555-0177' });
+    assert.equal((await me('GET', `/api/sites/${site.id}/customers`)).data.customers.find((c) => c.name === 'Ángel Núñez').spent, 3706);
+
+    // A message form body that is not an object is answered like an empty form.
+    const r = await fetch(`${base}/_forms/contact`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Forwarded-Host': 'partcafe.pfsites.test' }, body: 'null' });
+    assert.equal(r.status, 400);
+  } finally { base = saved; srv.close(); app10.close(); rmSync(d10, { recursive: true, force: true }); }
+});
