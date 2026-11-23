@@ -56,23 +56,25 @@ test('sales totals, charts, items, tenders, refunds, cash and counter sales all 
     await call('POST', `${S}/invoices`, { walkIn: true, customer: { name: 'Walk-in customer' }, items: [{ name: 'Sale', qty: 1, price: 1500 }], paidMethod: 'Check' });
 
     const st = await call('GET', `${S}/stats?range=today`), t = st.totals;
-    // Sales (orders): 3 kept, gross 4000, discounts 100, the 5.00 refund made today, net 3400, tax 322, fees 399, tips 338, total 4459, 7 units, 1 cancelled.
+    // Sales (orders): 3 kept, gross 4000, discounts 100, the 5.00 refund made today split as the order was made up
+    // (sales 3.28, tax 0.27, delivery 1.45), so net 3572, tax 295, fees 254, tips 338, total 4459, 7 units, 1 cancelled.
     assert.deepEqual({ orders: t.orders, gross: t.gross, discounts: t.discounts, refunds: t.refunds, net: t.net, tax: t.tax, fees: t.fees, tips: t.tips, total: t.total, units: t.units, cancelled: t.cancelled },
-      { orders: 3, gross: 4000, discounts: 100, refunds: 500, net: 3400, tax: 322, fees: 399, tips: 338, total: 4459, units: 7, cancelled: 1 });
+      { orders: 3, gross: 4000, discounts: 100, refunds: 328, net: 3572, tax: 295, fees: 254, tips: 338, total: 4459, units: 7, cancelled: 1 });
     assert.equal(t.average, Math.round(4459 / 3), 'average order = total ÷ orders');
     assert.equal(t.net, t.gross - t.discounts - t.refunds, 'net = gross − discounts − refunds');
     assert.equal(t.total, t.net + t.tax + t.fees + t.tips, 'total = net + tax + fees + tips');
-    assert.equal(t.taxable + t.nontaxable, t.gross - t.discounts, 'taxable + non-taxable = sales after discounts');
+    assert.equal(t.taxable + t.nontaxable, t.net, 'taxable + non-taxable = net sales (after discounts and refunded sales)');
     // The chart: hours add up to the same net sales and order count; every order and the refund land in today's hour.
     assert.equal(st.unit, 'hour'); assert.equal(st.series.length, 24);
-    assert.equal(st.series.reduce((a, x) => a + x.net, 0), 3400); assert.equal(st.series.reduce((a, x) => a + x.orders, 0), 3);
-    // Item sales: Taco 3 for 30.00, Soda 4 for 10.00 (cancelled soda not counted). Items add up to gross.
+    assert.equal(st.series.reduce((a, x) => a + x.net, 0), t.net); assert.equal(st.series.reduce((a, x) => a + x.orders, 0), 3);
+    // Item sales: Taco 3 for 30.00, Soda 4 for 10.00 (cancelled soda not counted).
     const it = Object.fromEntries(st.items.map((x) => [x.name, [x.qty, x.sales]]));
-    // The 1.00 SAVE10 discount on the taco order is spread over its lines, so item sales add up to sales after discounts.
-    assert.deepEqual(it, { Taco: [3, 2900], Soda: [4, 1000] }); assert.equal(st.items.reduce((a, x) => a + x.sales, 0), t.gross - t.discounts);
-    // Order types: pickup 2 orders net 30.00, delivery 1 order net 9.00 less its 5.00 refund; together = net sales.
+    // The 1.00 SAVE10 discount on the taco order is spread over its lines, and the 3.28 of sales the refund gave back comes off that taco,
+    // so item sales add up to net sales.
+    assert.deepEqual(it, { Taco: [3, 2572], Soda: [4, 1000] }); assert.equal(st.items.reduce((a, x) => a + x.sales, 0), t.net);
+    // Order types: pickup 2 orders net 30.00, delivery 1 order net 9.00 less the 3.28 of sales its 5.00 refund gave back; together = net sales.
     const m = Object.fromEntries(st.methods.filter((x) => x.orders).map((x) => [x.method, [x.orders, x.net]]));
-    assert.deepEqual(m, { pickup: [2, 3000], delivery: [1, 400] }); assert.equal(st.methods.reduce((a, x) => a + x.net, 0), t.net);
+    assert.deepEqual(m, { pickup: [2, 3000], delivery: [1, 572] }); assert.equal(st.methods.reduce((a, x) => a + x.net, 0), t.net);
     // Tender types on orders: card 27.74, cash 13.73 less the 5.00 cash refund, unpaid 8.12; together = total.
     const tn = Object.fromEntries(st.tenders.map((x) => [x.name, x.total]));
     assert.deepEqual(tn, { Card: 2774, Cash: 873, 'Not paid yet': 812 }); assert.equal(st.tenders.reduce((a, x) => a + x.total, 0), t.total);
@@ -98,13 +100,14 @@ test('sales totals, charts, items, tenders, refunds, cash and counter sales all 
     assert.equal(st.previous.net, 0);
     // Last 30 days includes today's figures exactly once.
     const m30 = (await call('GET', `${S}/stats?range=last30`)).totals;
-    assert.deepEqual([m30.orders, m30.net, m30.total], [3, 3400, 4459]);
-    const s30 = (await call('GET', `${S}/stats?range=last30`)).series; assert.equal(s30.length, 30); assert.equal(s30.reduce((a, x) => a + x.net, 0), 3400);
-    // Taxes and delivery fees are kept apart in the money figures: tax on the paid orders (186 + 74) and the counter sale (0); the fee 3.99.
-    assert.deepEqual([st.money.tax, st.money.fees], [260, 399]);
+    assert.deepEqual([m30.orders, m30.net, m30.total], [3, 3572, 4459]);
+    const s30 = (await call('GET', `${S}/stats?range=last30`)).series; assert.equal(s30.length, 30); assert.equal(s30.reduce((a, x) => a + x.net, 0), 3572);
+    // Taxes and delivery fees are kept apart in the money figures: tax on the paid orders (186 + 74) and the counter sale (0), the fee 3.99,
+    // less the 0.27 of tax and 1.45 of delivery fee the 5.00 refund gave back.
+    assert.deepEqual([st.money.tax, st.money.fees], [233, 254]);
     // With an order type chosen, money figures follow it too: only the delivery order's cash and its refund.
     const dv = await call('GET', `${S}/stats?range=today&type=delivery`);
-    assert.deepEqual([dv.totals.net, dv.money.collected, dv.money.refunds], [400, 1373, 500]);
+    assert.deepEqual([dv.totals.net, dv.money.collected, dv.money.refunds], [572, 1373, 500]);
     // Last 7 days covers the same money as today, not just today's sales.
     assert.equal((await call('GET', `${S}/stats?range=last7`)).money.collected, 5647);
   } finally { await new Promise((r) => srv.close(r)); app.close(); rmSync(dir, { recursive: true, force: true }); }

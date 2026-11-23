@@ -190,6 +190,16 @@ export function openDb(dataDir) {
     db.exec("ALTER TABLE resets ADD COLUMN kind TEXT NOT NULL DEFAULT 'email'");
     db.exec("UPDATE resets SET kind = CASE WHEN staff = 1 THEN 'staff' ELSE 'invite' END");
   }
+  // Who did something is also kept by account, since names can repeat or change: a rename then follows the person.
+  addColumn('orders', 'handled_by_id', "TEXT NOT NULL DEFAULT ''");
+  addColumn('money_log', 'by_id', "TEXT NOT NULL DEFAULT ''");
+  addColumn('cash_log', 'by_id', "TEXT NOT NULL DEFAULT ''");
+  addColumn('shifts', 'user_id', "TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'employee_id', "TEXT NOT NULL DEFAULT ''");
+  // The sales tax included in an appointment's total, so its payment reports the tax it collected.
+  addColumn('appointments', 'tax', 'INTEGER NOT NULL DEFAULT 0');
+  // The name of the saved discount an invoice used, so the Discounts report can list it.
+  addColumn('invoices', 'discount_name', "TEXT NOT NULL DEFAULT ''");
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
   db.exec(`

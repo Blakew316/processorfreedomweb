@@ -15,9 +15,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ROUTES = [...readFileSync(join(here, '../server/app.js'), 'utf8').matchAll(/route\('(GET|POST|PUT|DELETE)', '(\/api\/sites\/:id[^']*)'/g)].map((m) => [m[1], m[2]]);
 const env = { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' };
 const mailer = { enabled: true, send: async () => {} };
+const TXT = {};
 
 async function boot(dataDir) {
-  const app = createApp({ dataDir, env, mailer, dns: { resolveCname: async () => { throw new Error('ENOTFOUND'); }, resolve4: async () => { throw new Error('ENOTFOUND'); } } });
+  const app = createApp({ dataDir, env, mailer, dns: { resolveCname: async () => { throw new Error('ENOTFOUND'); }, resolve4: async () => { throw new Error('ENOTFOUND'); }, resolveTxt: async (n) => TXT[n] || Promise.reject(new Error('ENOTFOUND')) } });
   const srv = createServer(app);
   await new Promise((r) => srv.listen(0, r));
   const base = `http://127.0.0.1:${srv.address().port}`;
@@ -232,12 +233,17 @@ test('two devices cannot silently overwrite each other, and the other safety rul
     assert.equal((await pay(cook, { method: 'Card' })).status, 403);
     assert.equal((await pay(a, { clear: true })).status, 200);
 
-    // Nobody can park on a domain they do not control: an unproven claim gives way to the next site that asks.
+    // Nobody can park on a domain they do not control, and nobody can wipe someone else's waiting claim either:
+    // an unproven claim gives way only to the site that shows, with its own TXT record, that it controls the domain.
     const b = client();
     await b('POST', '/api/auth/signup', { email: 'other@shop.test', password: 'long-enough-pw' });
     const siteB = (await b('POST', '/api/sites', { name: 'Other Shop', template: 'order' })).data.site;
     assert.equal((await b('POST', `/api/sites/${siteB.id}/domain`, { domain: 'safecafe.com' })).status, 200);
-    assert.equal((await a('POST', `${S}/domain`, { domain: 'safecafe.com' })).status, 200);
+    const asked = await a('POST', `${S}/domain`, { domain: 'safecafe.com' });
+    assert.equal(asked.status, 409, 'a claim alone does not take it');
+    assert.equal((await b('GET', `/api/sites/${siteB.id}`)).data.site.customDomain, 'safecafe.com', 'the waiting claim stays');
+    TXT['_pf-verify.safecafe.com'] = [[asked.data.error.match(/with the value (\S+), then/)[1]]];
+    assert.equal((await a('POST', `${S}/domain`, { domain: 'safecafe.com' })).status, 200, 'proof of control takes it');
     assert.equal((await b('GET', `/api/sites/${siteB.id}`)).data.site.customDomain, '');
 
     // Guessing one account's password is cut off, wherever the guesses come from.

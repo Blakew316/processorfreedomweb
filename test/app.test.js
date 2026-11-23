@@ -874,9 +874,12 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
 
     // The day ends: the summary goes out and quantities refill.
     assert.deepEqual((await me('GET', `/api/sites/${site.id}/menu`)).data.items.map((x) => x.stock), [3, 7]);
-    app2.tick(Date.now());
+    // The business day turns over at 4 AM, so between midnight and 4 AM (Chicago time) the first wrap-up waits for today's business day.
+    const hourNow = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+    const lead = hourNow < 4 ? 5 * 3600000 : 0;
+    app2.tick(Date.now() + lead);
     sent.length = 0;
-    app2.tick(Date.now() + 26 * 3600000);
+    app2.tick(Date.now() + lead + 26 * 3600000);
     await new Promise((r) => setTimeout(r, 20));
     assert.deepEqual((await me('GET', `/api/sites/${site.id}/menu`)).data.items.map((x) => x.stock), [40, 12]);
     const summary = sent.find((m) => /3 orders/.test(m.subject));
@@ -885,7 +888,7 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     assert.match(summary.html, /Best sellers/);
     assert.match(summary.html, /refilled/);
     sent.length = 0;
-    app2.tick(Date.now() + 27 * 3600000);
+    app2.tick(Date.now() + lead + 27 * 3600000);
     assert.equal(sent.length, 0, 'only once a day');
 
     // Team: a kitchen login sees orders and nothing else; a manager cannot touch the team or delete the site.
@@ -1445,4 +1448,70 @@ test('links on the page only go to sections that are there; templates make no pr
     for (const sec of s.sections.filter((x) => x.type === 'services')) assert.ok(sec.data.items.every((i) => !i.price), `${t.id} has no invented prices`);
     assert.ok(s.sections.filter((x) => x.type === 'faq').every((x) => x.enabled === false), `${t.id} questions start switched off`);
   }
+});
+
+test('a rename follows the person, never anyone else; appointment tax is reported; visitors cannot change saved customers', async () => {
+  const d9 = mkdtempSync(join(tmpdir(), 'pfsites9-'));
+  const app9 = createApp({ dataDir: d9, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app9);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const me = client(), anon = client(), host = { host: 'namecafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@name.test', password: 'long-enough-pw', name: 'Pat' });
+    let site = (await me('POST', '/api/sites', { name: 'Name Cafe', template: 'order', kind: 'ordering', csv: 'Taco,3.50' })).data.site;
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const taco = (await me('GET', `/api/sites/${site.id}/menu`)).data.items[0];
+    const order = async (who) => { await anon('POST', '/_order', { name: who, phone: '903-555-0100', email: `${who.toLowerCase()}@x.test`, method: 'pickup', items: [{ id: taco.id, qty: 1 }] }, host); return (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0]; };
+    // Two team members whose account names are both 'Sam'; one is listed as 'Sam', the other as 'Samuel Park'.
+    const sam = client(), park = client();
+    await sam('POST', '/api/auth/signup', { email: 'sam@name.test', password: 'long-enough-pw', name: 'Sam' });
+    await park('POST', '/api/auth/signup', { email: 'park@name.test', password: 'long-enough-pw', name: 'Sam' });
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'sam@name.test', name: 'Sam', role: 'manager' });
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'park@name.test', name: 'Samuel Park', role: 'manager' });
+    assert.equal((await me('POST', `/api/sites/${site.id}/team`, { email: 'park@name.test', name: 'Sam', role: 'manager' })).status, 400, 'one name per person');
+    const o1 = await order('Ana');
+    await sam('POST', `/api/sites/${site.id}/orders/${o1.id}`, { status: 'confirmed' });
+    await sam('POST', `/api/sites/${site.id}/orders/${o1.id}/payment`, { method: 'Cash' });
+    const o2 = await order('Bo');
+    await park('POST', `/api/sites/${site.id}/orders/${o2.id}`, { status: 'confirmed' });
+    const o3 = await order('Cy');
+    await me('POST', `/api/sites/${site.id}/orders/${o3.id}`, { status: 'confirmed' });
+    // Renaming Samuel Park moves his own work only: not Sam's (whose list name is his account name), nor the owner's.
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'park@name.test', name: 'Samuel P.', role: 'manager' });
+    let orders = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    const by = Object.fromEntries(orders.map((o) => [o.name, o.handledBy]));
+    assert.deepEqual(by, { Ana: 'Sam', Bo: 'Samuel P.', Cy: 'Pat' });
+    const tx = (await me('GET', `/api/sites/${site.id}/transactions?range=today`)).data;
+    assert.equal(tx.payments.find((x) => x.ref === `#${o1.number}`).by, 'Sam', 'the payment stays with whoever took it');
+    // The owner renames themselves on Profile: their own records follow.
+    await me('PUT', '/api/me', { name: 'Patricia' });
+    orders = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders;
+    assert.equal(orders.find((o) => o.name === 'Cy').handledBy, 'Patricia');
+    assert.equal(orders.find((o) => o.name === 'Ana').handledBy, 'Sam');
+
+    // An appointment's sales tax is recorded with its payment, and reaches Finances and the Taxes report.
+    site = (await me('GET', `/api/sites/${site.id}`)).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25, booking: { enabled: true, perSlot: 2, services: [{ id: 's1', name: 'Color', minutes: 60, price: 10000 }] } } });
+    const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const appt = (await me('POST', `/api/sites/${site.id}/appointments`, { serviceName: 'Color', date: day, time: '10:00', name: 'Dana Walk', phone: '903-555-0199', email: '', employee: 'Sam', minutes: 60, total: 10825, tax: 825 })).data.appointment;
+    assert.equal(appt.tax, 825);
+    const cook = client();
+    await cook('POST', '/api/auth/signup', { email: 'cook@name.test', password: 'long-enough-pw', name: 'Cook' });
+    await me('POST', `/api/sites/${site.id}/team`, { email: 'cook@name.test', name: 'Cook', role: 'kitchen' });
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments/${appt.id}/payment`, { method: 'Card' })).status, 200);
+    assert.equal((await cook('POST', `/api/sites/${site.id}/appointments/${appt.id}/payment`, { void: true })).status, 403, 'only a manager can take a payment back');
+    const st = (await me('GET', `/api/sites/${site.id}/stats?range=today`)).data;
+    assert.equal(st.money.tax, 825, 'the appointment tax is in Finances');
+    assert.ok(st.totals.rates.some((r) => r.appointments === 1 && r.tax === 825), 'and in the Taxes report');
+    // A customer saved with only a phone number gets the appointment in their spend.
+    await me('POST', `/api/sites/${site.id}/contacts`, { name: 'Dana Walk', phone: '903-555-0199' });
+    assert.equal((await me('GET', `/api/sites/${site.id}/customers`)).data.customers.find((c) => c.name === 'Dana Walk').spent, 10825);
+
+    // A visitor booking online with a saved customer's email cannot change that customer.
+    await me('POST', `/api/sites/${site.id}/contacts`, { name: 'Dr. Jane Smith', company: 'Smith Dental', email: 'jane@example.com', phone: '903-555-1111' });
+    assert.equal((await anon('POST', '/_book', { service: 's1', date: day, time: '13:00', name: 'Tommy', phone: '903-555-9999', email: 'jane@example.com', party: 1 }, host)).status, 201);
+    const jane = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers.find((c) => c.email === 'jane@example.com');
+    assert.deepEqual([jane.name, jane.phone], ['Dr. Jane Smith', '903-555-1111']);
+  } finally { base = saved; srv.close(); app9.close(); rmSync(d9, { recursive: true, force: true }); }
 });

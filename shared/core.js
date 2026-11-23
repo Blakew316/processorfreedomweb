@@ -191,7 +191,7 @@ export const TEMPLATES = [
         offer('Menu', 'The menu', 'A few favourites. Ask your server about tonight’s specials.', 'list', [['Wood-fired flatbread', 'Roasted garlic, mozzarella, basil, olive oil', '$14'], ['Market salad', 'Greens, shaved fennel, citrus, toasted almonds', '$12'], ['Handmade pappardelle', 'Slow-braised short rib ragù, parmesan', '$24'], ['Pan-roasted salmon', 'Lemon butter, asparagus, herbed potatoes', '$28'], ['Half roasted chicken', 'Pan jus, charred broccolini, garlic mash', '$25'], ['Olive oil cake', 'Whipped mascarpone, seasonal fruit', '$10']]),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
-        cta('Planning something special?', 'We host private dinners, celebrations and team events for up to 40 guests.', link('Ask about events', '#contact')),
+        cta('Planning something special?', 'Ask us about private dinners, celebrations and team events.', link('Ask about events', '#contact')),
         contact('Visit us', 'Reserve a table or ask us anything. We reply within a few hours.'),
       ],
     }),
@@ -239,11 +239,11 @@ export const TEMPLATES = [
       sections: [
         hero('By appointment', 'Leave feeling like yourself, only better.', `${n} is a calm, modern studio for hair, skin and nails, with stylists who listen first.`, link('Book an appointment', '#contact'), link('View services', '#services')),
         offer('Services', 'Services', 'Every visit starts with a consultation.', 'list', [['Signature cut and style', 'Consultation, wash, cut and finish', '$65+'], ['Color and gloss', 'Single process with a shine treatment', '$95+'], ['Balayage', 'Hand-painted, lived-in color', '$180+'], ['Classic facial', 'Cleanse, exfoliate, mask and massage', '$85'], ['Gel manicure', 'Shape, cuticle care and long-wear polish', '$45'], ['Blowout', 'Wash and style', '$45']]),
-        feats('The details matter', [['sparkle', 'Expert stylists', 'Continuously trained in the latest techniques.'], ['leaf', 'Clean products', 'Gentle, professional-grade and cruelty-free.'], ['calendar', 'Easy booking', 'Appointments that start on time.']]),
+        feats('The details matter', [['sparkle', 'Expert stylists', 'Continuously trained in the latest techniques.'], ['leaf', 'Gentle products', 'Professional-grade care for hair and skin.'], ['calendar', 'Easy booking', 'Appointments that start on time.']]),
         about('A studio built around you', `At ${n} we believe great service starts with listening. Tell us how you live, and we will give you a look that works every day, not just the day you leave the chair.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
-        faq([['How do I book?', 'Send us a message or call during business hours and we will find a time that works.'], ['What is your cancellation policy?', 'We ask for 24 hours’ notice so we can offer the time to another guest.'], ['Do you offer gift cards?', 'Yes, in any amount. Ask at the front desk or send us a message.']]),
+        faq([['How do I book?', 'Send us a message or call during business hours and we will find a time that works.'], ['What if I need to cancel?', 'Please let us know as early as you can, so we can offer the time to another guest.'], ['Do you offer gift cards?', 'Ask at the front desk or send us a message.']]),
         contact('Book your visit', 'Tell us what you are looking for and when you would like to come in.'),
       ],
     }),
@@ -260,8 +260,8 @@ export const TEMPLATES = [
         about('Experience you can rely on', `For years, ${n} has been the first call for clients who want things done properly. We keep our client list small so every engagement gets senior attention.`),
         feats('Working with us', [['users', 'Senior attention', 'You work directly with the people doing the work.'], ['check', 'Plain language', 'No jargon, no surprises on the invoice.'], ['shield', 'Confidential', 'Your information is protected at every step.']]),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
-        faq([['How does the first consultation work?', 'We start with a 30-minute conversation to understand your situation. There is no cost and no obligation.'], ['How do you bill?', 'You receive a clear written quote before any work begins.'], ['Do you work remotely?', 'Yes. We meet in person, by phone or by video, whichever you prefer.']]),
-        cta('Let’s talk about what you need.', 'The first conversation is free.', link('Book a consultation', '#contact')),
+        faq([['How does the first consultation work?', 'We start with a conversation to understand your situation.'], ['How do you bill?', 'You receive a clear written quote before any work begins.'], ['Do you work remotely?', 'Yes. We meet in person, by phone or by video, whichever you prefer.']]),
+        cta('Let’s talk about what you need.', 'Tell us a little about your situation.', link('Book a consultation', '#contact')),
         contact('Contact us', 'Tell us a little about your situation and we will be in touch within one business day.'),
       ],
     }),
@@ -269,17 +269,17 @@ export const TEMPLATES = [
   {
     id: 'home', name: 'Home Services', blurb: 'Quotes, service areas and trust', accent: '#1e8e3e', font: 'sans', radius: 'soft',
     build: (n) => ({
-      tagline: 'Licensed, insured and on time',
+      tagline: 'Repairs and installations, done right',
       cta: link('Get a free quote', '#contact'),
       hours: hours(['Monday – Friday', '7:00 AM – 6:00 PM'], ['Saturday', '8:00 AM – 2:00 PM'], ['Emergencies', '24 / 7']),
       sections: [
-        hero('Licensed and insured', 'Done right, the first time.', `${n} provides dependable repairs, installations and maintenance for homes and small businesses, with upfront pricing.`, link('Get a free quote', '#contact'), link('Our services', '#services'), 'split'),
+        hero('Home repairs and installations', 'Done right, the first time.', `${n} provides repairs, installations and maintenance for homes and small businesses.`, link('Get a quote', '#contact'), link('Our services', '#services'), 'split'),
         feats('Why homeowners call us', [['clock', 'On-time arrival', 'We give you a real appointment window and keep it.'], ['card', 'Upfront pricing', 'You approve the price before we start.'], ['shield', 'Work you can count on', 'We stand behind the work we do.']]),
         offer('Services', 'Services', 'No job too small.', 'cards', [['Repairs', 'Fast diagnosis and lasting fixes.'], ['Installations', 'Done to code with quality materials.'], ['Maintenance plans', 'Seasonal checkups that prevent expensive surprises.']]),
-        about('Local, family owned', `${n} has served this community for years. Our technicians are background-checked, trained, and treat your home like their own.`),
+        about('About us', `${n} takes care of homes and small businesses in this community, and treats every home with respect.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
-        faq([['Are estimates free?', 'Yes. We provide free, no-obligation estimates.'], ['Which areas do you serve?', 'We serve the greater metro area. Send your address and we will confirm.'], ['Do you offer emergency service?', 'Yes, around the clock. Call us directly for the fastest response.']]),
+        faq([['How do I get an estimate?', 'Send us a message with a few details about the job and we will get back to you.'], ['Which areas do you serve?', 'Send us your address and we will confirm.'], ['How soon can you come out?', 'Call us or send a message, and we will tell you the earliest time we can be there.']]),
         contact('Request a quote', 'Describe the job and we will get back to you the same day.'),
       ],
     }),
@@ -288,16 +288,16 @@ export const TEMPLATES = [
     id: 'fitness', name: 'Fitness & Wellness', blurb: 'Classes, memberships and trials', accent: '#4f46c8', font: 'sans', radius: 'round',
     build: (n) => ({
       tagline: 'Stronger every week',
-      cta: link('Start a free trial', '#contact'),
+      cta: link('Book a class', '#contact'),
       hours: hours(['Monday – Friday', '5:30 AM – 9:00 PM'], ['Saturday – Sunday', '7:00 AM – 5:00 PM']),
       sections: [
-        hero('First class free', 'Feel stronger. Move better.', `${n} is a welcoming studio with expert coaching, small classes and programs for every level.`, link('Start a free trial', '#contact'), link('See memberships', '#memberships')),
+        hero('Classes for every level', 'Feel stronger. Move better.', `${n} is a welcoming studio with expert coaching, small classes and programs for every level.`, link('Book a class', '#contact'), link('See memberships', '#memberships')),
         feats('Built around you', [['users', 'Small classes', 'Coaches who know your name and your goals.'], ['bolt', 'Smart programming', 'Structured training that keeps you progressing.'], ['heart', 'Supportive community', 'All levels welcome, always.']]),
         offer('Memberships', 'Memberships', 'Find the option that fits you.', 'cards', [['Drop-in', 'A single class, whenever you like.', '$22'], ['Unlimited', 'Every class, every day.', '$149 / mo'], ['Personal training', 'One-on-one sessions with a dedicated coach.', 'From $75']]),
         about('More than a workout', `${n} was founded on the idea that fitness should fit your life. Whether you are just starting or training for something big, we will meet you where you are.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
-        contact('Try a class on us', 'Tell us a bit about your goals and we will recommend where to start.'),
+        contact('Come in for a class', 'Tell us a bit about your goals and we will recommend where to start.'),
       ],
     }),
   },
@@ -308,7 +308,7 @@ export const TEMPLATES = [
       cta: link('Schedule service', '#contact'),
       hours: hours(['Monday – Friday', '7:30 AM – 6:00 PM'], ['Saturday', '8:00 AM – 1:00 PM']),
       sections: [
-        hero('Certified technicians', 'Back on the road, with confidence.', `${n} handles everything from oil changes to major repairs, and explains every recommendation in plain language.`, link('Schedule service', '#contact'), link('What we fix', '#services')),
+        hero('Repairs and maintenance', 'Back on the road, with confidence.', `${n} handles everything from oil changes to major repairs, and explains every recommendation in plain language.`, link('Schedule service', '#contact'), link('What we fix', '#services')),
         offer('Services', 'Services', 'All makes and models.', 'cards', [['Maintenance', 'Oil, filters, fluids and factory-scheduled service.', 'From $49'], ['Brakes and tires', 'Inspection, replacement, alignment and balancing.'], ['Diagnostics and repair', 'Check-engine lights, electrical, engine and transmission.']]),
         feats('The shop you can trust', [['tool', 'Experienced technicians', 'Equipped with the right tools for the job.'], ['check', 'Written estimates', 'You approve every repair before we begin.'], ['shield', 'Straight answers', 'We explain what needs doing and what can wait.']]),
         about('Family owned and operated', `${n} has kept this community moving for years. We only recommend what your vehicle actually needs.`),
@@ -906,15 +906,15 @@ export function cleanOptions(input) {
 export const parseChoices = (text) => str(text, 4000).split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(.*?)[\s,;:-]*\+?\s*\$?\s*(\d+(?:[.,]\d{1,2})?)\s*$/); return m && m[1].trim() ? { name: m[1].trim(), price: parsePrice(m[2]) || 0 } : { name: l, price: 0 }; });
 export const choicesText = (choices) => arr(choices).map((c) => (c.price ? `${c.name} +${(c.price / 100).toFixed(2)}` : c.name)).join('\n');
 /** Checks a customer's picks against an item. Returns { price, labels } or an error message. */
-export function resolveOptions(item, picks) {
-  const groups = arr(item.options);
+export function resolveOptions(item, picks, lang = 'en') {
+  const groups = arr(item.options), es = lang === 'es';
   let extra = 0; const labels = [];
   for (let g = 0; g < groups.length; g++) {
-    const grp = groups[g];
+    const grp = groups[g], gn = grp.name.toLowerCase();
     const chosen = [...new Set(arr(arr(picks)[g]).map(Number))].filter((i) => Number.isInteger(i) && grp.choices[i]);
-    if (grp.required && !chosen.length) return { error: `Choose ${grp.name.toLowerCase()} for ${item.name}.` };
-    if (!grp.multi && chosen.length > 1) return { error: `Choose only one ${grp.name.toLowerCase()} for ${item.name}.` };
-    for (const i of chosen) { if (grp.choices[i].hidden) return { error: `${grp.choices[i].name} is not available.` }; if (grp.choices[i].soldOut) return { error: `${grp.choices[i].name} is sold out.` }; extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
+    if (grp.required && !chosen.length) return { error: es ? `Elige ${gn} para ${item.name}.` : `Choose ${gn} for ${item.name}.` };
+    if (!grp.multi && chosen.length > 1) return { error: es ? `Elige solo una opción de ${gn} para ${item.name}.` : `Choose only one ${gn} for ${item.name}.` };
+    for (const i of chosen) { const cn = grp.choices[i].name; if (grp.choices[i].hidden) return { error: es ? `${cn} no está disponible.` : `${cn} is not available.` }; if (grp.choices[i].soldOut) return { error: es ? `${cn} está agotado.` : `${cn} is sold out.` }; extra += grp.choices[i].price; labels.push(grp.choices[i].name); }
   }
   return { price: itemPrice(item) + extra, labels };
 }
@@ -929,7 +929,7 @@ export const STRINGS = {
     subtotal: 'Subtotal', discount: 'Discount', tax: 'Tax', delivery: 'Delivery', tipLine: 'Tip', total: 'Total', place: 'Place order', placing: 'Placing order…', pausedBtn: 'Ordering is paused',
     pickup: 'Pickup', curbside: 'Curbside', when: 'When', asap: 'As soon as possible', today: 'Today', tomorrow: 'Tomorrow', inAbout: 'in about {n} minutes',
     promo: 'Promo code or gift card', apply: 'Apply', promoBad: 'That code is not valid.', giftCard: 'Gift card', toPay: 'Left to pay', giftLeft: 'Left on gift card', giftPaid: 'Paid in full with your gift card.', refunded: 'Refunded', giftBack: 'Your gift card balance was put back.', nothingOwed: 'Nothing is owed for this order.', paidWith: 'Paid · {method}', pricesChanged: 'Prices just changed. Updating your order…', minOrder: 'Delivery orders start at {a}. Add {b} more.', fillAll: 'Please fill in every field so we can get your order to you.', badEmail: 'Enter a valid email address for your confirmation.',
-    failed: 'We could not place your order. Please try again or call us.', viewOrder: 'View order', item: 'item', items: 'items', choose: 'Choose', required: 'Required', optional: 'Optional', none: 'None', addToOrder: 'Add to order', cancel: 'Cancel', close: 'Close',
+    failed: 'We could not place your order. Please try again or call us.', viewOrder: 'View order', item: 'item', items: 'items', choose: 'Choose', required: 'Required', optional: 'Optional', noChoice: 'None', badEmailPlain: 'Enter a valid email address.', formFailed: 'Something went wrong. Please try again, or contact us directly.', addToOrder: 'Add to order', cancel: 'Cancel', close: 'Close',
     orderAhead: 'Order ahead for {ways}.', readyIn: 'Most orders are ready in about {n} minutes.', or: 'or', menuSoon: 'Our menu is being updated. Please check back soon.',
     payLater: 'Payment is collected when you receive your order.', payEither: 'You can pay online after placing your order, or when you receive it.', payOnline: 'Pay online', orPayLater: 'Or pay when you receive your order.',
     order: 'Order', received: 'Received', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', readyPickup: 'Ready for pickup', readyCurb: 'Ready for curbside', outDelivery: 'Out for delivery',
@@ -950,7 +950,7 @@ export const STRINGS = {
     subtotal: 'Subtotal', discount: 'Descuento', tax: 'Impuesto', delivery: 'Entrega', tipLine: 'Propina', total: 'Total', place: 'Hacer pedido', placing: 'Enviando pedido…', pausedBtn: 'Pedidos en pausa',
     pickup: 'Para recoger', curbside: 'En la acera', when: 'Cuándo', asap: 'Lo antes posible', today: 'Hoy', tomorrow: 'Mañana', inAbout: 'en unos {n} minutos',
     promo: 'Código de promoción o tarjeta de regalo', apply: 'Aplicar', promoBad: 'Ese código no es válido.', giftCard: 'Tarjeta de regalo', toPay: 'Por pagar', giftLeft: 'Queda en la tarjeta', giftPaid: 'Pagado por completo con tu tarjeta de regalo.', refunded: 'Reembolsado', giftBack: 'El saldo de tu tarjeta de regalo fue devuelto.', nothingOwed: 'No se debe nada por este pedido.', paidWith: 'Pagado · {method}', pricesChanged: 'Los precios acaban de cambiar. Actualizando tu pedido…', minOrder: 'Los pedidos a domicilio comienzan en {a}. Agrega {b} más.', fillAll: 'Completa todos los campos para poder entregarte tu pedido.', badEmail: 'Ingresa un correo válido para tu confirmación.',
-    failed: 'No pudimos enviar tu pedido. Inténtalo de nuevo o llámanos.', viewOrder: 'Ver pedido', item: 'artículo', items: 'artículos', choose: 'Elige', required: 'Obligatorio', optional: 'Opcional', none: 'Ninguno', addToOrder: 'Agregar al pedido', cancel: 'Cancelar', close: 'Cerrar',
+    failed: 'No pudimos enviar tu pedido. Inténtalo de nuevo o llámanos.', viewOrder: 'Ver pedido', item: 'artículo', items: 'artículos', choose: 'Elige', required: 'Obligatorio', optional: 'Opcional', noChoice: 'Ninguno', badEmailPlain: 'Ingresa un correo electrónico válido.', formFailed: 'Algo salió mal. Inténtalo de nuevo o comunícate con nosotros directamente.', addToOrder: 'Agregar al pedido', cancel: 'Cancelar', close: 'Cerrar',
     orderAhead: 'Ordena con anticipación: {ways}.', readyIn: 'La mayoría de los pedidos están listos en unos {n} minutos.', or: 'o', menuSoon: 'Estamos actualizando nuestro menú. Vuelve pronto.',
     payLater: 'El pago se realiza al recibir tu pedido.', payEither: 'Puedes pagar en línea después de ordenar, o al recibir tu pedido.', payOnline: 'Pagar en línea', orPayLater: 'O paga al recibir tu pedido.',
     order: 'Pedido', received: 'Recibido', confirmed: 'Confirmado', completed: 'Completado', cancelled: 'Cancelado', readyPickup: 'Listo para recoger', readyCurb: 'Listo en la acera', outDelivery: 'En camino',

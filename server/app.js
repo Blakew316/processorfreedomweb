@@ -6,7 +6,7 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice, hoursText } from '../shared/core.js';
 import { inSpanish } from './es.js';
 import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail, rewardEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
@@ -377,6 +377,37 @@ export function createApp(options = {}) {
     }
     return user.name || user.email;
   };
+  // Everyone's current name at this business except one person's: the owner's and each team member's.
+  const staffNames = (site) => {
+    const out = [];
+    const owner = db.get('SELECT id, name, email FROM users WHERE id = ?', site.user_id);
+    if (owner) out.push([owner.id, owner.name || owner.email]);
+    for (const m of db.all('SELECT m.user_id, m.details, u.name, u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ?', site.id)) {
+      let d = {}; try { d = JSON.parse(m.details || '{}') || {}; } catch { /* none */ }
+      out.push([m.user_id, str(d.name).trim() || m.name || m.email]);
+    }
+    return out;
+  };
+  const namesInUse = (site, exceptId) => new Set(staffNames(site).filter(([id]) => id !== exceptId).map(([, n]) => n));
+  // The one person who goes by a name here, if exactly one does.
+  const idForName = (site, name) => { const n = str(name).trim(), hits = n ? staffNames(site).filter(([, x]) => x === n) : []; return hits.length === 1 ? hits[0][0] : ''; };
+  // A person's new name reaches everything they did. Records kept by account follow at once; older ones that only
+  // carry a name follow when no one else here goes by that name, so nobody else's work is ever moved.
+  const NAMED = [['orders', 'handled_by', 'handled_by_id'], ['money_log', 'by_name', 'by_id'], ['cash_log', 'by_name', 'by_id'], ['timeclock', 'name', 'user_id'], ['shifts', 'name', 'user_id'], ['appointments', 'employee', 'employee_id']];
+  function carryName(site, userId, name, oldNames) {
+    if (!name) return;
+    for (const [t, col, idCol] of NAMED) db.run(`UPDATE ${t} SET ${col} = ? WHERE site_id = ? AND ${idCol} = ?`, name, site.id, userId);
+    const taken = namesInUse(site, userId);
+    const old = [...new Set(oldNames.map((x) => str(x).trim()).filter((x) => x && x !== name && !taken.has(x)))];
+    if (!old.length) return;
+    for (const [t, col, idCol] of NAMED) db.run(`UPDATE ${t} SET ${col} = ?, ${idCol} = ? WHERE site_id = ? AND ${idCol} = '' AND ${col} IN (SELECT value FROM json_each(?))`, name, userId, site.id, JSON.stringify(old));
+  }
+  // An account's own name changed: on every business where people know them by it, their records follow.
+  function accountRenamed(user, before, after) {
+    if (!after || before === after) return;
+    for (const site of db.all('SELECT * FROM sites WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?)', user.id, user.id))
+      if (staffName(site, { ...user, name: after === user.email ? '' : after }) === after) carryName(site, user.id, after, [before]);
+  }
 
   /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
   const takenSlots = (siteId) => Object.fromEntries(db.all("SELECT scheduled, COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled != '' AND status != 'cancelled' AND created_at > ? GROUP BY scheduled", siteId, Date.now() - 3 * DAY).map((r) => [r.scheduled, r.n]));
@@ -395,8 +426,9 @@ export function createApp(options = {}) {
       const totals = { orders: rows.length, net: 0, tax: 0, tips: 0, total: 0 };
       const sold = new Map();
       // Refunds made that day come off, as in the reports.
-      totals.refunds = db.all("SELECT m.amount, m.at FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day).reduce((a, r) => a + r.amount, 0);
-      totals.net -= totals.refunds; totals.total -= totals.refunds;
+      const back = db.all("SELECT m.amount, m.at, o.subtotal, o.discount, o.tax, o.tip, o.fee, o.total FROM money_log m JOIN orders o ON o.id = m.ref_id WHERE m.site_id = ? AND m.kind = 'refund' AND m.source = 'Order' AND o.status != 'cancelled' AND m.at > ?", site.id, nowMs - 4 * DAY).filter((r) => calDay(r.at) === site.day);
+      totals.refunds = 0;
+      for (const r of back) { const part = refundParts(r, r.amount); totals.refunds += part.sales; totals.net -= part.sales; totals.tax -= part.tax; totals.tips -= part.tip; totals.total -= r.amount; }
       for (const o of rows) {
         totals.net += o.subtotal - o.discount; totals.tax += o.tax; totals.tips += o.tip; totals.total += o.total;
         for (const l of o.items) { const it = sold.get(l.name) || sold.set(l.name, { name: l.name, qty: 0, sales: 0 }).get(l.name); it.qty += l.qty; it.sales += l.price * l.qty; }
@@ -593,6 +625,7 @@ export function createApp(options = {}) {
     const phone = b.phone === undefined ? user.phone : str(b.phone, 40).trim();
     if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
     db.run('UPDATE users SET name = ?, phone = ? WHERE id = ?', name, phone, user.id);
+    accountRenamed(user, user.name || user.email, name || user.email);
     json(res, 200, { user: { ...user, name, phone } });
   });
   // Changing the sign-in email needs the password, and the new address has to be confirmed again before it carries staff powers.
@@ -684,9 +717,12 @@ export function createApp(options = {}) {
   route('POST', '/api/auth/forgot', async (req, res) => {
     limit(`forgot:${ipOf(req)}`, 6, 3600000);
     const email = str((await readJson(req)).email, 200).trim().toLowerCase();
-    limit(`forgot-for:${email}:${ipOf(req)}`, 4, 3600000); limit(`forgot-all:${email}`, 20, 3600000);
+    limit(`forgot-for:${email}:${ipOf(req)}`, 4, 3600000);
     const u = db.get('SELECT id, name, email FROM users WHERE email = ?', email);
-    if (u) { const msg = resetEmail({ name: u.name, link: resetLinkFor(req, u.id) }); mailer.send({ to: u.email, ...msg }).catch((e) => console.error('Reset email failed:', e.message)); }
+    // Past twenty links an hour for one address, only somewhere the account has signed in from before still gets one. The answer is the same either way.
+    const known = u && db.get('SELECT 1 FROM user_ips WHERE user_id = ? AND ip = ?', u.id, ipOf(req));
+    if (u && (known || counted(`forgot-all:${email}`) < 20)) {
+      bump(`forgot-all:${email}`, 3600000); const msg = resetEmail({ name: u.name, link: resetLinkFor(req, u.id) }); mailer.send({ to: u.email, ...msg }).catch((e) => console.error('Reset email failed:', e.message)); }
     // The same answer either way, so this cannot be used to find out who has an account.
     json(res, 200, { ok: true, emailEnabled: !!mailer.enabled });
   });
@@ -799,11 +835,15 @@ export function createApp(options = {}) {
     const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
     if (b.rev !== revOf(site.draft)) bad(412, STALE);
     const KEYS = ['phone', 'email', 'address1', 'city', 'state', 'zip'];
+    const hm = (v, d) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v)) ? v : d);
+    const week = Array.isArray(b.week) && b.week.length === 7 ? b.week.map((x) => ({ open: hm(x?.open, '09:00'), close: hm(x?.close, '17:00'), closed: !!x?.closed })) : null;
     const patch = (raw) => {
       const d = JSON.parse(raw);
       d.business = { ...(d.business || {}) };
       for (const k of KEYS) if (typeof b.business?.[k] === 'string') d.business[k] = b.business[k];
       if (Array.isArray(b.business?.hours)) d.business.hours = b.business.hours.slice(0, 14).map((r) => ({ label: str(r?.label, 60), value: str(r?.value, 80) }));
+      // The week from Business hours, written out in this copy's own language (the draft may be in another language than the live site).
+      if (week) d.business.hours = hoursText(week, d.lang === 'es' ? 'es' : 'en');
       if (b.logo !== undefined) d.brand = { ...(d.brand || {}), logo: b.logo, ...(b.logo && d.brand?.logoMode === 'text' ? { logoMode: 'image' } : {}) };
       return packDraft(d);
     };
@@ -854,8 +894,15 @@ export function createApp(options = {}) {
     if (!domain) bad(400, 'Enter a domain like yourbusiness.com.');
     if (ownHost(domain) || domain === hostOf(req).split(':')[0].replace(/^www\./, '')) bad(400, 'That address belongs to us. Change your free address above instead.');
     if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ? AND domain_verified = 1', domain, site.id)) bad(409, 'That domain is already connected to another site.');
-    // A claim nobody proved does not hold the domain: whoever can actually point it here gets it.
-    db.run('UPDATE sites SET custom_domain = NULL WHERE custom_domain = ? AND id != ? AND domain_verified = 0', domain, site.id);
+    // Another site's claim nobody has proved yet is not wiped by anyone who asks: it moves only to whoever shows they control the
+    // domain, with this site's own TXT record in place. Until then the other claim stays.
+    if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ? AND domain_verified = 0', domain, site.id)) {
+      limit(`dns:${site.id}`, 20, 10 * 60000);
+      const proof = domainProof(site.id, domain);
+      const txt = (await (dns.resolveTxt ? dns.resolveTxt(`_pf-verify.${domain}`) : Promise.resolve([])).catch(() => [])).map((parts) => [].concat(parts).join('').trim());
+      if (!txt.includes(proof)) bad(409, `Another site is waiting to connect ${domain}. If it is yours, add a TXT record named _pf-verify.${domain} with the value ${proof}, then connect it again.`);
+      db.run('UPDATE sites SET custom_domain = NULL WHERE custom_domain = ? AND id != ? AND domain_verified = 0', domain, site.id);
+    }
     db.run('UPDATE sites SET custom_domain = ?, domain_verified = 0, updated_at = ? WHERE id = ?', domain, Date.now(), site.id);
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
   });
@@ -952,7 +999,10 @@ export function createApp(options = {}) {
     }
     db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
     // What the owner knows about the person lives with the membership; another account's own name is never changed.
-    const was = member ? str(details.name).trim() : '';
+    const acct = db.get('SELECT name, email FROM users WHERE id = ?', person.id);
+    const before = member ? str(details.name).trim() || acct.name || acct.email : '';
+    // Two people with one name could not be told apart in sales, time cards or the schedule.
+    if (name && (!member || name !== str(details.name).trim()) && namesInUse(site, person.id).has(name)) bad(400, 'Someone at this business already goes by that name. Add a last name or an initial.');
     if (!member || b.name !== undefined) details.name = name;
     if (b.details && typeof b.details === 'object') {
       const d = b.details, pass = str(d.passcode, 4).replace(/\D/g, '');
@@ -962,16 +1012,8 @@ export function createApp(options = {}) {
       Object.assign(details, { nickname: str(d.nickname, 60).trim(), phone, payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass });
     }
     db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify(details), site.id, person.id);
-    if (member && name && name !== was) {
-      const acct = db.get('SELECT name, email FROM users WHERE id = ?', person.id);
-      const old = JSON.stringify([...new Set([was, acct.name, acct.email].filter(Boolean))]);
-      db.run('UPDATE timeclock SET name = ? WHERE site_id = ? AND user_id = ?', name, site.id, person.id);
-      if (was) db.run('UPDATE shifts SET name = ? WHERE site_id = ? AND name = ?', name, site.id, was);
-      if (was) db.run('UPDATE appointments SET employee = ? WHERE site_id = ? AND employee = ?', name, site.id, was);
-      db.run('UPDATE orders SET handled_by = ? WHERE site_id = ? AND handled_by IN (SELECT value FROM json_each(?))', name, site.id, old);
-      db.run('UPDATE money_log SET by_name = ? WHERE site_id = ? AND by_name IN (SELECT value FROM json_each(?))', name, site.id, old);
-      db.run('UPDATE cash_log SET by_name = ? WHERE site_id = ? AND by_name IN (SELECT value FROM json_each(?))', name, site.id, old);
-    }
+    const after = str(details.name).trim() || acct.name || acct.email;
+    if (member && after !== before) carryName(site, person.id, after, [before, acct.name, acct.email]);
     if (!member && mailOk(site)) {
       const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
       Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
@@ -1010,11 +1052,12 @@ export function createApp(options = {}) {
     for (const v of db.all("SELECT customer, total FROM invoices WHERE site_id = ? AND status = 'paid'", site.id)) { let e = ''; try { e = String(JSON.parse(v.customer).email || '').toLowerCase(); } catch { /* none */ } if (e) invoicePaid.set(e, (invoicePaid.get(e) || 0) + v.total); }
     for (const v of db.all("SELECT lower(email) AS e, SUM(total) AS n FROM appointments WHERE site_id = ? AND paid_at IS NOT NULL AND email != '' GROUP BY lower(email)", site.id)) invoicePaid.set(v.e, (invoicePaid.get(v.e) || 0) + v.n);
     for (const [e, amount] of invoicePaid) { const hit = byEmail.get(e); if (hit) hit.spent += amount; }
+    const phoneOnly = new Map(db.all("SELECT lower(name) AS n, phone, SUM(total) AS t FROM appointments WHERE site_id = ? AND paid_at IS NOT NULL AND email = '' AND phone != '' GROUP BY lower(name), phone", site.id).map((r) => [`${r.n}|${r.phone}`, r.t]));
     // People the merchant added by hand, for invoices, sit in the same list.
     for (const k of contactsOf(site.id)) {
       const hit = k.email && byEmail.get(k.email.toLowerCase());
       if (hit) Object.assign(hit, { contactId: k.id, company: k.company, address: k.address, more: k.more, name: k.name || hit.name, phone: k.phone || hit.phone });
-      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: (k.email && invoicePaid.get(k.email.toLowerCase())) || 0, last: null, first: k.createdAt, favourite: '', contactId: k.id, more: k.more });
+      else customers.push({ name: k.name, company: k.company, email: k.email, phone: k.phone, address: k.address, orders: 0, spent: (k.email ? invoicePaid.get(k.email.toLowerCase()) || 0 : phoneOnly.get(`${String(k.name).toLowerCase()}|${k.phone}`) || 0), last: null, first: k.createdAt, favourite: '', contactId: k.id, more: k.more });
     }
     json(res, 200, { customers });
   });
@@ -1068,7 +1111,7 @@ export function createApp(options = {}) {
   });
 
   const invoiceUrl = (req, site, token) => `${siteUrl(req, site).replace(/\/$/, '')}/invoice/${token}`;
-  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
+  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discountName: r.discount_name || '', discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
     project: r.project || '', payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
   const invoicesOf = (req, site) => db.all('SELECT * FROM invoices WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id).map((r) => toInvoice(r, req, site));
   function cleanInvoice(b) {
@@ -1077,10 +1120,11 @@ export function createApp(options = {}) {
     const rate = Number(b.taxRate);
     const taxRate = Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0;
     const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due)) && !Number.isNaN(Date.parse(`${b.due}T00:00:00Z`)) ? b.due : '';
-    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...invoiceTotals(items, taxRate, b.discount) };
+    const totals = invoiceTotals(items, taxRate, b.discount);
+    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...totals, discountName: totals.discount ? str(b.discountName, 60).trim() : '' };
   }
   const ownInvoice = (site, invId) => db.get('SELECT * FROM invoices WHERE id = ? AND site_id = ?', invId, site.id) || bad(404, 'We could not find that invoice.');
-  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, project = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.subtotal, v.tax, v.total, v.payUrl, v.project || '', Date.now(), rowId);
+  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, discount_name = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, project = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.discountName || '', v.subtotal, v.tax, v.total, v.payUrl, v.project || '', Date.now(), rowId);
 
   route('POST', '/api/sites/:id/contacts/import', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -1119,7 +1163,7 @@ export function createApp(options = {}) {
     const code = `GC${randomBytes(5).toString('hex').toUpperCase()}`, now = Date.now(), name = str(b.name, 120).trim();
     db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, name, email, str(b.note, 200).trim(), now);
     giftMove(site, code, 'issue', amount, paidWith, '', now);
-    if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: staffName(site, user), at: now });
+    if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: staffName(site, user), byId: user.id, at: now });
     if (email && mailOk(site)) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), lang: langOf(site), url: orderingOf(site).enabled && site.published ? `${siteUrl(req, site).replace(/\/$/, '')}/order` : '' }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
     json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site), loads: giftLoads(site) });
   });
@@ -1134,7 +1178,7 @@ export function createApp(options = {}) {
       const paidWith = GIFT_PAID.includes(b.paidWith) ? b.paidWith : bad(400, 'Choose how the top-up was paid for.');
       if (!db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ? AND balance + ? <= ?', change, site.id, card.code, change, GIFT_MAX).changes) bad(400, `A card can hold up to ${money(GIFT_MAX)}. This one has ${money(card.balance)}.`);
       giftMove(site, card.code, 'load', change, paidWith, '', now);
-      if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(card.code, card.name), method: paidWith, amount: change, note: 'Gift card topped up', by: staffName(site, user), at: now });
+      if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(card.code, card.name), method: paidWith, amount: change, note: 'Gift card topped up', by: staffName(site, user), byId: user.id, at: now });
     } else {
       if (!db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ? AND balance + ? >= 0', change, site.id, card.code, change).changes) bad(400, `This card has ${money(db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, card.code).balance)} left.`);
       giftMove(site, card.code, 'spend', -change, '', '', now);
@@ -1214,7 +1258,7 @@ export function createApp(options = {}) {
   recurring = billPlans;
 
   /* Appointments: customers ask for a time on the booking page; the business confirms or declines. */
-  const toAppt = (r) => ({ id: r.id, employee: r.employee || '', total: r.total || 0, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
+  const toAppt = (r) => ({ id: r.id, employee: r.employee || '', total: r.total || 0, tax: r.tax || 0, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', service: r.service, minutes: r.minutes, at: r.at, name: r.name, email: r.email, phone: r.phone, party: r.party, notes: r.notes, status: r.status, createdAt: r.created_at });
   const apptWhen = (at, lang = 'en') => new Date(`${at}:00Z`).toLocaleString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   function makeAppt(site, ordering, b, viaPublic) {
     const svc = ordering.booking.services.find((x) => x.id === b.service) || (viaPublic ? bad(400, 'Choose what you would like to book.') : { name: str(b.serviceName, 80).trim() || 'Booking', minutes: 0 });
@@ -1242,7 +1286,12 @@ export function createApp(options = {}) {
     db.run('INSERT INTO appointments (id, site_id, service, minutes, at, name, email, phone, party, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, svc.name, svc.minutes, at, name, email, phone, Math.max(1, Math.min(100, Math.round(Number(b.party)) || 1)), str(b.notes, 500).trim(), viaPublic ? 'pending' : 'confirmed', Date.now());
     if (viaPublic) {
       if (svc.price > 0) db.run('UPDATE appointments SET total = ? WHERE id = ?', Math.round(svc.price), id);
-      keepContact(site.id, { name, company: '', email, phone, address: '', more: EMPTY_MORE });
+      // A visitor can add themselves to Customers, but never change a customer the business already saved.
+      if (!db.get('SELECT 1 FROM contacts WHERE site_id = ? AND email = ?', site.id, email)) keepContact(site.id, { name, company: '', email, phone, address: '', more: EMPTY_MORE });
+    }
+    if (!viaPublic) {
+      const total = Math.max(0, Math.min(10000000, Math.round(Number(b.total)) || 0));
+      db.run('UPDATE appointments SET employee_id = ?, tax = ? WHERE id = ?', idForName(site, b.employee), Math.max(0, Math.min(total, Math.round(Number(b.tax)) || 0)), id);
     }
     if (!viaPublic) db.run('UPDATE appointments SET employee = ?, total = ?, minutes = CASE WHEN ? > 0 THEN ? ELSE minutes END WHERE id = ?', str(b.employee, 80).trim(), Math.max(0, Math.min(10000000, Math.round(Number(b.total)) || 0)), Math.round(Number(b.minutes)) || 0, Math.max(0, Math.min(1440, Math.round(Number(b.minutes)) || 0)), id);
     return toAppt(db.get('SELECT * FROM appointments WHERE id = ?', id));
@@ -1274,20 +1323,21 @@ export function createApp(options = {}) {
   // Recording what the customer paid for an appointment, or voiding it when it was recorded by mistake (a row with the amount negative).
   const APPT_TENDERS = ['Cash', 'Card', 'Online payment', 'Check', 'Other'];
   route('POST', '/api/sites/:id/appointments/:appt/payment', async (req, res, p) => {
-    const { site, user } = ownSite(req, p.id, 'kitchen');
+    const { site, user, role } = ownSite(req, p.id, 'kitchen');
     const b = await readJson(req);
     const row = db.get('SELECT * FROM appointments WHERE id = ? AND site_id = ?', p.appt, site.id) || bad(404, 'We could not find that appointment.');
-    const now = Date.now(), by = staffName(site, user), money1 = { source: 'Appointment', refId: row.id, ref: row.service || 'Booking', customer: row.name, by, at: now };
+    if (b.void === true && role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
+    const now = Date.now(), by = staffName(site, user), byId = user.id, money1 = { source: 'Appointment', refId: row.id, ref: row.service || 'Booking', customer: row.name, by, byId, at: now };
     if (b.void === true) {
       if (!row.paid_at) bad(400, 'No payment is recorded for this appointment.');
       if (!db.run('UPDATE appointments SET paid_at = NULL, paid_method = \'\' WHERE id = ? AND paid_at = ?', row.id, row.paid_at).changes) bad(409, 'This appointment was just changed on another device. Refresh to see it.');
-      logMoney(site, { ...money1, method: row.paid_method || 'Other', amount: -row.total, note: 'Payment voided' });
+      logMoney(site, { ...money1, method: row.paid_method || 'Other', amount: -row.total, tax: -(row.tax || 0), note: 'Payment voided' });
     } else {
       const method = APPT_TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
       if (['cancelled', 'noshow'].includes(row.status)) bad(400, 'This appointment did not go ahead, so there is nothing to pay.');
       if (!(row.total > 0)) bad(400, 'This appointment has no price to pay.');
       if (!db.run('UPDATE appointments SET paid_at = ?, paid_method = ? WHERE id = ? AND paid_at IS NULL', now, method, row.id).changes) bad(409, 'A payment is already recorded for this appointment.');
-      logMoney(site, { ...money1, method, amount: row.total });
+      logMoney(site, { ...money1, method, amount: row.total, tax: row.tax || 0 });
     }
     json(res, 200, { appointment: toAppt(db.get('SELECT * FROM appointments WHERE id = ?', row.id)) });
   });
@@ -1307,7 +1357,7 @@ export function createApp(options = {}) {
     const ok = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t));
     if (!str(b.name, 80).trim()) bad(400, 'Choose who is working.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.day)) || !ok(b.start) || !ok(b.finish)) bad(400, 'Choose a day, a start time and an end time.');
-    db.run('INSERT INTO shifts (id, site_id, name, day, start, finish, note) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, str(b.name, 80).trim(), b.day, b.start, b.finish, str(b.note, 120).trim());
+    db.run('INSERT INTO shifts (id, site_id, name, user_id, day, start, finish, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, str(b.name, 80).trim(), idForName(site, b.name), b.day, b.start, b.finish, str(b.note, 120).trim());
     json(res, 201, { ok: true });
   });
   route('DELETE', '/api/sites/:id/shifts/:shift', (req, res, p) => {
@@ -1336,13 +1386,13 @@ export function createApp(options = {}) {
     const { site, user } = ownSite(req, p.id);
     const row = db.get('SELECT id FROM timeclock WHERE id = ? AND site_id = ?', p.entry, site.id) || bad(404, 'We could not find that entry.');
     const b = await readJson(req); const t = clockTimes(b); const name = str(b.name, 80).trim();
-    db.run('UPDATE timeclock SET in_at = ?, out_at = ?, name = CASE WHEN ? = \'\' THEN name ELSE ? END WHERE id = ?', t.inAt, t.outAt, name, name, row.id);
+    db.run('UPDATE timeclock SET in_at = ?, out_at = ?, name = CASE WHEN ? = \'\' THEN name ELSE ? END, user_id = CASE WHEN ? = \'\' THEN user_id ELSE ? END WHERE id = ?', t.inAt, t.outAt, name, name, name, idForName(site, name), row.id);
     json(res, 200, clockOf(site, user));
   });
   route('POST', '/api/sites/:id/timeclock/entries', async (req, res, p) => {
     const { site, user } = ownSite(req, p.id);
     const b = await readJson(req); const t = clockTimes(b); const name = str(b.name, 80).trim() || bad(400, 'Enter who worked.');
-    db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at, out_at) VALUES (?, ?, ?, ?, ?, ?)', newId(), site.id, '', name, t.inAt, t.outAt);
+    db.run('INSERT INTO timeclock (id, site_id, user_id, name, in_at, out_at) VALUES (?, ?, ?, ?, ?, ?)', newId(), site.id, idForName(site, name), name, t.inAt, t.outAt);
     json(res, 201, clockOf(site, user));
   });
   route('DELETE', '/api/sites/:id/timeclock/:entry', (req, res, p) => {
@@ -1379,7 +1429,7 @@ export function createApp(options = {}) {
       const method = [...TENDERS, 'Bank transfer'].includes(str(raw.paidMethod, 40).trim()) ? str(raw.paidMethod, 40).trim() : 'Other', note = str(raw.paidNote, 300).trim();
       db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = ? WHERE id = ?", now, method, note, now, id);
       const made = ownInvoice(site, id);
-      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, note, by: staffName(site, user), at: now });
+      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, note, by: staffName(site, user), byId: user.id, at: now });
     }
     if (raw.walkIn !== true) keepContact(site.id, v.customer);   // a counter sale with no customer picked is not added to Customers
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
@@ -1412,20 +1462,20 @@ export function createApp(options = {}) {
     const { site, user } = ownSite(req, p.id);
     const row = ownInvoice(site, p.inv);
     const b = await readJson(req);
-    const now = Date.now(), by = staffName(site, user);
+    const now = Date.now(), by = staffName(site, user), byId = user.id;
     const v = ownInvoice(site, row.id), was = v.paid_method || 'Other';
-    const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, note, by, at: now });
+    const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, note, by, byId, at: now });
     if (b.status === 'paid') {
       if (v.kind === 'estimate') bad(400, 'Convert this estimate to an invoice before taking payment.');
       if (v.status === 'void') bad(409, 'A cancelled invoice cannot be paid. Duplicate it instead.');
       const method = [...TENDERS, 'Bank transfer'].includes(str(b.method, 40).trim()) ? str(b.method, 40).trim() : 'Other', note = str(b.note, 300).trim();
       if (v.status !== 'paid') {
         db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, method, note, now, now, v.id);
-        logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note, by, at: now });
+        logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note, by, byId, at: now });
       } else {
         // Already paid: the date it was paid stays. A different way of paying is recorded as the old way taken back and the new one added.
         db.run('UPDATE invoices SET paid_method = ?, paid_note = ?, updated_at = ? WHERE id = ?', method, note, now, v.id);
-        if (method !== was) { reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note: `Changed from ${was}`, by, at: now }); }
+        if (method !== was) { reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note: `Changed from ${was}`, by, byId, at: now }); }
       }
     } else if (b.status === 'sent') {
       if (v.status === 'paid') reverse('Payment removed');
@@ -1451,7 +1501,7 @@ export function createApp(options = {}) {
   }
   // Cancelling gives back what the order took: stock (never above a daily quantity that has refilled since), the gift card's part,
   // and a reward it used. A reward it earned and nobody used is withdrawn.
-  function cancelled(site, o, by, now) {
+  function cancelled(site, o, by, now, byId = '') {
     const ordering = orderingOf(site), refilled = bizDay(ordering, o.created_at) !== bizDay(ordering, now);
     for (const l of JSON.parse(o.items)) {
       if (refilled) db.run('UPDATE menu_items SET stock = MIN(stock + ?, MAX(stock, COALESCE(restock, stock + ?))) WHERE id = ? AND site_id = ? AND stock IS NOT NULL', l.qty, l.qty, l.id, site.id);
@@ -1463,7 +1513,7 @@ export function createApp(options = {}) {
         db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', back, site.id, o.gift_code);
         giftMove(site, o.gift_code, 'restore', back, '', o.id, now);
         db.run("UPDATE orders SET refunded = refunded + ?, refunded_at = ?, refund_note = 'Put back on the gift card' WHERE id = ?", back, now, o.id);
-        logMoney(site, { ...orderMoney(o), kind: 'refund', method: 'Gift card', amount: back, note: 'Order cancelled: put back on the gift card', by, at: now });
+        logMoney(site, { ...orderMoney(o), kind: 'refund', method: 'Gift card', amount: back, note: 'Order cancelled: put back on the gift card', by, byId, at: now });
       }
     }
     db.run('UPDATE rewards SET used_order = NULL WHERE site_id = ? AND used_order = ?', site.id, o.id);
@@ -1491,14 +1541,14 @@ export function createApp(options = {}) {
     const { site, user, role } = ownSite(req, p.id, 'kitchen');
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     const b = await readJson(req);
-    const now = Date.now(), by = staffName(site, user);
+    const now = Date.now(), by = staffName(site, user), byId = user.id;
     // The order is read again now the body is here, so two taps at once can never record the same payment twice.
     const o = db.get('SELECT * FROM orders WHERE id = ?', row.id);
     // What was paid at the counter: the total, less any gift card the customer paid with when ordering.
     const due = o.total - (o.gift || 0), was = o.paid_method || 'Other';
     // Paid in full by a gift card, when ordering or at the counter.
     const viaCard = o.paid_method === 'Gift card' && !!o.gift_code;
-    const reverse = (note) => logMoney(site, { ...orderMoney(o), method: was, amount: -due, tip: -o.tip, tax: -o.tax, fee: -o.fee, note, by, at: now });
+    const reverse = (note) => logMoney(site, { ...orderMoney(o), method: was, amount: -due, tip: -o.tip, tax: -o.tax, fee: -o.fee, note, by, byId, at: now });
     if (b.refund !== undefined) {
       if (role === 'kitchen') bad(403, 'Your login does not allow refunds. Ask a manager.');
       if (!o.paid_at) bad(400, 'This order has no payment recorded, so there is nothing to refund.');
@@ -1509,7 +1559,8 @@ export function createApp(options = {}) {
       const note = str(b.note, 300).trim();
       db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, note, now, now, o.id);
       if (viaCard) { db.run('UPDATE gift_cards SET balance = balance + ? WHERE site_id = ? AND code = ?', amount, site.id, o.gift_code); giftMove(site, o.gift_code, 'restore', amount, '', o.id, now); }
-      logMoney(site, { ...orderMoney(o), kind: 'refund', method: viaCard ? 'Gift card' : was, amount, note: note || (viaCard ? 'Put back on the gift card' : ''), by, at: now });
+      const part = refundParts(o, amount);
+      logMoney(site, { ...orderMoney(o), kind: 'refund', method: viaCard ? 'Gift card' : was, amount, tax: part.tax, tip: part.tip, fee: part.fee, note: note || (viaCard ? 'Put back on the gift card' : ''), by, byId, at: now });
     } else if (b.clear === true) {
       if (role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
       if (viaCard) bad(400, 'This order was paid with a gift card. Refund it to the card, or cancel the order to give the card its balance back.');
@@ -1529,18 +1580,18 @@ export function createApp(options = {}) {
         const card = db.get('SELECT balance FROM gift_cards WHERE site_id = ? AND code = ?', site.id, code) || bad(404, 'We could not find that gift card.');
         if (!db.run('UPDATE gift_cards SET balance = balance - ? WHERE site_id = ? AND code = ? AND balance >= ?', due, site.id, code, due).changes) bad(409, `This card has ${money(card.balance)} left, and ${money(due)} is due.`);
         giftMove(site, code, 'spend', due, '', o.id, now);
-        db.run("UPDATE orders SET gift = gift + ?, gift_code = ?, paid_at = ?, paid_method = 'Gift card', handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?", due, code, now, by, now, o.id);
-        logMoney(site, { ...orderMoney(o), method: 'Gift card', amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Card …${code.slice(-4)}`, by, at: now });
+        db.run("UPDATE orders SET gift = gift + ?, gift_code = ?, paid_at = ?, paid_method = 'Gift card', handled_by_id = CASE WHEN handled_by = '' THEN ? ELSE handled_by_id END, handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?", due, code, now, byId, by, now, o.id);
+        logMoney(site, { ...orderMoney(o), method: 'Gift card', amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Card …${code.slice(-4)}`, by, byId, at: now });
       } else if (!o.paid_at) {
-        db.run('UPDATE orders SET paid_at = ?, paid_method = ?, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, by, now, o.id);
-        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, by, at: now });
+        db.run('UPDATE orders SET paid_at = ?, paid_method = ?, handled_by_id = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by_id END, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, byId, by, now, o.id);
+        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, by, byId, at: now });
       } else if (method !== o.paid_method) {
         if (viaCard || method === 'Gift card') bad(400, 'A gift card payment cannot be swapped for another tender. Refund it, then record the payment again.');
         if (o.refunded) bad(400, 'This payment has a refund against it, so how it was paid cannot be changed.');
         // The date it was paid stays. The change is recorded as the old way taken back and the new way added.
         db.run('UPDATE orders SET paid_method = ?, updated_at = ? WHERE id = ?', method, now, o.id);
         reverse(`Changed to ${method}`);
-        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Changed from ${was}`, by, at: now });
+        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Changed from ${was}`, by, byId, at: now });
       }
     }
     json(res, 200, { order: toOrder(db.get('SELECT * FROM orders WHERE id = ?', row.id)) });
@@ -1565,9 +1616,16 @@ export function createApp(options = {}) {
   // Every recorded payment and refund between two moments: orders paid at the counter and invoices marked paid.
   /* The money ledger. Rows are only ever added: a payment taken back or paid another way adds a row with the amount negative. */
   function logMoney(site, x) {
-    db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, note, by_name, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, str(x.note, 300), str(x.by, 120), x.at || Date.now());
+    db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, note, by_name, by_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, str(x.note, 300), str(x.by, 120), x.byId || '', x.at || Date.now());
   }
+  // What a refund gave back, split the way the order was made up: sales, tax, tip and delivery fee.
+  const refundParts = (o, amount) => {
+    const total = o.total || 0;
+    if (!total || amount <= 0) return { sales: amount, tax: 0, tip: 0, fee: 0 };
+    const tax = Math.round((amount * (o.tax || 0)) / total), tip = Math.round((amount * (o.tip || 0)) / total), fee = Math.round((amount * (o.fee || 0)) / total);
+    return { sales: amount - tax - tip - fee, tax, tip, fee };
+  };
   const orderMoney = (o) => ({ source: 'Order', refId: o.id, ref: `#${o.number}`, customer: o.name, channel: o.method });
   const invoiceMoney = (v) => { let name = ''; try { name = JSON.parse(v.customer).name || ''; } catch { /* blank */ } return { source: 'Invoice', refId: v.id, ref: `INV-${v.number}`, customer: name }; };
   function moneyMoves(site, lo, hi) {
@@ -1614,7 +1672,7 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const amount = Math.round(Number(b.amount));
     if (!(amount > 0) || amount > 100_000_000) bad(400, 'Enter an amount above zero.');
-    db.run('INSERT INTO cash_log (id, site_id, kind, amount, note, by_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, b.kind === 'out' ? 'out' : 'in', amount, str(b.note, 200).trim(), staffName(site, user), Date.now());
+    db.run('INSERT INTO cash_log (id, site_id, kind, amount, note, by_name, by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, b.kind === 'out' ? 'out' : 'in', amount, str(b.note, 200).trim(), staffName(site, user), user.id, Date.now());
     json(res, 201, { ok: true });
   });
   route('DELETE', '/api/sites/:id/cash/:entry', (req, res, p) => {
@@ -1779,6 +1837,7 @@ export function createApp(options = {}) {
     if (!ids.length) bad(400, 'Select at least one item.');
     const set = b.set && typeof b.set === 'object' ? b.set : {};
     const num = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v)) || 0));
+    if (set.sale !== undefined && !(Number.isInteger(Number(set.sale)) && Number(set.sale) >= 0 && Number(set.sale) <= 90)) bad(400, 'Enter a whole percent from 0 to 90.');
     db.raw.exec('BEGIN');
     try {
       for (const itemId of ids) {
@@ -1851,8 +1910,8 @@ export function createApp(options = {}) {
     const totals = blank(), prev = blank();
     const byHour = days === 1;
     const series = new Map();
-    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0, tips: 0, collected: 0 });
-    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0, tips: 0, collected: 0 }); }
+    if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, gross: 0, net: 0, tax: 0, tips: 0, collected: 0 });
+    else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, gross: 0, net: 0, tax: 0, tips: 0, collected: 0 }); }
     const methods = new Map(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
     const items = new Map(), cats = new Map(), revs = new Map(), list = [], staff = new Map(), tenders = new Map(), promos = new Map(), removed = new Map();
     const bump = (map, key, o) => { const r = map.get(key) || map.set(key, { name: key, orders: 0, net: 0, tips: 0, total: 0 }).get(key); r.orders++; r.net += o.subtotal - o.discount; r.tips += o.tip; r.total += o.total; };
@@ -1866,7 +1925,7 @@ export function createApp(options = {}) {
       if (o.status === 'cancelled') { cancelled++; for (const l of o.items) { const rm = removed.get(l.name) || removed.set(l.name, { name: l.name, qty: 0, value: 0 }).get(l.name); rm.qty += l.qty; rm.value += l.price * l.qty; } continue; }
       add(totals, o);
       const s1 = series.get(byHour ? String(w.getUTCHours()).padStart(2, '0') : day);
-      if (s1) { s1.orders++; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; }
+      if (s1) { s1.orders++; s1.gross += o.subtotal; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; }
       bump(staff, o.handledBy || 'Not recorded', o); bump(tenders, o.paidAt ? o.paidMethod || 'Other' : 'Not paid yet', o);
       if (o.discount) { const pk = o.promo || 'Other discount'; const pr = promos.get(pk) || promos.set(pk, { name: pk, uses: 0, amount: 0 }).get(pk); pr.uses++; pr.amount += o.discount; }
       for (const l of o.items) if (l.list > l.price) { const pk = `item:${l.deal || 'Sale'}`; const pr = promos.get(pk) || promos.set(pk, { name: l.deal || 'Sale', uses: 0, amount: 0, item: true }).get(pk); pr.uses++; pr.amount += (l.list - l.price) * l.qty; }
@@ -1891,47 +1950,72 @@ export function createApp(options = {}) {
     // Refunds count on the day they were made, against the order they belong to, unless it was cancelled (its sales are not counted either).
     // They come off net sales and the total everywhere, so the rows of every report add up.
     const refunds = mv.refunds.filter((x) => x.source === 'Order' && ofType(x));
-    const refOrders = new Map(refunds.length ? db.all('SELECT id, status, method, handled_by, paid_at, paid_method FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(refunds.map((x) => x.refId))])).map((o) => [o.id, o]) : []);
+    const refOrders = new Map(refunds.length ? db.all('SELECT id, status, method, handled_by, paid_at, paid_method, subtotal, discount, tax, tip, fee, total, items, tax_rate FROM orders WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(refunds.map((x) => x.refId))])).map((o) => [o.id, o]) : []);
     for (const x of refunds) {
       const o = refOrders.get(x.refId);
       if (!o || o.status === 'cancelled') continue;
-      const day = dayOf(x.at);
-      if (day >= prevFrom && day <= prevTo) { prev.refunds += x.amount; prev.net -= x.amount; prev.total -= x.amount; }
+      // The refunded sales come off Net sales; the tax, tip and delivery fee given back come off their own lines, so every row still adds up.
+      const part = refundParts(o, x.amount), day = dayOf(x.at);
+      if (day >= prevFrom && day <= prevTo) { prev.refunds += part.sales; prev.net -= part.sales; prev.tax -= part.tax; prev.total -= x.amount; }
       if (day < from || day > to) continue;
-      totals.refunds += x.amount; totals.net -= x.amount; totals.total -= x.amount;
+      totals.refunds += part.sales; totals.net -= part.sales; totals.tax -= part.tax; totals.tips -= part.tip; totals.fees -= part.fee; totals.total -= x.amount;
+      const lines = JSON.parse(o.items || '[]'), taxedLines = lines.reduce((a, l) => a + (l.taxable === false ? 0 : l.price * l.qty), 0), net0 = o.subtotal - o.discount;
+      const taxable0 = o.subtotal ? Math.round(taxedLines - (o.discount * taxedLines) / o.subtotal) : 0, taxablePart = net0 ? Math.round((part.sales * taxable0) / net0) : 0;
+      totals.taxable -= taxablePart; totals.nontaxable -= part.sales - taxablePart;
+      // The refunded sales come off the items they were for, in proportion, so Item sales, categories and revenue classes add up to net sales.
+      let leftR = part.sales, leftD = o.discount;
+      lines.forEach((l, i) => {
+        const g = l.price * l.qty, last = i === lines.length - 1, off = last ? leftD : o.subtotal ? Math.round((o.discount * g) / o.subtotal) : 0; leftD -= off;
+        const back = last ? leftR : net0 ? Math.round((part.sales * (g - off)) / net0) : 0; leftR -= back;
+        const category = catOf[l.id] || 'No longer on the menu';
+        (items.get(l.name) || items.set(l.name, { name: l.name, category, qty: 0, sales: 0 }).get(l.name)).sales -= back;
+        (cats.get(category) || cats.set(category, { name: category, qty: 0, sales: 0 }).get(category)).sales -= back;
+        const rk = l.rev || 'No revenue class'; (revs.get(rk) || revs.set(rk, { name: rk, qty: 0, sales: 0 }).get(rk)).sales -= back;
+      });
+      const rate = o.tax_rate ?? ordering.taxRate ?? 0, rr = totals.rates.get(rate) || totals.rates.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0 }).get(rate);
+      rr.taxable -= taxablePart; rr.nontaxable -= part.sales - taxablePart; rr.tax -= part.tax;
       const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : day);
-      if (s1) s1.net -= x.amount;
+      if (s1) { s1.net -= part.sales; s1.tax -= part.tax; s1.tips -= part.tip; }
       const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
-      m.net -= x.amount; m.total -= x.amount;
+      m.net -= part.sales; m.total -= x.amount;
       const who = o.handled_by || 'Not recorded', e = staff.get(who) || staff.set(who, { name: who, orders: 0, net: 0, tips: 0, total: 0 }).get(who);
-      e.net -= x.amount; e.total -= x.amount;
+      e.net -= part.sales; e.tips -= part.tip; e.total -= x.amount;
       const tk = o.paid_at ? o.paid_method || 'Other' : 'Not paid yet', tr = tenders.get(tk) || tenders.set(tk, { name: tk, orders: 0, net: 0, tips: 0, total: 0 }).get(tk);
-      tr.net -= x.amount; tr.total -= x.amount;
+      tr.net -= part.sales; tr.tips -= part.tip; tr.total -= x.amount;
     }
     const paidNow = mv.payments.filter((x) => within(x.at) && ofType(x));
     for (const x of paidNow) { const s1 = series.get(byHour ? String(new Date(wall(x.at)).getUTCHours()).padStart(2, '0') : dayOf(x.at)); if (s1) s1.collected += x.amount; }
     const moved = tally({ payments: paidNow, refunds: mv.refunds.filter((x) => within(x.at) && ofType(x)) });
-    const invoices = paidNow.filter((x) => x.source === 'Invoice');
+    const invoices = paidNow.filter((x) => x.source === 'Invoice'), inStore = paidNow.filter((x) => x.source === 'Invoice' || x.source === 'Appointment');
+    const backNow = mv.refunds.filter((x) => within(x.at) && ofType(x));
     // Paid invoices' sales and tax go into the Taxes report beside orders, by the rate they were taxed at. An invoice paid and then
     // taken back in the same period nets to nothing; one taken back now that was paid earlier counts against this period.
     const invNet = new Map();
     for (const x of invoices) invNet.set(x.refId, (invNet.get(x.refId) || 0) + Math.sign(x.amount));
     const taxRows = new Map([...totals.rates.values()].map((r) => [r.rate, { ...r, invoices: 0 }]));
     if (!onlyType && invNet.size) {
-      for (const v of db.all('SELECT id, items, tax_rate, discount, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...invNet.keys()]))) {
+      for (const v of db.all('SELECT id, items, tax_rate, discount, discount_name, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...invNet.keys()]))) {
         const k = Math.sign(invNet.get(v.id) || 0); if (!k) continue;
         const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0);
         const taxable = v.subtotal ? Math.round(taxed - (v.discount * taxed) / v.subtotal) : 0;
         const r = taxRows.get(v.tax_rate) || taxRows.set(v.tax_rate, { rate: v.tax_rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(v.tax_rate);
         r.taxable += k * taxable; r.nontaxable += k * (v.subtotal - v.discount - taxable); r.tax += k * v.tax; r.invoices += k;
+        if (v.discount) { const dn = v.discount_name || 'Invoice discount', pk = `invoice:${dn}`, pr = promos.get(pk) || promos.set(pk, { name: dn, uses: 0, amount: 0, invoice: true }).get(pk); pr.uses += k; pr.amount += k * v.discount; }
       }
+    }
+    // Paid appointments join the Taxes report too, at the rate in use (a void counts against it).
+    if (!onlyType) for (const x of paidNow.filter((y) => y.source === 'Appointment')) {
+      const rate = x.tax ? Number(ordering.taxRate) || 0 : 0, k = Math.sign(x.amount), sale = x.amount - (x.tax || 0);
+      const r = taxRows.get(rate) || taxRows.set(rate, { rate, taxable: 0, nontaxable: 0, tax: 0, orders: 0, invoices: 0 }).get(rate);
+      if (x.tax) r.taxable += sale; else r.nontaxable += sale;
+      r.tax += x.tax || 0; r.appointments = (r.appointments || 0) + k;
     }
     const { rates, ...sums } = totals;
     json(res, 200, {
       // Money actually taken in the period. Taxes and delivery fees are kept apart; in-store sales are paid invoices, with and without their tax.
       money: { collected: moved.totals.payments, refunds: moved.totals.refunds, tenders: moved.tenders, count: moved.totals.count,
-        inStore: invoices.reduce((a, x) => a + x.amount, 0), inStoreNet: invoices.reduce((a, x) => a + x.amount - (x.tax || 0), 0), inStoreTax: invoices.reduce((a, x) => a + (x.tax || 0), 0),
-        tax: paidNow.reduce((a, x) => a + (x.tax || 0), 0), fees: paidNow.reduce((a, x) => a + (x.fee || 0), 0) },
+        inStore: inStore.reduce((a, x) => a + x.amount, 0), inStoreNet: inStore.reduce((a, x) => a + x.amount - (x.tax || 0), 0), inStoreTax: inStore.reduce((a, x) => a + (x.tax || 0), 0),
+        tax: paidNow.reduce((a, x) => a + (x.tax || 0), 0) - backNow.reduce((a, x) => a + (x.tax || 0), 0), fees: paidNow.reduce((a, x) => a + (x.fee || 0), 0) - backNow.reduce((a, x) => a + (x.fee || 0), 0) },
       range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
       totals: { ...sums, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled, rates: [...taxRows.values()].sort((a, b) => a.rate - b.rate) },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax, discounts: prev.discounts, refunds: prev.refunds },
@@ -1965,14 +2049,14 @@ export function createApp(options = {}) {
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     if (status !== row.status) {
       if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
-      const by = staffName(site, user), now = Date.now();
+      const by = staffName(site, user), byId = user.id, now = Date.now();
       // Money taken at the counter is refunded first, so the books never keep a payment for an order that did not happen.
       // A gift card is given back by cancelling.
       const counter = row.paid_at && row.paid_method !== 'Gift card' ? row.total - row.gift : 0;
       if (status === 'cancelled' && counter > 0 && row.refunded < counter) bad(409, `This order has a payment of ${money(counter)} recorded. Refund it first, then cancel the order.`);
       // The first person to take the order on is the one credited with it; later status changes do not take it over.
-      if (!db.run("UPDATE orders SET status = ?, handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ? AND status = ?", status, by, now, row.id, row.status).changes) bad(409, 'This order was just changed on another device. Refresh to see it.');
-      if (status === 'cancelled') cancelled(site, row, by, now);
+      if (!db.run("UPDATE orders SET status = ?, handled_by_id = CASE WHEN handled_by = '' THEN ? ELSE handled_by_id END, handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ? AND status = ?", status, byId, by, now, row.id, row.status).changes) bad(409, 'This order was just changed on another device. Refresh to see it.');
+      if (status === 'cancelled') cancelled(site, row, by, now, byId);
       if (status === 'completed') earnReward(site, row, now, req);
       const order = toOrder({ ...row, status });
       if (['confirmed', 'ready', 'cancelled'].includes(status)) mail(status, req, site, order, order.email);
@@ -2065,15 +2149,19 @@ export function createApp(options = {}) {
 
   /* ---------- published sites ---------- */
 
-  const simplePage = (title, text) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:#fff;color:#1d1d1f;text-align:center;padding:24px;-webkit-font-smoothing:antialiased}h1{font-size:40px;letter-spacing:-.025em;margin:0 0 10px;font-weight:600}p{color:#6e6e73;font-size:19px;margin:0}@media(prefers-color-scheme:dark){body{background:#000;color:#f5f5f7}p{color:#a1a1a6}}</style></head><body><div><h1>${esc(title)}</h1><p>${esc(text)}</p></div></body></html>`;
+  const simplePage = (title, text, lang = 'en') => `<!doctype html><html lang="${lang === 'es' ? 'es' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:#fff;color:#1d1d1f;text-align:center;padding:24px;-webkit-font-smoothing:antialiased}h1{font-size:40px;letter-spacing:-.025em;margin:0 0 10px;font-weight:600}p{color:#6e6e73;font-size:19px;margin:0}@media(prefers-color-scheme:dark){body{background:#000;color:#f5f5f7}p{color:#a1a1a6}}</style></head><body><div><h1>${esc(title)}</h1><p>${esc(text)}</p></div></body></html>`;
 
   // A Spanish site's customers are told in Spanish when an order, booking or message cannot be sent.
   async function serveSite(req, res, site, base, sub, origin, draft = false) {
     try { return await siteRequest(req, res, site, base, sub, origin, draft); }
     catch (e) {
-      if (!(e instanceof HttpError) || req.method !== 'POST' || !site) throw e;
+      if (req.method !== 'POST' || !site) throw e;
+      if (!(e instanceof HttpError)) { console.error(e); e = new HttpError(500, 'Something went wrong on our side. Please try again.'); }
       let lang = 'en'; try { lang = JSON.parse(draft ? site.draft : site.published || site.draft).lang; } catch { /* English */ }
-      throw lang === 'es' ? new HttpError(e.status, inSpanish(e.message), e.code) : e;
+      if (lang !== 'es') throw e;
+      const es = new HttpError(e.status, inSpanish(e.message), e.code);
+      if (String(req.headers.accept || '').includes('json') || String(req.headers['content-type'] || '').includes('json')) throw es;
+      return html(res, es.status, simplePage(es.status === 429 ? 'Más despacio' : 'Algo salió mal', es.message, 'es'));
     }
   }
   async function siteRequest(req, res, site, base, sub, origin, draft) {
@@ -2083,6 +2171,8 @@ export function createApp(options = {}) {
     if (!config && site && /^\/(invoice|order)\/[\w-]{10,40}$/.test(path)) config = JSON.parse(site.draft);
     if (!config) return html(res, 404, simplePage('Coming soon', 'This website has not been published yet.'));
     const home = `${origin}${base}/`;
+    // Search engines are given the site's one public address: a page reached through the free path address names its main address instead.
+    const canon = draft || !base.startsWith('/s/') ? home : `${siteUrl(req, site).replace(/\/$/, '')}/`;
 
     if (path === '/_forms/contact' && req.method === 'POST' && !draft) {
       limit(`form:${site.id}:${ipOf(req)}`, 6, 10 * 60000);
@@ -2101,9 +2191,12 @@ export function createApp(options = {}) {
     }
     const ordering = orderingOf(site);
     if (path === '/_book' && req.method === 'POST' && !draft) {
-      limit(`book:${site.id}:${ipOf(req)}`, 8, 10 * 60000); limit(`book:${site.id}`, 80, 10 * 60000);
+      limit(`book:${site.id}:${ipOf(req)}`, 8, 10 * 60000);
       if (!ordering.booking.enabled) bad(409, 'Online booking is not available right now. Please call us.');
+      // The shop-wide cap counts bookings that went through, so requests that were refused never use it up.
+      if (counted(`book:${site.id}`) >= 80) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
       const appt = makeAppt(site, ordering, await readJson(req, 20_000), true);
+      bump(`book:${site.id}`, 10 * 60000);
       const business = businessOf(site), owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
       const lang = kind => (kind === 'merchant' ? 'en' : langOf(site));
       const send = (to, kind) => Promise.resolve().then(() => mailer.send({ to, ...bookingEmail(kind, { business, appt, when: apptWhen(appt.at, lang(kind)), lang: lang(kind), manageUrl: `${linkOrigin(req)}/app/site/${site.id}?tab=appts` }), fromName: business.name, replyTo: kind === 'merchant' ? appt.email : business.email })).catch((e) => console.error('Booking email failed:', e.message));
@@ -2112,7 +2205,7 @@ export function createApp(options = {}) {
       return json(res, 201, { ok: true });
     }
     if (path === '/_promo' && req.method === 'GET') {
-      limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000); limit(`promo:${site.id}`, 300, 10 * 60000);
+      limit(`promo:${site.id}:${ipOf(req)}`, 20, 10 * 60000);
       const promo = ordering.enabled && promoFor(site, ordering, new URL(req.url, 'http://x').searchParams.get('code'));
       return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
     }
@@ -2150,7 +2243,7 @@ export function createApp(options = {}) {
           const it = applyMods(pricedMenu([toItem(row)], ordering), ordering)[0];
           if (it.blocked) bad(409, `${it.name} is sold out right now. Please remove it and try again.`);
           before.set(it.id, { name: it.name, stock: it.stock });
-          const picked = resolveOptions(it, w.picks);
+          const picked = resolveOptions(it, w.picks, config.lang === 'es' ? 'es' : 'en');
           if (picked.error) bad(400, picked.error);
           need.set(it.id, (need.get(it.id) || 0) + w.qty);
           if (it.stock != null && it.stock < need.get(it.id)) bad(409, `Only ${it.stock} of ${it.name} left. Please lower the quantity and try again.`);
@@ -2234,14 +2327,14 @@ export function createApp(options = {}) {
       const kind = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }[(logo.match(/^\/u\/[\w.-]+\.(png|jpg|webp)$/) || [])[1]];
       return send(res, 200, JSON.stringify({ name, short_name: name.slice(0, 12), start_url: `${base}/${ordering.enabled ? 'order' : ''}`, scope: `${base}/`, display: 'standalone', background_color: '#ffffff', theme_color: '#ffffff', icons: kind ? [{ src: logo, sizes: '512x512', type: kind, purpose: 'any' }] : [] }), { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=300' });
     }
-    if (path === '/robots.txt') return send(res, 200, draft ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\nSitemap: ${home}sitemap.xml\n`, { 'Content-Type': 'text/plain; charset=utf-8' });
+    if (path === '/robots.txt') return send(res, 200, draft ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\nSitemap: ${canon}sitemap.xml\n`, { 'Content-Type': 'text/plain; charset=utf-8' });
     if (path === '/sitemap.xml') {
       const mod = new Date(site.published_at || site.updated_at).toISOString().slice(0, 10);
-      return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((pg) => `  <url><loc>${esc(home + pg)}</loc><lastmod>${mod}</lastmod></url>`).join('\n')}\n</urlset>\n`, { 'Content-Type': 'application/xml; charset=utf-8' });
+      return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((pg) => `  <url><loc>${esc(canon + pg)}</loc><lastmod>${mod}</lastmod></url>`).join('\n')}\n</urlset>\n`, { 'Content-Type': 'application/xml; charset=utf-8' });
     }
     const page = path === '/' ? 'home' : path.slice(1);
     const sent = new URL(req.url, 'http://x').searchParams.get('sent') === '1';
-    const out = renderPage(config, page, { ...shared, url: page === 'home' ? home : `${home}${page}`, sent, booked: new URL(req.url, 'http://x').searchParams.get('done') === '1', today: new Date(wallNow(ordering)).toISOString().slice(0, 10) });
+    const out = renderPage(config, page, { ...shared, url: page === 'home' ? canon : `${canon}${page}`, sent, booked: new URL(req.url, 'http://x').searchParams.get('done') === '1', today: new Date(wallNow(ordering)).toISOString().slice(0, 10) });
     return html(res, out.status, out.html, { 'Cache-Control': draft || shared.menu.length ? 'no-store' : 'public, max-age=60', ...(draft ? { 'X-Robots-Tag': 'noindex' } : {}) });
   }
 
@@ -2317,6 +2410,10 @@ export function createApp(options = {}) {
       if (!m[2]) return redirect(res, `/s/${m[1]}/`, 301);
       const site = db.get('SELECT * FROM sites WHERE slug = ?', m[1]);
       if (!site) return html(res, 404, simplePage('Nothing here yet', 'There is no website at this address.'));
+      if (site.custom_domain && site.domain_verified && (req.method === 'GET' || req.method === 'HEAD') && !m[2].startsWith('/_')) {
+        const q = req.url.indexOf('?');
+        return redirect(res, `https://${site.custom_domain}${m[2]}${q >= 0 ? req.url.slice(q) : ''}`, 301);
+      }
       return serveSite(req, res, site, `/s/${m[1]}`, m[2], appOrigin(req));
     }
     if ((m = path.match(/^\/preview\/([\w-]+)(\/.*)?$/))) {

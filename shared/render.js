@@ -291,7 +291,7 @@ var done=function(){var h=d.createElement('h3');h.textContent=f.dataset.sent||'M
 if(P){done();return}
 var b=f.querySelector('button');var bt=b.textContent;b.disabled=true;b.textContent='…';
 var body={};new FormData(f).forEach(function(v,k){body[k]=v});
-fetch(f.action,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw 0;done()}).catch(function(){b.disabled=false;b.textContent=bt;var n=f.querySelector('.note');n.textContent='Something went wrong. Please try again, or contact us directly.';n.style.color='#d1372f'})});
+fetch(f.action,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)}).then(function(r){if(r.ok)return done();return r.json().catch(function(){return {}}).then(function(j){throw {m:j.error}})}).catch(function(e){b.disabled=false;b.textContent=bt;var n=f.querySelector('.note');n.textContent=(e&&e.m)||f.getAttribute('data-failed')||'Something went wrong. Please try again, or contact us directly.';n.style.color='#d1372f'})});
 })();`;
 
 const paras = (text) => str(text, 60000).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
@@ -321,8 +321,8 @@ export const anchorFor = (s) => (s.nav ? str(s.nav, 30).toLowerCase().replace(/[
 
 // "November 23, 2026" as the site's language writes it; anything else the owner typed is shown as it is.
 const effectiveDate = (v, lang) => {
-  const t = str(v, 60).trim(), ms = Date.parse(t);
-  return lang === 'es' && /^[A-Za-z]+ \d{1,2}, \d{4}$/.test(t) && !Number.isNaN(ms) ? new Date(ms).toLocaleDateString('es-US', { year: 'numeric', month: 'long', day: 'numeric' }) : t;
+  const t = str(v, 60).trim(), m = t.match(/^[A-Za-z]+ (\d{1,2}), \d{4}$/), ms = Date.parse(t);
+  return lang === 'es' && m && !Number.isNaN(ms) && new Date(ms).getDate() === Number(m[1]) ? new Date(ms).toLocaleDateString('es-US', { year: 'numeric', month: 'long', day: 'numeric' }) : t;
 };
 export function renderPage(site, page = 'home', opts = {}) {
   const base = str(opts.base, 200).replace(/\/$/, '');
@@ -346,13 +346,13 @@ export function renderPage(site, page = 'home', opts = {}) {
     if (s === '/order') return ordering?.enabled ? pageHref('order') : '';
     if (s === '/book') return ordering?.booking?.enabled && arr(ordering.booking.services).length ? pageHref('book') : '';
     if (/^\/(privacy|terms|policies|accessibility)$/.test(s)) return pageHref(s.slice(1));
-    if (s[0] === '#' && missing.has(s.slice(1))) return '';
+    if (s[0] === '#' && present && !present.has(s.slice(1))) return '';
     if (s[0] === '#') return isHome ? `href="${esc(s)}"` : `href="${esc(home + s)}" data-page="home" data-hash="${esc(s.slice(1))}"`;
     return /^https?:/i.test(s) ? `href="${esc(s)}" target="_blank" rel="noopener"` : `href="${esc(s)}"`;
   };
   const pageHref = (p) => `href="${esc(p === 'home' ? home : `${base}/${p}`)}" data-page="${p}"`;
-  // Links to sections that are switched off, or show nothing, are left out.
-  let missing = new Set(arr(site.sections).filter((x) => x && x.enabled === false).map(anchorFor).filter((k) => !sections.some((x) => anchorFor(x) === k)));
+  // Section links are checked against the sections really drawn; until those are known, every link is kept.
+  let present = null;
   const bookOn = !!(ordering?.booking?.enabled && arr(ordering.booking.services).length);
   // The merchant's own name for booking, or 'Book online' in the site's language.
   const bookName = str(ordering?.booking?.title).trim() && ordering.booking.title !== 'Book online' ? ordering.booking.title : T.bookOnline;
@@ -421,15 +421,16 @@ export function renderPage(site, page = 'home', opts = {}) {
       ].join('');
       const form = d.showForm === false ? '' : opts.sent
         ? `<div class="msg"><div class="sent" role="status"><h3>${esc(T.sent)}</h3><p>${esc(T.sentSub)}</p></div></div>`
-        : `<form class="msg" method="post" action="${esc(base)}/_forms/contact" data-sent="${esc(T.sent)}" data-sub="${esc(T.sentSub)}"><div class="two"><label class="f">${esc(T.name)}<input name="name" autocomplete="name" required maxlength="120"></label><label class="f">${esc(T.email)}<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div><label class="f">${esc(T.phone)} <input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label class="f">${esc(T.message)}<textarea name="message" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><label>Leave this empty<input name="company_website" tabindex="-1" autocomplete="off"></label></div><button class="btn" type="submit">${esc(T.send)}</button><p class="note">${legalOn.includes('privacy') ? `${esc(T.agree)} <a ${pageHref('privacy')}>${esc(T.privacy)}</a>.` : esc(T.onlyReply)}</p></form>`;
+        : `<form class="msg" method="post" action="${esc(base)}/_forms/contact" data-sent="${esc(T.sent)}" data-sub="${esc(T.sentSub)}" data-failed="${esc(T.formFailed)}"><div class="two"><label class="f">${esc(T.name)}<input name="name" autocomplete="name" required maxlength="120"></label><label class="f">${esc(T.email)}<input name="email" type="email" autocomplete="email" required maxlength="200"></label></div><label class="f">${esc(T.phone)} <input name="phone" type="tel" autocomplete="tel" maxlength="40"></label><label class="f">${esc(T.message)}<textarea name="message" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><label>Leave this empty<input name="company_website" tabindex="-1" autocomplete="off"></label></div><button class="btn" type="submit">${esc(T.send)}</button><p class="note">${legalOn.includes('privacy') ? `${esc(T.agree)} <a ${pageHref('privacy')}>${esc(T.privacy)}</a>.` : esc(T.onlyReply)}</p></form>`;
       return `<div class="wrap"><div class="cols${form ? '' : ' one'}"><div><h2>${esc(d.title)}</h2>${d.subtitle ? `<p class="sub">${esc(d.subtitle)}</p>` : ''}<div class="info">${info}</div></div>${form}</div></div>`;
     },
   };
   // Each section drawn once to see which ones show anything; if some do not, they are drawn again without links to them.
   const drawAll = () => sections.map((s, i) => ({ s, inner: R[s.type] ? R[s.type](s.data || {}, s, i === 0) : '' }));
   let drawn = drawAll();
-  if (drawn.some((x) => !x.inner)) { missing = new Set([...missing, ...drawn.filter((x) => !x.inner).map((x) => anchorFor(x.s))]); drawn = drawAll(); }
-  const linked = sections.filter((s) => str(s.nav).trim() && !missing.has(anchorFor(s)));
+  present = new Set(drawn.filter((x) => x.inner).map((x) => anchorFor(x.s)));
+  if (drawn.some((x) => !x.inner || [...x.inner.matchAll(/(?:href="#|data-hash=")([^"]*)"/g)].some((m) => !present.has(m[1])))) drawn = drawAll();
+  const linked = sections.filter((s) => str(s.nav).trim() && present.has(anchorFor(s)));
 
   /* Header */
   const logo = safeImg(brand.logo);
@@ -455,7 +456,7 @@ export function renderPage(site, page = 'home', opts = {}) {
     if (!main && preview) main = `<section><div class="wrap">${emptyBox('Your page is empty. Add a section to get started.')}</div></section>`;
   } else if (page === 'order' && ordering?.enabled) {
     pageTitle = T.orderOnline;
-    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now, taken: opts.taken, busy: opts.busy, codes: !!opts.codes });
+    main = orderPage({ menu, ordering, base, preview, siteKey: str(opts.siteKey, 60) || 'site', hasPayUrl: !!safeUrl(biz.payUrl), lang, now: opts.now, taken: opts.taken, busy: opts.busy, codes: !!opts.codes, mailOn: opts.mailOn !== false });
   } else if (page === 'order-status' && opts.order) {
     pageTitle = `${T.order} #${opts.order.number}`;
     main = orderStatusPage({ order: opts.order, ordering, payUrl: safeUrl(biz.payUrl), phoneHtml: biz.phone ? `<a class="btn" ${href(biz.phone)}>${esc(T.call)} ${esc(biz.phone)}</a>` : '', homeHref: pageHref('home'), orderHref: pageHref('order'), siteKey: str(opts.siteKey, 60) || 'site', lang, loyalty: opts.loyalty, mailOn: opts.mailOn !== false });

@@ -227,15 +227,16 @@ function orderClient() {
   function shownGroups(it) { return (it.g || []).map(function (g, gi) { return gi; }).filter(function (gi) { return it.g[gi].c.some(Boolean); }).sort(function (a, b) { return ((it.g[a].k == null ? -1 : it.g[a].k) - (it.g[b].k == null ? -1 : it.g[b].k)) || a - b; }); }
   function labels(it, o) { var out = []; (it.g || []).forEach(function (g, gi) { ((o || [])[gi] || []).forEach(function (ci) { if (g.c[ci]) out.push(g.c[ci][0]); }); }); return out.join(', '); }
   function lines(c) { return S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; }).map(function (l, i) { var it = c.items[l.id]; return { i: i, id: l.id, o: l.o || [], name: it.n, opt: labels(it, l.o), price: price(it, l.o), qty: Math.min(l.q, it.max), tx: it.t !== 0 }; }); }
-  function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it) return; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q = Math.min(hit.q + 1, it.max); else S.lines.push({ id: id, o: o || [], q: 1 }); }
+  function inCart(id) { return S.lines.reduce(function (a, l) { return a + (l.id === id ? l.q : 0); }, 0); }
+  function put(c, id, o) { var k = JSON.stringify(o || []), it = c.items[id]; if (!it || inCart(id) >= it.max) return; var hit = S.lines.filter(function (l) { return l.id === id && JSON.stringify(l.o || []) === k; })[0]; if (hit) hit.q += 1; else S.lines.push({ id: id, o: o || [], q: 1 }); }
   function field(name, label, type, req, ac) { return '<label class="f">' + h(label) + '<input name="' + name + '" type="' + (type || 'text') + '"' + (req ? ' required' : '') + (ac ? ' autocomplete="' + ac + '"' : '') + ' maxlength="200" value="' + h(S.f[name]) + '"></label>'; }
   function slots(c) { return c.slots[S.method === 'delivery' ? 'delivery' : 'pickup'] || []; }
   function draw() {
     var c = conf(), el = d.getElementById('cart'); if (!c || !el) return;
     var T = c.T;
     if (c.methods.indexOf(S.method) < 0) S.method = c.methods[0] || '';
-    var cut = false;
-    S.lines.forEach(function (l) { var it = c.items[l.id]; if (it && l.q > it.max) { l.q = it.max; cut = true; } });
+    var cut = false, used = {};
+    S.lines.forEach(function (l) { var it = c.items[l.id]; if (!it) return; var room = it.max - (used[l.id] || 0); if (l.q > room) { l.q = Math.max(0, room); cut = true; } used[l.id] = (used[l.id] || 0) + l.q; });
     S.lines = S.lines.filter(function (l) { return c.items[l.id] && l.q > 0; });
     if (cut) keep(c);
     var sl = slots(c), can = c.open && (c.asap || sl.length > 0);
@@ -259,7 +260,7 @@ function orderClient() {
     out += '<p class="mnote">' + h(note) + '</p>';
     out += '<form id="checkout" novalidate>';
     if (sl.length) out += '<label class="f">' + h(T.when) + '<select name="when">' + (c.asap ? '<option value="">' + h(T.asap) + '</option>' : '') + sl.map(function (x) { return '<option value="' + x[0] + '"' + (S.when === x[0] ? ' selected' : '') + '>' + h(x[1]) + '</option>'; }).join('') + '</select></label>';
-    out += field('name', T.name, 'text', 1, 'name') + field('phone', T.phone, 'tel', 1, 'tel') + field('email', T.emailConfirm, 'email', 1, 'email');
+    out += field('name', T.name, 'text', 1, 'name') + field('phone', T.phone, 'tel', 1, 'tel') + field('email', c.mail ? T.emailConfirm : T.email, 'email', 1, 'email');
     if (S.method === 'delivery') out += field('address', T.address, 'text', 1, 'street-address') + (c.zones ? field('zip', T.zip, 'text', 1, 'postal-code') + ((S.f.zip || '').replace(/\D/g, '').length >= 5 && !zone ? '<p class="oerr">' + h(T.noDelivery) + '</p>' : '') : '');
     if (S.method === 'curbside') out += field('vehicle', T.vehicle, 'text', 1);
     if (c.notes) out += '<label class="f">' + h(T.notes) + '<textarea name="notes" maxlength="500">' + h(S.f.notes) + '</textarea></label>';
@@ -276,16 +277,18 @@ function orderClient() {
   }
   function choose(c, id, back) {
     var it = c.items[id], T = c.T, box = d.createElement('div'); box.className = 'osheet';
-    box.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="osheet-h"><h2 id="osheet-h">' + h(it.n) + '</h2><form>' + shownGroups(it).map(function (gi) { var g = it.g[gi]; return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + (!g.r && !g.m ? '<label><input type="radio" name="g' + gi + '" value="-1" checked>' + h(T.none) + '</label>' : '') + g.c.map(function (ch, ci) { if (!ch) return ''; var first = g.c.findIndex(function (x) { return x && !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
-    var close = function () { box.remove(); if (back && back.isConnected) back.focus(); };
-    box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('[data-x]')) close(); });
-    // Escape closes it, and Tab stays inside it while it is open.
-    box.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+    box.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="osheet-h"><h2 id="osheet-h">' + h(it.n) + '</h2><form>' + shownGroups(it).map(function (gi) { var g = it.g[gi]; return '<fieldset><legend>' + h(g.n) + '<span>' + h(g.r ? T.required : T.optional) + '</span></legend>' + (!g.r && !g.m ? '<label><input type="radio" name="g' + gi + '" value="-1" checked>' + h(T.noChoice) + '</label>' : '') + g.c.map(function (ch, ci) { if (!ch) return ''; var first = g.c.findIndex(function (x) { return x && !x[2]; }); return '<label' + (ch[2] ? ' class="out"' : '') + '><input type="' + (g.m ? 'checkbox' : 'radio') + '" name="g' + gi + '" value="' + ci + '"' + (g.r && !g.m && ci === first ? ' checked' : '') + (ch[2] ? ' disabled' : '') + '>' + h(ch[0]) + (ch[2] ? '<em>' + h(T.soldOut) + '</em>' : ch[1] ? '<em>+' + fmt(ch[1]) + '</em>' : '') + '</label>'; }).join('') + '</fieldset>'; }).join('') + '<p class="oerr" hidden></p><div class="acts"><button type="button" class="btn ghost" data-x="1">' + h(T.cancel) + '</button><button class="btn" type="submit">' + h(T.addToOrder) + '</button></div></form></div>';
+    var stops = function () { return [].filter.call(box.querySelectorAll('input:not([disabled]),button:not([disabled])'), function (x) { if (x.type !== 'radio') return true; return x === (box.querySelector('input[name="' + x.name + '"]:checked:not([disabled])') || box.querySelector('input[name="' + x.name + '"]:not([disabled])')); }); };
+    var onKey = function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
       if (e.key !== 'Tab') return;
-      var f = [].filter.call(box.querySelectorAll('input:not([disabled]),button:not([disabled])'), function (x) { return x.offsetParent !== null; }); if (!f.length) return;
-      if (e.shiftKey && d.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && d.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
-    });
+      var f = stops(), i = f.indexOf(d.activeElement); if (!f.length) return;
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && (i < 0 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+    };
+    var onFocus = function (e) { if (!box.contains(e.target)) { var f = stops(); if (f.length) f[0].focus(); } };
+    var close = function () { box.remove(); d.removeEventListener('keydown', onKey, true); d.removeEventListener('focusin', onFocus, true); if (back && back.isConnected) back.focus(); };
+    d.addEventListener('keydown', onKey, true); d.addEventListener('focusin', onFocus, true);
+    box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('[data-x]')) close(); });
     box.querySelector('form').addEventListener('submit', function (e) {
       e.preventDefault(); e.stopPropagation();
       var o = it.g.map(function (g, gi) { return [].map.call(e.target.querySelectorAll('[name=g' + gi + ']:checked'), function (i) { return Number(i.value); }).filter(function (n) { return n >= 0; }); });
@@ -325,13 +328,12 @@ function orderClient() {
     var c = conf(); if (!c) return;
     var t = e.target.closest('[data-add],[data-qty],[data-method],[data-tip],[data-promo]'); if (!t) return;
     if (t.dataset.add) { var it = c.items[t.dataset.add]; if (!it) return; if (shownGroups(it).length) { choose(c, t.dataset.add, t); return; } put(c, t.dataset.add, []); }
-    if (t.dataset.qty) { var l = S.lines[Number(t.dataset.i)]; if (l) { l.q += Number(t.dataset.qty); if (l.q <= 0) S.lines.splice(Number(t.dataset.i), 1); else l.q = Math.min(l.q, c.items[l.id] ? c.items[l.id].max : l.q); } }
+    if (t.dataset.qty) { var l = S.lines[Number(t.dataset.i)], by = Number(t.dataset.qty); if (l && !(by > 0 && c.items[l.id] && inCart(l.id) >= c.items[l.id].max)) { l.q += by; if (l.q <= 0) S.lines.splice(Number(t.dataset.i), 1); } }
     if (t.dataset.method) S.method = t.dataset.method;
     if (t.dataset.tip) S.tip = Number(t.dataset.tip);
     if (t.dataset.promo) {
       var code = (S.f.promo || '').trim(); S.perr = ''; S.promo = null;
       if (!code) { draw(); return; }
-      if (P) { S.perr = c.T.promoBad; draw(); return; }
       fetch(c.promoUrl + '?code=' + encodeURIComponent(code)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) { S.promo = j; draw(); }).catch(function () { S.perr = c.T.promoBad; draw(); });
       return;
     }
@@ -365,7 +367,7 @@ function orderClient() {
     var c = conf(), f = e.target; if (!c || S.busy) return;
     var bad = [].filter.call(f.querySelectorAll('[required]'), function (i) { return !i.value.trim(); })[0];
     if (bad) { S.err = c.T.fillAll; draw(); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(S.f.email || '')) { S.err = c.T.badEmail; draw(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(S.f.email || '')) { S.err = c.mail ? c.T.badEmail : c.T.badEmailPlain; draw(); return; }
     if (P) { S.err = 'This is a preview. Orders can be placed once your site is published.'; draw(); return; }
     S.busy = true; S.err = ''; draw();
     var body = { items: lines(c).map(function (l) { return { id: l.id, qty: l.qty, opts: l.o }; }), method: S.method, tip: S.tip, when: S.when, promo: S.promo ? S.promo.code : '', expect: S.total, name: S.f.name, phone: S.f.phone, email: S.f.email, address: S.f.address, zip: S.f.zip, vehicle: S.f.vehicle, notes: S.f.notes };
@@ -412,7 +414,7 @@ export function menuSection(d, { menu, ordering, preview, orderHref, lang }) {
   return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.name)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { T })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>${esc(T.orderOnline)}</a></div>` : ''}</div>`;
 }
 
-export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy, codes }) {
+export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy, codes, mailOn = true }) {
   const o = ordering;
   const T = strings(lang);
   const methods = openMethods(o);
@@ -427,7 +429,7 @@ export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, l
   for (const it of arr(menu)) if (it.available !== false && it.stock !== 0 && !it.blocked) items[it.id] = { n: it.name, p: itemPrice(it), max: it.stock == null ? 50 : Math.min(50, it.stock), t: it.taxable === false ? 0 : 1, g: arr(it.options).map((g) => ({ n: g.name, r: g.required ? 1 : 0, m: g.multi ? 1 : 0, k: g.rank ?? -1, c: g.choices.map((c) => (c.hidden ? 0 : [c.name, c.price, c.soldOut ? 1 : 0])) })) };
   const names = { pickup: T.pickup, curbside: T.curbside, delivery: T.delivery };
   const conf = {
-    key: siteKey, post: `${base}/_order`, promoUrl: `${base}/_promo`, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,
+    key: siteKey, post: `${base}/_order`, promoUrl: preview && !base ? `/preview/${siteKey}/_promo` : `${base}/_promo`, mail: !!mailOn, open, asap, busy: openNow && !!busy, slots, items, methods, names, T,
     tax: o.taxRate, fee: o.deliveryFee, min: o.deliveryMin, tips: o.tips, notes: o.allowNotes, prep: o.prepMinutes, dmin: o.deliveryMinutes, promos: arr(o.promos).some((x) => x.active) || !!codes,
     zones: arr(o.zones).length ? o.zones.map((z) => [z.zips, z.fee]) : null,
     pickupNote: o.pickupNote, curbsideNote: o.curbsideNote, area: o.deliveryArea, pay: hasPayUrl ? T.payEither : T.payLater,

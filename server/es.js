@@ -32,16 +32,17 @@ const EXACT = new Map([
   ['That time is fully booked. Please choose another.', 'Esa hora está completa. Elige otra.'],
   ['Could not read that message.', 'No pudimos leer ese mensaje.'],
   ['Please add your name, a valid email and a message.', 'Agrega tu nombre, un correo electrónico válido y un mensaje.'],
+  ['One of your items is no longer available. Please remove it and try again.', 'Uno de tus artículos ya no está disponible. Quítalo e inténtalo de nuevo.'],
+  ['Could not read that request.', 'No pudimos leer esa solicitud.'],
+  ['That is too large to upload.', 'Es demasiado grande para enviarlo.'],
+  ['Something went wrong on our side. Please try again.', 'Algo salió mal de nuestro lado. Inténtalo de nuevo.'],
+  ['This is a preview. Orders, bookings and messages can be sent once your site is published.', 'Esta es una vista previa. Los pedidos, las reservas y los mensajes se podrán enviar cuando el sitio esté publicado.'],
 ]);
 const PATTERNS = [
   [/^(.+) is sold out right now\. Please remove it and try again\.$/, '$1 está agotado. Quítalo e inténtalo de nuevo.'],
   [/^(.+) is no longer available\. Please remove it and try again\.$/, '$1 ya no está disponible. Quítalo e inténtalo de nuevo.'],
   [/^Only (\d+) of (.+) left\. Please lower the quantity and try again\.$/, 'Solo quedan $1 de $2. Baja la cantidad e inténtalo de nuevo.'],
   [/^Prices just changed\. Your total is now (.+)\.$/, 'Los precios acaban de cambiar. Tu total ahora es $1.'],
-  [/^Choose only one (.+) for (.+)\.$/, 'Elige solo una opción de $1 para $2.'],
-  [/^Choose (.+) for (.+)\.$/, 'Elige $1 para $2.'],
-  [/^(.+) is not available\.$/, '$1 no está disponible.'],
-  [/^(.+) is sold out\.$/, '$1 está agotado.'],
 ];
 
 export function inSpanish(message) {
