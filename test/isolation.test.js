@@ -337,7 +337,7 @@ test('changing the business name (DBA) updates everything and emails the owner',
     assert.equal(saved.status, 200);
     assert.equal(saved.data.site.name, 'New Name Bakery');
     assert.equal((await own('GET', S)).data.site.draft.brand.name, 'New Name Bakery');
-    assert.equal((await own('POST', `${S}/publish`, { draft: { ...full.draft, brand: { ...full.draft.brand, name: 'Sneaky Name' } } })).data.site.name, 'New Name Bakery', 'nor can publishing');
+    assert.equal((await own('POST', `${S}/publish`, { draft: { ...full.draft, brand: { ...full.draft.brand, name: 'Sneaky Name' } }, rev: saved.data.site.draftRev })).data.site.name, 'New Name Bakery', 'nor can publishing');
     // The same name again sends nothing.
     sent.length = 0;
     assert.equal((await own('PUT', `${S}/name`, { name: 'New Name Bakery' })).data.emailed, false);
@@ -450,7 +450,11 @@ test('typed-in address headers do not get round the attempt limits', async () =>
 
 test('links in emails never follow a host a request made up', async () => {
   const sent = [], mail = { enabled: true, send: async (m) => { sent.push(m); } };
-  for (const [envExtra, want] of [[{}, '127.0.0.1'], [{ RENDER_EXTERNAL_URL: 'https://pf-test.onrender.com' }, 'pf-test.onrender.com']]) {
+  // With email on, the service will not start without its own address: emailed links are never built from the Host a request names.
+  const none = mkdtempSync(join(tmpdir(), 'pfhost-'));
+  assert.throws(() => createApp({ dataDir: none, env: {}, mailer: mail }), /APP_URL/);
+  rmSync(none, { recursive: true, force: true });
+  for (const [envExtra, want] of [[{ APP_URL: 'https://sites.example.com' }, 'sites.example.com'], [{ RENDER_EXTERNAL_URL: 'https://pf-test.onrender.com' }, 'pf-test.onrender.com']]) {
     const dir = mkdtempSync(join(tmpdir(), 'pfhost-'));
     const app = createApp({ dataDir: dir, env: envExtra, mailer: mail });
     const srv = createServer(app); await new Promise((done) => srv.listen(0, done));

@@ -34,7 +34,7 @@ const HEAD = {
     confirmed: () => ['Your order is confirmed', 'We are preparing your order now.'],
     ready: (o) => [o.method === 'delivery' ? 'Your order is on its way' : `Your order is ${readyLabel(o.method).toLowerCase()}`, o.method === 'delivery' ? 'Your order has left and will be with you soon.' : o.method === 'curbside' ? 'Pull up and let us know you are here. We will bring it out.' : 'Come on in. Your order is waiting at the counter.'],
     cancelled: () => ['Your order was cancelled', 'Your order has been cancelled. Please contact us if you have any questions.'],
-    merchant: (o) => [`New ${ORDER_METHODS[o.method].name.toLowerCase()} order`, `${o.name} placed an order for ${money(o.total)}.`],
+    merchant: (o) => [`New ${(ORDER_METHODS[o.method]?.name ?? 'online').toLowerCase()} order`, `${o.name} placed an order for ${money(o.total)}.`],
   },
   es: {
     placed: (o) => ['Recibimos tu pedido', `Gracias, ${o.name.split(' ')[0]}. Recibimos tu pedido y lo confirmaremos en breve.`],
@@ -53,7 +53,7 @@ export function orderEmail(kind, { business, order, statusUrl, manageUrl, eta, w
   const rows = order.items.map((l) => [`${l.qty} × ${l.name}${l.opts?.length ? ` (${l.opts.join(', ')})` : ''}`, money(l.price * l.qty)]);
   const totals = [[W.sub, order.subtotal], [`${W.disc}${order.promo ? ` (${order.promo})` : ''}`, -order.discount], [W.tax, order.tax], [W.del, order.fee], [W.tip, order.tip]].filter(([, v]) => v).map(([k, v]) => [k, v < 0 ? `−${money(-v)}` : money(v)]);
   const details = [
-    [W[order.method] || ORDER_METHODS[order.method].name, when ? W.sched(when) : kind === 'placed' && eta ? W.about(eta) : ''],
+    [(Object.hasOwn(W, order.method) && W[order.method]) || ORDER_METHODS[order.method]?.name || '', when ? W.sched(when) : kind === 'placed' && eta ? W.about(eta) : ''],
     forMerchant && ['Customer', `${order.name} · ${order.phone} · ${order.email}`],
     order.address && [W.to, order.address], order.vehicle && [W.car, order.vehicle], order.notes && [W.notes, order.notes],
   ].filter(Boolean);

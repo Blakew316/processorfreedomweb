@@ -128,6 +128,14 @@ export function openDb(dataDir) {
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   // Links staff make for a locked-out merchant sign in even with two-step on; links from the email do not.
   addColumn('resets', 'staff', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('push_subs', 'fails', 'INTEGER NOT NULL DEFAULT 0');
+  // Every uploaded photo, so storage can be counted per account and files nothing uses any more can be cleared away.
+  db.exec('CREATE TABLE IF NOT EXISTS uploads (name TEXT PRIMARY KEY, user_id TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS uploads_user ON uploads(user_id);');
+  // Only a link that went to the mailbox alone proves the address. Links handed to an inviter or made by staff set a password but confirm nothing.
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('resets') WHERE name = 'kind'").get()) {
+    db.exec("ALTER TABLE resets ADD COLUMN kind TEXT NOT NULL DEFAULT 'email'");
+    db.exec("UPDATE resets SET kind = CASE WHEN staff = 1 THEN 'staff' ELSE 'invite' END");
+  }
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
   db.exec(`

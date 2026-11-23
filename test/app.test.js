@@ -70,8 +70,8 @@ async function confirmEmail(c, email, password, box) {
   const token = box.filter((m) => m.to === email).at(-1).text.match(/token=([\w-]+)/)[1];
   assert.equal((await c('POST', '/api/auth/reset', { token, password })).status, 200);
 }
-const dnsAnswers = { cname: {}, a: {} };
-const dns = { resolveCname: async (n) => dnsAnswers.cname[n] || Promise.reject(new Error('ENOTFOUND')), resolve4: async (n) => dnsAnswers.a[n] || Promise.reject(new Error('ENOTFOUND')) };
+const dnsAnswers = { cname: {}, a: {}, txt: {} };
+const dns = { resolveCname: async (n) => dnsAnswers.cname[n] || Promise.reject(new Error('ENOTFOUND')), resolve4: async (n) => dnsAnswers.a[n] || Promise.reject(new Error('ENOTFOUND')), resolveTxt: async (n) => dnsAnswers.txt[n] || Promise.reject(new Error('ENOTFOUND')) };
 
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), 'pfsites-'));
@@ -124,7 +124,10 @@ test('sign up, build, publish, serve, collect a message, connect a domain', asyn
   assert.equal((await anon('GET', '/', null, { host: 'nobody.pfsites.test' })).status, 404);
 
   site.draft.sections[0].data.title = 'Best pizza in <b>town</b>';
-  assert.equal((await me('PUT', `/api/sites/${site.id}`, { draft: site.draft })).status, 200);
+  // A save has to say which saved copy it was made from; an old copy is refused.
+  assert.equal((await me('PUT', `/api/sites/${site.id}`, { draft: site.draft })).status, 412);
+  assert.equal((await me('PUT', `/api/sites/${site.id}`, { draft: site.draft, rev: 'old' })).status, 412);
+  assert.equal((await me('PUT', `/api/sites/${site.id}`, { draft: site.draft, rev: site.draftRev })).status, 200);
   assert.equal((await client()('PUT', `/api/sites/${site.id}`, { draft: site.draft })).status, 401);
   r = await me('POST', `/api/sites/${site.id}/publish`, {});
   assert.equal(r.data.site.live, true);
@@ -142,7 +145,7 @@ test('sign up, build, publish, serve, collect a message, connect a domain', asyn
 
   // Draft edits do not leak to the live site until republished
   site.draft.brand.tagline = 'Unreleased tagline';
-  r = await me('PUT', `/api/sites/${site.id}`, { draft: site.draft });
+  r = await me('PUT', `/api/sites/${site.id}`, { draft: site.draft, rev: (await me('GET', `/api/sites/${site.id}`)).data.site.draftRev });
   assert.equal(r.data.site.dirty, true);
   assert.doesNotMatch((await anon('GET', '/', null, { host: 'joespizza.pfsites.test' })).data, /Unreleased tagline/);
   assert.match((await me('GET', `/preview/${site.id}/`)).data, /Unreleased tagline/);
@@ -174,15 +177,30 @@ test('sign up, build, publish, serve, collect a message, connect a domain', asyn
 
   // Own domain: only served after DNS points at us
   assert.equal((await me('POST', `/api/sites/${site.id}/domain`, { domain: 'x.pfsites.test' })).status, 400);
-  assert.equal((await me('POST', `/api/sites/${site.id}/domain`, { domain: 'https://www.joespizza.com/' })).data.site.customDomain, 'joespizza.com');
+  // The service's own address can never become a merchant's domain.
+  assert.equal((await me('POST', `/api/sites/${site.id}/domain`, { domain: 'app.pfsites.test' })).status, 400);
+  assert.equal((await me('POST', `/api/sites/${site.id}/domain`, { domain: 'www.app.pfsites.test' })).status, 400);
+  r = await me('POST', `/api/sites/${site.id}/domain`, { domain: 'https://www.joespizza.com/' });
+  assert.equal(r.data.site.customDomain, 'joespizza.com');
+  const proof = r.data.site.domainProof;
+  assert.equal(proof.name, '_pf-verify.joespizza.com');
+  assert.match(proof.value, /^pf-verify=[\w-]{32}$/);
   // Until the domain is proven, the business's site is not served there (our own policy page is, like any unknown address).
   assert.notEqual((await anon('GET', '/menu', null, { host: 'joespizza.com' })).status, 200);
   assert.ok(!String((await anon('GET', '/privacy', null, { host: 'joespizza.com' })).data).includes('Joe’s Pizza'));
   assert.ok(!String((await anon('GET', '/privacy', null, { host: 'joespizza.com' })).data).includes("Joe's Pizza"));
   assert.equal((await me('POST', `/api/sites/${site.id}/domain/verify`)).data.ok, false);
   dnsAnswers.cname['www.joespizza.com'] = ['app.pfsites.test'];
+  // Pointing the domain here is not enough: anyone could claim a domain that points here. The TXT proof has to match this site.
+  r = await me('POST', `/api/sites/${site.id}/domain/verify`);
+  assert.equal(r.data.ok, false);
+  assert.equal(r.data.pointed, true);
+  dnsAnswers.txt['_pf-verify.joespizza.com'] = [['pf-verify=somebody-elses-proof-value-000000']];
+  assert.equal((await me('POST', `/api/sites/${site.id}/domain/verify`)).data.ok, false);
+  dnsAnswers.txt['_pf-verify.joespizza.com'] = [[proof.value.slice(0, 20), proof.value.slice(20)]];
   r = await me('POST', `/api/sites/${site.id}/domain/verify`);
   assert.equal(r.data.ok, true);
+  assert.equal(r.data.site.domainProof, null);
   assert.equal(r.data.site.url, 'https://joespizza.com');
   assert.equal((await anon('GET', '/privacy', null, { host: 'www.joespizza.com' })).status, 200);
 
@@ -497,9 +515,9 @@ test('item options, promo codes, opening hours, scheduling, reset links, stats, 
     assert.equal((await client()('GET', `/api/sites/${site.id}/stats`)).status, 401);
 
     // Spanish
-    const draft = (await me('GET', `/api/sites/${site.id}`)).data.site.draft;
+    const { draft, draftRev } = (await me('GET', `/api/sites/${site.id}`)).data.site;
     draft.lang = 'es';
-    await me('POST', `/api/sites/${site.id}/publish`, { draft });
+    await me('POST', `/api/sites/${site.id}/publish`, { draft, rev: draftRev });
     r = await anon('GET', '/order', null, host);
     assert.match(r.data, /<html lang="es"/);
     assert.match(r.data, /Ordenar en línea/);
@@ -582,11 +600,13 @@ test('zones, loyalty, category hours, version history, push on new order, Spanis
     assert.equal(saved.zones.length, 2);
 
     // Version history: each publish that changes something is kept
-    const draft = (await me('GET', `/api/sites/${site.id}`)).data.site.draft;
+    const { draft, draftRev } = (await me('GET', `/api/sites/${site.id}`)).data.site;
     await me('POST', `/api/sites/${site.id}/publish`, {});
     await me('POST', `/api/sites/${site.id}/publish`, {});
     draft.brand.tagline = 'Second version'; draft.lang = 'es';
-    await me('POST', `/api/sites/${site.id}/publish`, { draft });
+    // Publishing an edited copy needs the copy it was made from, so an older tab can never put its version live.
+    assert.equal((await me('POST', `/api/sites/${site.id}/publish`, { draft })).status, 412);
+    await me('POST', `/api/sites/${site.id}/publish`, { draft, rev: draftRev });
     let r = await me('GET', `/api/sites/${site.id}/versions`);
     assert.equal(r.data.versions.length, 2);
     const first = await me('GET', `/api/sites/${site.id}/versions/${r.data.versions[1].id}`);
@@ -661,8 +681,14 @@ test('sales tax can be switched off per item', async () => {
   const site = (await me('POST', '/api/sites', { name: 'Tax Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price,Taxable\nTaco,10.00,yes\nGift card,25.00,no' })).data.site;
   let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
   assert.deepEqual(items.map((x) => x.taxable), [true, false]);
-  items = (await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: 3 })).data.items;
+  // A stock change says what count it was made from. A save without that, or made from an old count, never writes stock back.
+  assert.equal((await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: 3 })).data.items[0].stock, 100);
+  const sold = await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: 3, stockWas: 90 });
+  assert.equal(sold.status, 409);
+  assert.equal(sold.data.stock, 100);
+  items = (await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: 3, stockWas: 100 })).data.items;
   assert.deepEqual([items[0].taxable, items[0].stock], [true, 3], 'other fields are kept when one changes');
+  assert.equal((await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { ...items[0], stock: 50, stockWas: 50, name: 'Taco' })).data.items[0].stock, 3, 'a whole item sent back with an old count keeps the real count');
   await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8 } });
   await me('POST', `/api/sites/${site.id}/publish`, {});
   const r = await anon('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: items[0].id, qty: 1 }, { id: items[1].id, qty: 1 }] }, { host: 'taxcafe.pfsites.test' });
@@ -687,7 +713,7 @@ test('every item has a quantity; sale prices and bulk edits', async () => {
   assert.equal(items.at(-1).stock, 25);
   items = (await me('POST', `/api/sites/${site.id}/menu`, { name: 'New', price: 100 })).data.items;
   assert.equal(items.at(-1).stock, 100);
-  items = (await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: '' })).data.items;
+  items = (await me('PUT', `/api/sites/${site.id}/menu/${items[0].id}`, { stock: '', stockWas: items[0].stock })).data.items;
   assert.equal(items[0].stock, 100, 'a blank quantity does not become unlimited');
   const [taco, burrito, soda] = items;
 
@@ -783,7 +809,7 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
 
   const d2 = mkdtempSync(join(tmpdir(), 'pfsites2-'));
   const sent = [], pushed = [];
-  const app2 = createApp({ dataDir: d2, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, msg) => { pushed.push(msg); },
+  const app2 = createApp({ dataDir: d2, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1', ADMIN_EMAILS: 'boss@pf.test' }, mailer: { enabled: true, send: async (m) => { sent.push(m); } }, pusher: async (sub, msg) => { pushed.push(msg); },
     scanner: async (buf, type) => ({ items: [{ category: 'Tacos', name: `Scanned ${type}`, price: 425, desc: 'From the photo' }, { category: 'Tacos', name: '', price: 100, desc: '' }] }) });
   const srv = createServer(app2);
   await new Promise((r) => srv.listen(0, r));
@@ -795,7 +821,7 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     let items = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
     const [tacoId, sodaId] = items.map((x) => x.id);
     assert.equal(items[0].restock, null);
-    items = (await me('PUT', `/api/sites/${site.id}/menu/${tacoId}`, { stock: 7, restock: 40 })).data.items;
+    items = (await me('PUT', `/api/sites/${site.id}/menu/${tacoId}`, { stock: 7, stockWas: items[0].stock, restock: 40 })).data.items;
     assert.deepEqual([items[0].stock, items[0].restock], [7, 40]);
     await me('POST', `/api/sites/${site.id}/menu/bulk`, { ids: [sodaId], set: { restock: 12, stock: 9 } });
     await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, slotLimit: 2, lowStockAt: 5, notifyEmail: 'boss@refill.test' } });
@@ -845,10 +871,26 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
 
     // Team: a kitchen login sees orders and nothing else; a manager cannot touch the team or delete the site.
     const invite = (await me('POST', `/api/sites/${site.id}/team`, { email: 'cook@refill.test', name: 'Cook', role: 'kitchen' })).data;
-    assert.match(invite.link, /\/reset\?token=/);
-    assert.ok(sent.some((m) => m.to === 'cook@refill.test'));
+    // With email on, the link to choose a password goes only to the person, never back to whoever invited them.
+    assert.equal(invite.link, '');
+    assert.equal(invite.emailed, true);
+    const inviteMail = sent.find((m) => m.to === 'cook@refill.test');
+    const inviteLink = (inviteMail.text.match(/\/reset\?token=(\S+)/) || [])[1];
+    assert.ok(inviteLink, 'the invite email carries the link');
+    // An existing account added to the team: the same answer, and the owner sees only what they typed, never the account's own details.
+    const known = client();
+    await known('POST', '/api/auth/signup', { email: 'known@refill.test', password: 'long-enough-pw', name: 'Private Person' });
+    await known('PUT', '/api/me', { phone: '903-555-0199' });
+    const joined = (await me('POST', `/api/sites/${site.id}/team`, { email: 'known@refill.test', name: 'Prep cook', role: 'kitchen' })).data;
+    assert.deepEqual([joined.link, joined.emailed], [invite.link, invite.emailed], 'no way to tell whether the address already had an account');
+    const shown = joined.members.find((m) => m.email === 'known@refill.test');
+    assert.deepEqual([shown.name, shown.phone, !!shown.active], ['Prep cook', '', false]);
+    assert.equal((await known('GET', '/api/me')).data.user.name, 'Private Person', 'their own name is never changed');
+    assert.equal((await me('POST', `/api/sites/${site.id}/team`, { email: 'boss@pf.test', role: 'manager' })).status, 400, 'a staff address can never be set up through a team');
+    assert.equal((await known('DELETE', `/api/sites/${site.id}/membership`)).status, 200, 'anyone can leave a team');
+    assert.equal((await known('GET', `/api/sites/${site.id}/orders`)).status, 404);
     const cook = client();
-    assert.equal((await cook('POST', '/api/auth/reset', { token: invite.link.split('token=')[1], password: 'cooks-password' })).status, 200);
+    assert.equal((await cook('POST', '/api/auth/reset', { token: inviteLink, password: 'cooks-password' })).status, 200);
     const mine = (await cook('GET', '/api/sites')).data.sites;
     assert.deepEqual(mine.map((s) => [s.name, s.role]), [['Refill Cafe', 'kitchen']]);
     const orders = (await cook('GET', `/api/sites/${site.id}/orders`)).data.orders;
@@ -899,7 +941,7 @@ test('invoices: create, total, send, view, remind, mark paid, contacts', async (
     await me('POST', '/api/auth/signup', { email: 'owner@bill.test', password: 'long-enough-pw' });
     const site = (await me('POST', '/api/sites', { name: 'Bill Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco tray,80.00' })).data.site;
     const draft = site.draft; draft.business.payUrl = 'https://pay.example/billcafe';
-    await me('POST', `/api/sites/${site.id}/publish`, { draft });
+    await me('POST', `/api/sites/${site.id}/publish`, { draft, rev: site.draftRev });
     const body = { customer: { name: 'Dana Lee', company: 'Acme Co', email: 'Dana@Acme.test', phone: '903-555-0111', address: '1 Main St' }, items: [{ name: 'Taco tray', qty: 3, price: 8000 }, { name: 'Delivery', qty: 1, price: 2500, taxable: false }, { name: '', qty: 1, price: 1 }], taxRate: 8.25, discount: 1000, due: '2099-01-31', notes: 'Thank you <b>!' };
     assert.equal((await me('POST', `/api/sites/${site.id}/invoices`, { ...body, customer: {} })).status, 400);
     const made = (await me('POST', `/api/sites/${site.id}/invoices`, body)).data;

@@ -372,7 +372,7 @@ export function createSite(name, templateId, o = {}) {
     template: t.id,
     lang: o.lang === 'es' ? 'es' : 'en',
     brand: { name: n, tagline: b.tagline, logo: '', logoMode: 'text' },
-    theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', bg: '', font: FONTS[o.font] ? o.font : t.font, radius: RADII[o.radius] ? o.radius : t.radius },
+    theme: { accent: isHex(o.accent) ? o.accent : t.accent, mode: o.mode === 'dark' ? 'dark' : 'light', bg: '', font: Object.hasOwn(FONTS, o.font) ? o.font : t.font, radius: Object.hasOwn(RADII, o.radius) ? o.radius : t.radius },
     business: { legalName: '', email: str(o.email, 200), phone: str(o.phone, 40), address1: str(o.address1, 200), city: str(o.city, 80), state: str(o.state, 80), zip: str(o.zip, 20), hours: b.hours, payUrl: '' },
     social: { instagram: '', facebook: '', tiktok: '', x: '', youtube: '', linkedin: '' },
     header: { sticky: true, cta: b.cta, showPhone: false, layout: 'left', style: 'glass' },
@@ -416,21 +416,21 @@ export function normalizeSite(input) {
   out.lang = s.lang === 'es' ? 'es' : 'en';
   out.brand.name = str(out.brand.name, 80).trim() || base.brand.name;
   if (!isHex(out.theme.accent)) out.theme.accent = base.theme.accent;
-  if (!FONTS[out.theme.font]) out.theme.font = base.theme.font;
-  if (!RADII[out.theme.radius]) out.theme.radius = base.theme.radius;
+  if (!Object.hasOwn(FONTS, out.theme.font)) out.theme.font = base.theme.font;
+  if (!Object.hasOwn(RADII, out.theme.radius)) out.theme.radius = base.theme.radius;
   out.theme.mode = out.theme.mode === 'dark' ? 'dark' : 'light';
   out.theme.bg = isHex(out.theme.bg) ? out.theme.bg : '';
-  if (!HEADER_LAYOUTS[out.header.layout]) out.header.layout = 'left';
-  if (!HEADER_STYLES[out.header.style]) out.header.style = 'glass';
-  if (!FOOTER_STYLES[out.footer.style]) out.footer.style = 'columns';
-  if (!FOOTER_COLORS[out.footer.color]) out.footer.color = 'soft';
+  if (!Object.hasOwn(HEADER_LAYOUTS, out.header.layout)) out.header.layout = 'left';
+  if (!Object.hasOwn(HEADER_STYLES, out.header.style)) out.header.style = 'glass';
+  if (!Object.hasOwn(FOOTER_STYLES, out.footer.style)) out.footer.style = 'columns';
+  if (!Object.hasOwn(FOOTER_COLORS, out.footer.color)) out.footer.color = 'soft';
   out.business.hours = arr(out.business.hours).map(obj);
   out.header.cta = { label: '', href: '', ...obj(out.header.cta) };
   const L = obj(s.legal);
   out.legal = { effective: str(L.effective, 60) || base.legal.effective };
   for (const k of Object.keys(LEGAL_PAGES)) out.legal[k] = { enabled: obj(L[k]).enabled !== false, custom: str(obj(L[k]).custom, 60000) };
   if (Array.isArray(s.sections)) {
-    out.sections = s.sections.filter((x) => x && SECTION_TYPES[x.type]).slice(0, 30).map((x) => ({
+    out.sections = s.sections.filter((x) => x && Object.hasOwn(SECTION_TYPES, x.type)).slice(0, 30).map((x) => ({
       id: /^[\w-]{1,40}$/.test(str(x.id)) ? x.id : uid('s'),
       type: x.type,
       enabled: x.enabled !== false,
@@ -726,7 +726,7 @@ export function normalizeOrdering(input) {
     pickupNote: str(o.pickupNote, 300), curbsideNote: str(o.curbsideNote ?? d.curbsideNote, 300),
     taxRate: Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0,
     tips: o.tips !== false, allowNotes: o.allowNotes !== false, notifyEmail: str(o.notifyEmail, 200).trim(),
-    useHours: o.useHours === true, timezone: TIMEZONES[o.timezone] ? o.timezone : d.timezone, scheduling: o.scheduling === true,
+    useHours: o.useHours === true, timezone: Object.hasOwn(TIMEZONES, o.timezone) ? o.timezone : d.timezone, scheduling: o.scheduling === true,
     hours: DAYS.map((_, i) => { const h = arr(o.hours)[i] || {}; return { closed: h.closed === true, open: hhmm(h.open, '11:00'), close: hhmm(h.close, '21:00') }; }),
     promos: arr(o.promos).slice(0, 30).map((x) => ({ code: str(x?.code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_00, 0) : int(x?.value, 0, 100, 10), active: x?.active !== false })).filter((x) => x.code),
     cats: arr(o.cats).slice(0, 200).map((c) => ({ name: str(c?.name, 60).trim(), c })).filter((x) => x.name).map(({ name, c }) => ({ id: catId(c, name), name, hidden: c?.hidden === true, from: hhmm(c?.from, ''), to: hhmm(c?.to, '') })),   // kept even when plain, so a new empty category stays until items are added
@@ -745,7 +745,7 @@ export function normalizeOrdering(input) {
     booking: { enabled: o.booking?.enabled === true, title: str(o.booking?.title ?? 'Book online', 60).trim() || 'Book online', note: str(o.booking?.note, 300), perSlot: int(o.booking?.perSlot, 1, 200, 2), services: arr(o.booking?.services).slice(0, 40).map((x, i2) => ({ id: str(x?.id, 24) || `s${i2}`, name: str(x?.name, 80).trim(), minutes: int(x?.minutes, 0, 600, 60), price: int(x?.price, 0, 1_000_000_00, 0) })).filter((x) => x.name) },
   };
 }
-export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods?.[k]);
+export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods && Object.hasOwn(o.methods, k) && o.methods[k]);
 
 export const findPromo = (o, code) => { const c = str(code, 24).toUpperCase().replace(/[^A-Z0-9]/g, ''); return (c && arr(o?.promos).find((x) => x.active && x.code === c)) || null; };
 

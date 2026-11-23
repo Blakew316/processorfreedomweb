@@ -543,10 +543,11 @@ export async function editor(id, mount, title, startTab = '') {
       } else {
         const res = h('div', { 'aria-live': 'polite' });
         out.push(group('Your domain', h('div', { class: 'row' }, h('b', { class: 'grow', style: 'font-size:17px;overflow-wrap:anywhere' }, meta.customDomain), h('span', { class: `status ${meta.domainVerified ? 'ok' : 'warn'}` }, meta.domainVerified ? 'Connected' : 'Waiting for DNS')),
-          !meta.domainVerified && [h('p', { class: 'hint' }, 'Sign in where you bought your domain and add these two DNS records. Changes can take up to an hour to appear.'),
+          !meta.domainVerified && [h('p', { class: 'hint' }, 'Sign in where you bought your domain and add these three DNS records. The TXT record proves the domain is yours. Changes can take up to an hour to appear.'),
             h('table', { class: 'dns' }, h('thead', {}, h('tr', {}, h('th', {}, 'Type'), h('th', {}, 'Name'), h('th', {}, 'Value'))), h('tbody', {},
               h('tr', {}, h('td', {}, 'CNAME'), h('td', {}, 'www'), h('td', {}, state.config.cnameTarget)),
-              h('tr', {}, h('td', {}, 'ALIAS'), h('td', {}, '@'), h('td', {}, state.config.cnameTarget)))),
+              h('tr', {}, h('td', {}, 'ALIAS'), h('td', {}, '@'), h('td', {}, state.config.cnameTarget)),
+              meta.domainProof && h('tr', {}, h('td', {}, 'TXT'), h('td', { style: 'overflow-wrap:anywhere' }, '_pf-verify'), h('td', { style: 'overflow-wrap:anywhere' }, meta.domainProof.value)))),
             null],
           h('div', { class: 'row' },
             !meta.domainVerified && h('button', { class: 'btn sm', onclick: async (e) => {
@@ -555,7 +556,7 @@ export async function editor(id, mount, title, startTab = '') {
                 const r = await api('POST', `/api/sites/${id}/domain/verify`);
                 meta = { ...meta, ...r.site };
                 if (r.ok) { toast('Your domain is connected'); paintPanel(); paintTop(); return; }
-                res.replaceChildren(h('p', { class: 'status warn' }, 'We could not see the records yet. Give it a few minutes and check again.'));
+                res.replaceChildren(h('p', { class: 'status warn' }, r.pointed && !r.proved ? 'Your domain points here, but we cannot see the TXT record yet. Give it a few minutes and check again.' : 'We could not see the records yet. Give it a few minutes and check again.'));
               } catch (ex) { toast(ex.message, true); }
               e.target.disabled = false; e.target.textContent = 'Check connection';
             } }, 'Check connection'),
@@ -1364,8 +1365,8 @@ export async function editor(id, mount, title, startTab = '') {
         try {
           const r = await api('POST', `/api/sites/${id}/team`, { name: nameIn.value, email: emailIn.value, role: roleIn.value });
           team.members = r.members; paintPanel();
-          if (!r.link) return toast('They can now sign in with their existing account');
-          sheet((close) => [h('h2', {}, 'Login created'), h('p', { class: 'muted' }, r.emailed ? `We emailed ${emailIn.value} a link to choose a password. You can also pass this link on yourself. It works once and lasts 3 days.` : `Send this link to ${emailIn.value} so they can choose a password. It works once and lasts 3 days.`),
+          if (!r.link) return toast(r.emailed ? `We emailed ${emailIn.value} an invite` : r.added ? 'They can now sign in with their existing account' : 'Saved');
+          sheet((close) => [h('h2', {}, 'Login created'), h('p', { class: 'muted' }, `Send this link to ${emailIn.value} so they can choose a password. It works once and lasts 3 days.`),
             h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, r.link),
             h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
         } catch (ex) { toast(ex.message, true); }
@@ -1509,10 +1510,22 @@ export async function editor(id, mount, title, startTab = '') {
     const cats = [...new Set(menu.map((x) => x.category))];
     it.options = Array.isArray(it.options) ? it.options : [];
     const status = h('span', { class: 'status ok', 'aria-live': 'polite' }, 'Saved');
+    // The stock count this window last saw. The server only changes stock when the person changed it from this,
+    // so a window left open never undoes sales made in the meantime.
+    let seen = it.stock, qtyRef = null;
+    const showStock = (n) => { it.stock = n; seen = n; if (qtyRef && document.activeElement !== qtyRef) qtyRef.value = n; };
     const save = debounce(async () => {
       status.className = 'status'; status.textContent = 'Saving…';
-      try { await api('PUT', `/api/sites/${id}/menu/${it.id}`, it); status.className = 'status ok'; status.textContent = 'Saved'; }
-      catch (e) { status.className = 'status bad'; status.textContent = 'Not saved'; toast(e.message, true); }
+      try {
+        const sent = it.stock, r = await api('PUT', `/api/sites/${id}/menu/${it.id}`, { ...it, stockWas: seen });
+        const fresh = r.items && r.items.find((x) => x.id === it.id);
+        if (fresh && it.stock === sent) showStock(fresh.stock);
+        status.className = 'status ok'; status.textContent = 'Saved';
+      } catch (e) {
+        status.className = 'status bad'; status.textContent = 'Not saved'; toast(e.message, true);
+        // Sold while the window was open: show the real count, and save the person's other changes without the old count.
+        if (e.status === 409 && e.data && e.data.stock != null) { showStock(e.data.stock); save(); }
+      }
     }, 400);
     let gone = false;
     sheet((close) => {
@@ -1523,7 +1536,7 @@ export async function editor(id, mount, title, startTab = '') {
       const now = h('small', {});
       const drawNow = () => { now.textContent = it.sale > 0 ? `Customers pay ${money(itemPrice(it))} while the sale is on.` : 'Leave empty for no sale.'; };
       drawNow();
-      const qtyIn = h('input', { type: 'number', min: 0, max: 999999, value: it.stock, 'aria-label': 'Quantity in stock', oninput: () => { it.stock = Math.max(0, Math.round(Number(qtyIn.value)) || 0); save(); } });
+      const qtyIn = qtyRef = h('input', { type: 'number', min: 0, max: 999999, value: it.stock, 'aria-label': 'Quantity in stock', oninput: () => { it.stock = Math.max(0, Math.round(Number(qtyIn.value)) || 0); save(); } });
       const bump = (by) => () => { it.stock = Math.max(0, (it.stock || 0) + by); qtyIn.value = it.stock; save(); };
       const optBox = h('div', { class: 'stack' });
       const drawOpts = () => optBox.replaceChildren(...it.options.map((g, gi) => h('div', { class: 'item' }, h('div', { class: 'in', style: 'padding-top:12px' },
@@ -2750,7 +2763,7 @@ export async function editor(id, mount, title, startTab = '') {
       btn.disabled = true;
       try {
         const r = await api('POST', `/api/sites/${id}/team`, { name: v.name, email: v.email, role: v.role, details: { nickname: v.nickname, phone: v.phone, payType: v.payType, rate: parsePrice(v.rate || '0') || 0, customId: v.customId, passcode: v.passcode || randomPass() } });
-        team = null; toast(ex ? 'Employee saved' : 'Employee added'); goTab('team');
+        team = null; toast(ex ? 'Employee saved' : r.emailed ? `Employee added. We emailed ${v.email.trim()} an invite.` : 'Employee added'); goTab('team');
         if (r.link) sheet((close) => [h('h2', {}, 'Login created'), h('p', { class: 'muted' }, `Send this link to ${v.email} so they can choose a password. It works once and lasts 3 days.`), h('div', { class: 'note', style: 'overflow-wrap:anywhere;color:var(--ink)' }, r.link), h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: close }, 'Done'), h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(r.link); toast('Link copied'); } catch { toast('Copy the link from the box above', true); } } }, 'Copy link'))]);
       } catch (e) { toast(e.message, true); btn.disabled = false; }
     };
@@ -4494,10 +4507,13 @@ export async function editor(id, mount, title, startTab = '') {
   async function doPublish(btn) {
     btn.disabled = true; btn.textContent = 'Publishing…';
     try {
-      const r = await api('POST', `/api/sites/${id}/publish`, { draft: JSON.parse(JSON.stringify(draft)) });
+      // Let any save still on its way finish first, so the copy published is made from the latest saved one.
+      await flush();
+      for (let i = 0; i < 80 && saveState === 'saving'; i++) await new Promise((r) => setTimeout(r, 100));
+      const r = await api('POST', `/api/sites/${id}/publish`, { draft: JSON.parse(JSON.stringify(draft)), rev: draftRev });
       meta = { ...meta, ...r.site }; draftRev = r.site.draftRev; saveState = 'saved'; versions = null; paintTop(); if (tab === 'start' || tab === 'history') paintPanel();
       return true;
-    } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Publish'; return false; }
+    } catch (e) { toast(e.message, true); if (e.status === 412) stale(); btn.disabled = false; btn.textContent = 'Publish'; return false; }
   }
   function publish(e) {
     if (meta.live) return doPublish(e.currentTarget).then((ok) => ok && liveSheet(true));

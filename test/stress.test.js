@@ -41,7 +41,7 @@ test('a rush of customers cannot oversell stock, double-spend a gift card or ove
     const [taco, soda] = (await me('GET', `${S}/menu`)).data.items;
     const who = (i) => ({ method: 'pickup', name: `Cust ${i}`, phone: '903-555-0100', email: `c${i}@example.com` });
 
-    await me('PUT', `${S}/menu/${taco.id}`, { stock: 10 });
+    await me('PUT', `${S}/menu/${taco.id}`, { stock: 10, stockWas: taco.stock });
     let rs = await Promise.all(Array.from({ length: 40 }, (_, i) => anon('POST', '/_order', { ...who(i), items: [{ id: taco.id, qty: 1 }] }, host)));
     assert.equal(rs.filter((r) => r.status === 201).length, 10, 'exactly the ten in stock were sold');
     assert.equal((await me('GET', `${S}/menu`)).data.items[0].stock, 0);

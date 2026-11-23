@@ -106,11 +106,32 @@ export function createApp(options = {}) {
     db.run("INSERT INTO settings (key, value) VALUES ('vapid', ?)", JSON.stringify(made));
     return made;
   })();
+  // A secret made once and kept with the data. Domain proofs are derived from it, so they need nothing stored per claim.
+  const SECRET = (() => {
+    const saved = db.get("SELECT value FROM settings WHERE key = 'secret'");
+    if (saved) return saved.value;
+    const made = randomBytes(32).toString('hex');
+    db.run("INSERT INTO settings (key, value) VALUES ('secret', ?)", made);
+    return made;
+  })();
+  // What a site must publish in a TXT record to prove it controls a domain. The same site and domain always get the same value.
+  const domainProof = (siteId, domain) => `pf-verify=${createHmac('sha256', SECRET).update(`${siteId}:${domain}`).digest('base64url').slice(0, 32)}`;
+
   // The owner and everyone on the site's team hear about it.
+  // A few at a time, each started on its own turn of the event loop, so signing and encrypting never holds up other requests.
+  // A device that keeps failing is dropped, not only one the push service says is gone.
   function notifySite(site, message) {
-    for (const sub of db.all('SELECT * FROM push_subs WHERE user_id = ? OR user_id IN (SELECT user_id FROM members WHERE site_id = ?)', site.user_id, site.id)) {
-      Promise.resolve().then(() => pusher(sub, message, vapid)).then((r) => { if (r === 'gone') db.run('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint); }).catch((e) => console.error('Push failed:', e.message));
-    }
+    const subs = db.all('SELECT * FROM push_subs WHERE user_id = ? OR user_id IN (SELECT user_id FROM members WHERE site_id = ?) LIMIT 300', site.user_id, site.id);
+    let i = 0;
+    const next = () => {
+      const sub = subs[i++];
+      if (!sub) return;
+      setImmediate(() => Promise.resolve().then(() => pusher(sub, message, vapid))
+        .then((r) => { if (r === 'gone') db.run('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint); else if (sub.fails) db.run('UPDATE push_subs SET fails = 0 WHERE endpoint = ?', sub.endpoint); })
+        .catch((e) => { console.error('Push failed:', e.message); db.run('UPDATE push_subs SET fails = fails + 1 WHERE endpoint = ?', sub.endpoint); db.run('DELETE FROM push_subs WHERE endpoint = ? AND fails >= 5', sub.endpoint); })
+        .finally(next));
+    };
+    for (let k = 0; k < 4; k++) next();
   }
 
   const SITES_DOMAIN = cleanDomain(env.SITES_DOMAIN || '');
@@ -121,6 +142,11 @@ export function createApp(options = {}) {
   const isAdmin = (u) => !!u && ADMINS.has(u.email) && !!u.verified;
   // Links that go out by email always point at our own address, never at whatever address the request claimed.
   const FIXED_ORIGIN = APP_URL || String(env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+  if (mailer.enabled && !FIXED_ORIGIN) throw new Error('Email is switched on, so set APP_URL to this service\'s public address (for example https://sites.example.com). Emailed links are built from it, never from the address a request names.');
+  // The service's own addresses. None of them can be claimed as a merchant's domain or answered with a merchant's site.
+  const OWN_HOSTS = [...new Set([APP_HOST, FIXED_ORIGIN.replace(/^https?:\/\//, ''), env.RENDER_EXTERNAL_HOSTNAME, env.CNAME_TARGET, SITES_DOMAIN]
+    .map((x) => cleanDomain(String(x || '')).replace(/^www\./, '')).filter(Boolean))];
+  const ownHost = (host) => { const h = String(host || '').split(':')[0].toLowerCase().replace(/^www\./, ''); return !!h && OWN_HOSTS.some((o) => h === o || h.endsWith(`.${o}`)); };
 
   const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
 
@@ -257,6 +283,7 @@ export function createApp(options = {}) {
       live: !!s.published, publishedAt: s.published_at, updatedAt: s.updated_at, createdAt: s.created_at,
       dirty: !!s.published && s.published !== s.draft,
       customDomain: s.custom_domain || '', domainVerified: !!s.domain_verified,
+      domainProof: s.custom_domain && !s.domain_verified ? { name: `_pf-verify.${s.custom_domain}`, value: domainProof(s.id, s.custom_domain) } : null,
     };
     out.ordering = orderingOf(s);
     out.orderingRev = revOf(s.ordering); out.draftRev = revOf(s.draft);
@@ -317,7 +344,12 @@ export function createApp(options = {}) {
     if (LEVEL[role] < LEVEL[need]) bad(403, 'Your login does not allow that. Ask the owner of this site.');
     return { user, site, role };
   }
-  const teamOf = (site) => db.all('SELECT u.id, u.name, u.email, u.phone, m.details, (u.last_seen > 0 OR EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id)) AS active, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id).map((m) => ({ ...m, details: (() => { try { return JSON.parse(m.details || '{}'); } catch { return {}; } })() }));
+  // The owner sees what they typed about each person, not the person's own account details (people added before that rule keep the name shown then),
+  // and 'active' only once that person has signed in since being added.
+  const teamOf = (site) => db.all('SELECT u.id, u.name AS account, u.email, m.details, (u.last_seen > m.created_at OR EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.seen_at > m.created_at)) AS active, m.role, m.created_at AS createdAt FROM members m JOIN users u ON u.id = m.user_id WHERE m.site_id = ? ORDER BY m.created_at', site.id).map(({ account, ...m }) => {
+    let details = {}; try { details = JSON.parse(m.details || '{}') || {}; } catch {}
+    return { ...m, name: details.name ?? account, phone: details.phone || '', details };
+  });
 
   /* Kitchen capacity: how many orders are already booked for each time, and whether "as soon as possible" is full. */
   const takenSlots = (siteId) => Object.fromEntries(db.all("SELECT scheduled, COUNT(*) AS n FROM orders WHERE site_id = ? AND scheduled != '' AND status != 'cancelled' AND created_at > ? GROUP BY scheduled", siteId, Date.now() - 3 * DAY).map((r) => [r.scheduled, r.n]));
@@ -352,6 +384,35 @@ export function createApp(options = {}) {
   function tick(nowMs = Date.now()) {
     for (const site of db.all('SELECT * FROM sites')) { try { closeDay(site, nowMs); if (recurring) recurring(site, new Date(wallNow(orderingOf(site), nowMs)).toISOString().slice(0, 10)); } catch (e) { console.error('Daily wrap-up failed for', site.id, e.message); } }
   }
+  /* Once a day, photos that no site, version, item, order or invoice mentions, and that are over a week old, are deleted.
+     That frees the account's storage and takes photos of deleted sites offline. */
+  const UPLOAD_QUOTA = 250 * 1024 * 1024;
+  async function sweepUploads(nowMs = Date.now()) {
+    if (!uploadDir) return 0;
+    const used = new Set();
+    const scan = (text) => { for (const m of String(text || '').matchAll(/\/u\/([A-Za-z0-9_-]{6,40}\.[a-z]{3,4})/g)) used.add(m[1]); };
+    for (const [table, cols] of [['sites', ['draft', 'published', 'ordering']], ['versions', ['draft']], ['menu_items', ['image', 'options']], ['orders', ['items']], ['invoices', ['items']]]) {
+      let after = '';
+      for (;;) {
+        const rows = db.all(`SELECT rowid AS r, ${cols.join(', ')} FROM ${table} WHERE rowid > ? ORDER BY rowid LIMIT 500`, after || 0);
+        if (!rows.length) break;
+        for (const row of rows) for (const c of cols) scan(row[c]);
+        after = rows.at(-1).r;
+      }
+    }
+    let removed = 0;
+    for (const name of await fs.readdir(uploadDir).catch(() => [])) {
+      if (used.has(name) || !/^[A-Za-z0-9_-]{6,40}\.[a-z]{3,4}$/.test(name)) continue;
+      const row = db.get('SELECT created_at FROM uploads WHERE name = ?', name);
+      const born = row ? row.created_at : (await fs.stat(join(uploadDir, name)).catch(() => null))?.mtimeMs;
+      if (!born || nowMs - born < 7 * DAY) continue;
+      await fs.rm(join(uploadDir, name), { force: true });
+      db.run('DELETE FROM uploads WHERE name = ?', name);
+      removed++;
+    }
+    return removed;
+  }
+  let lastSweep = 0;
   /* A full copy of the database is written beside it once a day, and the last seven are kept. */
   function backup(nowMs = Date.now()) {
     if (dataDir === ':memory:') return '';
@@ -362,7 +423,10 @@ export function createApp(options = {}) {
     for (const old of readdirSync(folder).filter((f) => /^sites-\d{4}-\d\d-\d\d\.db$/.test(f)).sort().slice(0, -7)) rmSync(join(folder, old), { force: true });
     return file;
   }
-  const daily = setInterval(() => { tick(); try { backup(); } catch (e) { console.error('Backup failed:', e.message); } }, 5 * 60000);
+  const daily = setInterval(() => {
+    tick(); try { backup(); } catch (e) { console.error('Backup failed:', e.message); }
+    if (Date.now() - lastSweep > DAY) { lastSweep = Date.now(); sweepUploads().catch((e) => console.error('Photo clean-up failed:', e.message)); }
+  }, 5 * 60000);
   daily.unref();
   const firstTick = setTimeout(tick, 4000);
   firstTick.unref();
@@ -372,7 +436,8 @@ export function createApp(options = {}) {
     return draft;
   }
 
-  async function checkDns(domain, target) {
+  // The domain has to point here, and its TXT record has to carry this site's proof: pointing here alone proves nothing, since any domain left pointed here would pass.
+  async function checkDns(domain, target, proof) {
     const targetIps = await dns.resolve4(target).catch(() => []);
     const details = [];
     for (const name of [domain, `www.${domain}`]) {
@@ -381,7 +446,10 @@ export function createApp(options = {}) {
       const ok = cnames.includes(target) || (targetIps.length > 0 && ips.some((ip) => targetIps.includes(ip)));
       details.push({ name, ok, found: cnames[0] || ips[0] || '' });
     }
-    return { ok: details.some((d) => d.ok), details };
+    const txt = (await (dns.resolveTxt ? dns.resolveTxt(`_pf-verify.${domain}`) : Promise.resolve([])).catch(() => [])).map((parts) => [].concat(parts).join('').trim());
+    const proved = txt.includes(proof);
+    details.push({ name: `_pf-verify.${domain}`, ok: proved, found: txt[0] || '' });
+    return { ok: proved && details.slice(0, 2).some((d) => d.ok), pointed: details.slice(0, 2).some((d) => d.ok), proved, details };
   }
 
   // Optional: when the service runs on Render, attach the domain so it gets a certificate automatically.
@@ -567,10 +635,11 @@ export function createApp(options = {}) {
     json(res, 200, { ok: true });
   });
 
-  function resetLinkFor(req, userId, hours = 2, staff = false) {
+  // kind: 'email' went only to the person's mailbox, 'invite' was handed to whoever invited them, 'staff' was made by staff for a locked-out merchant.
+  function resetLinkFor(req, userId, hours = 2, kind = 'email') {
     const token = randomBytes(32).toString('base64url');
     db.run('DELETE FROM resets WHERE user_id = ?', userId);
-    db.run('INSERT INTO resets (token_hash, user_id, expires_at, staff) VALUES (?, ?, ?, ?)', sha(token), userId, Date.now() + hours * 3600000, staff ? 1 : 0);
+    db.run('INSERT INTO resets (token_hash, user_id, expires_at, staff, kind) VALUES (?, ?, ?, ?, ?)', sha(token), userId, Date.now() + hours * 3600000, kind === 'staff' ? 1 : 0, kind);
     return `${FIXED_ORIGIN || appOrigin(req)}/reset?token=${token}`;
   }
   route('POST', '/api/auth/forgot', async (req, res) => {
@@ -588,7 +657,8 @@ export function createApp(options = {}) {
     const row = db.get('SELECT * FROM resets WHERE token_hash = ? AND expires_at > ?', sha(str(b.token, 200)), Date.now());
     if (!row) bad(400, 'This reset link has expired or was already used. Ask for a new one.');
     if (str(b.password, 200).length < 8) bad(400, 'Use at least 8 characters for your password.');
-    db.run('UPDATE users SET pass_hash = ?, verified = 1 WHERE id = ?', await hashPassword(str(b.password, 200)), row.user_id);
+    // Opening a link proves the mailbox only when the link was sent there and nowhere else.
+    db.run(`UPDATE users SET pass_hash = ?${row.kind === 'email' ? ', verified = 1' : ''} WHERE id = ?`, await hashPassword(str(b.password, 200)), row.user_id);
     db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
     db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
     const u = db.get('SELECT id, email, name, verified, phone, totp_on FROM users WHERE id = ?', row.user_id);
@@ -644,10 +714,13 @@ export function createApp(options = {}) {
     d.brand.name = site.name;
     return JSON.stringify(d);
   };
+  // Every save says which saved copy it was made from. The check runs on the row as it is now, after the body has arrived,
+  // with nothing in between it and the write, so two overlapping saves can never both pass.
   route('PUT', '/api/sites/:id', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site: asked } = ownSite(req, p.id);
     const b = await readJson(req);
-    if (b.rev && b.rev !== revOf(site.draft)) bad(412, STALE);
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
+    if (b.rev !== revOf(site.draft)) bad(412, STALE);
     const draft = keepName(packDraft(b.draft), site);
     db.run('UPDATE sites SET draft = ?, name = ?, updated_at = ? WHERE id = ?', draft, JSON.parse(draft).brand.name, Date.now(), site.id);
     json(res, 200, { site: present(req, db.get('SELECT * FROM sites WHERE id = ?', site.id)) });
@@ -655,8 +728,10 @@ export function createApp(options = {}) {
 
   // Change business name (DBA): the website, receipts and emails all use the new name straight away, and the owner gets an email.
   route('PUT', '/api/sites/:id/name', async (req, res, p) => {
-    const { site, user } = ownSite(req, p.id);
+    const { site: asked, user } = ownSite(req, p.id);
     const name = str((await readJson(req)).name, 80).replace(/\s+/g, ' ').trim();
+    // The draft is read again now the body is here, so a save made in the meantime is kept.
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
     if (!name) bad(400, 'Enter your business name.');
     if (name === site.name) return json(res, 200, { site: present(req, site), emailed: false });
     limit(`rename:${site.id}`, 10, 3600000);
@@ -680,8 +755,11 @@ export function createApp(options = {}) {
   });
 
   route('POST', '/api/sites/:id/publish', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site: asked } = ownSite(req, p.id);
     const b = await readJson(req);
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
+    // A copy sent along has to be made from the latest saved one, so a tab opened earlier cannot put its old version live.
+    if (b.draft && b.rev !== revOf(site.draft)) bad(412, STALE);
     const draft = b.draft ? keepName(packDraft(b.draft), site) : site.draft;
     const now = Date.now();
     db.run('UPDATE sites SET draft = ?, name = ?, published = ?, published_at = ?, updated_at = ? WHERE id = ?', draft, JSON.parse(draft).brand.name, draft, now, now, site.id);
@@ -711,7 +789,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const domain = cleanDomain((await readJson(req)).domain).replace(/^www\./, '');
     if (!domain) bad(400, 'Enter a domain like yourbusiness.com.');
-    if (SITES_DOMAIN && (domain === SITES_DOMAIN || domain.endsWith(`.${SITES_DOMAIN}`))) bad(400, 'That address belongs to us. Change your free address above instead.');
+    if (ownHost(domain) || domain === hostOf(req).split(':')[0].replace(/^www\./, '')) bad(400, 'That address belongs to us. Change your free address above instead.');
     if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ? AND domain_verified = 1', domain, site.id)) bad(409, 'That domain is already connected to another site.');
     // A claim nobody proved does not hold the domain: whoever can actually point it here gets it.
     db.run('UPDATE sites SET custom_domain = NULL WHERE custom_domain = ? AND id != ? AND domain_verified = 0', domain, site.id);
@@ -723,8 +801,9 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     if (!site.custom_domain) bad(400, 'Add a domain first.');
     limit(`dns:${site.id}`, 20, 10 * 60000);
-    const result = await checkDns(site.custom_domain, cnameTarget(req));
+    const result = await checkDns(site.custom_domain, cnameTarget(req), domainProof(site.id, site.custom_domain));
     if (result.ok && !site.domain_verified) {
+      if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ? AND domain_verified = 1', site.custom_domain, site.id)) bad(409, 'That domain is already connected to another site.');
       db.run('UPDATE sites SET domain_verified = 1, updated_at = ? WHERE id = ?', Date.now(), site.id);
       await attachToHost(site.custom_domain);
     }
@@ -788,28 +867,49 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const email = str(b.email, 200).trim().toLowerCase();
     const role = b.role === 'manager' ? 'manager' : 'kitchen';
+    const name = str(b.name, 80).trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'Enter a valid email address.');
     const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
     if (email === owner.email) bad(400, 'That is the owner of this site, who already has full access.');
+    // Staff addresses carry powers over every account, so they are never set up through someone's team.
+    if (ADMINS.has(email)) bad(400, 'That address cannot be added to a team.');
     let person = db.get('SELECT id FROM users WHERE email = ?', email);
+    const member = person && db.get('SELECT details FROM members WHERE site_id = ? AND user_id = ?', site.id, person.id);
+    let details = {}; try { details = JSON.parse(member?.details || '{}') || {}; } catch {}
+    if (!member) {
+      if (teamOf(site).length >= 25) bad(400, 'A site can have up to 25 team logins.');
+      limit(`invite:${site.id}`, 40, 3600000);
+    }
     let link = '';
     if (!person) {
-      if (teamOf(site).length >= 25) bad(400, 'A site can have up to 25 team logins.');
       person = { id: newId() };
-      // A password nobody knows; the person chooses their own from the link.
-      db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', person.id, email, str(b.name, 80).trim(), await hashPassword(randomBytes(24).toString('hex')), Date.now());
-      link = resetLinkFor(req, person.id, 72);
+      // A password nobody knows; the person chooses their own from the link. Choosing it does not confirm the address.
+      db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', person.id, email, name, await hashPassword(randomBytes(24).toString('hex')), Date.now());
+      link = resetLinkFor(req, person.id, 72, 'invite');
     }
     db.run('INSERT INTO members (site_id, user_id, role, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, user_id) DO UPDATE SET role = excluded.role', site.id, person.id, role, Date.now());
+    // What the owner knows about the person lives with the membership; another account's own name is never changed.
+    if (!member || b.name !== undefined) details.name = name;
     if (b.details && typeof b.details === 'object') {
       const d = b.details, pass = str(d.passcode, 4).replace(/\D/g, '');
       if (pass && (pass.length !== 4 || /^(\d)\1{3}$/.test(pass) || '0123456789'.includes(pass) || '9876543210'.includes(pass))) bad(400, 'The passcode must be 4 digits with no sequence or repeat.');
-      db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify({ nickname: str(d.nickname, 60).trim(), phone: str(d.phone, 40).trim(), payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass }), site.id, person.id);
-      if (str(b.name, 80).trim()) db.run("UPDATE users SET name = ? WHERE id = ? AND name = ''", str(b.name, 80).trim(), person.id);
+      const phone = str(d.phone, 40).trim();
+      if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
+      Object.assign(details, { nickname: str(d.nickname, 60).trim(), phone, payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass });
     }
-    const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
-    Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
-    json(res, 201, { members: teamOf(site), link, emailed: !!mailer.enabled });
+    db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify(details), site.id, person.id);
+    if (!member) {
+      const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
+      Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
+    }
+    // With email on, the link goes only to the person, and the answer is the same whether or not they already had an account.
+    json(res, 201, { members: teamOf(site), link: mailer.enabled ? '' : link, emailed: !!mailer.enabled && !member, added: !member });
+  });
+  // Anyone on a team can take themselves off it.
+  route('DELETE', '/api/sites/:id/membership', (req, res, p) => {
+    const user = requireUser(req);
+    if (!db.run('DELETE FROM members WHERE site_id = ? AND user_id = ?', str(p.id, 40), user.id).changes) bad(404, 'You are not on this site\'s team.');
+    json(res, 200, { ok: true });
   });
   route('DELETE', '/api/sites/:id/team/:user', (req, res, p) => {
     const { site } = ownSite(req, p.id, 'owner');
@@ -938,7 +1038,7 @@ export function createApp(options = {}) {
     const name = str(b.name, 120).trim() || bad(400, 'Give the plan a name, such as Weekly lunch order.');
     const amount = Math.round(Number(b.amount));
     if (!(amount > 0) || amount > 100_000_000) bad(400, 'Enter an amount above zero, up to $1,000,000.');
-    if (!EVERY[b.every]) bad(400, 'Choose how often to bill.');
+    if (!Object.hasOwn(EVERY, b.every)) bad(400, 'Choose how often to bill.');
     const start = /^\d{4}-\d{2}-\d{2}$/.test(String(b.start)) ? b.start : new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
     const rate = Number(b.taxRate);
     db.run('INSERT INTO plans (id, site_id, name, customer, amount, tax_rate, every, next_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), site.id, name, JSON.stringify(customer), amount, Number.isFinite(rate) ? Math.min(30, Math.max(0, rate)) : 0, b.every, start, Date.now());
@@ -1308,8 +1408,18 @@ export function createApp(options = {}) {
 
   route('PUT', '/api/sites/:id/menu/:item', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
+    const b = await readJson(req);
     const prev = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', p.item, site.id) || bad(404, 'That item no longer exists.');
-    const it = cleanItem(await readJson(req), prev);
+    // Saving an item never writes back an old stock count: the count changes only when the person changed it (stockWas is what
+    // they last saw), and only if nothing sold since then. Otherwise every edit would undo the sales made while the page was open.
+    let body = b;
+    if (b.stock !== undefined) {
+      const seen = b.stockWas === undefined || b.stockWas === null || b.stockWas === '' ? null : Math.round(Number(b.stockWas));
+      const want = Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
+      if (seen === null || want === seen) body = { ...b, stock: undefined };
+      else if ((prev.stock ?? 0) !== seen) return json(res, 409, { error: `${prev.name} sold while you were editing. It has ${prev.stock ?? 0} left now.`, stock: prev.stock ?? 0 });
+    }
+    const it = cleanItem(body, prev);
     db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ?, mods = ?, label = ?, revclass = ?, cost = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, it.mods, it.label, it.revclass, it.cost, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
@@ -1333,8 +1443,9 @@ export function createApp(options = {}) {
 
   // Renames a category everywhere it is used, including its hours and visibility.
   route('POST', '/api/sites/:id/menu/category', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site: asked } = ownSite(req, p.id);
     const b = await readJson(req);
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
     const from = str(b.from, 60).trim(), to = str(b.to, 60).trim();
     if (!from || !to) bad(400, 'Give the category a name.');
     const o = orderingOf(site);
@@ -1358,7 +1469,10 @@ export function createApp(options = {}) {
     // Only the notification services browsers really use, so this can never be pointed at some other server.
     let pushHost = ''; try { pushHost = new URL(endpoint).hostname; } catch { /* not an address */ }
     if (!/^https:\/\//.test(endpoint) || !PUSH_HOSTS.test(pushHost) || !p256dh || !auth) bad(400, 'This device could not be set up for notifications.');
-    db.run('INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth', endpoint, user.id, p256dh, auth, Date.now());
+    limit(`push:${user.id}`, 30, 3600000);
+    db.run('INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, created_at = excluded.created_at, fails = 0', endpoint, user.id, p256dh, auth, Date.now());
+    // Ten devices a person; the one used longest ago drops off.
+    db.run('DELETE FROM push_subs WHERE user_id = ? AND endpoint NOT IN (SELECT endpoint FROM push_subs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10)', user.id, user.id);
     json(res, 201, { ok: true });
   });
   route('POST', '/api/push/unsubscribe', async (req, res) => {
@@ -1446,7 +1560,7 @@ export function createApp(options = {}) {
     const series = new Map();
     if (byHour) for (let h = 0; h < 24; h++) series.set(String(h).padStart(2, '0'), { key: String(h).padStart(2, '0'), orders: 0, net: 0, tax: 0, tips: 0 });
     else for (let i = 0; i < days; i++) { const d = shift(from, i); series.set(d, { key: d, orders: 0, net: 0, tax: 0, tips: 0 }); }
-    const methods = Object.fromEntries(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
+    const methods = new Map(Object.keys(ORDER_METHODS).map((m) => [m, { method: m, orders: 0, net: 0, total: 0 }]));
     const items = new Map(), cats = new Map(), revs = new Map(), list = [], staff = new Map(), tenders = new Map(), promos = new Map(), removed = new Map();
     const bump = (map, key, o) => { const r = map.get(key) || map.set(key, { name: key, orders: 0, net: 0, tips: 0, total: 0 }).get(key); r.orders++; r.net += o.subtotal - o.discount; r.tips += o.tip; r.total += o.total; };
     let cancelled = 0;
@@ -1462,7 +1576,7 @@ export function createApp(options = {}) {
       if (s1) { s1.orders++; s1.net += o.subtotal - o.discount; s1.tax += o.tax; s1.tips += o.tip; }
       bump(staff, o.handledBy || 'Not recorded', o); bump(tenders, o.paidAt ? o.paidMethod || 'Other' : 'Not paid yet', o);
       if (o.discount) { const pk = o.promo || 'Other discount'; const pr = promos.get(pk) || promos.set(pk, { name: pk, uses: 0, amount: 0 }).get(pk); pr.uses++; pr.amount += o.discount; }
-      const m = methods[o.method] || (methods[o.method] = { method: o.method, orders: 0, net: 0, total: 0 });
+      const m = methods.get(o.method) || methods.set(o.method, { method: o.method, orders: 0, net: 0, total: 0 }).get(o.method);
       m.orders++; m.net += o.subtotal - o.discount; m.total += o.total;
       for (const l of o.items) {
         const category = catOf[l.id] || 'No longer on the menu';
@@ -1480,16 +1594,17 @@ export function createApp(options = {}) {
       range, from, to, today, days, unit: byHour ? 'hour' : 'day', timezone: ordering.timezone, taxRate: ordering.taxRate,
       totals: { ...totals, average: totals.orders ? Math.round(totals.total / totals.orders) : 0, cancelled },
       previous: { from: prevFrom, to: prevTo, orders: prev.orders, net: prev.net, total: prev.total, tax: prev.tax, discounts: prev.discounts, refunds: prev.refunds },
-      methods: Object.values(methods), series: [...series.values()],
+      methods: [...methods.values()], series: [...series.values()],
       items: [...items.values()].sort((a, b) => b.qty - a.qty || b.sales - a.sales), categories: [...cats.values()].sort((a, b) => b.sales - a.sales), revenue: [...revs.values()].sort((a, b) => b.sales - a.sales), employees: [...staff.values()].sort((a, b) => b.net - a.net), tenders: [...tenders.values()].sort((a, b) => b.total - a.total), promos: [...promos.values()].sort((a, b) => b.amount - a.amount), removed: [...removed.values()].sort((a, b) => b.value - a.value),
       orders: list.reverse().slice(0, 2000),
     });
   });
 
   route('PUT', '/api/sites/:id/ordering', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site: asked } = ownSite(req, p.id);
     const body = await readJson(req);
-    if (body.rev && body.rev !== revOf(site.ordering)) bad(412, STALE);
+    const site = db.get('SELECT * FROM sites WHERE id = ?', asked.id) || bad(404, 'That site no longer exists.');
+    if (body.rev !== undefined && body.rev !== revOf(site.ordering)) bad(412, STALE);
     const o = normalizeOrdering(body.ordering);
     if (o.enabled && !openMethods(o).length) bad(400, 'Turn on at least one way to order: pickup, curbside or delivery.');
     db.run('UPDATE sites SET ordering = ?, updated_at = ? WHERE id = ?', JSON.stringify(o), Date.now(), site.id);
@@ -1505,7 +1620,7 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id, 'kitchen');
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     const status = str((await readJson(req)).status, 20);
-    if (!ORDER_STATUSES[status]) bad(400, 'Unknown status.');
+    if (!Object.hasOwn(ORDER_STATUSES, status)) bad(400, 'Unknown status.');
     if (status !== row.status) {
       if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
       const who = requireUser(req);
@@ -1524,8 +1639,14 @@ export function createApp(options = {}) {
     const buf = await readBody(req, 8 * 1024 * 1024);
     const ext = sniffImage(buf);
     if (!ext) bad(415, 'Upload a PNG, JPG, WebP, GIF or SVG image.');
+    // Each account has room for 250 MB of photos. Photos no page uses any more are cleared away after a week, which frees the room again.
+    const used = db.get('SELECT COALESCE(SUM(size), 0) AS n FROM uploads WHERE user_id = ?', user.id).n;
+    if (used + buf.length > UPLOAD_QUOTA) bad(413, 'Your account has used all of its photo storage (250 MB). Photos you stop using are cleared away after a week.');
+    const disk = await fs.statfs(uploadDir).catch(() => null);
+    if (disk && disk.bavail * disk.bsize < 64 * 1024 * 1024 + buf.length) bad(507, 'Photo storage is full right now. Please try again later.');
     const name = `${newId(12)}${ext}`;
     await fs.writeFile(join(uploadDir, name), buf);
+    db.run('INSERT INTO uploads (name, user_id, size, created_at) VALUES (?, ?, ?, ?)', name, user.id, buf.length, Date.now());
     json(res, 201, { url: `/u/${name}` });
   });
 
@@ -1559,7 +1680,7 @@ export function createApp(options = {}) {
   route('POST', '/api/admin/users/:id/reset-link', (req, res, p) => {
     requireAdmin(req);
     const target = db.get('SELECT id FROM users WHERE id = ?', p.id) || bad(404, 'That account no longer exists.');
-    json(res, 200, { link: resetLinkFor(req, target.id, 2, true) });
+    json(res, 200, { link: resetLinkFor(req, target.id, 2, 'staff') });
   });
 
   // Removes an account and everything it owns: sites, menus, orders and messages.
@@ -1579,6 +1700,7 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const domain = cleanDomain(b.domain).replace(/^www\./, '');
     if (!domain) bad(400, 'Enter a domain like yourbusiness.com.');
+    if (ownHost(domain)) bad(400, 'That address belongs to the service itself.');
     if (db.get('SELECT 1 FROM sites WHERE custom_domain = ? AND id != ?', domain, site.id)) bad(409, 'That domain is already connected to another site.');
     db.run('UPDATE sites SET custom_domain = ?, domain_verified = 1, updated_at = ? WHERE id = ?', domain, Date.now(), site.id);
     db.run("UPDATE domain_requests SET status = 'done' WHERE site_id = ? AND status = 'open'", site.id);
@@ -1638,7 +1760,8 @@ export function createApp(options = {}) {
       const b = await readJson(req, 50_000);
       if (!ordering.enabled || !ordering.accepting) bad(409, 'Online ordering is paused right now. Please call us to order.');
       const method = str(b.method, 20);
-      if (!ordering.methods[method]) bad(400, 'Choose how you would like to receive your order.');
+      // Own-property checks only: names like 'constructor' exist on every object and must not pass as an order type.
+      if (!openMethods(ordering).includes(method)) bad(400, 'Choose how you would like to receive your order.');
       const scheduled = str(b.when, 20);
       if (scheduled) { if (!orderSlots(ordering, method, undefined, takenSlots(site.id)).includes(scheduled)) bad(409, 'That time is no longer available. Please choose another.'); }
       else if (!isOpenNow(ordering)) bad(409, ordering.scheduling ? 'We are closed right now. Please choose a time for your order.' : 'We are closed right now. Please order during our opening hours.');
@@ -1691,7 +1814,7 @@ export function createApp(options = {}) {
       mail('placed', req, site, order, order.email);
       const owner = db.get('SELECT email FROM users WHERE id = ?', site.user_id);
       mail('merchant', req, site, order, ordering.notifyEmail || businessOf(site).email || owner?.email);
-      notifySite(site, { title: `New order #${order.number} · ${money(order.total)}`, body: `${site.name} · ${ORDER_METHODS[method].name} · ${order.name}`, url: `/app/site/${site.id}?tab=orders`, tag: `order-${order.id}` });
+      notifySite(site, { title: `New order #${order.number} · ${money(order.total)}`, body: `${site.name} · ${ORDER_METHODS[method]?.name ?? method} · ${order.name}`, url: `/app/site/${site.id}?tab=orders`, tag: `order-${order.id}` });
       if (order.low.length) {
         const text = order.low.map((x) => (x.stock === 0 ? `${x.name} is sold out` : `${x.name}: ${x.stock} left`)).join(' · ');
         notifySite(site, { title: order.low.some((x) => x.stock === 0) ? 'Sold out' : 'Running low', body: `${site.name} · ${text}`, url: `/app/site/${site.id}?tab=items`, tag: `stock-${site.id}` });
@@ -1750,7 +1873,7 @@ export function createApp(options = {}) {
       const sub = h.slice(0, -(SITES_DOMAIN.length + 1));
       return sub === 'www' ? undefined : db.get('SELECT * FROM sites WHERE slug = ?', sub) || null;
     }
-    if (h === SITES_DOMAIN) return undefined;
+    if (h === SITES_DOMAIN || ownHost(h)) return undefined;
     return db.get('SELECT * FROM sites WHERE custom_domain = ? AND domain_verified = 1', h.replace(/^www\./, '')) || undefined;
   }
 
@@ -1869,6 +1992,7 @@ export function createApp(options = {}) {
   handler.db = db;
   handler.tick = tick;
   handler.backup = backup;
+  handler.sweepUploads = sweepUploads;
   handler.close = () => { clearInterval(sweep); clearInterval(daily); clearTimeout(firstTick); db.close(); };
   return handler;
 }
