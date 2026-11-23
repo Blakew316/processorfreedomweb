@@ -7,7 +7,7 @@ import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
 import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice } from '../shared/core.js';
-import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail } from './mail.js';
+import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { renderPage } from '../shared/render.js';
@@ -169,7 +169,13 @@ export function createApp(options = {}) {
     }
     if (++rec.n > max) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
   }
-  const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ? OR (seen_at > 0 AND seen_at < ?)', now, now - IDLE_MS); }, 10 * 60000);
+  // Email a business sends to other people (gift cards, booking updates, team invites) is capped per hour, so a login can never be
+  // used to send mail in bulk from the platform's address. Returns false when the cap is reached; the action itself still happens.
+  const mailOk = (site) => { const k = `mail:${site.id}`; if (counted(k) >= 150) return false; bump(k, 3600000); return true; };
+  // Counts one more without refusing, and reads a count, for limits that only count failures.
+  const bump = (key, windowMs) => { const now = Date.now(), rec = hits.get(key); if (!rec || rec.until < now) hits.set(key, { n: 1, until: now + windowMs }); else rec.n++; };
+  const counted = (key) => { const rec = hits.get(key); return rec && rec.until >= Date.now() ? rec.n : 0; };
+  const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ? OR (seen_at > 0 AND seen_at < ?)', now, now - IDLE_MS); db.run('DELETE FROM user_ips WHERE at < ?', now - 90 * DAY); }, 10 * 60000);
   sweep.unref();
 
   // Who is asking, for the attempt limits. A visitor can type any address into these headers, so they are only believed
@@ -244,6 +250,7 @@ export function createApp(options = {}) {
     const token = randomBytes(32).toString('base64url');
     db.run('INSERT INTO sessions (token_hash, user_id, expires_at, seen_at) VALUES (?, ?, ?, ?)', sha(token), userId, Date.now() + SESSION_DAYS * DAY, Date.now());
     db.run('UPDATE users SET last_seen = ? WHERE id = ?', Date.now(), userId);
+    db.run('INSERT INTO user_ips (user_id, ip, at) VALUES (?, ?, ?) ON CONFLICT(user_id, ip) DO UPDATE SET at = excluded.at', userId, ipOf(req), Date.now());
     res.setHeader('Set-Cookie', `pf_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${protoOf(req) === 'https' ? '; Secure' : ''}`);
   }
   // For security a session ends after 16 minutes with no requests at all, for example a closed laptop or a phone app left in the background.
@@ -506,11 +513,13 @@ export function createApp(options = {}) {
     limit(`login:${ipOf(req)}`, 12, 15 * 60000);
     const b = await readJson(req);
     const email = str(b.email, 200).trim().toLowerCase();
-    // Counted per account as well, so guessing one person's password cannot be spread across many addresses.
-    limit(`login-as:${email}`, 10, 15 * 60000);
+    // Failed tries are counted per account as well, so guessing one person's password cannot be spread across many addresses.
+    // Strangers' failures cannot lock the owner out: a right password from an address this account signed in from before still works.
+    const failKey = `login-fail:${email}`, guessing = counted(failKey) >= 10;
     const u = db.get('SELECT * FROM users WHERE email = ?', email);
     const ok = await checkPassword(str(b.password, 200), u ? u.pass_hash : '00:00');
-    if (!u || !ok) bad(401, 'That email and password do not match.');
+    if (!u || !ok) { bump(failKey, 15 * 60000); if (guessing) bad(429, 'Too many attempts. Please wait a few minutes and try again.'); bad(401, 'That email and password do not match.'); }
+    if (guessing && !db.get('SELECT 1 FROM user_ips WHERE user_id = ? AND ip = ?', u.id, ipOf(req))) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
     // With two-step sign-in on, the password alone is not enough: the code from the authenticator app is needed too.
     if (u.totp_on) {
       const code = str(b.code, 24).replace(/\s/g, '');
@@ -614,13 +623,18 @@ export function createApp(options = {}) {
     limit(`2fa:${user.id}`, 8, 15 * 60000);
     // The code is read before the secret, and the switch-on only happens if the secret checked is still the one on file,
     // so a setup started in another tab meanwhile cannot leave two-step on for an app nobody scanned.
-    const code = str((await readJson(req)).code, 12).replace(/\s/g, '');
+    const body = await readJson(req);
+    // A signed-in device alone cannot turn it on: the password is needed too.
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    if (!await checkPassword(str(body.password, 200), db.get('SELECT pass_hash FROM users WHERE id = ?', user.id).pass_hash)) bad(401, 'Your password is not right.');
+    const code = str(body.code, 12).replace(/\s/g, '');
     const row = db.get('SELECT totp_secret FROM users WHERE id = ?', user.id);
     if (!row.totp_secret) bad(400, 'Start again: the setup code has expired.');
     const step = totpStep(row.totp_secret, code);
     if (step < 0) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
     // The code used to turn it on counts as used, so it cannot also be used to log in.
     const done = db.run("UPDATE users SET totp_on = 1, recovery = '', totp_step = ? WHERE id = ? AND totp_on = 0 AND totp_secret = ?", step, user.id, row.totp_secret);
+    if (done.changes) Promise.resolve().then(() => mailer.send({ to: user.email, ...noticeEmail({ title: 'Two-step sign-in is on', intro: 'Signing in to your Processor Freedom account now needs a code from your authenticator app as well as your password.', warn: 'If you did not do this, reset your password straight away from the sign-in page, then contact us.', manageUrl: `${linkOrigin(req)}/login` }) })).catch((e) => console.error('Two-step email failed:', e.message));
     if (!done.changes) bad(409, 'Start again: the setup code has expired.');
     // Every other device has to sign in again, now with a code.
     db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
@@ -658,7 +672,7 @@ export function createApp(options = {}) {
   route('POST', '/api/auth/forgot', async (req, res) => {
     limit(`forgot:${ipOf(req)}`, 6, 3600000);
     const email = str((await readJson(req)).email, 200).trim().toLowerCase();
-    limit(`forgot-for:${email}`, 4, 3600000);
+    limit(`forgot-for:${email}:${ipOf(req)}`, 4, 3600000); limit(`forgot-all:${email}`, 20, 3600000);
     const u = db.get('SELECT id, name, email FROM users WHERE email = ?', email);
     if (u) { const msg = resetEmail({ name: u.name, link: resetLinkFor(req, u.id) }); mailer.send({ to: u.email, ...msg }).catch((e) => console.error('Reset email failed:', e.message)); }
     // The same answer either way, so this cannot be used to find out who has an account.
@@ -671,7 +685,11 @@ export function createApp(options = {}) {
     if (!row) bad(400, 'This reset link has expired or was already used. Ask for a new one.');
     if (str(b.password, 200).length < 8) bad(400, 'Use at least 8 characters for your password.');
     // Opening a link proves the mailbox only when the link was sent there and nowhere else.
+    const before = db.get('SELECT verified FROM users WHERE id = ?', row.user_id);
     db.run(`UPDATE users SET pass_hash = ?${row.kind === 'email' ? ', verified = 1' : ''} WHERE id = ?`, await hashPassword(str(b.password, 200)), row.user_id);
+    // Two-step turned on for an address nobody had confirmed is cleared by the first link that proves the mailbox, so someone who
+    // signed up with another person's address first cannot lock the real owner out.
+    if (row.kind === 'email' && !before.verified) db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '', totp_step = 0 WHERE id = ?", row.user_id);
     db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
     db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
     const u = db.get('SELECT id, email, name, verified, phone, totp_on FROM users WHERE id = ?', row.user_id);
@@ -930,7 +948,7 @@ export function createApp(options = {}) {
       Object.assign(details, { nickname: str(d.nickname, 60).trim(), phone, payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass });
     }
     db.run('UPDATE members SET details = ? WHERE site_id = ? AND user_id = ?', JSON.stringify(details), site.id, person.id);
-    if (!member) {
+    if (!member && mailOk(site)) {
       const msg = inviteEmail({ business: site.name, role, link: link || `${linkOrigin(req)}/login`, inviter: user.name || user.email, fresh: !!link });
       Promise.resolve().then(() => mailer.send({ to: email, ...msg })).catch((e) => console.error('Invite email failed:', e.message));
     }
@@ -1077,7 +1095,7 @@ export function createApp(options = {}) {
     db.run('INSERT INTO gift_cards (code, site_id, initial, balance, name, email, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', code, site.id, amount, amount, name, email, str(b.note, 200).trim(), now);
     giftMove(site, code, 'issue', amount, paidWith, '', now);
     if (paidWith !== 'Complimentary') logMoney(site, { ...giftMoney(code, name), method: paidWith, amount, note: 'Gift card sold', by: user.name || user.email, at: now });
-    if (email) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: `${siteUrl(req, site).replace(/\/$/, '')}/order` }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
+    if (email && mailOk(site)) Promise.resolve().then(() => mailer.send({ to: email, ...giftEmail({ business: site.name, code, amount, name: str(b.name, 120).trim(), url: `${siteUrl(req, site).replace(/\/$/, '')}/order` }), fromName: site.name })).catch((e) => console.error('Gift card email failed:', e.message));
     json(res, 201, { code, emailed: !!(email && mailer.enabled), cards: giftsOf(site), loads: giftLoads(site) });
   });
   // Spend from a card at the counter, or top it up. The balance check is part of the write, so two at once can never take a card below zero.
@@ -1180,6 +1198,7 @@ export function createApp(options = {}) {
     const at = `${day}T${time}`, wall = Date.parse(`${at}:00Z`);
     const name = str(b.name, 120).trim(), email = str(b.email, 200).trim().toLowerCase(), phone = str(b.phone, 40).trim();
     if (!name) bad(400, 'Please add your name.');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'That email address does not look right.');
     if (viaPublic) {
       if (phone.replace(/\D/g, '').length < 7 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) bad(400, 'Please add your phone number and a valid email address.');
       const now = wallNow(ordering);
@@ -1206,11 +1225,14 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/sites/:id/appointments/:appt', async (req, res, p) => {
     const { site } = ownSite(req, p.id, 'kitchen');
-    const row = db.get('SELECT * FROM appointments WHERE id = ? AND site_id = ?', p.appt, site.id) || bad(404, 'We could not find that appointment.');
     const status = str((await readJson(req)).status, 20);
     if (!['pending', 'confirmed', 'completed', 'cancelled', 'noshow'].includes(status)) bad(400, 'Unknown status.');
+    const row = db.get('SELECT * FROM appointments WHERE id = ? AND site_id = ?', p.appt, site.id) || bad(404, 'We could not find that appointment.');
     db.run('UPDATE appointments SET status = ? WHERE id = ?', status, row.id);
-    if (status !== row.status && ['confirmed', 'cancelled'].includes(status) && row.email) { const business = businessOf(site); Promise.resolve().then(() => mailer.send({ to: row.email, ...bookingEmail(status, { business, appt: toAppt(row), when: apptWhen(row.at) }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Booking email failed:', e.message)); }
+    // The customer is emailed at most once about each status, within the business's hourly cap.
+    const told = row.mailed ? row.mailed.split(',') : [];
+    if (status !== row.status && ['confirmed', 'cancelled'].includes(status) && row.email && !told.includes(status) && mailOk(site)) {
+      db.run('UPDATE appointments SET mailed = ? WHERE id = ?', [...told, status].join(','), row.id); const business = businessOf(site); Promise.resolve().then(() => mailer.send({ to: row.email, ...bookingEmail(status, { business, appt: toAppt(row), when: apptWhen(row.at) }), fromName: business.name, replyTo: business.email })).catch((e) => console.error('Booking email failed:', e.message)); }
     json(res, 200, { appointment: toAppt(db.get('SELECT * FROM appointments WHERE id = ?', row.id)) });
   });
 
@@ -1984,7 +2006,7 @@ export function createApp(options = {}) {
     const home = `${origin}${base}/`;
 
     if (path === '/_forms/contact' && req.method === 'POST' && !draft) {
-      limit(`form:${site.id}:${ipOf(req)}`, 6, 10 * 60000); limit(`form:${site.id}`, 60, 10 * 60000);
+      limit(`form:${site.id}:${ipOf(req)}`, 6, 10 * 60000);
       const raw = await readBody(req, 20_000);
       const isJson = String(req.headers['content-type'] || '').includes('json');
       let b = {};
@@ -1993,6 +2015,7 @@ export function createApp(options = {}) {
       const spam = str(b.company_website).trim() !== '';
       if (!spam) {
         if (!lead.name || !lead.message || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(lead.email)) bad(400, 'Please add your name, a valid email and a message.');
+        limit(`form:${site.id}`, 60, 10 * 60000);
         db.run('INSERT INTO leads (id, site_id, name, email, phone, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', newId(), site.id, lead.name, lead.email, lead.phone, lead.message, Date.now());
       }
       return isJson ? json(res, 200, { ok: true }) : redirect(res, `${base}/?sent=1#contact`, 303);
@@ -2014,7 +2037,7 @@ export function createApp(options = {}) {
       return promo ? json(res, 200, { code: promo.code, type: promo.type, value: promo.value }) : json(res, 404, { error: 'That code is not valid.' });
     }
     if (path === '/_order' && req.method === 'POST' && !draft) {
-      limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000); limit(`order:${site.id}`, 200, 10 * 60000);
+      limit(`order:${site.id}:${ipOf(req)}`, 12, 10 * 60000);
       const b = await readJson(req, 50_000);
       if (!ordering.enabled || !ordering.accepting) bad(409, 'Online ordering is paused right now. Please call us to order.');
       const method = str(b.method, 20);
@@ -2032,6 +2055,8 @@ export function createApp(options = {}) {
       const promo = str(b.promo).trim() ? promoFor(site, ordering, b.promo) || bad(400, 'That promo code is not valid.') : null;
       const zone = method === 'delivery' && ordering.zones.length ? zoneFor(ordering, b.zip) || bad(400, 'Sorry, we do not deliver to that ZIP code.') : null;
       if (zone) who.address = `${who.address} ${(String(b.zip).match(/\d{5}/) || [''])[0]}`.trim();
+      // The shared per-shop cap counts only orders that passed every check, so junk requests cannot shut a shop's ordering.
+      limit(`order:${site.id}`, 200, 10 * 60000);
       let order;
       db.raw.exec('BEGIN IMMEDIATE');
       try {

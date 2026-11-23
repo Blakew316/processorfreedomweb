@@ -116,6 +116,12 @@ export function nameChangeEmail({ before, after, by, when, manageUrl }) {
   return { subject: `${title} to ${after}`, html, text };
 }
 
+/** A short security notice to the account's own address. */
+export function noticeEmail({ title, intro, warn, manageUrl }) {
+  const html = shell(`<p style="margin:0 0 20px;font-size:14px;color:#6e6e73;font-weight:600">Processor Freedom</p><h1 style="margin:0 0 10px;font-size:26px;line-height:1.15;letter-spacing:-.02em;font-weight:600">${esc(title)}</h1><p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#6e6e73">${esc(intro)}</p><p style="margin:0;font-size:15px;line-height:1.5">${esc(warn)}</p>${button(manageUrl, 'Open your account')}`);
+  return { subject: title, html, text: [title, '', intro, '', warn, '', manageUrl || ''].join('\n') };
+}
+
 export function inviteEmail({ business, role, link, inviter, fresh = true }) {
   const what = role === 'kitchen' ? 'see and update orders' : 'help manage the site, menu and orders';
   return {

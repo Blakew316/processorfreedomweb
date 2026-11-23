@@ -1319,3 +1319,27 @@ test('online booking, appointments, shifts and the time clock', async () => {
     assert.deepEqual([clock.mine, clock.entries.length, clock.entries[0].outAt > 0], [null, 1, true]);
   } finally { base = saved; srv.close(); app7.close(); rmSync(d7, { recursive: true, force: true }); }
 });
+
+test('strangers guessing a password cannot lock the owner out; business details go live at once', async () => {
+  const me = client(), anon = client();
+  const ip = (n) => ({ headers: { 'X-Forwarded-For': `198.51.100.${n}` } });
+  assert.equal((await me('POST', '/api/auth/signup', { email: 'guard@shop.test', password: 'long-enough-pw' }, ip(7))).status, 201);
+  // Guesses from many addresses: after ten, unknown addresses are held off even with the right password, but the owner's own address gets in.
+  for (let i = 0; i < 11; i++) await client()('POST', '/api/auth/login', { email: 'guard@shop.test', password: 'wrong-guess' }, ip(20 + i));
+  assert.equal((await client()('POST', '/api/auth/login', { email: 'guard@shop.test', password: 'long-enough-pw' }, ip(99))).status, 429);
+  assert.equal((await client()('POST', '/api/auth/login', { email: 'guard@shop.test', password: 'long-enough-pw' }, ip(7))).status, 200);
+
+  // Phone, email and address saved on Business information reach the live site straight away, as the name does.
+  const site = (await me('POST', '/api/sites', { name: 'Guard Cafe', template: 'cafe' }, ip(7))).data.site;
+  await me('POST', `/api/sites/${site.id}/publish`, {}, ip(7));
+  const fresh = (await me('GET', `/api/sites/${site.id}`, null, ip(7))).data.site;
+  assert.equal((await me('PUT', `/api/sites/${site.id}/business`, { business: { phone: '903-555-0142' }, rev: 'old' }, ip(7))).status, 412, 'a stale copy is refused');
+  const r = await me('PUT', `/api/sites/${site.id}/business`, { business: { phone: '903-555-0142', address1: '12 Elm St' }, rev: fresh.draftRev }, ip(7));
+  assert.equal(r.status, 200);
+  assert.equal(r.data.site.dirty, false, 'nothing is left waiting to be published');
+  const live = (await anon('GET', '/contact', null, { host: `${site.slug}.pfsites.test` })).data;
+  assert.match(live, /903-555-0142/);
+  assert.match(live, /12 Elm St/);
+  // New sites show no invented reviews.
+  assert.doesNotMatch((await anon('GET', '/', null, { host: `${site.slug}.pfsites.test` })).data, /Dana R\.|Chris L\./);
+});

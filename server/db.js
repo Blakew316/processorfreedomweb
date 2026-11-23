@@ -123,12 +123,16 @@ export function openDb(dataDir) {
   `);
   addColumn('appointments', 'employee', "TEXT NOT NULL DEFAULT ''");
   addColumn('appointments', 'total', 'INTEGER NOT NULL DEFAULT 0');
+  // Which statuses the customer was already emailed about, so flipping a booking back and forth never emails them again.
+  addColumn('appointments', 'mailed', "TEXT NOT NULL DEFAULT ''");
   addColumn('members', 'details', "TEXT NOT NULL DEFAULT '{}'");
   addColumn('contacts', 'more', "TEXT NOT NULL DEFAULT '{}'");
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   // Links staff make for a locked-out merchant sign in even with two-step on; links from the email do not.
   addColumn('resets', 'staff', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('push_subs', 'fails', 'INTEGER NOT NULL DEFAULT 0');
+  // Addresses an account has signed in from, so a right password from one of them gets through even while strangers are guessing.
+  db.exec('CREATE TABLE IF NOT EXISTS user_ips (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (user_id, ip))');
   // The money ledger: one row for every payment, refund and reversal, never changed afterwards. Reports, the cash drawer and closeouts
   // read only this, so money filed in a closed batch never moves and a second refund never shifts the first one to another day.
   const ledgerIsNew = !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'money_log'").get();

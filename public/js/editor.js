@@ -1063,7 +1063,8 @@ export async function editor(id, mount, title, startTab = '') {
         const form = h('form', { class: 'stack', onsubmit: async (e) => { e.preventDefault(); err.textContent = ''; try { refresh((await api('POST', '/api/me/2fa/enable', Object.fromEntries(new FormData(form)))).user); close(); toast('Two-step sign-in is on'); } catch (ex) { err.textContent = ex.message; } } },
           h('ol', { class: 'steps-list' }, h('li', {}, 'Open an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or 1Password.'), h('li', {}, 'Scan this code, or type the key underneath it.'), h('li', {}, 'Enter the 6-digit code the app shows.')),
           qr, h('p', { class: 'center' }, key),
-          h('label', { class: 'field' }, h('span', {}, '6-digit code'), h('input', { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' })), err,
+          h('label', { class: 'field' }, h('span', {}, '6-digit code'), h('input', { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' })),
+          h('label', { class: 'field' }, h('span', {}, 'Your password, to confirm'), h('input', { name: 'password', type: 'password', autocomplete: 'current-password', required: true })), err,
           h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Turn on')));
         return [h('h2', {}, 'Turn on two-step sign-in'), null, form];
       });
@@ -1893,7 +1894,7 @@ export async function editor(id, mount, title, startTab = '') {
           v.status === 'paid' && h('div', { class: 'note' }, h('b', {}, `Paid ${fmtDate(v.paidAt)}`), v.paidMethod && ` by ${v.paidMethod.toLowerCase()}`, v.paidNote && ` · ${v.paidNote}`),
           h('div', { class: 'acts', style: 'justify-content:space-between;flex-wrap:wrap' },
             h('div', { class: 'row' }, v.status === 'paid' && h('button', { class: 'btn text sm', onclick: () => act(() => api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'sent' })) }, 'Undo paid'), v.status !== 'paid' && h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Delete ${v.label}?`, text: 'It is removed from your records and the customer’s link stops working.', action: 'Delete', danger: true })) act(() => api('DELETE', `/api/sites/${id}/invoices/${v.id}`)); } }, 'Delete')),
-            h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => { close(); dup(v); } }, 'Duplicate'), h('a', { class: 'btn', href: v.url, target: '_blank', rel: 'noopener' }, 'View invoice', ic('out', 15))))];
+            h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => { close(); dup(v); } }, 'Duplicate'), h('a', { class: 'btn', href: ownView(v), target: '_blank', rel: 'noopener' }, 'View invoice', ic('out', 15))))];
       }
       const people = [...new Map([...bills.contacts, ...customers].filter((c) => c.name).map((c) => [`${c.name}|${c.email}`, c])).values()];
       const cust = v.customer;
@@ -1949,13 +1950,15 @@ export async function editor(id, mount, title, startTab = '') {
           totalsBox),
         h('div', { class: 'acts', style: 'justify-content:space-between;flex-wrap:wrap' },
           h('div', { class: 'row' }, v.id && h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet(sent ? { title: `Cancel ${v.label}?`, text: 'It stays in your records as cancelled, and the customer’s page shows it is no longer due.', action: 'Cancel invoice', danger: true } : { title: `Delete ${v.label}?`, text: 'This draft is removed for good.', action: 'Delete', danger: true })) act(() => (sent ? api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'void' }) : api('DELETE', `/api/sites/${id}/invoices/${v.id}`))); } }, sent ? 'Cancel invoice' : 'Delete'),
-            sent && h('button', { class: 'btn text sm', onclick: () => copyLink(v.url) }, 'Copy link'), sent && h('a', { class: 'btn text sm', href: v.url, target: '_blank', rel: 'noopener' }, 'View')),
+            sent && h('button', { class: 'btn text sm', onclick: () => copyLink(v.url) }, 'Copy link'), sent && h('a', { class: 'btn text sm', href: ownView(v), target: '_blank', rel: 'noopener' }, 'View')),
           h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => act(save, () => toast(est ? 'Estimate saved' : 'Invoice saved')) }, sent ? 'Save changes' : 'Save draft'),
             sent && !est && h('button', { class: 'btn soft', onclick: () => { close(); markPaid(v); } }, 'Mark paid'),
             est && v.id && h('button', { class: 'btn soft', onclick: () => { close(); convertEstimate(v); } }, 'Convert to invoice'),
             h('button', { class: 'btn', onclick: (e) => send(e.currentTarget) }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : est ? 'Send estimate' : 'Send invoice')))];
     }, 'wide bill');
   }
+  // The business opens its own invoices through the preview, so its looks are never recorded as the customer opening it.
+  const ownView = (v) => (v.url && v.url.includes('/invoice/') ? `/preview/${id}/invoice/${v.url.split('/invoice/')[1]}` : v.url);
   const dup = (v) => openInvoice({ ...v, id: undefined, label: undefined, status: 'draft', url: undefined, sentAt: null, viewedAt: null, paidAt: null, reminders: 0, due: addDays(bizDay(), 14) });
 
   /* Reads a photo or PDF of a paper menu, then lets the merchant check the list before anything is saved. */

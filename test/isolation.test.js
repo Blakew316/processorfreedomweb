@@ -265,7 +265,7 @@ test('recovery codes for two-step sign-in', async () => {
     assert.equal((await client()('POST', '/api/me/2fa/recovery', {})).status, 401, 'signed out cannot make codes');
     assert.equal((await other('POST', '/api/me/2fa/recovery', {})).status, 409, 'no codes without two-step sign-in');
     const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret) })).data.user.twoFactor, true);
 
     // New codes need the password, like turning two-step off does.
     assert.equal((await a('POST', '/api/me/2fa/recovery', {})).status, 401, 'codes need the password');
@@ -383,7 +383,7 @@ test('an authenticator code works only once', async () => {
     await a('POST', '/api/auth/signup', { email: 'once@shop.test', password: 'long-enough-pw', name: 'Oni' });
     const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
     const used = totpCode(secret);
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: used })).data.user.twoFactor, true);
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: used })).data.user.twoFactor, true);
     const login = (code) => client()('POST', '/api/auth/login', { email: 'once@shop.test', password: 'long-enough-pw', code });
     let r = await login(used);
     assert.deepEqual([r.status, r.data.twoFactor], [401, true], 'the code used to turn it on cannot also log in');
@@ -396,16 +396,16 @@ test('an authenticator code works only once', async () => {
     const b = client();
     await b('POST', '/api/auth/signup', { email: 'race@shop.test', password: 'long-enough-pw', name: 'Ray' });
     const s2 = (await b('POST', '/api/me/2fa/setup', {})).data.secret;
-    assert.equal((await b('POST', '/api/me/2fa/enable', { code: totpCode(s2, Date.now(), -1) })).data.user.twoFactor, true);
+    assert.equal((await b('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(s2, Date.now(), -1) })).data.user.twoFactor, true);
     const fresh = totpCode(s2);
     const both = await Promise.all([client(), client()].map((cl) => cl('POST', '/api/auth/login', { email: 'race@shop.test', password: 'long-enough-pw', code: fresh })));
     assert.deepEqual(both.map((x) => x.status).sort(), [200, 401], 'one code, one log in, even at the same moment');
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret, Date.now(), -1) })).status, 409, 'turning it on again while it is on is refused');
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret, Date.now(), -1) })).status, 409, 'turning it on again while it is on is refused');
     assert.equal((await login(next)).status, 401, 'and does not free a used code');
     // Turning it off and on again starts afresh.
     assert.equal((await a('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user.twoFactor, false);
     const again = (await a('POST', '/api/me/2fa/setup', {})).data.secret;
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(again) })).data.user.twoFactor, true, 'a new app can be set up');
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(again) })).data.user.twoFactor, true, 'a new app can be set up');
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -478,17 +478,21 @@ test('a reset link from the email does not get past two-step sign-in', async () 
   try {
     const a = client();
     await a('POST', '/api/auth/signup', { email: 'rs@shop.test', password: 'long-enough-pw', name: 'Rio' });
-    const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
     // A reset link, as if it had been emailed (or, with staff = 1, made by staff for a locked-out merchant).
-    const link = (staff) => {
+    const link = (staff, email = 'rs@shop.test') => {
       const token = `tok-${staff}-${Math.random().toString(36).slice(2)}`;
       const db = new DatabaseSync(join(dir, 'sites.db'));
-      const id = db.prepare("SELECT id FROM users WHERE email = 'rs@shop.test'").get().id;
-      db.prepare('INSERT INTO resets (token_hash, user_id, expires_at, staff) VALUES (?, ?, ?, ?)').run(createHash('sha256').update(token).digest('hex'), id, Date.now() + 3600000, staff);
+      const id = db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
+      db.prepare('INSERT INTO resets (token_hash, user_id, expires_at, staff, kind) VALUES (?, ?, ?, ?, ?)').run(createHash('sha256').update(token).digest('hex'), id, Date.now() + 3600000, staff, staff ? 'staff' : 'email');
       db.close();
       return token;
     };
+    // The owner has opened a link from their email once, so the address is confirmed.
+    assert.equal((await client()('POST', '/api/auth/reset', { token: link(0), password: 'long-enough-pw' })).status, 200);
+    await a('POST', '/api/auth/login', { email: 'rs@shop.test', password: 'long-enough-pw' });
+    const { secret } = (await a('POST', '/api/me/2fa/setup', {})).data;
+    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).status, 401, 'turning it on needs the password');
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret) })).data.user.twoFactor, true);
     const r = client();
     const res = await r('POST', '/api/auth/reset', { token: link(0), password: 'brand-new-password' });
     assert.equal(res.status, 200);
@@ -505,6 +509,16 @@ test('a reset link from the email does not get past two-step sign-in', async () 
     assert.equal(res2.status, 200);
     assert.equal(res2.data.user.email, 'rs@shop.test', 'a staff link signs in');
     assert.equal((await st('GET', '/api/sites')).status, 200);
+    // Someone signs up with another person's address and turns two-step on. The first link that proves the mailbox clears it,
+    // so the real owner gets in.
+    const squat = client();
+    await squat('POST', '/api/auth/signup', { email: 'victim@shop.test', password: 'squatter-password' });
+    const s3 = (await squat('POST', '/api/me/2fa/setup', {})).data.secret;
+    assert.equal((await squat('POST', '/api/me/2fa/enable', { password: 'squatter-password', code: totpCode(s3) })).data.user.twoFactor, true);
+    const owner = client();
+    const back = await owner('POST', '/api/auth/reset', { token: link(0, 'victim@shop.test'), password: 'owners-own-password' });
+    assert.equal(back.data.user.email, 'victim@shop.test', 'the owner is signed in');
+    assert.equal(back.data.user.twoFactor, false, 'and the squatter\'s two-step is gone');
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -535,10 +549,10 @@ test('profile changes and two-step sign-in', async () => {
     // Two-step sign-in: off until a real code proves the app is set up.
     const { secret, uri } = (await a('POST', '/api/me/2fa/setup', {})).data;
     assert.match(uri, /^otpauth:\/\/totp\/.*secret=[A-Z2-7]{32}/);
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: '000000' })).status, 400);
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: '000000' })).status, 400);
     assert.equal((await client()('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' })).status, 200, 'still password only until it is switched on');
     const stay = client(); await stay('POST', '/api/auth/login', { email: 'new@shop.test', password: 'long-enough-pw' });
-    assert.equal((await a('POST', '/api/me/2fa/enable', { code: totpCode(secret) })).data.user.twoFactor, true);
+    assert.equal((await a('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret) })).data.user.twoFactor, true);
     assert.equal((await stay('GET', '/api/sites')).status, 401, 'other devices are signed out when it is switched on');
     assert.equal((await a('GET', '/api/me')).data.user.twoFactor, true);
 
