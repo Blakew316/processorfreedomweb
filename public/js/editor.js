@@ -3254,29 +3254,29 @@ export async function editor(id, mount, title, startTab = '') {
   /* ---------- Items section: Item list, Categories, Modifier groups, Menus, Printer labels, Revenue classes, Discounts.
      Laid out like the owner's photos. Things that cannot work here yet (point of sale, third-party channels) are greyed out. ---------- */
   const II = {
-    columns: SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M14.5 4.5v15"/>', 18),
+    columns: SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M14.5 4.5v15"/>', 24),
     plus: SV('<path d="M12 5v14M5 12h14"/>', 18),
-    layout: SV('<rect x="3" y="4.5" width="13" height="10" rx="1.5"/><path d="M6.5 18.5h6M9.5 14.5v4"/><rect x="14.5" y="9" width="6.5" height="10.5" rx="1.2"/>', 18),
-    up: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 16),
-    down: SV('<path d="M12 5v14M6 13l6 6 6-6"/>', 16),
+    layout: SV('<rect x="3" y="4.5" width="13" height="10" rx="1.5"/><path d="M6.5 18.5h6M9.5 14.5v4"/><rect x="14.5" y="9" width="6.5" height="10.5" rx="1.2"/>', 24),
+    up: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 24),
+    down: SV('<path d="M12 5v14M6 13l6 6 6-6"/>', 24),
     both: SV('<path d="M8 5v14M4.5 15.5 8 19l3.5-3.5M16 19V5M12.5 8.5 16 5l3.5 3.5"/>', 16),
     info: SV('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>', 20),
     pencil: SV('<path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13 7 4 4"/>', 18),
     pub: SV('<path d="M12 15V4M8 8l4-4 4 4M5 18.5h14"/>', 16),
-    sliders: SV('<path d="M8 4v8.4M8 17.6V20M16 4v2.4M16 11.6V20"/><circle cx="8" cy="15" r="2.6"/><circle cx="16" cy="9" r="2.6"/>', 20),
+    sliders: SV('<path d="M8 4v8.4M8 17.6V20M16 4v2.4M16 11.6V20"/><circle cx="8" cy="15" r="2.6"/><circle cx="16" cy="9" r="2.6"/>', 26),
     chevD: SV('<path d="m6 9 6 6 6-6"/>', 18),
     chevU: SV('<path d="m6 15 6-6 6 6"/>', 18),
     chevL: SV('<path d="m15 6-6 6 6 6"/>', 18),
     chevR: SV('<path d="m9 6 6 6-6 6"/>', 18),
     back: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 20),
-    handle: SV('<path d="M5 10h14M5 14h14"/>', 20),
+    handle: SV('<path d="M5 10h14M5 14h14"/>', 26),
     copy: SV('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/>', 18),
     unpub: SV('<path d="M12 4v10M8 10.5l4 4 4-4M5 18.5h14"/>', 16),
     bin: SV('<path d="M5 7h14M10 11v6M14 11v6M7 7l1 12h8l1-12M9.5 7V4.5h5V7"/>', 16),
     reset: SV('<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/>', 16),
-    left: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 14),
-    right: SV('<path d="M5 12h14M13 6l6 6-6 6"/>', 14),
-    upk: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 14),
+    left: SV('<path d="M19 12H5M11 6l-6 6 6 6"/>', 18),
+    right: SV('<path d="M5 12h14M13 6l6 6-6 6"/>', 18),
+    upk: SV('<path d="M12 19V5M6 11l6-6 6 6"/>', 18),
   };
   const itBtn = (label, { icon, kind = 'grey', onclick, disabled = false, cls = '' } = {}) => h('button', { type: 'button', class: `it-btn ${kind} ${cls}`, onclick, disabled }, icon && h('span', { class: 'it-bic', html: icon }), label);
   const itHead = (title, ...right) => h('div', { class: 'it-head' }, h('h1', {}, title), right.filter(Boolean).length > 0 && h('div', { class: 'it-tools' }, ...right.filter(Boolean)));
@@ -3323,12 +3323,14 @@ export async function editor(id, mount, title, startTab = '') {
       h('span', { class: 'it-range' }, `${st.page * size + 1} - ${Math.min(total, st.page * size + size)}`),
       h('button', { type: 'button', class: 'it-pg', 'aria-label': 'Previous page', disabled: st.page === 0, html: II.chevL, onclick: () => { st.page -= 1; paintPanel(); } }),
       h('button', { type: 'button', class: 'it-pg', 'aria-label': 'Next page', disabled: st.page >= pages - 1, html: II.chevR, onclick: () => { st.page += 1; paintPanel(); } }));
-    return h('div', { class: `it-table${plain ? ' plain' : ''}` }, h('div', { class: 'tscroll' }, h('table', {}, h('thead', {}, head), h('tbody', {}, body))), !total && empty, foot);
+    const fixed = cols.some((c) => c.w);
+    const colgroup = fixed && h('colgroup', {}, expand && h('col', { style: '--w:54px' }), select && h('col', { style: '--w:66px' }), cols.map((c) => h('col', { style: c.w ? `--w:${c.w}` : null })));
+    return h('div', { class: `it-table${plain ? ' plain' : ''}` }, h('div', { class: 'tscroll' }, h('table', { class: fixed ? 'fixed' : null }, colgroup, h('thead', {}, head), h('tbody', {}, body))), !total && empty, foot);
   }
   const itSel = (key) => [...(((clState.it || {})[key] || {}).sel || [])];
   const itClear = (key) => { const st = (clState.it || {})[key]; if (st) st.sel.clear(); };
   // What appears when rows are ticked: how many, the actions, and Clear.
-  const itBulk = (key, nouns, actions) => { const n = itSel(key).length; const [one, many] = Array.isArray(nouns) ? nouns : [nouns, `${nouns}s`]; return n > 0 && h('div', { class: 'it-bulk', role: 'region', 'aria-label': 'Selected' }, h('b', {}, `${n} ${n === 1 ? one : many} selected`), ...actions.filter(Boolean), h('span', { class: 'grow' }), h('button', { type: 'button', class: 'it-textbtn', onclick: () => { itClear(key); paintPanel(); } }, 'Clear')); };
+  const itBulk = (key, nouns, actions) => { const n = itSel(key).length; const [one, many] = Array.isArray(nouns) ? nouns : [nouns, `${nouns}s`]; return n > 0 && h('div', { class: 'it-bulk', role: 'region', 'aria-label': 'Selected' }, h('div', { class: 'it-bulkn' }, h('b', {}, `${n} ${n === 1 ? one : many} selected`), h('button', { type: 'button', class: 'it-textbtn', onclick: () => { itClear(key); paintPanel(); } }, 'Clear')), ...actions.filter(Boolean)); };
 
   /* A side panel like the photos' layout panels: header with close, a body that scrolls, Cancel and Save (pale until something changes). */
   function itDrawer(title, build) {
@@ -3336,7 +3338,7 @@ export async function editor(id, mount, title, startTab = '') {
       const save = h('button', { type: 'button', class: 'it-btn fill', disabled: true }, 'Save');
       const { body, onSave } = build(() => { save.disabled = false; });
       save.onclick = async () => { save.disabled = true; try { await onSave(); close(); } catch (e) { toast(e.message, true); save.disabled = false; } };
-      return [h('div', { class: 'itd-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'itd-x', 'aria-label': 'Close', onclick: close }, ic('x', 22))),
+      return [h('div', { class: 'itd-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'itd-x', 'aria-label': 'Close', onclick: close }, ic('x', 28))),
         h('div', { class: 'itd-b' }, ...body), h('div', { class: 'itd-f' }, h('button', { type: 'button', class: 'it-btn grey', onclick: close }, 'Cancel'), save)];
     }, 'drawer it-drawer');
   }
@@ -3433,7 +3435,8 @@ export async function editor(id, mount, title, startTab = '') {
     const list = menu.filter((it) => (!q || `${it.name} ${it.category}`.toLowerCase().includes(q)) && (!f.cat || it.category === f.cat) && (f.show === 'all' || (f.show === 'sale' ? it.sale > 0 : stateOf(it) === f.show)));
     const hid = clState.itcols ||= new Set();
     const ALL = [['price', 'Price'], ['cost', 'Cost'], ['cats', 'Categories'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
-    const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide' }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
+    const W = { name: '27.5%', price: '10.5%', cost: '9%', cats: '12.5%', mods: '15%', pos: '9.7%', stock: '10%' };
+    const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: W.name }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, w: W[k], cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
     // In stock: off marks the item sold out; on puts back its daily refill amount, or the usual starting amount.
     const setStock = (it, on) => itemsBulk([it.id], { set: { stock: on ? (it.restock ?? DEFAULT_STOCK) : 0 } }, on ? `${it.name} is in stock` : `${it.name} is sold out`);
     const rows = list.map((it) => ({ id: it.id, label: it.name, it, cells: {
@@ -3496,7 +3499,7 @@ export async function editor(id, mount, title, startTab = '') {
         pair('On the menu', 'Show', () => bulk({ set: { available: true } }, `${what()} shown`), 'Hide', () => bulk({ set: { available: false } }, `${what()} hidden`)),
         b('Change prices', async () => { const v = await ask({ title: `Change prices in ${what()}`, label: 'Percent change', type: 'number', value: '5', hint: 'Use a minus sign to lower prices, for example -10.' }); if (v !== null && v !== '' && Number(v)) bulk({ set: { pricePercent: v } }, `Prices updated in ${what()}`); }),
         b('Put on sale', async () => { const v = await ask({ title: `Put ${what()} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale.' }); if (v !== null && v !== '') bulk({ set: { sale: v } }, `Sale updated in ${what()}`); })]),
-      itTable({ key: 'cats', cols: [{ k: 'name', l: 'Category name', sort: (r) => r.id.toLowerCase(), cls: 'it-wide' }, { k: 'sub', l: 'Subcategory' }, { k: 'type', l: 'Type' }, { k: 'cid', l: 'Category ID' }, { k: 'items', l: 'Items' }],
+      itTable({ key: 'cats', cols: [{ k: 'name', l: 'Category name', sort: (r) => r.id.toLowerCase(), cls: 'it-wide', w: '19%' }, { k: 'sub', l: 'Subcategory', w: '19%' }, { k: 'type', l: 'Type', w: '18%' }, { k: 'cid', l: 'Category ID', w: '21%' }, { k: 'items', l: 'Items' }],
         rows, select: true, sortBy: 'name', empty: h('div', { class: 'it-none' }, cats.length ? 'No categories found' : 'You do not have any categories') }))];
   };
 
@@ -3527,7 +3530,7 @@ export async function editor(id, mount, title, startTab = '') {
           ordering.modGroups = groups.filter((g) => !list.includes(g)); await putOrdering(); itClear('mg'); toast('Deleted'); paintPanel(); paint(true); } catch (e) { toast(e.message, true); }
       };
       body = [h('div', { class: 'it-bar' }, itSearch('Search modifier groups', 'mg'), add), itBulk('mg', 'modifier group', [h('button', { type: 'button', class: 'btn soft sm danger', onclick: del }, 'Delete')]),
-        itTable({ key: 'mg', cols: [{ k: 'name', l: 'Modifier group name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide' }, { k: 'mid', l: 'Modifier ID' }, { k: 'n', l: 'Modifiers' }, { k: 'items', l: 'Items' }], rows, select: true, sortBy: 'name',
+        itTable({ key: 'mg', cols: [{ k: 'name', l: 'Modifier group name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: '22.5%' }, { k: 'mid', l: 'Modifier ID', w: '23%' }, { k: 'n', l: 'Modifiers', w: '22%' }, { k: 'items', l: 'Items' }], rows, select: true, sortBy: 'name',
           expand: (r) => (r.g.choices.length ? h('div', { class: 'it-mods' }, r.g.choices.map((c) => h('div', { class: 'it-modrow' }, h('span', {}, c.name), h('span', {}, money(c.price))))) : h('p', { class: 'it-subnone' }, 'No modifiers yet.')),
           empty: h('div', { class: 'it-none' }, groups.length ? 'No modifier groups found' : 'You do not have any modifier groups') })];
     } else {
@@ -3544,7 +3547,7 @@ export async function editor(id, mount, title, startTab = '') {
       const pair = (label, onL, onFn, offL, offFn) => h('div', { class: 'bgroup' }, h('span', {}, label), h('div', { class: 'seg' }, h('button', { type: 'button', onclick: onFn }, onL), h('button', { type: 'button', onclick: offFn }, offL)));
       body = [h('div', { class: 'it-bar' }, itSearch('Search modifiers', 'mm'), add),
         itBulk('mm', 'modifier', [pair('Show online', 'On', () => setAll('online', true, 'Shown online'), 'Off', () => setAll('online', false, 'Hidden online')), pair('In stock', 'Yes', () => setAll('inStock', true, 'In stock'), 'No', () => setAll('inStock', false, 'Marked sold out'))]),
-        itTable({ key: 'mm', cols: [{ k: 'name', l: 'Modifier name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide' }, { k: 'group', l: 'Modifier group' }, { k: 'price', l: 'Price' }, { k: 'online', l: 'Show online', cls: 'it-c' }, { k: 'stock', l: 'In stock', cls: 'it-c' }], rows, select: true, sortBy: 'name',
+        itTable({ key: 'mm', cols: [{ k: 'name', l: 'Modifier name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: '19.5%' }, { k: 'group', l: 'Modifier group', w: '19.5%' }, { k: 'price', l: 'Price', w: '18%' }, { k: 'online', l: 'Show online', cls: 'it-c', w: '18.5%' }, { k: 'stock', l: 'In stock', cls: 'it-c' }], rows, select: true, sortBy: 'name',
           empty: h('div', { class: 'it-none' }, all.length ? 'No modifiers found' : 'You do not have any modifiers') })];
     }
     return [h('div', { class: 'cl it' }, head, seg, ...body)];
@@ -3692,7 +3695,7 @@ export async function editor(id, mount, title, startTab = '') {
       itBan('dayparts', 'Assign dayparts to your online menus to control when your menu is displayed', [itInl('Create dayparts in Business Hours', () => goTab('hours')), ' to schedule when your menus will be displayed online.']),
       h('div', { class: 'it-titles' }, h('h1', { class: 'it-h1' }, 'Menus'), h('p', { class: 'it-lead' }, 'These menus are used for online ordering. To connect your online menu with an online ordering provider, it must be published and enabled for that provider. Once you have a published menu, go to ', itInl('Online Ordering', () => goTab('online')), ' to set it up.')),
       h('div', { class: 'it-bar' }, itSearch('Search menus', 'menus'), itBtn('Add menu', { icon: II.plus, kind: 'fill', onclick: addMenu })),
-      itTable({ key: 'menus', cols: [{ k: 'name', l: 'Menu name', sort: (r) => r.label.toLowerCase(), next: true, cls: 'it-mname' }, { k: 'ch', l: 'Channels', sort: (r) => (r.m.active ? PF_CHANNEL : ''), next: true, cls: 'it-mch' }, { k: 'avail', l: 'Menu availability', cls: 'it-mav' }, { k: 'status', l: 'Status', sort: (r) => (r.m.active ? 0 : 1), next: true }, { k: 'act', l: 'Action', cls: 'it-act' }],
+      itTable({ key: 'menus', cols: [{ k: 'name', l: 'Menu name', sort: (r) => r.label.toLowerCase(), next: true, cls: 'it-mname', w: '38%' }, { k: 'ch', l: 'Channels', sort: (r) => (r.m.active ? PF_CHANNEL : ''), next: true, cls: 'it-mch', w: '21%' }, { k: 'avail', l: 'Menu availability', cls: 'it-mav', w: '15%' }, { k: 'status', l: 'Status', sort: (r) => (r.m.active ? 0 : 1), next: true, w: '12%' }, { k: 'act', l: 'Action', cls: 'it-act' }],
         rows, plain: true, empty: h('div', { class: 'it-none' }, ordering.menus.length ? 'No menus found' : 'You do not have any menus') }))];
   };
   // Choose the categories a menu shows.
@@ -3754,7 +3757,7 @@ export async function editor(id, mount, title, startTab = '') {
     return [h('div', { class: 'cl it' }, itHead('Printer labels', itMore([['Download printer labels', () => csvDownload('printer-labels', [['Label name', 'Items'], ...ordering.labels.map((n) => [n, labelCount(n)])])]])),
       h('div', { class: 'it-bar' }, itSearch('Search labels', 'labels'), itBtn('Add label', { icon: II.plus, kind: 'fill', onclick: () => openLabel(null) })),
       itBulk('labels', 'label', [h('button', { type: 'button', class: 'btn soft sm danger', onclick: del }, 'Delete')]),
-      itTable({ key: 'labels', cols: [{ k: 'name', l: 'Label name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide' }, { k: 'items', l: 'Items' }], rows, select: true, sortBy: 'name', per: true, perLabel: 'Labels per page',
+      itTable({ key: 'labels', cols: [{ k: 'name', l: 'Label name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: '45%' }, { k: 'items', l: 'Items' }], rows, select: true, sortBy: 'name', per: true, perLabel: 'Labels per page',
         empty: h('div', { class: 'it-none' }, ordering.labels.length ? 'No labels found' : 'You do not have any printer labels') }))];
   };
   CL['label-view'] = () => {
@@ -3790,7 +3793,8 @@ export async function editor(id, mount, title, startTab = '') {
     const assigned = menu.filter((x) => d.items.has(x.id));
     const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q)) && (!f.cat || it.category === f.cat) && (f.show === 'all' || stateOf(it) === f.show));
     const ALL = [['price', 'Price'], ['cost', 'Cost'], ['pos', 'Show on POS'], ['stock', 'In stock']];
-    const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide' }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
+    const W = { name: '27%', price: '15.5%', cost: '15%', pos: '15%' };
+    const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: W.name }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, w: W[k], cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
     const rows = list.map((it) => ({ id: it.id, label: it.name, cells: { name: h('div', { class: 'it-name' }, itSwatch(it.image), itLink(it.name, () => openItem(it.id))), price: money(it.price), cost: it.cost == null ? '' : money(it.cost),
       pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }), stock: itSw(it.stock !== 0, (e) => itemsBulk([it.id], { set: { stock: e.target.checked ? (it.restock ?? DEFAULT_STOCK) : 0 } }, e.target.checked ? `${it.name} is in stock` : `${it.name} is sold out`), { label: `${it.name} in stock` }) } }));
     const colsB = h('button', { type: 'button', class: 'it-btn grey' }, h('span', { class: 'it-bic', html: II.columns }), 'Columns');
@@ -3895,7 +3899,7 @@ export async function editor(id, mount, title, startTab = '') {
       h('div', { class: 'it-dhead' }, h('h1', { class: 'it-h1' }, 'Discounts'), h('div', { class: 'it-tools' }, itBtn('View report', { onclick: () => goTab('r-disc') }))),
       h('p', { class: 'it-lead' }, 'If you do not have any custom discounts, you will see the following default discounts on your invoices: 10%, 25%, 50%, $1.00 off, $5.00 off, $10.00 off.'),
       h('div', { class: 'it-addrow' }, h('button', { type: 'button', class: 'it-textbtn on', onclick: () => editDisc(null) }, h('span', { class: 'it-bic', html: II.plus }), 'Add discount')),
-      itTable({ key: 'discs', cols: [{ k: 'name', l: 'Discount name', cls: 'it-dname' }, { k: 'value', l: 'Discount value' }], rows, empty: h('div', { class: 'it-none' }, 'No discounts found') }))];
+      itTable({ key: 'discs', cols: [{ k: 'name', l: 'Discount name', cls: 'it-dname', w: '30%' }, { k: 'value', l: 'Discount value' }], rows, empty: h('div', { class: 'it-none' }, 'No discounts found') }))];
   };
 
   function paintPanel() {
