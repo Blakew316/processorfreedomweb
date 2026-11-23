@@ -203,6 +203,22 @@ export function openDb(dataDir) {
   // What part of an appointment was taxed, and at what rate, so the Taxes report shows it as it was charged.
   addColumn('appointments', 'taxable', 'INTEGER');
   addColumn('appointments', 'tax_rate', 'REAL');
+  // An invoice's ledger rows keep the taxable part of its sales and its rate, so a later change to the invoice never restates a
+  // reported day. Rows written before this was kept take them once from the invoice as it is now, rounded the same either side of zero.
+  addColumn('money_log', 'taxable', 'INTEGER');
+  addColumn('money_log', 'rate', 'REAL');
+  if (!db.prepare("SELECT 1 FROM settings WHERE key = 'invoice_tax_parts'").get()) {
+    const upd = db.prepare('UPDATE money_log SET taxable = ?, rate = ? WHERE id = ?');
+    db.exec('BEGIN');
+    for (const r of db.prepare("SELECT m.id, m.amount, m.tax, v.items, v.subtotal, v.discount, v.tax_rate FROM money_log m JOIN invoices v ON v.id = m.ref_id AND v.site_id = m.site_id WHERE m.source = 'Invoice' AND m.taxable IS NULL").all()) {
+      let lines = []; try { lines = JSON.parse(r.items || '[]'); } catch { /* none */ }
+      const taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = r.subtotal - r.discount, sale = r.amount - r.tax;
+      const share = net ? Math.max(0, Math.min(1, (r.subtotal ? taxed - (r.discount * taxed) / r.subtotal : 0) / net)) : 0;
+      upd.run(Math.sign(sale) * Math.round(Math.abs(sale) * share), Number(r.tax_rate) || 0, r.id);
+    }
+    db.prepare("INSERT INTO settings (key, value) VALUES ('invoice_tax_parts', '1')").run();
+    db.exec('COMMIT');
+  }
   // Every order refund carries the tax, tip and fee it gave back: its share of what the order's payments carried, refund by refund,
   // so a refund made in parts adds up exactly. Refunds recorded before this was kept are worked out once here.
   if (!db.prepare("SELECT 1 FROM settings WHERE key = 'refund_parts'").get()) {

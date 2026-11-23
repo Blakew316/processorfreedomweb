@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server/app.js';
 import { slugify, cleanSlug, slugProblem, safeUrl, safeImg, cleanDomain, createSite, normalizeSite, readableAccent, contrast, TEMPLATES, LEGAL_PAGES } from '../shared/core.js';
 import { renderPage } from '../shared/render.js';
@@ -1447,6 +1448,7 @@ test('links on the page only go to sections that are there; templates make no pr
     const s = createSite('X', t.id);
     for (const sec of s.sections.filter((x) => x.type === 'services')) assert.ok(sec.data.items.every((i) => !i.price), `${t.id} has no invented prices`);
     assert.ok(s.sections.filter((x) => x.type === 'faq').every((x) => x.enabled === false), `${t.id} questions start switched off`);
+    assert.doesNotMatch(JSON.stringify(s), /from scratch|best ingredients|fresh bakes|single-origin|laminated|made to last|well-made|chosen by hand|handmade|wood-fired|slow-braised|real ingredients|seasons do|carefully edited/i, `${t.id} says nothing about how goods are made or sourced`);
   }
 });
 
@@ -1670,4 +1672,92 @@ test('the Taxes report always equals Finances: part gift card orders cancelled, 
     assert.equal(tax, moneyTax, 'net taxes equal Finances');
     assert.equal(tax, 1650);
   } finally { base = saved; srv.close(); app12.close(); rmSync(d12, { recursive: true, force: true }); }
+});
+
+test('each ledger row keeps its own tax: a gift card part paid on one day and the rest on another; invoices keep the day they were paid', async () => {
+  const d13 = mkdtempSync(join(tmpdir(), 'pfsites13-'));
+  const app13 = createApp({ dataDir: d13, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app13);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  const sql = (fn) => { const db = new DatabaseSync(join(d13, 'sites.db')); try { return fn(db); } finally { db.close(); } };
+  try {
+    const me = client(), anon = client(), host = { host: 'rowcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@row.test', password: 'long-enough-pw', name: 'Rae' });
+    const site = (await me('POST', '/api/sites', { name: 'Row Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price,Taxable\nTaco,10.00,yes' })).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, taxRate: 8.25, tips: true } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const [taco] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const rows = async (ref) => (await me('GET', `/api/sites/${site.id}/transactions?range=today`)).data.payments.filter((x) => x.ref === ref).sort((a, b) => a.at - b.at || 0);
+    const stats = async (q) => (await me('GET', `/api/sites/${site.id}/stats?${q}`)).data;
+    const rate = (st, r) => { const x = st.totals.rates.find((y) => y.rate === r) || { taxable: 0, nontaxable: 0, tax: 0 }; return [x.taxable, x.nontaxable, x.tax]; };
+    const pay = (oid, body) => me('POST', `/api/sites/${site.id}/orders/${oid}/payment`, body);
+
+    // A $6.00 gift card pays part of a $10.00 order with $0.83 tax and a $2.00 tip ($12.83). The card's part carries its share of
+    // the tax and tip; the counter payment carries the rest, and every change of tender or removal moves exactly what it carried.
+    const card = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 600, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Ana', phone: '903-555-0100', email: 'ana@row.test', method: 'pickup', tip: 20, promo: card, items: [{ id: taco.id, qty: 1 }] }, host);
+    const order = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    assert.deepEqual([order.total, order.tax, order.tip, order.gift], [1283, 83, 200, 600]);
+    assert.deepEqual((await rows('#1001')).map((x) => [x.amount, x.tax, x.tip]), [[600, 39, 94]]);
+    assert.deepEqual(rate(await stats('range=today'), 8.25), [467, 0, 39], 'the card part is taxable sales with its own tax');
+    await pay(order.id, { method: 'Cash' });
+    await pay(order.id, { method: 'Card' });
+    await pay(order.id, { clear: true });
+    await pay(order.id, { method: 'Check' });
+    assert.deepEqual((await rows('#1001')).map((x) => [x.amount, x.tax, x.tip]), [[600, 39, 94], [683, 44, 106], [-683, -44, -106], [683, 44, 106], [-683, -44, -106], [683, 44, 106]]);
+    let st = await stats('range=today');
+    assert.deepEqual([rate(st, 8.25), st.money.tax], [[1000, 0, 83], 83]);
+
+    // An invoice whose taxable half ends on half a cent, paid, paid another way and then taken back, leaves nothing behind.
+    const inv = (await me('POST', `/api/sites/${site.id}/invoices`, { customer: { name: 'Cy', email: 'cy@row.test' }, items: [{ name: 'Labor', qty: 1, price: 5000, taxable: false }, { name: 'Parts', qty: 1, price: 5000 }], discount: 525, taxRate: 7 })).data.invoice;
+    const status = (body) => me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, body);
+    await status({ status: 'paid', method: 'Cash' });
+    await status({ status: 'paid', method: 'Card' });
+    await status({ status: 'sent' });
+    st = await stats('range=today');
+    assert.deepEqual([rate(st, 7), rate(st, 8.25), st.money.tax], [[0, 0, 0], [1000, 0, 83], 83]);
+    // Paid again, then moved to another rate after that payment was taken back: what was reported stays as it was paid.
+    await status({ status: 'paid', method: 'Cash' });
+    await status({ status: 'sent' });
+    await me('PUT', `/api/sites/${site.id}/invoices/${inv.id}`, { customer: { name: 'Cy', email: 'cy@row.test' }, items: [{ name: 'Parts', qty: 1, price: 8000 }], taxRate: 10 });
+    await status({ status: 'paid', method: 'Check' });
+    const invRows = await rows(`INV-${inv.number}`);
+    assert.deepEqual(invRows.map((x) => [x.amount, x.tax, x.taxable, x.rate]).slice(-3), [[9807, 332, 4738, 7], [-9807, -332, -4738, 7], [8800, 800, 8000, 10]]);
+
+    // The card's part, and the invoice's payment taken after its first one was removed, are moved two days back: each day reports what it took.
+    sql((db) => {
+      const back = (id) => db.prepare('UPDATE money_log SET at = at - ? WHERE id = ?').run(2 * 86400000, id);
+      back(db.prepare("SELECT id FROM money_log WHERE ref = '#1001' ORDER BY at, rowid LIMIT 1").get().id);
+      back(invRows[invRows.length - 3].id);
+    });
+    const today = (await stats('range=today')).today, day = (n) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const past = await stats(`range=custom&from=${day(-7)}&to=${day(-1)}`), now = await stats('range=today');
+    assert.deepEqual([rate(past, 8.25), rate(past, 7), rate(past, 10), past.money.tax], [[467, 0, 39], [4738, 4737, 332], [0, 0, 0], 371]);
+    assert.deepEqual([rate(now, 8.25), rate(now, 7), rate(now, 10), now.money.tax], [[533, 0, 44], [-4738, -4737, -332], [8000, 0, 800], 512]);
+    for (const s of [past, now]) assert.equal(s.totals.rates.reduce((a, r) => a + r.tax, 0), s.money.tax, 'the Taxes report equals Finances on each day');
+  } finally { base = saved; srv.close(); app13.close(); rmSync(d13, { recursive: true, force: true }); }
+});
+
+test('rows written before invoices kept their own tax figures get them once, from the invoice as it is', async () => {
+  const d14 = mkdtempSync(join(tmpdir(), 'pfsites14-'));
+  const opts = { dataDir: d14, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } };
+  let app14 = createApp(opts), srv = createServer(app14);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  const sql = (fn) => { const db = new DatabaseSync(join(d14, 'sites.db')); try { return fn(db); } finally { db.close(); } };
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'own@old.test', password: 'long-enough-pw', name: 'Old' });
+    const site = (await me('POST', '/api/sites', { name: 'Old Shop', template: 'order', kind: 'ordering' })).data.site;
+    const inv = (await me('POST', `/api/sites/${site.id}/invoices`, { customer: { name: 'Cy' }, items: [{ name: 'Labor', qty: 1, price: 5000, taxable: false }, { name: 'Parts', qty: 1, price: 5000 }], discount: 525, taxRate: 7 })).data.invoice;
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'paid', method: 'Cash' });
+    await me('POST', `/api/sites/${site.id}/invoices/${inv.id}/status`, { status: 'sent' });
+    srv.close(); app14.close();
+    sql((db) => { db.exec("UPDATE money_log SET taxable = NULL, rate = NULL; DELETE FROM settings WHERE key = 'invoice_tax_parts'"); });
+    app14 = createApp(opts); srv = createServer(app14);
+    await new Promise((r) => srv.listen(0, r));
+    base = `http://127.0.0.1:${srv.address().port}`;
+    assert.deepEqual(sql((db) => db.prepare('SELECT amount, taxable, rate FROM money_log ORDER BY at, rowid').all().map((r) => [r.amount, r.taxable, r.rate])), [[9807, 4738, 7], [-9807, -4738, 7]]);
+  } finally { base = saved; srv.close(); app14.close(); rmSync(d14, { recursive: true, force: true }); }
 });

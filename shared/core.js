@@ -186,9 +186,9 @@ export const TEMPLATES = [
       cta: link('Reserve a table', '#contact'),
       hours: hours(['Tuesday – Thursday', '5:00 – 9:30 PM'], ['Friday – Saturday', '5:00 – 10:30 PM'], ['Sunday', '4:00 – 9:00 PM'], ['Monday', 'Closed']),
       sections: [
-        hero('Neighborhood kitchen', 'Good food, made with care.', `${n} serves seasonal dishes cooked from scratch, in a room built for long dinners and good company.`, link('Reserve a table', '#contact'), link('See the menu', '#menu')),
-        about('Our story', `${n} began with a simple idea: cook honest food with the best ingredients we can find, and treat every guest like a regular. We change the menu as the seasons do.`),
-        offer('Menu', 'The menu', 'A few favourites. Ask your server about tonight’s specials.', 'list', [['Wood-fired flatbread', 'Roasted garlic, mozzarella, basil, olive oil', '$14'], ['Market salad', 'Greens, shaved fennel, citrus, toasted almonds', '$12'], ['Handmade pappardelle', 'Slow-braised short rib ragù, parmesan', '$24'], ['Pan-roasted salmon', 'Lemon butter, asparagus, herbed potatoes', '$28'], ['Half roasted chicken', 'Pan jus, charred broccolini, garlic mash', '$25'], ['Olive oil cake', 'Whipped mascarpone, seasonal fruit', '$10']]),
+        hero('Neighborhood kitchen', 'Good food, made with care.', `${n} serves dinner in a room built for long evenings and good company.`, link('Reserve a table', '#contact'), link('See the menu', '#menu')),
+        about('Our story', `${n} is a place to sit down, slow down and share a meal with the people you like most.`),
+        offer('Menu', 'The menu', 'A few favourites. Ask your server about tonight’s specials.', 'list', [['Flatbread', 'Roasted garlic, mozzarella, basil, olive oil', '$14'], ['House salad', 'Greens, shaved fennel, citrus, toasted almonds', '$12'], ['Pappardelle', 'Short rib ragù, parmesan', '$24'], ['Pan-roasted salmon', 'Lemon butter, asparagus, herbed potatoes', '$28'], ['Half roasted chicken', 'Pan jus, charred broccolini, garlic mash', '$25'], ['Olive oil cake', 'Whipped mascarpone, fruit', '$10']]),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         cta('Planning something special?', 'Ask us about private dinners, celebrations and team events.', link('Ask about events', '#contact')),
@@ -199,14 +199,14 @@ export const TEMPLATES = [
   {
     id: 'cafe', name: 'Café & Bakery', blurb: 'Coffee, pastries and pickup', accent: '#9a7400', font: 'rounded', radius: 'round',
     build: (n) => ({
-      tagline: 'Coffee and fresh bakes, every morning',
+      tagline: 'Coffee and pastries',
       cta: link('Order ahead', '#contact'),
       hours: hours(['Monday – Friday', '6:30 AM – 5:00 PM'], ['Saturday – Sunday', '7:30 AM – 4:00 PM']),
       sections: [
-        hero('Coffee and bakes', 'Your morning, done right.', `${n} serves coffee and fresh bakes.`, link('See what’s baking', '#menu'), link('Find us', '#contact')),
-        feats('Made the slow way', [['cup', 'Coffee', 'Espresso, drip and something cold.'], ['leaf', 'Real ingredients', 'Butter, flour, fruit. Nothing you cannot pronounce.'], ['gift', 'Catering and gifts', 'Pastry boxes and coffee for meetings and celebrations.']]),
-        offer('Menu', 'On the counter', 'Our everyday favourites.', 'list', [['Drip coffee', 'Rotating single-origin roast', '$3.50'], ['Oat milk latte', 'Double shot, steamed oat milk', '$5.50'], ['Butter croissant', 'Laminated over three days', '$4.25'], ['Morning bun', 'Orange zest and cinnamon sugar', '$4.75'], ['Avocado toast', 'Sourdough, chili, lemon, sea salt', '$9'], ['Seasonal fruit galette', 'Ask what came in this week', '$6']]),
-        about('A neighborhood ritual', `We opened ${n} to be the kind of place we wanted on our own block: unhurried, welcoming, and serious about quality without being fussy about it.`),
+        hero('Coffee and bakes', 'Your morning, done right.', `${n} serves coffee and pastries, to stay or to go.`, link('See what’s baking', '#menu'), link('Find us', '#contact')),
+        feats('What we offer', [['cup', 'Coffee', 'Espresso, drip and something cold.'], ['leaf', 'Pastries', 'Croissants, morning buns and more.'], ['gift', 'Catering and gifts', 'Pastry boxes and coffee for meetings and celebrations.']]),
+        offer('Menu', 'On the counter', 'Our everyday favourites.', 'list', [['Drip coffee', 'Hot or iced', '$3.50'], ['Oat milk latte', 'Double shot, steamed oat milk', '$5.50'], ['Butter croissant', 'A morning classic', '$4.25'], ['Morning bun', 'Orange zest and cinnamon sugar', '$4.75'], ['Avocado toast', 'Sourdough, chili, lemon, sea salt', '$9'], ['Fruit galette', 'Flaky pastry, fruit filling', '$6']]),
+        about('A neighborhood ritual', `${n} is an easy place to start the day: unhurried and welcoming, whether you stay a while or take it to go.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Come say hello', 'Ordering for a group? Send us a note at least a day ahead.'),
@@ -216,14 +216,14 @@ export const TEMPLATES = [
   {
     id: 'retail', name: 'Retail & Boutique', blurb: 'Collections, story and store info', accent: '#1d1d1f', font: 'sans', radius: 'sharp',
     build: (n) => ({
-      tagline: 'Thoughtfully chosen goods',
+      tagline: 'Gifts, home and everyday goods',
       cta: link('Visit the shop', '#contact'),
       hours: hours(['Monday – Saturday', '10:00 AM – 7:00 PM'], ['Sunday', '11:00 AM – 5:00 PM']),
       sections: [
-        hero('New arrivals in store', 'Things worth keeping.', `${n} is an independent shop with a carefully edited collection of pieces made to last.`, link('Browse collections', '#collections'), link('Visit the shop', '#contact'), 'split'),
-        offer('Collections', 'Collections', 'A look at what is on the shelves right now.', 'cards', [['Everyday essentials', 'Well-made basics you will reach for daily.', 'From $28'], ['Home and living', 'Ceramics, textiles and objects with character.', 'From $18'], ['Gifts', 'Wrapped and ready, for every occasion.', 'From $12']]),
+        hero('New arrivals in store', 'Things worth keeping.', `${n} is a shop for everyday essentials, home goods and gifts.`, link('Browse collections', '#collections'), link('Visit the shop', '#contact'), 'split'),
+        offer('Collections', 'Collections', 'A look at what is on the shelves right now.', 'cards', [['Everyday essentials', 'Basics you will reach for daily.', 'From $28'], ['Home and living', 'Ceramics, textiles and objects with character.', 'From $18'], ['Gifts', 'Something for every occasion.', 'From $12']]),
         feats('Shopping, made easy', [['gift', 'Gift wrap', 'Ask us to wrap your purchase.'], ['truck', 'Local delivery', 'Ask about delivery in your area.'], ['card', 'Returns', 'Ask us about returns and exchanges.']]),
-        about('Independent and proud of it', `Every item at ${n} is chosen by hand.`),
+        about('About us', `Welcome to ${n}. Tell customers who you are, what you sell, and what makes it worth a visit.`),
         gallery(),
         { ...reviews([['Add a favourite review from a customer here.', 'Customer name']]), enabled: false },
         contact('Find us', 'Looking for something specific? Ask and we will check the stockroom.'),

@@ -1451,7 +1451,7 @@ export function createApp(options = {}) {
       const method = [...TENDERS, 'Bank transfer'].includes(str(raw.paidMethod, 40).trim()) ? str(raw.paidMethod, 40).trim() : 'Other', note = str(raw.paidNote, 300).trim();
       db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = ? WHERE id = ?", now, method, note, now, id);
       const made = ownInvoice(site, id);
-      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, note, by: staffName(site, user), byId: user.id, at: now });
+      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, ...invoiceTax(made), note, by: staffName(site, user), byId: user.id, at: now });
     }
     if (raw.walkIn !== true) keepContact(site.id, v.customer);   // a counter sale with no customer picked is not added to Customers
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
@@ -1486,18 +1486,18 @@ export function createApp(options = {}) {
     const b = await readJson(req);
     const now = Date.now(), by = staffName(site, user), byId = user.id;
     const v = ownInvoice(site, row.id), was = v.paid_method || 'Other';
-    const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, note, by, byId, at: now });
+    const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, ...invoiceTax(v, -1), note, by, byId, at: now });
     if (b.status === 'paid') {
       if (v.kind === 'estimate') bad(400, 'Convert this estimate to an invoice before taking payment.');
       if (v.status === 'void') bad(409, 'A cancelled invoice cannot be paid. Duplicate it instead.');
       const method = [...TENDERS, 'Bank transfer'].includes(str(b.method, 40).trim()) ? str(b.method, 40).trim() : 'Other', note = str(b.note, 300).trim();
       if (v.status !== 'paid') {
         db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, method, note, now, now, v.id);
-        logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note, by, byId, at: now });
+        logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, ...invoiceTax(v), note, by, byId, at: now });
       } else {
         // Already paid: the date it was paid stays. A different way of paying is recorded as the old way taken back and the new one added.
         db.run('UPDATE invoices SET paid_method = ?, paid_note = ?, updated_at = ? WHERE id = ?', method, note, now, v.id);
-        if (method !== was) { reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note: `Changed from ${was}`, by, byId, at: now }); }
+        if (method !== was) { reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, ...invoiceTax(v), note: `Changed from ${was}`, by, byId, at: now }); }
       }
     } else if (b.status === 'sent') {
       if (v.status === 'paid') reverse('Payment removed');
@@ -1571,7 +1571,11 @@ export function createApp(options = {}) {
     const due = o.total - (o.gift || 0), was = o.paid_method || 'Other';
     // Paid in full by a gift card, when ordering or at the counter.
     const viaCard = o.paid_method === 'Gift card' && !!o.gift_code;
-    const reverse = (note) => logMoney(site, { ...orderMoney(o), method: was, amount: -due, tip: -o.tip, tax: -o.tax, fee: -o.fee, note, by, byId, at: now });
+    // A counter payment carries what is left of the order's tax, tip and delivery fee once the gift card's part taken when ordering
+    // is counted. Taking it back, or recording it as paid another way, moves exactly what it carried.
+    const rest = () => { const c = db.get("SELECT COALESCE(SUM(tax), 0) AS tax, COALESCE(SUM(tip), 0) AS tip, COALESCE(SUM(fee), 0) AS fee FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'payment'", site.id, o.id); return { tax: o.tax - c.tax, tip: o.tip - c.tip, fee: o.fee - c.fee }; };
+    const standing = () => db.get("SELECT tax, tip, fee FROM money_log WHERE site_id = ? AND ref_id = ? AND source = 'Order' AND kind = 'payment' AND amount > 0 ORDER BY at DESC, rowid DESC LIMIT 1", site.id, o.id) || { tax: o.tax, tip: o.tip, fee: o.fee };
+    const reverse = (note) => { const s = standing(); logMoney(site, { ...orderMoney(o), method: was, amount: -due, tip: -s.tip, tax: -s.tax, fee: -s.fee, note, by, byId, at: now }); return s; };
     if (b.refund !== undefined) {
       if (role === 'kitchen') bad(403, 'Your login does not allow refunds. Ask a manager.');
       if (!o.paid_at) bad(400, 'This order has no payment recorded, so there is nothing to refund.');
@@ -1604,17 +1608,17 @@ export function createApp(options = {}) {
         if (!db.run('UPDATE gift_cards SET balance = balance - ? WHERE site_id = ? AND code = ? AND balance >= ?', due, site.id, code, due).changes) bad(409, `This card has ${money(card.balance)} left, and ${money(due)} is due.`);
         giftMove(site, code, 'spend', due, '', o.id, now);
         db.run("UPDATE orders SET gift = gift + ?, gift_code = ?, paid_at = ?, paid_method = 'Gift card', handled_by_id = CASE WHEN handled_by = '' THEN ? ELSE handled_by_id END, handled_by = CASE WHEN handled_by = '' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?", due, code, now, byId, by, now, o.id);
-        logMoney(site, { ...orderMoney(o), method: 'Gift card', amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Card …${code.slice(-4)}`, by, byId, at: now });
+        logMoney(site, { ...orderMoney(o), method: 'Gift card', amount: due, ...rest(), note: `Card …${code.slice(-4)}`, by, byId, at: now });
       } else if (!o.paid_at) {
         db.run('UPDATE orders SET paid_at = ?, paid_method = ?, handled_by_id = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by_id END, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, byId, by, now, o.id);
-        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, by, byId, at: now });
+        logMoney(site, { ...orderMoney(o), method, amount: due, ...rest(), by, byId, at: now });
       } else if (method !== o.paid_method) {
         if (viaCard || method === 'Gift card') bad(400, 'A gift card payment cannot be swapped for another tender. Refund it, then record the payment again.');
         if (o.refunded) bad(400, 'This payment has a refund against it, so how it was paid cannot be changed.');
         // The date it was paid stays. The change is recorded as the old way taken back and the new way added.
         db.run('UPDATE orders SET paid_method = ?, updated_at = ? WHERE id = ?', method, now, o.id);
-        reverse(`Changed to ${method}`);
-        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Changed from ${was}`, by, byId, at: now });
+        const s = reverse(`Changed to ${method}`);
+        logMoney(site, { ...orderMoney(o), method, amount: due, tip: s.tip, tax: s.tax, fee: s.fee, note: `Changed from ${was}`, by, byId, at: now });
       }
     }
     json(res, 200, { order: toOrder(db.get('SELECT * FROM orders WHERE id = ?', row.id)) });
@@ -1639,8 +1643,8 @@ export function createApp(options = {}) {
   // Every recorded payment and refund between two moments: orders paid at the counter and invoices marked paid.
   /* The money ledger. Rows are only ever added: a payment taken back or paid another way adds a row with the amount negative. */
   function logMoney(site, x) {
-    db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, note, by_name, by_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, str(x.note, 300), str(x.by, 120), x.byId || '', x.at || Date.now());
+    db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, taxable, rate, note, by_name, by_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, x.taxable ?? null, x.rate ?? null, str(x.note, 300), str(x.by, 120), x.byId || '', x.at || Date.now());
   }
   // What a refund gave back of the order's tax, tip and delivery fee: its share of what the order's payments carried, worked out
   // on the running total, so refunds made in parts add up to exactly what was paid. The rest is sales.
@@ -1653,10 +1657,16 @@ export function createApp(options = {}) {
   };
   const orderMoney = (o) => ({ source: 'Order', refId: o.id, ref: `#${o.number}`, customer: o.name, channel: o.method });
   const invoiceMoney = (v) => { let name = ''; try { name = JSON.parse(v.customer).name || ''; } catch { /* blank */ } return { source: 'Invoice', refId: v.id, ref: `INV-${v.number}`, customer: name }; };
+  // An invoice's ledger rows keep the taxable part of its sales and its rate as they were when the row was written, so changing or
+  // deleting the invoice later never restates a day already reported. A row taking a payment back carries them negated.
+  const invoiceTax = (v, k = 1) => {
+    const lines = JSON.parse(v.items || '[]'), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount;
+    return { taxable: k * Math.max(0, Math.min(net, v.subtotal ? Math.round(taxed - (v.discount * taxed) / v.subtotal) : 0)), rate: Number(v.tax_rate) || 0 };
+  };
   function moneyMoves(site, lo, hi) {
     const payments = [], refunds = [];
     for (const r of db.all('SELECT * FROM money_log WHERE site_id = ? AND at >= ? AND at < ? ORDER BY at, rowid', site.id, lo, hi)) {
-      const x = { id: r.id, at: r.at, source: r.source, ref: r.ref, refId: r.ref_id, customer: r.customer, channel: r.channel, method: r.method, amount: r.amount, tip: r.tip, tax: r.tax, fee: r.fee, note: r.note, by: r.by_name };
+      const x = { id: r.id, at: r.at, source: r.source, ref: r.ref, refId: r.ref_id, customer: r.customer, channel: r.channel, method: r.method, amount: r.amount, tip: r.tip, tax: r.tax, fee: r.fee, taxable: r.taxable, rate: r.rate, note: r.note, by: r.by_name };
       (r.kind === 'refund' ? refunds : payments).push(x);
     }
     return { payments, refunds };
@@ -2063,9 +2073,15 @@ export function createApp(options = {}) {
       const inv = new Map(db.all('SELECT id, items, tax_rate, discount, discount_name, subtotal, tax FROM invoices WHERE site_id = ? AND id IN (SELECT value FROM json_each(?))', site.id, JSON.stringify([...new Set(invoices.map((x) => x.refId))])).map((v) => [v.id, v]));
       for (const x of invoices) {
         const v = inv.get(x.refId), tax = x.tax || 0, sale = x.amount - tax;
-        let share = tax ? 1 : 0;
-        if (v) { const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount; share = net ? Math.max(0, Math.min(1, (v.subtotal ? taxed - (v.discount * taxed) / v.subtotal : 0) / net)) : 0; }
-        const taxable = Math.round(sale * share), r = rowFor(v ? v.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0);
+        let taxable, rate;
+        if (x.taxable != null) { taxable = x.taxable; rate = x.rate ?? 0; }
+        else {
+          // A row from before each row kept its own figures: shared on the invoice as it is, rounded the same way either side of zero.
+          let share = tax ? 1 : 0;
+          if (v) { const lines = JSON.parse(v.items), taxed = lines.reduce((a, l) => a + (l.taxable === false ? 0 : Math.round(l.price * l.qty)), 0), net = v.subtotal - v.discount; share = net ? Math.max(0, Math.min(1, (v.subtotal ? taxed - (v.discount * taxed) / v.subtotal : 0) / net)) : 0; }
+          taxable = Math.sign(sale) * Math.round(Math.abs(sale) * share); rate = v ? v.tax_rate : tax ? Number(ordering.taxRate) || 0 : 0;
+        }
+        const r = rowFor(rate);
         r.taxable += taxable; r.nontaxable += sale - taxable; r.tax += tax; r.invoices += Math.sign(x.amount);
       }
       // The discount an invoice used is listed once per invoice paid in the period (a payment taken back takes it off again).
@@ -2349,7 +2365,9 @@ export function createApp(options = {}) {
           // The card's part is a payment taken now. If it covers everything, the order is paid.
           giftMove(site, promo.code, 'spend', gift, '', oid, now);
           if (gift === t.total) db.run("UPDATE orders SET paid_at = ?, paid_method = 'Gift card' WHERE id = ?", now, oid);
-          logMoney(site, { source: 'Order', refId: oid, ref: `#${number}`, customer: who.name, channel: method, method: 'Gift card', amount: gift, ...(gift === t.total ? { tip: t.tip, tax: t.tax, fee: t.fee } : {}), note: `Card …${promo.code.slice(-4)}`, at: now });
+          // It carries its share of the order's tax, tip and delivery fee, so each day's reports hold the tax that day took.
+          const share = (n) => Math.round((gift * n) / t.total);
+          logMoney(site, { source: 'Order', refId: oid, ref: `#${number}`, customer: who.name, channel: method, method: 'Gift card', amount: gift, tip: share(t.tip), tax: share(t.tax), fee: share(t.fee), note: `Card …${promo.code.slice(-4)}`, at: now });
         }
         if (promo?.reward) db.run('UPDATE rewards SET used_order = ? WHERE site_id = ? AND code = ? AND used_order IS NULL', oid, site.id, promo.code);
         db.raw.exec('COMMIT');
