@@ -129,6 +129,30 @@ export function openDb(dataDir) {
   // Links staff make for a locked-out merchant sign in even with two-step on; links from the email do not.
   addColumn('resets', 'staff', 'INTEGER NOT NULL DEFAULT 0');
   addColumn('push_subs', 'fails', 'INTEGER NOT NULL DEFAULT 0');
+  // The money ledger: one row for every payment, refund and reversal, never changed afterwards. Reports, the cash drawer and closeouts
+  // read only this, so money filed in a closed batch never moves and a second refund never shifts the first one to another day.
+  const ledgerIsNew = !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'money_log'").get();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS money_log (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, kind TEXT NOT NULL, source TEXT NOT NULL,
+      ref_id TEXT NOT NULL DEFAULT '', ref TEXT NOT NULL DEFAULT '', customer TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT '', method TEXT NOT NULL DEFAULT 'Other',
+      amount INTEGER NOT NULL, tip INTEGER NOT NULL DEFAULT 0, tax INTEGER NOT NULL DEFAULT 0, fee INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', by_name TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS money_site ON money_log(site_id, at);
+    CREATE INDEX IF NOT EXISTS money_ref ON money_log(site_id, ref_id);
+  `);
+  if (ledgerIsNew) {
+    // What was recorded before the ledger existed: each paid order and invoice once, and each order's refunds as one row.
+    const add = db.prepare('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, note, by_name, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    db.exec('BEGIN');
+    for (const o of db.prepare('SELECT * FROM orders WHERE paid_at IS NOT NULL OR refunded > 0').all()) {
+      if (o.paid_at) add.run(newId(), o.site_id, 'payment', 'Order', o.id, `#${o.number}`, o.name, o.method, o.paid_method || 'Other', o.total, o.tip, o.tax, o.fee, '', o.handled_by || '', o.paid_at);
+      if (o.refunded > 0) add.run(newId(), o.site_id, 'refund', 'Order', o.id, `#${o.number}`, o.name, o.method, o.paid_method || 'Other', o.refunded, 0, 0, 0, o.refund_note || '', '', o.refunded_at || o.updated_at);
+    }
+    for (const v of db.prepare("SELECT * FROM invoices WHERE status = 'paid' AND paid_at IS NOT NULL").all()) {
+      let name = ''; try { name = JSON.parse(v.customer).name || ''; } catch { /* kept blank */ }
+      add.run(newId(), v.site_id, 'payment', 'Invoice', v.id, `INV-${v.number}`, name, '', v.paid_method || 'Other', v.total, 0, v.tax, 0, v.paid_note || '', '', v.paid_at);
+    }
+    db.exec('COMMIT');
+  }
   // Every uploaded photo, so storage can be counted per account and files nothing uses any more can be cleared away.
   db.exec('CREATE TABLE IF NOT EXISTS uploads (name TEXT PRIMARY KEY, user_id TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS uploads_user ON uploads(user_id);');
   // Only a link that went to the mailbox alone proves the address. Links handed to an inviter or made by staff set a password but confirm nothing.

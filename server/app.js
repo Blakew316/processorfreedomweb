@@ -1191,14 +1191,20 @@ export function createApp(options = {}) {
     json(res, 200, { invoices: invoicesOf(req, site), contacts: contactsOf(site.id), payUrl: businessOf(site).payUrl });
   });
   route('POST', '/api/sites/:id/invoices', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site, user } = ownSite(req, p.id);
     const raw = await readJson(req, 200_000);
     const v = cleanInvoice(raw);
     const id = newId(), now = Date.now();
     const number = (db.get('SELECT MAX(number) AS n FROM invoices WHERE site_id = ?', site.id).n || 1000) + 1;
     db.run('INSERT INTO invoices (id, site_id, number, token, kind, customer, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, site.id, number, newId(18), raw.kind === 'estimate' ? 'estimate' : 'invoice', '{}', '[]', now, now);
     saveInvoice(id, v);
-    if (raw.paidMethod && raw.kind !== 'estimate') db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = ? WHERE id = ?", now, str(raw.paidMethod, 40).trim(), str(raw.paidNote, 300).trim(), now, id);
+    if (raw.paidMethod && raw.kind !== 'estimate') {
+      // A counter sale is saved already paid, and its payment goes on the ledger like any other.
+      const method = [...TENDERS, 'Bank transfer'].includes(str(raw.paidMethod, 40).trim()) ? str(raw.paidMethod, 40).trim() : 'Other', note = str(raw.paidNote, 300).trim();
+      db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = ? WHERE id = ?", now, method, note, now, id);
+      const made = ownInvoice(site, id);
+      logMoney(site, { ...invoiceMoney(made), method, amount: made.total, tax: made.tax, note, by: user.name || user.email, at: now });
+    }
     if (raw.walkIn !== true) keepContact(site.id, v.customer);   // a counter sale with no customer picked is not added to Customers
     json(res, 201, { invoice: toInvoice(ownInvoice(site, id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });
   });
@@ -1227,15 +1233,31 @@ export function createApp(options = {}) {
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), emailed: !!mailer.enabled });
   });
   route('POST', '/api/sites/:id/invoices/:inv/status', async (req, res, p) => {
-    const { site } = ownSite(req, p.id);
+    const { site, user } = ownSite(req, p.id);
     const row = ownInvoice(site, p.inv);
     const b = await readJson(req);
-    const now = Date.now();
-    if (b.status === 'paid' && row.kind === 'estimate') bad(400, 'Convert this estimate to an invoice before taking payment.');
-    if (b.status === 'paid') db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, str(b.method, 40).trim(), str(b.note, 300).trim(), now, now, row.id);
-    else if (b.status === 'sent') db.run("UPDATE invoices SET status = 'sent', paid_at = NULL, paid_method = '', paid_note = '', sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, now, row.id);
-    else if (b.status === 'void') db.run("UPDATE invoices SET status = 'void', updated_at = ? WHERE id = ?", now, row.id);
-    else bad(400, 'Unknown status.');
+    const now = Date.now(), by = user.name || user.email;
+    const v = ownInvoice(site, row.id), was = v.paid_method || 'Other';
+    const reverse = (note) => logMoney(site, { ...invoiceMoney(v), method: was, amount: -v.total, tax: -v.tax, note, by, at: now });
+    if (b.status === 'paid') {
+      if (v.kind === 'estimate') bad(400, 'Convert this estimate to an invoice before taking payment.');
+      if (v.status === 'void') bad(409, 'A cancelled invoice cannot be paid. Duplicate it instead.');
+      const method = [...TENDERS, 'Bank transfer'].includes(str(b.method, 40).trim()) ? str(b.method, 40).trim() : 'Other', note = str(b.note, 300).trim();
+      if (v.status !== 'paid') {
+        db.run("UPDATE invoices SET status = 'paid', paid_at = ?, paid_method = ?, paid_note = ?, sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, method, note, now, now, v.id);
+        logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note, by, at: now });
+      } else {
+        // Already paid: the date it was paid stays. A different way of paying is recorded as the old way taken back and the new one added.
+        db.run('UPDATE invoices SET paid_method = ?, paid_note = ?, updated_at = ? WHERE id = ?', method, note, now, v.id);
+        if (method !== was) { reverse(`Changed to ${method}`); logMoney(site, { ...invoiceMoney(v), method, amount: v.total, tax: v.tax, note: `Changed from ${was}`, by, at: now }); }
+      }
+    } else if (b.status === 'sent') {
+      if (v.status === 'paid') reverse('Payment removed');
+      db.run("UPDATE invoices SET status = 'sent', paid_at = NULL, paid_method = '', paid_note = '', sent_at = COALESCE(sent_at, ?), updated_at = ? WHERE id = ?", now, now, v.id);
+    } else if (b.status === 'void') {
+      if (v.status === 'paid') reverse('Invoice cancelled');
+      db.run("UPDATE invoices SET status = 'void', paid_at = NULL, updated_at = ? WHERE id = ?", now, v.id);
+    } else bad(400, 'Unknown status.');
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site) });
   });
   // An accepted estimate becomes an invoice, ready to send for payment.
@@ -1253,21 +1275,40 @@ export function createApp(options = {}) {
     const { site, user, role } = ownSite(req, p.id, 'kitchen');
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     const b = await readJson(req);
-    const now = Date.now();
+    const now = Date.now(), by = user.name || user.email;
+    // The order is read again now the body is here, so two taps at once can never record the same payment twice.
+    const o = db.get('SELECT * FROM orders WHERE id = ?', row.id);
+    // What was paid at the counter: the total, less any gift card the customer paid with when ordering.
+    const due = o.total - (o.gift || 0), was = o.paid_method || 'Other';
+    const reverse = (note) => logMoney(site, { ...orderMoney(o), method: was, amount: -due, tip: -o.tip, tax: -o.tax, fee: -o.fee, note, by, at: now });
     if (b.refund !== undefined) {
       if (role === 'kitchen') bad(403, 'Your login does not allow refunds. Ask a manager.');
-      if (!row.paid_at) bad(400, 'This order has no payment recorded, so there is nothing to refund.');
+      if (!o.paid_at) bad(400, 'This order has no payment recorded, so there is nothing to refund.');
       const amount = Math.round(Number(b.refund));
-      if (!(amount > 0) || amount > row.total - row.refunded) bad(400, `Enter an amount up to ${money(row.total - row.refunded)}.`);
-      db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, str(b.note, 300).trim(), now, now, row.id);
+      if (!(amount > 0) || amount > o.total - o.refunded) bad(400, `Enter an amount up to ${money(o.total - o.refunded)}.`);
+      const note = str(b.note, 300).trim();
+      db.run('UPDATE orders SET refunded = refunded + ?, refund_note = ?, refunded_at = ?, updated_at = ? WHERE id = ?', amount, note, now, now, o.id);
+      logMoney(site, { ...orderMoney(o), kind: 'refund', method: was, amount, note, by, at: now });
     } else if (b.clear === true) {
       if (role === 'kitchen') bad(403, 'Your login does not allow removing a payment. Ask a manager.');
-      if (row.refunded) bad(400, 'This payment has a refund against it and cannot be removed.');
-      db.run("UPDATE orders SET paid_at = NULL, paid_method = '', updated_at = ? WHERE id = ?", now, row.id);
+      if (o.refunded) bad(400, 'This payment has a refund against it and cannot be removed.');
+      if (!o.paid_at) bad(400, 'This order has no payment recorded.');
+      db.run("UPDATE orders SET paid_at = NULL, paid_method = '', updated_at = ? WHERE id = ?", now, o.id);
+      // The payment stays on record, with a row taking it back, so a batch already closed out keeps its figures.
+      reverse('Payment removed');
     } else {
       const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
-      if (role === 'kitchen' && row.paid_at && method !== row.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
-      db.run('UPDATE orders SET paid_at = COALESCE(paid_at, ?), paid_method = ?, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, user.name || user.email, now, row.id);
+      if (role === 'kitchen' && o.paid_at && method !== o.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
+      if (!o.paid_at) {
+        db.run('UPDATE orders SET paid_at = ?, paid_method = ?, handled_by = CASE WHEN handled_by = \'\' THEN ? ELSE handled_by END, updated_at = ? WHERE id = ?', now, method, by, now, o.id);
+        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, by, at: now });
+      } else if (method !== o.paid_method) {
+        if (o.refunded) bad(400, 'This payment has a refund against it, so how it was paid cannot be changed.');
+        // The date it was paid stays. The change is recorded as the old way taken back and the new way added.
+        db.run('UPDATE orders SET paid_method = ?, updated_at = ? WHERE id = ?', method, now, o.id);
+        reverse(`Changed to ${method}`);
+        logMoney(site, { ...orderMoney(o), method, amount: due, tip: o.tip, tax: o.tax, fee: o.fee, note: `Changed from ${was}`, by, at: now });
+      }
     }
     json(res, 200, { order: toOrder(db.get('SELECT * FROM orders WHERE id = ?', row.id)) });
   });
@@ -1288,21 +1329,29 @@ export function createApp(options = {}) {
     return { range, from, to, today, lo, hi, within: (ms) => { const d = dayOf(ms); return d >= from && d <= to; }, dayOf, timeOf: (ms) => { const w = new Date(wallNow(ordering, ms)); return `${String(w.getUTCHours()).padStart(2, '0')}:${String(w.getUTCMinutes()).padStart(2, '0')}`; } };
   }
   // Every recorded payment and refund between two moments: orders paid at the counter and invoices marked paid.
+  /* The money ledger. Rows are only ever added: a payment taken back or paid another way adds a row with the amount negative. */
+  function logMoney(site, x) {
+    db.run('INSERT INTO money_log (id, site_id, kind, source, ref_id, ref, customer, channel, method, amount, tip, tax, fee, note, by_name, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      newId(), site.id, x.kind || 'payment', x.source, x.refId || '', x.ref || '', str(x.customer, 120), x.channel || '', x.method || 'Other', Math.round(x.amount), x.tip || 0, x.tax || 0, x.fee || 0, str(x.note, 300), str(x.by, 120), x.at || Date.now());
+  }
+  const orderMoney = (o) => ({ source: 'Order', refId: o.id, ref: `#${o.number}`, customer: o.name, channel: o.method });
+  const invoiceMoney = (v) => { let name = ''; try { name = JSON.parse(v.customer).name || ''; } catch { /* blank */ } return { source: 'Invoice', refId: v.id, ref: `INV-${v.number}`, customer: name }; };
   function moneyMoves(site, lo, hi) {
     const payments = [], refunds = [];
-    for (const o of db.all('SELECT * FROM orders WHERE site_id = ? AND ((paid_at >= ? AND paid_at < ?) OR (refunded_at >= ? AND refunded_at < ?))', site.id, lo, hi, lo, hi)) {
-      if (o.paid_at >= lo && o.paid_at < hi) payments.push({ at: o.paid_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.total, tip: o.tip, tax: (o.tax || 0) + (o.fee || 0), by: o.handled_by });
-      if (o.refunded && o.refunded_at >= lo && o.refunded_at < hi) refunds.push({ at: o.refunded_at, source: 'Order', ref: `#${o.number}`, customer: o.name, method: o.paid_method || 'Other', amount: o.refunded, note: o.refund_note });
+    for (const r of db.all('SELECT * FROM money_log WHERE site_id = ? AND at >= ? AND at < ? ORDER BY at, rowid', site.id, lo, hi)) {
+      const x = { at: r.at, source: r.source, ref: r.ref, refId: r.ref_id, customer: r.customer, channel: r.channel, method: r.method, amount: r.amount, tip: r.tip, tax: r.tax, fee: r.fee, note: r.note, by: r.by_name };
+      (r.kind === 'refund' ? refunds : payments).push(x);
     }
-    for (const v of db.all("SELECT * FROM invoices WHERE site_id = ? AND status = 'paid' AND paid_at >= ? AND paid_at < ?", site.id, lo, hi)) payments.push({ at: v.paid_at, source: 'Invoice', ref: `INV-${v.number}`, customer: JSON.parse(v.customer).name || '', method: v.paid_method || 'Other', amount: v.total, tip: 0, tax: v.tax || 0, by: '' });
     return { payments, refunds };
   }
+  // A row taking a payment back counts as minus one payment, so counts and amounts stay true after a change.
   const tally = ({ payments, refunds }) => {
     const tenders = new Map();
-    for (const x of payments) { const t = tenders.get(x.method) || tenders.set(x.method, { method: x.method, count: 0, amount: 0, refunds: 0 }).get(x.method); t.count++; t.amount += x.amount; }
-    for (const x of refunds) { const t = tenders.get(x.method) || tenders.set(x.method, { method: x.method, count: 0, amount: 0, refunds: 0 }).get(x.method); t.refunds += x.amount; }
+    const of = (m) => tenders.get(m) || tenders.set(m, { method: m, count: 0, amount: 0, refunds: 0 }).get(m);
+    for (const x of payments) { const t = of(x.method); t.count += Math.sign(x.amount); t.amount += x.amount; }
+    for (const x of refunds) of(x.method).refunds += x.amount;
     const paid = payments.reduce((a, x) => a + x.amount, 0), back = refunds.reduce((a, x) => a + x.amount, 0);
-    return { tenders: [...tenders.values()].sort((a, b) => b.amount - a.amount), totals: { payments: paid, count: payments.length, refunds: back, refundCount: refunds.length, net: paid - back } };
+    return { tenders: [...tenders.values()].filter((t) => t.count || t.amount || t.refunds).sort((a, b) => b.amount - a.amount), totals: { payments: paid, count: payments.reduce((a, x) => a + Math.sign(x.amount), 0), refunds: back, refundCount: refunds.length, net: paid - back } };
   };
   route('GET', '/api/sites/:id/transactions', (req, res, p, url) => {
     const { site } = ownSite(req, p.id);
@@ -1336,6 +1385,9 @@ export function createApp(options = {}) {
   });
   route('DELETE', '/api/sites/:id/cash/:entry', (req, res, p) => {
     const { site } = ownSite(req, p.id);
+    const entry = db.get('SELECT created_at FROM cash_log WHERE id = ? AND site_id = ?', p.entry, site.id) || bad(404, 'That entry was already removed.');
+    const closed = db.get('SELECT MAX(created_at) AS at FROM closeouts WHERE site_id = ?', site.id).at;
+    if (closed && entry.created_at < closed) bad(409, 'That entry is part of a batch that was already closed out, so it stays on record.');
     db.run('DELETE FROM cash_log WHERE id = ? AND site_id = ?', p.entry, site.id);
     json(res, 200, { ok: true });
   });
@@ -1363,6 +1415,7 @@ export function createApp(options = {}) {
 
   route('DELETE', '/api/sites/:id/invoices/:inv', (req, res, p) => {
     const { site } = ownSite(req, p.id);
+    if (db.get("SELECT 1 FROM invoices WHERE id = ? AND site_id = ? AND status = 'paid'", p.inv, site.id)) bad(409, 'A paid invoice stays in your records. Undo the payment first if it was recorded by mistake.');
     db.run('DELETE FROM invoices WHERE id = ? AND site_id = ?', p.inv, site.id);
     json(res, 200, { invoices: invoicesOf(req, site) });
   });
