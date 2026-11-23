@@ -1820,3 +1820,71 @@ test('older ledger rows get their figures once; a payment taken back mirrors wha
     assert.deepEqual(await rate(8.25), [1020, 225, 84, 84], 'only o2 is left, exactly');
   } finally { base = saved; srv.close(); app14.close(); rmSync(d14, { recursive: true, force: true }); }
 });
+
+test('a refund never carries more tax, tip and fee than itself, or less than none; a cancelled order takes no payment', async () => {
+  const d15 = mkdtempSync(join(tmpdir(), 'pfsites15-'));
+  const app15 = createApp({ dataDir: d15, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1' }, mailer: { enabled: false, send: async () => {} } });
+  const srv = createServer(app15);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  const sql = (fn) => { const db = new DatabaseSync(join(d15, 'sites.db')); try { return fn(db); } finally { db.close(); } };
+  try {
+    const me = client(), anon = client(), host = { host: 'capcafe.pfsites.test' };
+    await me('POST', '/api/auth/signup', { email: 'own@cap.test', password: 'long-enough-pw', name: 'Cap' });
+    const site = (await me('POST', '/api/sites', { name: 'Cap Cafe', template: 'order', kind: 'ordering', methods: { pickup: true, delivery: true }, csv: 'Item,Price,Taxable\nTaco,10.20,yes\nTea,2.25,no' })).data.site;
+    await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, methods: { pickup: true, delivery: true }, taxRate: 8.25, tips: true, deliveryFee: 399, deliveryMin: 0, promos: [{ code: 'FREE', type: 'percent', value: 100 }] } });
+    await me('POST', `/api/sites/${site.id}/publish`, {});
+    const [taco, tea] = (await me('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const pay = (oid, body) => me('POST', `/api/sites/${site.id}/orders/${oid}/payment`, body);
+    const latest = async () => (await me('GET', `/api/sites/${site.id}/orders`)).data.orders[0];
+    const back = (oid) => sql((db) => db.prepare("SELECT amount, tax, tip, fee FROM money_log WHERE ref_id = ? AND kind = 'refund' ORDER BY at, rowid").all(oid).map((r) => [r.amount, r.tax, r.tip, r.fee]));
+    const left = (oid) => sql((db) => { const r = db.prepare("SELECT SUM(CASE WHEN kind = 'payment' THEN amount ELSE -amount END) AS a, SUM(CASE WHEN kind = 'payment' THEN tax ELSE -tax END) AS t, SUM(CASE WHEN kind = 'payment' THEN tip ELSE -tip END) AS p, SUM(CASE WHEN kind = 'payment' THEN fee ELSE -fee END) AS f FROM money_log WHERE ref_id = ?").get(oid); return [r.a, r.t, r.p, r.f]; });
+    const fair = (rows) => rows.every(([amt, tax, tip, fee]) => tax >= 0 && tip >= 0 && fee >= 0 && tax + tip + fee <= amt);
+    const deliver = { name: 'Ana', phone: '903-555-0100', email: 'ana@cap.test', method: 'delivery', address: '1 Main St', tip: 20 };
+
+    // Taco delivered with a 20% tip: $17.07 ($0.84 tax, $2.04 tip, $3.99 fee). Refunded $12.00, then one cent, then the rest.
+    await anon('POST', '/_order', { ...deliver, items: [{ id: taco.id, qty: 1 }] }, host);
+    const a = await latest();
+    assert.deepEqual([a.total, a.tax, a.tip, a.fee], [1707, 84, 204, 399]);
+    await pay(a.id, { method: 'Cash' });
+    for (const amt of [1200, 1, 506]) assert.equal((await pay(a.id, { refund: amt })).status, 200);
+    assert.deepEqual(back(a.id), [[1200, 59, 143, 280], [1, 0, 1, 0], [506, 25, 60, 119]]);
+    assert.deepEqual(left(a.id), [0, 0, 0, 0]);
+
+    // A free Tea delivered with a tip ($4.44, all tip and fee): refunds give back tip and fee, never sales that were not there.
+    await anon('POST', '/_order', { ...deliver, promo: 'FREE', items: [{ id: tea.id, qty: 1 }] }, host);
+    const f = await latest();
+    assert.deepEqual([f.total, f.tip, f.fee], [444, 45, 399]);
+    await pay(f.id, { method: 'Card' });
+    await pay(f.id, { refund: 74 });
+    await pay(f.id, { refund: 370 });
+    assert.deepEqual(back(f.id), [[74, 0, 8, 66], [370, 0, 37, 333]]);
+    assert.deepEqual(left(f.id), [0, 0, 0, 0]);
+
+    // An order recorded the old way (card part with no tax, counter payment with all of it), with a counter refund an earlier
+    // release split on the counter alone (it gave back half the tax for half the counter money). Later refunds never go below none.
+    const card = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 500, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Bo', phone: '903-555-0101', email: 'bo@cap.test', method: 'pickup', tip: 0, promo: card, items: [{ id: taco.id, qty: 1 }] }, host);
+    const g = await latest();
+    assert.deepEqual([g.total, g.tax, g.gift], [1104, 84, 500]);
+    await pay(g.id, { method: 'Cash' });
+    sql((db) => { db.prepare("UPDATE money_log SET tax = 0 WHERE ref_id = ? AND method = 'Gift card'").run(g.id); db.prepare("UPDATE money_log SET tax = 84 WHERE ref_id = ? AND method = 'Cash'").run(g.id); });
+    await pay(g.id, { refund: 302 });
+    sql((db) => db.prepare("UPDATE money_log SET tax = 42 WHERE ref_id = ? AND kind = 'refund'").run(g.id));
+    await pay(g.id, { refund: 100 });
+    await pay(g.id, { refund: 202 });
+    await me('POST', `/api/sites/${site.id}/orders/${g.id}`, { status: 'cancelled' });
+    const gb = back(g.id);
+    assert.ok(fair(gb), JSON.stringify(gb));
+    assert.deepEqual(gb.map((r) => r[1]), [42, 0, 4, 38]);
+    assert.deepEqual(left(g.id), [0, 0, 0, 0]);
+
+    // A screen that has not caught up cannot record a payment on an order that was cancelled.
+    const card2 = (await me('POST', `/api/sites/${site.id}/gift-cards`, { amount: 500, paidWith: 'Cash' })).data.code;
+    await anon('POST', '/_order', { name: 'Cy', phone: '903-555-0102', email: 'cy@cap.test', method: 'pickup', tip: 0, promo: card2, items: [{ id: taco.id, qty: 1 }] }, host);
+    const c = await latest();
+    await me('POST', `/api/sites/${site.id}/orders/${c.id}`, { status: 'cancelled' });
+    for (const body of [{ method: 'Cash' }, { method: 'Gift card', giftCode: card2 }]) assert.equal((await pay(c.id, body)).status, 409);
+    assert.deepEqual(left(c.id), [0, 0, 0, 0]);
+  } finally { base = saved; srv.close(); app15.close(); rmSync(d15, { recursive: true, force: true }); }
+});

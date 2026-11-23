@@ -1603,6 +1603,8 @@ export function createApp(options = {}) {
       reverse('Payment removed');
     } else {
       const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
+      // A cancelled order has given its money back, so a payment recorded from a screen that had not caught up is refused.
+      if (o.status === 'cancelled') bad(409, 'This order was cancelled, so no payment can be recorded for it.');
       if (role === 'kitchen' && o.paid_at && method !== o.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
       if (method === 'Gift card' && !o.paid_at) {
         // Paid at the counter with a gift card: the card has to cover what is due, and pays it now.
@@ -1666,7 +1668,13 @@ export function createApp(options = {}) {
       const whole = !(card.a > 0 && counter.a > 0) || (card.t + card.p + card.f === 0 && paid.t + paid.p + paid.f > 0);
       const [p, b] = whole ? [paid, back] : [sums('payment', w), sums('refund', w)];
       const now = p.a > 0 ? [Math.round(((b.a + amount) * p.t) / p.a), Math.round(((b.a + amount) * p.p) / p.a), Math.round(((b.a + amount) * p.f) / p.a)] : [0, 0, 0];
-      [tax, tip, fee] = [now[0] - b.t, now[1] - b.p, now[2] - b.f];
+      // Never below nothing, and never more than the refund itself: what does not fit, or what an earlier refund gave back too
+      // much of, waits for a later refund. The last one settles exactly what is left.
+      [tax, tip, fee] = [now[0] - b.t, now[1] - b.p, now[2] - b.f].map((x) => Math.max(0, x));
+      let over = tax + tip + fee - Math.max(0, amount);
+      if (over > 0) { const x = Math.min(fee, over); fee -= x; over -= x; }
+      if (over > 0) { const x = Math.min(tip, over); tip -= x; over -= x; }
+      if (over > 0) tax -= Math.min(tax, over);
     }
     return { sales: amount - tax - tip - fee, tax, tip, fee };
   };
@@ -2082,6 +2090,7 @@ export function createApp(options = {}) {
             else {
               const p = !(s.card.a > 0 && s.counter.a > 0) || (s.card.parts === 0 && s.all.parts > 0) ? s.all : way;
               taxable = (p.sales > 0 ? Math.round(((p.backSales + sales) * p.taxable) / p.sales) : 0) - p.backTaxable;
+              taxable = Math.max(Math.min(0, sales), Math.min(Math.max(0, sales), taxable));
             }
             for (const t of [s.all, way]) { t.backA += r.amount; t.backSales += sales; t.backTaxable += taxable; }
           }
