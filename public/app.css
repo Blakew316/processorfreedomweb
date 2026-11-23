@@ -5399,8 +5399,8 @@ html[data-theme=dark] .it-lv .it-card.it-items .it-sub{color:var(--muted)}
 .ob-psup b{display:block;font-size:14.5px;font-weight:600;color:#555}
 .ob-psup p{margin:3px 0 0;font-size:14.5px;color:#555}
 html[data-theme=dark] .ob-psup b,html[data-theme=dark] .ob-psup p{color:var(--muted)}
-.ob-noimg{display:inline-flex;align-items:center;justify-content:center;flex:none;width:172px;height:172px;border-radius:8px;background:#d9d9d9;box-shadow:inset 0 0 0 4px #e9e9e9,0 0 0 1px #cfcfcf;color:#fff;font-size:56px;font-weight:700;letter-spacing:.02em}
-html[data-theme=dark] .ob-noimg{background:#48484a;box-shadow:inset 0 0 0 4px #3a3a3c,0 0 0 1px #2c2c2e}
+.ob-noimg{display:inline-flex;align-items:center;justify-content:center;flex:none;width:172px;height:172px;border-radius:8px;background:#d9d9d9;box-shadow:inset 0 0 0 4px #e9e9e9,0 0 0 1px #cfcfcf;color:#3a3a3c;font-size:56px;font-weight:700;letter-spacing:.02em}
+html[data-theme=dark] .ob-noimg{background:#48484a;box-shadow:inset 0 0 0 4px #3a3a3c,0 0 0 1px #2c2c2e;color:#e5e5ea}
 .ob-phone{width:max-content;max-width:100%;padding:0;border:0;background:none;font:inherit;font-size:15px;text-align:left;cursor:pointer}
 .ob-phone:hover{text-decoration:underline;text-underline-offset:3px}
 .ob-email{font-style:italic}

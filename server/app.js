@@ -1237,11 +1237,13 @@ export function createApp(options = {}) {
   });
 
   /* Staff schedule and time clock. */
-  route('GET', '/api/sites/:id/shifts', (req, res, p) => {
+  route('GET', '/api/sites/:id/shifts', (req, res, p, url) => {
     const { site } = ownSite(req, p.id, 'kitchen');
+    // From a week before today by default, or from the week asked for, so earlier weeks can be looked back on.
+    const asked = /^\d{4}-\d{2}-\d{2}$/.test(String(url.searchParams.get('from'))) ? url.searchParams.get('from') : '';
     const today = new Date(wallNow(orderingOf(site))).toISOString().slice(0, 10);
     const people = [db.get('SELECT name, email FROM users WHERE id = ?', site.user_id), ...teamOf(site)].map((u) => u.name || u.email);
-    json(res, 200, { today, people, shifts: db.all('SELECT id, name, day, start, finish, note FROM shifts WHERE site_id = ? AND day >= ? ORDER BY day, start LIMIT 2000', site.id, new Date(Date.parse(`${today}T00:00:00Z`) - 7 * DAY).toISOString().slice(0, 10)) });
+    json(res, 200, { today, people, shifts: db.all('SELECT id, name, day, start, finish, note FROM shifts WHERE site_id = ? AND day >= ? ORDER BY day, start LIMIT 2000', site.id, asked && asked < today ? asked : new Date(Date.parse(`${today}T00:00:00Z`) - 7 * DAY).toISOString().slice(0, 10)) });
   });
   route('POST', '/api/sites/:id/shifts', async (req, res, p) => {
     const { site } = ownSite(req, p.id);

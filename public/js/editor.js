@@ -660,6 +660,7 @@ export async function editor(id, mount, title, startTab = '') {
             h('label', { class: 'switch', title: 'Active' }, h('input', { type: 'checkbox', 'aria-label': 'Active', checked: pr.active, onchange: (e) => { pr.active = e.target.checked; saveOrdering(); } }), h('i')),
             h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove code', onclick: () => { o.promos.splice(i, 1); saveOrdering(); redraw(); } }, ic('trash', 16))))),
             h('button', { type: 'button', class: 'btn soft sm', style: 'justify-self:start', onclick: () => { o.promos.push({ code: o.promos.length ? '' : 'WELCOME10', type: 'percent', value: 10, active: true }); saveOrdering(); redraw(); } }, ic('plus', 14), 'Add promo code')),
+        ] : []),
           group('Loyalty rewards', toggle('Reward repeat customers', o.loyalty, 'enabled', (v) => v === true, redraw),
             o.loyalty.enabled && [h('div', { class: 'pair' }, wrap('Reward after this many orders', h('input', { type: 'number', min: 2, max: 50, value: o.loyalty.every, oninput: (e) => { o.loyalty.every = Math.round(Number(e.target.value)) || 10; saveOrdering(); } })),
               wrap(o.loyalty.type === 'percent' ? 'Percent off' : 'Dollars off', h('div', { class: 'row' }, h('input', { style: 'flex:1;min-width:0', value: o.loyalty.type === 'percent' ? o.loyalty.value : (o.loyalty.value / 100).toFixed(2), inputmode: 'decimal', oninput: (e) => { const n = o.loyalty.type === 'percent' ? Math.round(Number(e.target.value)) : parsePrice(e.target.value || '0'); if (n) { o.loyalty.value = n; saveOrdering(); } } }),
@@ -671,10 +672,9 @@ export async function editor(id, mount, title, startTab = '') {
             wrap('Warn me when an item drops to', h('input', { type: 'number', min: 0, max: 9999, value: o.lowStockAt, style: 'max-width:160px', oninput: (e) => { o.lowStockAt = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'You get a notification on your devices, and an email, the moment an order takes an item to this number or below. Use 0 to hear only when something sells out.')),
           group('Order emails', text('Send new orders to', o, 'notifyEmail', { type: 'email', placeholder: draft.business.email || state.user.email }),
             null),
-        ] : []),
       ];
       notify = null;
-      if (!o.enabled && view !== 'ordering') return [emptyState('sliders', 'Online ordering is off', 'Online ordering is off.', ['Open online ordering', () => goTab('ordering')])];
+      if (!o.enabled && !['ordering', 'alerts', 'rewards'].includes(view)) return [emptyState('sliders', 'Online ordering is off', 'Online ordering is off.', ['Open online ordering', () => goTab('ordering')])];
       const want = SETUP_VIEWS[view];
       return out.flat(Infinity).filter(Boolean).filter((el) => { const t = el.querySelector?.(':scope > h3')?.textContent; return t ? want.includes(t) : view === 'ordering'; });
     },
@@ -1037,11 +1037,11 @@ export async function editor(id, mount, title, startTab = '') {
       const box = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, h('span', { class: 'set-head' }, h('span', {}, title))), h('div', { class: 'set-body' }, h('div', {}, ...kids)));
       return [h('div', { class: 'set-grid set-clover' },
         box('Profile', h('p', {}, `${u.name || u.email}, ${roleName}`), h('p', {}, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, h('i', { class: u.twoFactor ? 'on' : '' }), 'Two-factor authentication is ', h('b', {}, u.twoFactor ? 'on' : 'off')), L('Edit your profile', 'profile')),
-        box('Employees', L('Employee jobs', 'schedule'), L('Employee roles', 'team'), L('Employee permissions', 'team'), L('Device passcode', null)),
-        box('About your business', L('Business information', 'bizinfo'), L('Merchants', 'sites'), L('Closeout settings', 'close')),
+        box('Employees', L('Employee jobs', null), L('Employee roles', 'team'), L('Employee permissions', null), L('Device passcode', null)),
+        box('About your business', L('Business information', 'bizinfo'), L('Merchants', 'sites'), L('Closeout settings', null)),
         box('Billing and statements', L('Monthly statements', 'stmts'), L('Service plan', null)),
-        box('Business operations', L('Notification preferences', 'alerts'), L('Online ordering', 'ordering'), L('Customer communication preferences', 'alerts'), L('Reporting', () => reportSettings()), L('Taxes and fees', 'ordering'), L('Additional charges', 'ordering'), L('Tips', 'tips'), L('Business hours', 'hours'), L('Devices and printers', 'devices'), L('Online booking', 'booking'), L('Appearance', 'appearance'), L('Accounting Sync', () => quickbooks()), L('API tokens', null), L('Cellular data', null), L('Inventory', 'items'), L('Enterprise Wi-Fi', null)),
-        box('Transactions', L('Orders', 'orders'), L('Order receipts', 'alerts'), L('Order types', 'ordering'), L('Payments', 'tx'), L('Payment receipts', 'alerts'), L('Virtual Terminal', 'sale'), L('Invoices and estimates', 'invoices')),
+        box('Business operations', L('Notification preferences', 'alerts'), L('Online ordering', 'ordering'), L('Happy hour and timed prices', 'deals'), L('Customer communication preferences', 'alerts'), L('Reporting', () => reportSettings()), L('Taxes and fees', 'ordering'), L('Additional charges', null), L('Tips', 'ordering'), L('Business hours', 'hours'), L('Devices and printers', 'devices'), L('Online booking', 'booking'), L('Appearance', 'appearance'), L('Accounting Sync', () => quickbooks()), L('API tokens', null), L('Cellular data', null), L('Inventory', 'items'), L('Enterprise Wi-Fi', null)),
+        box('Transactions', L('Orders', 'orders'), L('Order receipts', null), L('Order types', 'ordering'), L('Payments', 'tx'), L('Payment receipts', null), L('Virtual Terminal', 'sale'), L('Invoices and estimates', 'invoices')),
         box('My sites', L('All my sites', 'sites'), L('Create another site', async () => { await flush(); go('/app/new'); }), state.user.admin && L('Staff dashboard', async () => { await flush(); go('/app/admin'); })),
         box('Website', L('Edit my website', () => goTab(lastTab.site)), L('Look and feel', 'design'), L('Home page', 'sections'), L('Web address', 'domain'), L('Policies', 'policies'), L('Search listing', 'seo'), meta.live && L('View my live site', () => window.open(meta.url, '_blank', 'noopener'))),
         box('Ecommerce', L('Ecommerce payments', null), L('Ecommerce API tokens', null), L('Hosted checkout', null), L('Custom fields', null), L('Payment links', 'business'), L('Fraud tools', null)))];
@@ -2613,7 +2613,8 @@ export async function editor(id, mount, title, startTab = '') {
   };
   CL.tips = () => {
     const st = needStats(); if (!st) return statsPage('Tips');
-    if (!st.totals.tips) return [h('div', { class: 'cl cl-center' }, clArt('tip'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide a comprehensive overview of employee tips from transactions, detailing key information such as the source of the tips, the associated card, and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
+    if (!st.totals.tips && ordering.tips) return [h('div', { class: 'cl' }, cHead('Reports', 'Tips'), ...cDates(), h('div', { class: 'scard cl-card' }, cEmpty('No tips in this period', '')))];
+    if (!st.totals.tips) return [h('div', { class: 'cl cl-center' }, clArt('tip'), h('h1', {}, 'Tips'), h('p', { class: 'cl-lead' }, 'The recorded tips provide an overview of tips from orders, with who handled each order and the amounts involved.'), h('button', { type: 'button', class: 'btn text cl-strong', onclick: () => goTab('ordering') }, 'Set up tips'))];
     return PANELS.sales('tips');
   };
 
@@ -2867,11 +2868,11 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'cl-phone' }, f('Country code', h('select', { disabled: true }, h('option', {}, '🇺🇸  +1'))), f('Phone number', inp('phone', { type: 'tel', maxlength: 40 }))),
         f('Email address', inp('email', { type: 'email', disabled: !!ex }), 'Email address is required to give the employee access to the dashboard.'),
         f('Role*', h('select', { onchange: (e) => { v.role = e.target.value; } }, [['kitchen', 'Employee'], ['manager', 'Manager']].map(([k, l]) => h('option', { value: k, selected: v.role === k }, l))), 'Roles allow you to control employee permissions.'),
-        h('h3', {}, 'Jobs and wages'), h('h4', {}, 'Jobs'), h('p', { class: 'cl-small' }, 'No jobs created yet.'), h('h4', {}, 'Wages'),
+        h('h3', {}, 'Jobs and wages'), h('h4', { class: 'rp-off' }, 'Jobs'), h('p', { class: 'cl-small rp-off' }, 'No jobs created yet.'), h('h4', {}, 'Wages'),
         f('Default pay type', h('select', { onchange: (e) => { v.payType = e.target.value; paintPanel(); } }, [['hourly', 'Hourly'], ['salary', 'Salary']].map(([k, l]) => h('option', { value: k, selected: v.payType === k }, l)))),
         f(v.payType === 'salary' ? 'Default annual salary' : 'Default hourly rate', inp('rate', { inputmode: 'decimal' })),
         h('h3', {}, 'Security'), f('Custom ID', inp('customId', { maxlength: 40 }), 'Custom IDs allow you to group employees by their location or their function.'),
-        h('label', { class: 'field cl-field' }, h('span', {}, 'Device passcode (4 digits)'), h('div', { class: 'cl-passw' }, pass, eye), h('small', {}, 'If you do not enter a passcode, one will be assigned.'), rules),
+        h('label', { class: 'field cl-field rp-off', 'aria-disabled': 'true' }, h('span', {}, 'Device passcode (4 digits)'), h('div', { class: 'cl-passw' }, (pass.disabled = true, pass), (eye.disabled = true, eye)), h('small', {}, 'If you do not enter a passcode, one will be assigned.'), rules),
         h('div', { class: 'cl-formf' }, ex && h('button', { type: 'button', class: 'btn text', style: 'color:var(--red);margin-right:auto', onclick: async () => {
           // Taking someone off the team ends their access to this business straight away.
           if (!await confirmSheet({ title: `Remove ${ex.name || ex.email}?`, text: 'They lose access to this business straight away.', action: 'Remove employee', danger: true })) return;
@@ -2881,7 +2882,8 @@ export async function editor(id, mount, title, startTab = '') {
   CL.timesheets = () => {
     if (!clockData) { api('GET', `/api/sites/${id}/timeclock`).then((r) => { clockData = r; if (tab === 'timesheets') paintPanel(); }).catch(() => { clockData = { entries: [] }; if (tab === 'timesheets') paintPanel(); }); return loadingPage('Timesheets'); }
     if (!clState.tsDay) clState.tsDay = isoDay(new Date());
-    const tm = isOwner ? needTeam() : null, rateOf = (n) => { const m = tm && tm.members ? tm.members.find((x) => x.name === n) : null; return m && m.details && m.details.payType !== 'salary' ? m.details.rate || 0 : 0; };
+    // Pay that cannot be worked out (no hourly rate known, or a manager who cannot see rates) reads '—', never $0.00.
+    const tm = isOwner ? needTeam() : null, rateOf = (n) => { const m = tm && tm.members ? tm.members.find((x) => x.name === n) : null; return m && m.details && m.details.payType !== 'salary' && m.details.rate ? m.details.rate : null; };
     const hrs = (x) => ((x.outAt || Date.now()) - x.inAt) / 3600000;
     const q = clState.tsQ.trim().toLowerCase();
     const day = clState.tsDay, wd = (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7, ps = addDays(day, -wd - (Math.floor((Date.parse(`${day}T12:00:00Z`) / 86400000 + 3) / 7) % 2) * 7), pe = addDays(ps, 13);
@@ -2908,14 +2910,16 @@ export async function editor(id, mount, title, startTab = '') {
     return [h('div', { class: 'cl cl-ts' }, h('div', { class: 'cl-tshead' }, h('h1', {}, 'Timesheets'), h('div', { class: 'cl-dseg' }, [['day', 'Day'], ['pay', 'Pay period']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(clState.tsMode === k), onclick: () => { clState.tsMode = k; paintPanel(); } }, l)))),
       h('div', { class: 'scard cl-tscard' }, h('div', { class: 'cl-tsbar' }, cSearch('Search team members', clState.tsQ, (vv) => { clState.tsQ = vv; }), h('div', { class: 'cl-tsnav' }, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Earlier', onclick: () => step(-1) }, chev('l')), dbtn, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Later', onclick: () => step(1) }, chev('r'))),
         cDrop([['all', 'View: All time cards'], ['open', 'View: Clocked in now']], clState.tsView, (k) => { clState.tsView = k; paintPanel(); }, { cls: 'cl-plain' })),
-        h('div', { class: 'cl-tsf' }, cDrop([['all', 'Filters']], 'all', () => {}, { cls: 'cl-plain' })), h('div', { class: 'cl-tsbody' }, content)))];
+        h('div', { class: 'cl-tsf' }, cDrop([['all', 'Filters']], 'all', () => {}, { cls: 'cl-plain rp-off', disabled: true })), h('div', { class: 'cl-tsbody' }, content)))];
   };
   CL.schedule = () => {
-    const sd = need('shifts', 'shifts'); if (!sd) return loadingPage('Scheduling');
+    const sd0 = need('shifts', 'shifts'); if (!sd0) return loadingPage('Scheduling');
     if (apptData === null) api('GET', `/api/sites/${id}/appointments`).then((r) => { apptData = r; if (tab === 'schedule') paintPanel(); }).catch(() => {});
-    const today = sd.today;
+    const today = sd0.today;
     if (!schedWeek) schedWeek = addDays(today, -((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7));
     const days = Array.from({ length: 7 }, (_, i) => addDays(schedWeek, i));
+    // A week further back than the first list covers is loaded on its own.
+    const sd = days[0] < addDays(today, -7) ? need(`shifts@${days[0]}`, `shifts?from=${days[0]}`) : sd0; if (!sd) return loadingPage('Scheduling');
     const tm = isOwner ? needTeam() : null, rateOf = (n) => { const m = tm && tm.members ? tm.members.find((x) => x.name === n) : null; return m && m.details && m.details.payType !== 'salary' ? m.details.rate || 0 : 0; };
     const hrs = (x) => { const m = (Number(x.finish.slice(0, 2)) * 60 + Number(x.finish.slice(3))) - (Number(x.start.slice(0, 2)) * 60 + Number(x.start.slice(3))); return (m <= 0 ? m + 1440 : m) / 60; };
     const t12 = (t) => { const [hh, mm] = t.split(':').map(Number); return `${hh % 12 || 12}${mm ? `:${String(mm).padStart(2, '0')}` : ''}${hh < 12 ? 'a' : 'p'}`; };
@@ -2939,10 +2943,10 @@ export async function editor(id, mount, title, startTab = '') {
     const rangeBtn = h('button', { type: 'button', class: 'cl-sel cl-tsdate', onclick: () => popover(rangeBtn, (close) => h('div', { class: 'dpop one' }, monthPicker(schedWeek.slice(0, 7), (dd) => { schedWeek = addDays(dd, -((new Date(`${dd}T12:00:00Z`).getUTCDay() + 6) % 7)); close(); paintPanel(); }, () => ({ from: days[0], to: days[6] }))), 'left') }, h('span', { class: 'cl-ic', html: SVG.cal }), h('span', { class: 'grow' }, h('span', { class: 'dl' }, `${longDay(days[0], { month: 'short', day: 'numeric', year: 'numeric' })} - ${longDay(days[6], { month: 'short', day: 'numeric', year: 'numeric' })}`), h('span', { class: 'ds' }, `${longDay(days[0], { month: 'short', day: 'numeric' })} – ${longDay(days[6], days[0].slice(5, 7) === days[6].slice(5, 7) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`)));
     const fBtn = h('button', { type: 'button', class: 'cl-sel cl-fil', onclick: () => popover(fBtn, () => h('div', { class: 'cl-menu' }, [['events', 'Events'], ['open', 'Open shifts'], ['team', 'Team members']].map(([k, l]) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: clState.schedRows.has(k), onchange: (e) => { if (e.target.checked) clState.schedRows.add(k); else clState.schedRows.delete(k); paintPanel(); } }), h('span', {}, l)))), 'right') }, h('span', {}, clState.schedRows.size < 3 ? `Filters (${clState.schedRows.size})` : 'Filters'), caret());
     const sortSel = cDrop([['first', 'First name'], ['last', 'Last name']], clState.schedSort, (k) => { clState.schedSort = k; paintPanel(); }, { cls: 'cl-small-sel' });
-    const total = (n) => { const hh = week.filter((x) => x.name === n).reduce((a, x) => a + hrs(x), 0); return `${hh.toFixed(2)} hrs / ${money(Math.round(hh * rateOf(n)))}`; };
+    const total = (n) => { const hh = week.filter((x) => x.name === n).reduce((a, x) => a + hrs(x), 0), r = rateOf(n); return `${hh.toFixed(2)} hrs / ${r == null ? '—' : money(Math.round(hh * r))}`; };
     return [h('div', { class: 'cl' }, cHead(null, 'Scheduling'),
       h('div', { class: 'scard cl-sched' }, h('div', { class: 'cl-schbar' }, h('button', { type: 'button', class: 'btn soft sm cl-today', disabled: days.includes(today), onclick: () => { schedWeek = ''; paintPanel(); } }, 'Today'), rangeBtn, h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Previous week', onclick: () => { schedWeek = addDays(schedWeek, -7); paintPanel(); } }, chev('l')), h('button', { type: 'button', class: 'c2-arrow', 'aria-label': 'Next week', onclick: () => { schedWeek = addDays(schedWeek, 7); paintPanel(); } }, chev('r')), h('span', { class: 'grow' }),
-        cDrop([['week', 'Week']], 'week', () => {}, { cls: 'cl-plain' }), fBtn, h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Schedule settings', title: 'Business hours', onclick: () => goTab('hours'), html: SVG.gear }), h('button', { type: 'button', class: 'btn soft sm cl-pub', disabled: true }, h('span', { html: SVG.upload }), 'Publish')),
+        cDrop([['week', 'Week']], 'week', () => {}, { cls: 'cl-plain rp-off', disabled: true }), fBtn, h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Schedule settings', title: 'Business hours', onclick: () => goTab('hours'), html: SVG.gear }), h('button', { type: 'button', class: 'btn soft sm cl-pub', disabled: true }, h('span', { html: SVG.upload }), 'Publish')),
         h('div', { class: 'sh-grid' },
           h('div', { class: 'sh-row sh-headrow' }, h('div', { class: 'sh-who cl-whohead' }, h('span', { class: 'muted' }, 'View'), sortSel, clState.schedSearch ? h('input', { class: 'cl-schq', placeholder: 'Search', value: clState.schedQ, oninput: (e) => { clState.schedQ = e.target.value; paintPanel(); const el = panel.querySelector('.cl-schq'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } } }) : h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Search team members', onclick: () => { clState.schedSearch = true; paintPanel(); setTimeout(() => panel.querySelector('.cl-schq')?.focus()); } }, ic('search', 18))),
             days.map((d) => h('div', { class: 'sh-dh2', 'data-today': d === today ? '1' : null }, h('span', {}, longDay(d, { weekday: 'short', day: 'numeric' }).replace(/(\w+)\s(\d+)/, '$1, $2'))))),
@@ -3034,9 +3038,10 @@ export async function editor(id, mount, title, startTab = '') {
     const heart = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 20s-7.5-4.6-7.5-10.1A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>';
     const broken = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 20s-7.5-4.6-7.5-10.1A4.3 4.3 0 0 1 11 7.6l-1.2 3.6 2.6 1.4-1.6 3.6 3.6-4.3-2.4-1.5 1.4-2.9a4.3 4.3 0 0 1 6.1 2.4C19.5 15.4 12 20 12 20z"/></svg>';
     return [h('div', { class: 'cl' }, h('div', { class: 'cl-fbtop' }, h('div', { class: 'cl-fbtitle' }, h('span', { class: 'cl-fbic', html: SVG.heart }), h('h1', {}, 'Feedback')), setBtn),
-      h('div', { class: 'cl-figs cl-fbfigs' }, h('div', { class: 'cl-fig' }, h('span', {}, 'Messages'), h('b', {}, String(leads2.length))), h('div', { class: 'cl-fig' }, h('span', {}, h('i', { class: 'cl-fbh', html: heart }), 'Happy'), h('b', {}, '0')), h('div', { class: 'cl-fig' }, h('span', {}, h('i', { class: 'cl-fbh', html: broken }), 'Unhappy'), h('b', {}, '0'))),
-      cTable('feedback', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'c', l: 'Customer' }, { k: 'm', l: 'Mood' }, { k: 'x', l: 'Message' }, { k: 'r', l: 'Reply' }],
-        leads2.map((l) => ({ _t: l.createdAt, t: when(l.createdAt), c: h('b', { class: 'cl-fbname' }, l.name || l.email), m: '—', x: h('span', { class: 'cl-fbmsg' }, l.message), r: l.email ? h('a', { class: 'cl-link', href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply') : '' })),
+      h('div', { class: 'cl-figs cl-fbfigs' }, h('div', { class: 'cl-fig' }, h('span', {}, 'Messages'), h('b', {}, String(leads2.length))), h('div', { class: 'cl-fig rp-off' }, h('span', {}, h('i', { class: 'cl-fbh', html: heart }), 'Happy'), h('b', {}, '—')), h('div', { class: 'cl-fig rp-off' }, h('span', {}, h('i', { class: 'cl-fbh', html: broken }), 'Unhappy'), h('b', {}, '—'))),
+      cTable('feedback', [{ k: 't', l: 'Time', sort: (r) => r._t }, { k: 'c', l: 'Customer' }, { k: 'x', l: 'Message' }, { k: 'r', l: 'Reply' }, { k: 'd', l: '' }],
+        leads2.map((l) => ({ _t: l.createdAt, t: when(l.createdAt), c: h('div', {}, h('b', { class: 'cl-fbname' }, l.name || l.email), l.phone && h('div', { class: 'small muted' }, h('a', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}` }, l.phone))), x: h('span', { class: 'cl-fbmsg' }, l.message), r: l.email ? h('a', { class: 'cl-link', href: `mailto:${l.email}?subject=${encodeURIComponent(`Re: your message to ${meta.name}`)}` }, 'Reply') : '',
+          d: h('button', { type: 'button', class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Delete this message?', text: 'It is removed for good.', action: 'Delete', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/leads/${l.id}`); forget('leads'); toast('Message deleted'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Delete') })),
         h('div', { class: 'cl-empty' }, h('b', {}, 'No messages yet'), h('p', {}, 'Messages customers send you from your website will show here.'))))];
   };
   CL.rewards = () => {
@@ -3258,9 +3263,9 @@ export async function editor(id, mount, title, startTab = '') {
       const off = 'Online ordering is off';
       const ops = h('section', { class: 'oo-ops' }, h('h2', { class: 'oo-h' }, 'Operational information'), h('div', { class: 'oo-opgrid' },
         op(PI.prep, 'Food preparation time', `${ordering.prepMinutes || 0} minutes`, 'ordering'),
-        op(PI.sched, 'Scheduled orders', !on ? off : ordering.scheduling ? 'Customers can place orders for later today or tomorrow' : 'Customers can only order for as soon as possible', 'hours'),
+        op(PI.sched, 'Scheduled orders', !on ? off : ordering.scheduling ? 'Customers can place orders for later today or tomorrow' : 'Customers can only order for as soon as possible', 'ordering'),
         op(PI.menus, 'Online menus', menusN ? `${menusN} menu${menusN === 1 ? '' : 's'}` : 'Edit your online menus', 'menus'),
-        op(PI.hours, 'Online business hours', !on ? off : ordering.useHours ? th.text : 'Orders are taken at any time', 'hours'),
+        op(PI.hours, 'Online business hours', !on ? off : ordering.useHours ? th.text : 'Orders are taken at any time', 'ordering'),
         isOwner ? op(PI.printer, 'Order printing device', devN == null ? '…' : devN ? `${devN} device${devN === 1 ? '' : 's'} get new orders` : 'No device set up yet', 'devices') : op(PI.printer, 'Order printing device', 'Set up by the account owner', null),
         op(PI.notes, 'Customer requests', !on ? off : ordering.allowNotes !== false ? 'Customers can add special instructions' : 'Special instructions are turned off', 'ordering')));
       body = [h('div', { class: 'oo-grid' }, biz, side, ops)];
@@ -3601,8 +3606,9 @@ export async function editor(id, mount, title, startTab = '') {
         pair('On the menu', 'Show', () => bulk(ids(), { set: { available: true } }, `${what()} shown`), 'Hide', () => bulk(ids(), { set: { available: false } }, `${what()} hidden`)),
         b('Quantity', async () => { const v = await ask({ title: `Set quantity for ${what()}`, label: 'In stock', type: 'number', value: '' }); if (v !== null && v !== '') bulk(ids(), { set: { stock: v } }, `Quantity set for ${what()}`); }),
         b('Daily refill', async () => { const v = await ask({ title: `Refill ${what()} every morning`, label: 'Refill to', type: 'number', value: '', hint: 'Leave it empty to switch daily refill off.' }); if (v !== null) bulk(ids(), { set: { restock: v === '' ? null : v } }, `Daily refill updated for ${what()}`); }),
-        b('Sale', async () => { const v = await ask({ title: `Put ${what()} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale.' }); if (v !== null && v !== '') bulk(ids(), { set: { sale: v } }, `Sale updated for ${what()}`); }),
-        b('Price', async () => { const v = await ask({ title: `Change the price of ${what()}`, label: 'Percent change', type: 'number', value: '5', hint: 'Use a minus sign to lower prices, for example -10.' }); if (v !== null && v !== '' && Number(v)) bulk(ids(), { set: { pricePercent: v } }, `Prices updated for ${what()}`); }),
+        // A value outside what can be stored is refused with a reason, never changed quietly.
+        b('Sale', async () => { const v = await ask({ title: `Put ${what()} on sale`, label: 'Percent off (0 ends a sale)', type: 'text', value: '10' }); if (v === null || v === '') return; const n = Number(v.replace('%', '')); if (!Number.isFinite(n) || n < 0 || n > 90) return toast('Enter a sale from 0 to 90 percent.', true); bulk(ids(), { set: { sale: Math.round(n) } }, `Sale updated for ${what()}`); }),
+        b('Price', async () => { const v = await ask({ title: `Change the price of ${what()}`, label: 'Percent change (-10 lowers prices)', type: 'text', value: '5' }); if (v === null || v === '') return; const n = Number(v.replace('%', '')); if (!Number.isFinite(n) || !n || n < -90 || n > 500) return toast('Enter a change from -90 to 500 percent.', true); bulk(ids(), { set: { pricePercent: n } }, `Prices updated for ${what()}`); }),
         b('Category', async () => { const v = await ask({ title: `Move ${what()}`, label: 'Category', value: cats[0] || '' }); if (v) bulk(ids(), { set: { category: v } }, `${what()} moved to ${v}`); }),
         b('Delete', async () => { if (await confirmSheet({ title: `Delete ${what()}?`, text: 'They are removed from your menu straight away. Past orders are kept.', action: 'Delete', danger: true })) { await bulk(ids(), { delete: true }, `${what()} deleted`); itClear('items'); paintPanel(); } }, true),
       ]),
@@ -3637,7 +3643,7 @@ export async function editor(id, mount, title, startTab = '') {
       itBulk('cats', ['category', 'categories'], [
         pair('Sales tax', 'On', () => bulk({ set: { taxable: true } }, `Sales tax on for ${what()}`), 'Off', () => bulk({ set: { taxable: false } }, `Sales tax off for ${what()}`)),
         pair('On the menu', 'Show', () => bulk({ set: { available: true } }, `${what()} shown`), 'Hide', () => bulk({ set: { available: false } }, `${what()} hidden`)),
-        b('Change prices', async () => { const v = await ask({ title: `Change prices in ${what()}`, label: 'Percent change', type: 'number', value: '5', hint: 'Use a minus sign to lower prices, for example -10.' }); if (v !== null && v !== '' && Number(v)) bulk({ set: { pricePercent: v } }, `Prices updated in ${what()}`); }),
+        b('Change prices', async () => { const v = await ask({ title: `Change prices in ${what()}`, label: 'Percent change (-10 lowers prices)', type: 'text', value: '5' }); if (v === null || v === '') return; const n = Number(v.replace('%', '')); if (!Number.isFinite(n) || !n || n < -90 || n > 500) return toast('Enter a change from -90 to 500 percent.', true); bulk({ set: { pricePercent: n } }, `Prices updated in ${what()}`); }),
         b('Put on sale', async () => { const v = await ask({ title: `Put ${what()} on sale`, label: 'Percent off', type: 'number', value: '10', hint: 'Enter 0 to end a sale.' }); if (v !== null && v !== '') bulk({ set: { sale: v } }, `Sale updated in ${what()}`); })]),
       itTable({ key: 'cats', cols: [{ k: 'name', l: 'Category name', sort: (r) => r.id.toLowerCase(), cls: 'it-wide', w: '19%' }, { k: 'sub', l: 'Subcategory', w: '19%' }, { k: 'type', l: 'Type', w: '18%' }, { k: 'cid', l: 'Category ID', w: '21%' }, { k: 'items', l: 'Items' }],
         rows, select: true, sortBy: 'name', empty: h('div', { class: 'it-none' }, cats.length ? 'No categories found' : 'You do not have any categories') }))];
@@ -4710,7 +4716,10 @@ export async function editor(id, mount, title, startTab = '') {
       if (target !== page) { frame.addEventListener('load', jump, { once: true }); setPage(target); } else { e.data.hash ? jump() : frame.contentWindow.scrollTo({ top: 0, behavior: 'smooth' }); }
     }
   };
-  const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); } };
+  const onKey = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); quickFind(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); }
+  };
   window.addEventListener('keydown', onKey);
   const onLeave = (e) => { if (saveState !== 'saved' && !staleSeen) { save.flush(); e.preventDefault(); e.returnValue = ''; } };
   window.addEventListener('message', onMessage);
