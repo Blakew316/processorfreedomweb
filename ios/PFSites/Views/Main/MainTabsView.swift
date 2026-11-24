@@ -66,6 +66,8 @@ struct RouteDestination: View {
             SalesOverviewScreen()
         case .appointments:
             AppointmentsScreen()
+        case .createAppointment(let date, let time, let employee):
+            CreateAppointmentScreen(date: date, time: time, employee: employee)
         }
     }
 }

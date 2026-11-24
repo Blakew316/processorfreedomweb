@@ -17,6 +17,7 @@ enum Route: Hashable {
     case order(String)                       // one order of the Orders tab, by its id
     case salesOverview                       // Home → Sales overview (native, the owner's Clover photos)
     case appointments                        // Home → Calendar: the Appointments day view (native)
+    case createAppointment(date: String?, time: String?, employee: String?) // the "+" of Appointments; a tapped time fills date and time
 }
 
 /// Sheets the main screens show over everything.
