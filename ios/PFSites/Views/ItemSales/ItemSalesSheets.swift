@@ -54,6 +54,8 @@ struct ItemSalesCustomRangeSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Apply") {
+                        // The light tap Home's time frames give when custom days are applied.
+                        Haptics.light()
                         report.chooseCustom(from: fromDay, to: toDay)
                         dismiss()
                     }
@@ -128,6 +130,9 @@ struct ItemSalesSyncSheet: View {
                 .padding(.bottom, 12)
                 .background(Color(.systemBackground))
             }
+            // The whole sheet on the one background, like the app's other sheets, so the button's strip never shows as a band
+            // of its own at the sheet's half height.
+            .background(Color(.systemBackground))
             .navigationTitle("Sync with QuickBooks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -151,7 +156,9 @@ struct ItemSalesSyncSheet: View {
         problem = ""
         let words = await download()
         busy = false
-        if let words {
+        // Words mean no file was made (nothing to send, or the server said no). After Cancel the sheet has gone: nothing is said.
+        if let words, !Task.isCancelled {
+            Haptics.error()
             problem = words
             UIAccessibility.post(notification: .announcement, argument: words)
         }

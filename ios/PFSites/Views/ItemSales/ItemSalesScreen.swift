@@ -144,7 +144,8 @@ struct ItemSalesScreen: View {
             .padding(.top, 18.5)
             .padding(.bottom, 40)
             .frame(maxWidth: .infinity, minHeight: pageHeight, alignment: .topLeading)
-            .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+            // The photo's corner is a plain 24 pt quarter circle.
+            .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 24, style: .circular))
         }
         .background(Color(.systemBackground))
         // The bar stays plain over what scrolls under it, like the Settings pages with the same grey panel.
@@ -378,6 +379,8 @@ struct ItemSalesScreen: View {
         if period == .custom {
             customOpen = true
         } else {
+            // The light tap the app gives a newly chosen period, as Home's time frames do.
+            if period != report.choices.period { Haptics.light() }
             report.choose(period)
         }
     }
@@ -402,6 +405,7 @@ struct ItemSalesScreen: View {
             let file = try report.exportFile(siteName: siteName)
             UIPresenter.share(file)
         } catch {
+            Haptics.error()
             show("The file could not be saved. Please try again.")
         }
     }
@@ -428,6 +432,7 @@ struct ItemSalesScreen: View {
             guard syncOpen, !Task.isCancelled else { return nil }
             fileToOffer = made.file
             syncOpen = false
+            Haptics.success()
             let plural = made.count == 1 ? "" : "s"
             show(String(made.count) + " transaction" + plural + " ready for QuickBooks")
             return nil

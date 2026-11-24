@@ -211,6 +211,8 @@ struct ItemSalesFiltersPanel: View {
                     ForEach(shown) { choice in
                         ItemSalesRadioRow(label: choice.label, chosen: choice.chosen, enabled: enabled) {
                             if let type = choice.type {
+                                // The light tap the app's other filter radios give a newly chosen one.
+                                if draft != type { Haptics.light() }
                                 withAnimation(.snappy(duration: 0.2)) { draft = type }
                             }
                         }

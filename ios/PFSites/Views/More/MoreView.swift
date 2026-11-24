@@ -29,8 +29,9 @@ struct MoreView: View {
         }
         .background(Color(.systemBackground))
         .tabHeader("More")
-        // The name on the profile row is changed on the Profile page: it shows here when that page closes.
-        .task { await SettingsActions.reloadPerson(model) }
+        // The name on the profile row is changed on the Profile page, the website or another phone: it shows here when that page
+        // closes and when the app comes back to the front.
+        .settingsLoads { await SettingsActions.reloadPerson(model) }
     }
 
     // MARK: Profile

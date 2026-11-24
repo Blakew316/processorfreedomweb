@@ -59,8 +59,10 @@ enum API {
                 result = try await URLSession.shared.data(for: request)
             } catch {
                 if Task.isCancelled || (error as? URLError)?.code == .cancelled { throw CancellationError() }
-                // Only reads are tried again after a dropped connection: a write may already have happened.
-                if method == "GET", attempt < waits.count {
+                // Only reads are tried again after a dropped connection: a write may already have happened. And not when the
+                // phone has no connection at all, or the server took the whole 20 seconds: trying again would only keep the
+                // person waiting to be told.
+                if method == "GET", attempt < waits.count, worthAnotherTry(error) {
                     try? await Task.sleep(nanoseconds: waits[attempt] * 1_000_000)
                     attempt += 1
                     continue
@@ -82,10 +84,26 @@ enum API {
         }
     }
 
+    /// A connection that dropped or was refused (the service restarting) is worth trying again in a moment; no connection at all,
+    /// or a request that ran out of time, is not.
+    private static func worthAnotherTry(_ error: Error) -> Bool {
+        if let code = (error as? URLError)?.code {
+            switch code {
+            case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff, .timedOut:
+                return false
+            default:
+                break
+            }
+        }
+        return true
+    }
+
     private static func words(for error: Error) -> String {
         if let code = (error as? URLError)?.code {
             switch code {
-            case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed, .internationalRoamingOff, .cannotLoadFromNetwork:
+            // "You're offline" only when the phone has no connection. A connection that dropped part-way may be the server's
+            // doing, so it is said as not reaching the server.
+            case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff:
                 return APIError.offlineMessage
             default:
                 break

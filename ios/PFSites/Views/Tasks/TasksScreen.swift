@@ -63,6 +63,7 @@ struct TasksScreen: View {
                 .animation(.snappy, value: live)
             }
             .background(Color(.systemBackground))
+            .refreshable { await loadLive() }
             .navigationTitle("Tasks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

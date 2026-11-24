@@ -33,8 +33,9 @@ struct SettingsView: View {
             // The app is in English only for now.
             SettingsRowView(title: "Language", enabled: false) {}
         }
-        // The name on the Profile row is changed on the Profile page: it shows here when that page closes.
-        .task { await SettingsActions.reloadPerson(model) }
+        // The name on the Profile row is changed on the Profile page, the website or another phone: it shows here when that page
+        // closes and when the app comes back to the front.
+        .settingsLoads { await SettingsActions.reloadPerson(model) }
     }
 
     @ViewBuilder
@@ -286,8 +287,12 @@ enum SettingsActions {
     /// The person again from the server (`GET /api/me`), for the screens that show their name or two-step sign-in: both are
     /// changed on the Profile page, the website or another phone. Nothing changes when it cannot load.
     static func reloadPerson(_ model: AppModel) async {
-        guard let answer = try? await API.get("/api/me"), !Task.isCancelled, model.phase == .ready,
-              let person = User(answer["user"]) else { return }
+        guard let answer = try? await API.get("/api/me"), !Task.isCancelled, model.phase == .ready else { return }
+        guard let person = User(answer["user"]) else {
+            // The server answers with no one when the session has ended (signed out everywhere): the app checks, then locks.
+            if !answer["user"].isObject { model.sessionEnded() }
+            return
+        }
         // Only for the same person: meanwhile the app may have locked, or someone else may have signed in.
         if let current = model.user {
             guard current.id == person.id, current != person else { return }

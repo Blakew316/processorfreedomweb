@@ -268,17 +268,12 @@ private struct HomeTileTitle: View {
 
     var body: some View {
         let words = title.split(separator: " ").map(String.init)
-        // Where the name may break, longest first line first: "Items and" / "services", then "Items" / "and services".
-        let breaks = Array(stride(from: words.count - 1, to: 0, by: -1))
+        // The first that fits is used: the whole name; "Items and" over "services"; "Items" over "and services"; and, for a
+        // word wider than the tile, ordinary wrapping.
         ViewThatFits(in: .horizontal) {
             line(title)
-            ForEach(breaks, id: \.self) { count in
-                VStack(alignment: .leading, spacing: closer) {
-                    line(words.prefix(count).joined(separator: " "))
-                    line(words.dropFirst(count).joined(separator: " "))
-                }
-            }
-            // A word wider than the tile: ordinary wrapping.
+            stacked(words, after: max(1, words.count - 1))
+            stacked(words, after: 1)
             Text(title)
                 .pfFont(17.5, .semibold)
                 .foregroundStyle(.primary)
@@ -286,6 +281,13 @@ private struct HomeTileTitle: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
+    }
+
+    private func stacked(_ words: [String], after count: Int) -> some View {
+        VStack(alignment: .leading, spacing: closer) {
+            line(words.prefix(count).joined(separator: " "))
+            line(words.dropFirst(count).joined(separator: " "))
+        }
     }
 
     private func line(_ text: String) -> some View {

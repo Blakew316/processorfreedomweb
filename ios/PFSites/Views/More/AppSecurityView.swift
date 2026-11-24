@@ -67,7 +67,8 @@ struct AppSecurityView: View {
             faceIDWanted = model.faceIDOn
             pushWanted = model.pushOn
         }
-        .task {
+        // When the page opens, and again when the app comes back to the front (from iOS Settings, say).
+        .settingsLoads {
             await model.refreshPushStatus()
             if !pushBusy { pushWanted = model.pushOn }
             // Two-step sign-in is turned on or off on the Profile page: its state shows here when that page closes.

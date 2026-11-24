@@ -128,7 +128,9 @@ struct PasscodeView: View {
                 Button {
                     logOut()
                 } label: {
-                    HStack(spacing: 10) {
+                    // 6.3 pt between the frames leaves the photo's 9.7 pt between the drawing and the words (the symbol and the
+                    // first letter carry the rest as their own side space).
+                    HStack(spacing: 6.3) {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                             .font(.system(size: 17))
                         Text("Log out")
