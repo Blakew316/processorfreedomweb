@@ -661,34 +661,40 @@ final class StatsModel {
         return StatsDays.today(in: .current)
     }
 
-    /// The chosen period runs up to the business's today, so its numbers change as sales come in.
-    var reachesToday: Bool {
+    /// The chosen period is the business's today alone (Today, or a custom day that is today): its numbers change as sales come
+    /// in, so the screens read them again every minute while they show. Longer periods are read when the screen appears, when the
+    /// time frame changes and on pull, since each read of one carries up to 2,000 of its orders.
+    var refreshesEveryMinute: Bool {
         let today = businessToday
-        return frame.days(today: today).to >= today
+        let span = frame.days(today: today)
+        return span.from == today && span.to == today
     }
 
     /// Loads the chosen time frame's numbers. A failed refresh keeps numbers already shown for the same time frame; the message
     /// shows when there is nothing to show, or when this login may not see them (403: a message, never a sign-out).
-    func load(siteID: String) async {
+    /// `full` is false for the once-a-minute refresh: it reads the ledger again only when the refunds changed.
+    func load(siteID: String, full: Bool = true) async {
         let asked = frame
-        if asked.range == .last90 && zone == nil { await loadZone(siteID: siteID) }
+        // These periods' days are worked out here from the business's today, so its time zone comes first.
+        if (asked.range == .last90 || asked.range == .pastWeek) && zone == nil { await loadZone(siteID: siteID) }
         let today = businessToday
         let span = asked.days(today: today)
         let query = asked.query(today: today)
         // The refunds count comes from the ledger's list, which grows with the period: only for Sales Overview's Refunds card, and
         // only up to about three months.
-        let wantsLedger = screen == .salesOverview && StatsDays.count(from: span.from, to: span.to) <= 92
-        async let ledgerRead: Void = loadLedger(siteID: siteID, query: query, key: asked.key, wanted: wantsLedger)
+        let ledgerFits = screen == .salesOverview && StatsDays.count(from: span.from, to: span.to) <= 92
+        async let ledgerRead: Void = loadLedger(siteID: siteID, query: query, key: asked.key, wanted: ledgerFits && full)
         do {
             let answer = try await API.get("/api/sites/\(siteID)/stats?\(query)")
-            await ledgerRead
-            guard asked == frame else { return }
-            let fresh = StatsReport(answer, key: asked.key)
-            if let found = fresh.timeZone, found.identifier != zone?.identifier { zone = found }
-            report = fresh
-            problem = ""
-            problemKey = ""
-            problemIsFinal = false
+            // The numbers show as soon as they arrive; the ledger only adds the Refunds card's count under them.
+            if asked == frame {
+                let fresh = StatsReport(answer, key: asked.key)
+                if let found = fresh.timeZone, found.identifier != zone?.identifier { zone = found }
+                report = fresh
+                problem = ""
+                problemKey = ""
+                problemIsFinal = false
+            }
         } catch let error as APIError {
             guard asked == frame else { return }
             // Signed out everywhere, or the session ended: the app checks, then locks.
@@ -699,9 +705,15 @@ final class StatsModel {
                 problemKey = asked.key
                 problemIsFinal = error.status == 403
             }
+            return
         } catch {
             // Cancelled: the screen went away, or another time frame was chosen.
+            return
         }
+        await ledgerRead
+        // The once-a-minute refresh reads the ledger again only when the refunds it counted are no longer the refunds shown.
+        guard !full, ledgerFits, asked == frame, let shown = current, ledgerRefunds?.total != shown.money.refunds else { return }
+        await loadLedger(siteID: siteID, query: query, key: asked.key, wanted: true)
     }
 
     /// The period's refunds from the money ledger: how many, and how much (the Refunds card). Nothing changes when it fails.

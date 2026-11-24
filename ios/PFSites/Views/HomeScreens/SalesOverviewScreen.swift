@@ -3,7 +3,7 @@ import SwiftUI
 /// Home → Sales overview (the owner's Clover photos, rebranded): the time frame row, net sales with its transactions and the
 /// change against the previous period, the chart, the cards that scroll sideways, then the top employees and the top items.
 /// Everything is the server's numbers (GET /api/sites/<id>/stats, and the ledger's refunds). It refreshes when it appears, when the
-/// app comes back, when the time frame changes, on pull, and every minute while it shows a period that runs up to today.
+/// app comes back, when the time frame changes, on pull, and every minute while it shows today.
 struct SalesOverviewScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
@@ -48,12 +48,12 @@ struct SalesOverviewScreen: View {
         .task(id: LoadKey(frame: stats.frame.key, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
             guard scenePhase == .active, model.phase == .ready else { return }
             await load(stats)
-            // A period that runs up to today is read again every minute while the screen shows, so sales taken on the website or
-            // another phone show up here.
+            // Today is read again every minute while the screen shows, so sales taken on the website or another phone show up
+            // here (the ledger only when the refunds changed).
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 60_000_000_000)
                 if Task.isCancelled { return }
-                if stats.reachesToday { await load(stats) }
+                if stats.refreshesEveryMinute { await load(stats, full: false) }
             }
         }
         .sheet(isPresented: $choosingFrame) {
