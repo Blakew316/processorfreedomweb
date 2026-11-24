@@ -1,4 +1,45 @@
 import SwiftUI
+import UIKit
+
+/// The look of the Sale screen and its sheets, measured from the owner's Clover photos (1125 x 2436 px of a 375 x 812 pt phone,
+/// so 3 px = 1 pt), with Clover's green rebranded to Processor Freedom's blue.
+enum SaleLook {
+    /// #EEEEEE: the search field.
+    static let field = Color(light: UIColor(hex: 0xEEEEEE), dark: .systemGray6)
+    /// #5C5C5C: the search placeholder and an item's price line.
+    static let muted = Color(light: UIColor(hex: 0x5C5C5C), dark: .secondaryLabel)
+    /// #727272: an item card's border.
+    static let cardBorder = Color(light: UIColor(hex: 0x727272), dark: .systemGray)
+    /// #E5E5E5: the hairlines.
+    static let hairline = Color(light: UIColor(hex: 0xE5E5E5), dark: .systemGray4)
+    /// #FBFBFB: the order panel at the bottom.
+    static let panel = Color(light: UIColor(hex: 0xFBFBFB), dark: .secondarySystemBackground)
+    /// #C7C7C7: disabled buttons and the options button's border.
+    static let disabled = Color(.systemGray3)
+    /// #78787D: the options button's dots.
+    static let dots = Color(light: UIColor(hex: 0x78787D), dark: .systemGray)
+    /// #373737: the price while it is still $0.00.
+    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: .secondaryLabel)
+}
+
+/// A 1 pt line across the screen.
+struct SaleHairline: View {
+    var body: some View {
+        SaleLook.hairline.frame(height: 1)
+    }
+}
+
+/// The small flat triangle after "All items".
+struct DropCaret: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
 
 /// Select category (photo 5): All items and each category with its item count; choosing one closes the sheet and filters the list.
 struct CategorySheet: View {
@@ -13,17 +54,20 @@ struct CategorySheet: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 22))
+                        .font(.system(size: 21))
                         .foregroundStyle(.primary)
                         .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Close")
             }
-            .padding(.top, 12)
+            .padding(.top, 13)
             .padding(.trailing, 8)
             Text("Select category")
-                .pfFont(24, .bold, relativeTo: .title2)
+                .pfFont(21, .bold, relativeTo: .title2)
                 .padding(.horizontal, 17)
+                .padding(.top, 3)
                 .accessibilityAddTraits(.isHeader)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -34,7 +78,7 @@ struct CategorySheet: View {
                         }
                     }
                 }
-                .padding(.top, 40)
+                .padding(.top, 49)
             }
         }
         .presentationDetents([.large])
@@ -47,9 +91,9 @@ struct CategorySheet: View {
             dismiss()
         } label: {
             Text(title)
-                .pfFont(20, selected ? .semibold : .medium)
+                .pfFont(17.5, selected ? .semibold : .medium)
                 .foregroundStyle(selected ? Theme.blue : Color.primary)
-                .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 56.5, alignment: .leading)
                 .padding(.horizontal, 21)
                 .contentShape(Rectangle())
         }
@@ -131,19 +175,24 @@ struct OrderSheet: View {
     }
 }
 
-/// The price keypad (the owner's photo): for a variable-price item, the amount for this sale; for a custom item,
-/// an optional name and the amount. Typing fills from the right like a register ($0.00, $0.05, $0.52, $5.25).
+/// The price keypad (the owner's photo): for a variable-price item, the amount for this sale; for a custom item, an optional name
+/// and the amount. Typing fills from the right like a register ($0.00, $0.05, $0.52, $5.25); 00 adds two zeros, delete takes the
+/// last digit off, and the most is $999,999.99.
 struct PriceKeypadSheet: View {
     let target: KeypadTarget
     let order: SaleModel
+    /// Told the name of what was added (the scanner shows "Added <name>").
+    var onAdded: ((String) -> Void)? = nil
+
     @Environment(\.dismiss) private var dismiss
     @State private var cents = 0
     @State private var name = ""
+    @FocusState private var nameFocused: Bool
 
     private let keys: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["0", "00", "delete"]]
 
     var body: some View {
-        // The keys grow to the photo's 90 pt when there is room and give way on smaller iPhones, so Done always shows. When even
+        // The keys grow to the photo's 87 pt when there is room and give way on smaller iPhones, so Done always shows. When even
         // the smallest keys do not fit (the zoomed display of a small iPhone, very large text), the sheet scrolls instead.
         ViewThatFits(in: .vertical) {
             form
@@ -158,51 +207,63 @@ struct PriceKeypadSheet: View {
 
     private var form: some View {
         VStack(spacing: 0) {
-            ZStack {
+            ZStack(alignment: .top) {
                 Text(title)
-                    .pfFont(19, .bold)
+                    .pfFont(17, .bold)
                     .lineLimit(1)
-                    .padding(.horizontal, 60)
+                    .padding(.horizontal, 56)
+                    .padding(.top, 12)
                     .accessibilityAddTraits(.isHeader)
                 HStack {
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 22))
+                            .font(.system(size: 20))
                             .foregroundStyle(.primary)
                             .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Close")
                     Spacer()
                 }
-                .padding(.leading, 8)
+                .padding(.leading, 2)
+                .padding(.top, 5)
             }
-            .padding(.top, 12)
 
-            if case .custom = target {
-                TextField("Custom item", text: $name)
-                    .pfFont(18)
-                    .submitLabel(.done)
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 46)
-                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color(.systemGray3), lineWidth: 1))
-                    .padding(.horizontal, 17)
-                    .padding(.top, 24)
-                    .accessibilityLabel("Name")
+            if isCustom {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name")
+                        .pfFont(15, .medium)
+                        .foregroundStyle(.secondary)
+                    BoxField(focused: nameFocused) {
+                        TextField("Custom item", text: $name)
+                            .focused($nameFocused)
+                            .submitLabel(.done)
+                            .textInputAutocapitalization(.sentences)
+                    }
+                }
+                .padding(.horizontal, 17)
+                .padding(.top, 16)
             }
 
             Text("What is the price?")
-                .pfFont(17)
-                .padding(.top, isCustom ? 28 : 70)
+                .pfFont(15)
+                .padding(.top, isCustom ? 24 : 44)
             Text(Money.format(cents))
                 .pfFont(48, .light, relativeTo: .largeTitle)
-                .foregroundStyle(cents == 0 ? Color.secondary : Color.primary)
-                .padding(.top, 4)
-                .padding(.bottom, 40)
+                .foregroundStyle(cents == 0 ? SaleLook.zeroAmount : Color.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.horizontal, 24)
+                .contentTransition(.numericText())
                 .accessibilityLabel("Price \(Money.format(cents))")
+                // The photo's baselines: the amount's sits 50 pt under the question's, and 60.5 pt above the hairline.
+                .padding(.top, 1)
+                .padding(.bottom, isCustom ? 32 : 49)
 
-            Divider()
+            SaleHairline()
             VStack(spacing: 0) {
                 ForEach(keys, id: \.self) { row in
                     HStack(spacing: 0) {
@@ -214,14 +275,14 @@ struct PriceKeypadSheet: View {
             }
             // Offered the room before the space above Done, so the keys only shrink when the screen is really short.
             .layoutPriority(1)
-            Divider()
+            SaleHairline()
 
             Spacer(minLength: 16)
             Button("Done") { done() }
-                .buttonStyle(SolidButtonStyle(fill: cents > 0 ? Theme.blue : Color(.systemGray3), text: .white, radius: 6, height: 48, size: 18))
+                .buttonStyle(KeypadDoneStyle(on: cents > 0))
                 .disabled(cents == 0)
-                .padding(.horizontal, 34)
-                .padding(.bottom, 20)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 15)
         }
     }
 
@@ -244,14 +305,15 @@ struct PriceKeypadSheet: View {
             Group {
                 if key == "delete" {
                     Image(systemName: "delete.left")
-                        .font(.system(size: 28))
+                        .font(.system(size: 26, weight: .semibold))
+                        .imageScale(.large)
                 } else {
                     Text(key)
-                        .font(.system(size: 32, weight: .medium))
+                        .font(.system(size: 29, weight: .semibold))
                 }
             }
             .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 90)
+            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 87)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -267,16 +329,39 @@ struct PriceKeypadSheet: View {
             digits += key
         }
         let value = Int(digits) ?? 0
-        cents = min(Money.most, value)
+        // A key that would go past $999,999.99 does nothing.
+        guard value <= Money.most else { return }
+        withAnimation(.snappy(duration: 0.15)) { cents = value }
     }
 
     private func done() {
         guard cents > 0 else { return }
+        let added: String
         switch target {
-        case .item(let item): order.add(item, price: cents)
-        case .custom: order.addCustom(name: name, cents: cents)
+        case .item(let item):
+            order.add(item, price: cents)
+            added = item.name
+        case .custom:
+            order.addCustom(name: name, cents: cents)
+            added = name.trimmed.isEmpty ? "Custom item" : name.trimmed
         }
-        Haptics.light()
+        // The scanner gives its own success tap with its "Added" message.
+        if let onAdded { onAdded(added) } else { Haptics.light() }
         dismiss()
+    }
+}
+
+/// The keypad's Done button: 44 pt, small corners, grey until there is an amount, then blue.
+private struct KeypadDoneStyle: ButtonStyle {
+    let on: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .pfFont(14, .medium)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(on ? Theme.blue : SaleLook.disabled))
+            .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

@@ -67,6 +67,7 @@ struct SettingsRow: Identifiable, Hashable {
         case locations          // the Choose primary location sheet
         case appSecurity        // the app's own security list
         case native(SettingsPageID) // a native full-screen Settings page
+        case pushed(SettingsPageID) // a native Settings page pushed onto the tab (the white pages with the back button)
         case unavailable
     }
 
@@ -108,15 +109,16 @@ enum SettingsCatalog {
                     SettingsRow(title: "Order types", target: .native(.orderTypes)),
                     SettingsRow(title: "Payments", target: .native(.payments)),
                     SettingsRow(title: "Payment receipts", target: .native(.paymentReceipts)),
-                    SettingsRow(title: "Invoice number", target: .native(.invoiceNumber)),
+                    // The white pages are pushed, with the tab bar still under them, as in their photos.
+                    SettingsRow(title: "Invoice number", target: .pushed(.invoiceNumber)),
                     SettingsRow(title: "Invoices and estimates", target: .native(.invoicesEstimates)),
-                    SettingsRow(title: "Manual card entry permission", target: .native(.manualCardEntry)),
+                    SettingsRow(title: "Manual card entry permission", target: .pushed(.manualCardEntry)),
                 ]),
                 SettingsBand(title: "PF Sites settings", rows: [
-                    SettingsRow(title: "Payment note", target: .native(.paymentNote)),
-                    SettingsRow(title: "Quick sale", target: .native(.quickSale)),
-                    SettingsRow(title: "Carbon copy receipts", target: .native(.carbonCopyReceipts)),
-                    SettingsRow(title: "Tap to Pay on iPhone", target: .native(.tapToPay)),
+                    SettingsRow(title: "Payment note", target: .pushed(.paymentNote)),
+                    SettingsRow(title: "Quick sale", target: .pushed(.quickSale)),
+                    SettingsRow(title: "Carbon copy receipts", target: .pushed(.carbonCopyReceipts)),
+                    SettingsRow(title: "Tap to Pay on iPhone", target: .pushed(.tapToPay)),
                 ]),
             ]),
             SettingsGroup(id: "services", title: "Services and appointments", bands: [SettingsBand(title: "Global settings", rows: [
@@ -147,7 +149,4 @@ enum SettingsCatalog {
         ])
         return rows
     }
-
-    /// The titles on the app's own security list, so Settings search finds them too.
-    static let securityTitles = ["Change passcode", "Face ID", "Notifications", "Two-step sign-in", "Lock after 15 minutes without activity", "Change location", "Log out"]
 }

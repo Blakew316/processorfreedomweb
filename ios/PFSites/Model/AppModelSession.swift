@@ -33,6 +33,8 @@ extension AppModel {
         let person = User(answer["user"]) ?? user ?? User()
         user = person
         remember(person)
+        // The email and password open every business the person has.
+        sessionLimited = false
         let old = Keychain.device
         let id = answer["device"]["id"].string, secret = answer["device"]["secret"].string
         if !id.isEmpty, !secret.isEmpty {
@@ -45,6 +47,8 @@ extension AppModel {
                 Keychain.delete("bio")
                 Keychain.delete("site")
                 setFaceIDFlag(false)
+                // The old key's notification address goes with it; the new key's is sent when the dashboard opens.
+                pushSent = false
             }
         }
         let trust = answer["trust"].string
@@ -64,17 +68,20 @@ extension AppModel {
             case 1: await passcodeStep(for: list[0])
             default: setPhase(.choosingLocation)
             }
-        } catch let error as APIError where error.status == 401 {
+        } catch let error as APIError where error.sessionEnded {
             sessionEndedBeforeReady()
         } catch {
             showLaunchError(error) { [weak self] in await self?.routeAfterSignIn() }
         }
     }
 
+    static let sessionEndedMessage = "Your session ended. Please sign in again."
+
     /// The session ended before the dashboard opened (a step was left open longer than the server's 16 minutes): sign in again.
-    private func sessionEndedBeforeReady() {
+    /// This phone's key stays; the next sign-in replaces it and gives the old one up on the server.
+    func sessionEndedBeforeReady(_ message: String? = nil) {
         user = nil
-        goWelcome(atLogin: true, message: "Your session ended. Please sign in again.")
+        goWelcome(atLogin: true, message: message ?? AppModel.sessionEndedMessage)
     }
 
     /// The passcode step for a business after a full sign-in: type the passcode they have there, or make one.
@@ -90,7 +97,7 @@ extension AppModel {
         if !forgot {
             do {
                 has = try await API.get("/api/app/passcode?site=\(Config.query(business.id))")["has"].bool
-            } catch let error as APIError where error.status == 401 {
+            } catch let error as APIError where error.sessionEnded {
                 sessionEndedBeforeReady()
                 return
             } catch {
@@ -116,7 +123,7 @@ extension AppModel {
         } else {
             do {
                 try await continueSignedIn()
-            } catch let error as APIError where error.status == 401 {
+            } catch let error as APIError where error.sessionEnded {
                 sessionEndedBeforeReady()
             } catch {
                 showLaunchError(error) { [weak self] in await self?.passcodeFinished(for: ref) }
@@ -145,14 +152,15 @@ extension AppModel {
             Keychain.saveSiteID(ref.id)
             return .ok
         } catch let error as APIError {
-            // A 401 without the device flags means the session itself ended (left too long on this screen): sign in again.
-            if error.status == 401 && !error.signIn && error.left == nil { return .signIn("Your session ended. Please sign in again.") }
+            // A 401 without the device flags means the session itself ended (left too long on this screen); the key is still good.
+            if error.sessionEnded { return .sessionEnded(AppModel.sessionEndedMessage) }
             return passcodeResult(error)
         } catch {
             return .failed(APIError.unreachableMessage)
         }
     }
 
+    /// A 403 (this session may not open that business) is the server's message, said under the dots like any other.
     func passcodeResult(_ error: APIError) -> PasscodeResult {
         if error.signIn { return .signIn(error.message) }
         if let left = error.left, left > 0 { return .wrong("\(error.message) \(left) \(left == 1 ? "try" : "tries") left.") }
@@ -160,12 +168,21 @@ extension AppModel {
         return .failed(error.message)
     }
 
-    /// The server forgot this phone (five wrong passcodes, removed from the team, signed out everywhere): sign in again.
+    /// The server forgot this phone (five wrong passcodes, removed from the team, two-step sign-in turned on, signed out everywhere):
+    /// like Log out, everything signed in here goes (the app icon's count too), any session still open ends (Change passcode and a
+    /// switch of business run inside one), and the Log in screen says why.
     func deviceForgotten(_ message: String) {
         Keychain.forgetDevice()
         setFaceIDFlag(false)
         closeShell()
+        user = nil
+        sites = []
+        site = nil
+        sessionLimited = false
+        pushSent = false
+        setOrdersBadge(0)
         goWelcome(atLogin: true, message: message)
+        endSessionInBackground()
     }
 
     // MARK: Unlocking (D6 lock)
@@ -184,9 +201,11 @@ extension AppModel {
         }
     }
 
-    /// Face ID in place of the passcode. nil when nothing happened (cancelled), so the keypad simply stays.
-    func unlockWithFaceID() async -> PasscodeResult? {
-        guard faceIDOn, let key = Keychain.device else { return nil }
+    /// Face ID in place of the passcode, with a fresh LAContext each time. Cancelling (the person, the system, the app) leaves the
+    /// lock screen as it is; "Enter Passcode", a face not recognised or Face ID locked brings up the number pad; Face ID that is
+    /// not set up or not allowed hides its control.
+    func unlockWithFaceID() async -> FaceIDAttempt {
+        guard faceIDOn, biometry != .none, let key = Keychain.device else { return .keypad }
         suppressCover = true
         let read = await Keychain.readBio()
         suppressCover = false
@@ -196,20 +215,24 @@ extension AppModel {
             do {
                 let answer = try await API.post("/api/app/unlock", ["device": key.id, "secret": key.secret, "bio": bio])
                 unlocked(answer)
-                return .ok
+                return .unlocked
             } catch let error as APIError {
                 if error.bioOff { forgetFaceIDHere() }
-                return passcodeResult(error)
+                return .refused(passcodeResult(error))
             } catch {
-                return .failed(APIError.unreachableMessage)
+                return .refused(.failed(APIError.unreachableMessage))
             }
         case .cancelled:
-            return nil
+            return .stay
+        case .fallback, .failed:
+            return .keypad
         case .unavailable:
+            biometry = .none
+            return .hidden
+        case .changed:
+            let name = biometry.name
             forgetFaceIDHere()
-            return .wrong("\(biometry.name) changed on this iPhone. Use your passcode.")
-        case .failed:
-            return nil
+            return .refused(.wrong("\(name) changed on this iPhone. Use your passcode."))
         }
     }
 
@@ -233,7 +256,7 @@ extension AppModel {
         let list: [Site]
         do {
             list = try await loadSites()
-        } catch let error as APIError where error.status == 401 {
+        } catch let error as APIError where error.sessionEnded {
             // The new session already ended (signed out everywhere meanwhile): a fresh lock screen (the one showing has finished).
             unlockedSiteID = nil
             setPhase(.launching)
@@ -253,6 +276,8 @@ extension AppModel {
             setPhase(.creatingBusiness)
             return
         }
+        // At a business the person owns, the passcode opens everything they have; a team member's passcode opens only that business.
+        sessionLimited = !business.isOwner
         await enterReady(business, reloadPages: true)
     }
 
@@ -345,6 +370,16 @@ extension AppModel {
         endSessionInBackground()
     }
 
+    /// "Sign in with email to see all your businesses": a session opened with a team passcode covers only that business, so the
+    /// Log in screen opens with the email filled in. That session ends first (in order, before the sign-in), and the full sign-in
+    /// that follows lists every business again; this phone's key stays until then.
+    func signInForAllBusinesses() {
+        closeShell()
+        sessionLimited = false
+        goWelcome(atLogin: true)
+        endSessionInBackground()
+    }
+
     // MARK: Logging out
 
     /// Log out for good on this phone: its key, Face ID and notifications go, and the session ends.
@@ -354,6 +389,8 @@ extension AppModel {
         user = nil
         sites = []
         site = nil
+        sessionLimited = false
+        pushSent = false
         setOrdersBadge(0)
         Keychain.forgetDevice()
         setFaceIDFlag(false)
@@ -411,9 +448,17 @@ extension AppModel {
     /// The website's "create your business" page finished: the new business is set up like any other.
     func businessCreated(_ id: String) {
         guard phase == .creatingBusiness else { return }
-        Task {
-            let list = (try? await loadSites()) ?? []
+        Task { await continueAfterCreating(id) }
+    }
+
+    private func continueAfterCreating(_ id: String) async {
+        do {
+            let list = try await loadSites()
             if let business = list.first(where: { $0.id == id }) ?? list.first { await passcodeStep(for: business) }
+        } catch let error as APIError where error.sessionEnded {
+            sessionEndedBeforeReady()
+        } catch {
+            showLaunchError(error) { [weak self] in await self?.continueAfterCreating(id) }
         }
     }
 

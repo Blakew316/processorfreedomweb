@@ -9,11 +9,13 @@ struct DeviceKey: Codable, Equatable {
     var secret: String
 }
 
-/// What reading the Face ID item gave back.
+/// What asking for Face ID (or Touch ID) and reading the key behind it gave back.
 enum BioRead {
     case ok(String)
-    case cancelled
-    case unavailable   // the item is gone, for example because the faces enrolled on the phone changed
+    case cancelled     // the person, the system or the app cancelled: nothing else happens
+    case fallback      // "Enter Passcode", a face not recognised, or Face ID locked after too many tries: the passcode is used
+    case unavailable   // not set up, turned off for PF Sites in Settings, or no iPhone passcode: Face ID cannot be used here now
+    case changed       // the faces enrolled on the phone changed since it was turned on, so the key behind it is gone
     case failed
 }
 
@@ -87,30 +89,46 @@ enum Keychain {
         return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
     }
 
-    /// Reads the Face ID secret, which makes iOS show Face ID. Reading blocks while Face ID is up, so it runs off the main thread.
-    static func readBio() async -> BioRead {
-        await withCheckedContinuation { (continuation: CheckedContinuation<BioRead, Never>) in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let context = LAContext()
-                context.localizedReason = "Open PF Sites"
-                var search = Keychain.query("bio")
-                search[kSecReturnData as String] = true
-                search[kSecMatchLimit as String] = kSecMatchLimitOne
-                search[kSecUseAuthenticationContext as String] = context
-                var out: CFTypeRef?
-                let status = SecItemCopyMatching(search as CFDictionary, &out)
-                let result: BioRead
-                if status == errSecSuccess, let data = out as? Data, let secret = String(data: data, encoding: .utf8), !secret.isEmpty {
-                    result = .ok(secret)
-                } else if status == errSecUserCanceled {
-                    result = .cancelled
-                } else if status == errSecItemNotFound {
-                    result = .unavailable
-                } else {
-                    result = .failed
-                }
-                continuation.resume(returning: result)
-            }
+    /// Asks for Face ID, then reads the secret behind it. Each attempt uses a fresh LAContext, so an earlier answer is never reused;
+    /// Face ID is asked first (its answer says exactly why it did not work), and the secret is then read with that same context,
+    /// which iOS accepts without asking again. It runs off the main actor (it is not isolated to it), so nothing waits on screen.
+    static func readBio(reason: String = "Open PF Sites") async -> BioRead {
+        let context = LAContext()
+        // The button after a face is not recognised goes back to the app's own passcode.
+        context.localizedFallbackTitle = "Enter Passcode"
+        var problem: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &problem) else {
+            return bioOutcome(problem)
+        }
+        do {
+            guard try await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) else { return .failed }
+        } catch {
+            return bioOutcome(error as NSError)
+        }
+        var search = query("bio")
+        search[kSecReturnData as String] = true
+        search[kSecMatchLimit as String] = kSecMatchLimitOne
+        search[kSecUseAuthenticationContext as String] = context
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching(search as CFDictionary, &out)
+        if status == errSecSuccess, let data = out as? Data, let secret = String(data: data, encoding: .utf8), !secret.isEmpty { return .ok(secret) }
+        switch status {
+        case errSecUserCanceled: return .cancelled
+        case errSecAuthFailed: return .fallback
+        // The key only opens for the faces enrolled when it was made; when they change, iOS removes it.
+        case errSecItemNotFound: return .changed
+        default: return .failed
+        }
+    }
+
+    /// Why Face ID did not answer yes, in the three ways the lock screen treats it.
+    private static func bioOutcome(_ error: NSError?) -> BioRead {
+        guard let error, error.domain == LAErrorDomain, let code = LAError.Code(rawValue: error.code) else { return .failed }
+        switch code {
+        case .userCancel, .systemCancel, .appCancel: return .cancelled
+        case .userFallback, .authenticationFailed, .biometryLockout: return .fallback
+        case .biometryNotEnrolled, .biometryNotAvailable, .passcodeNotSet: return .unavailable
+        default: return .failed
         }
     }
 

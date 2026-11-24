@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// Two-step sign-in (photo 3): the code we texted, or the one from the authenticator app, or a recovery code.
+/// Sizes from the photo, measured from the line under the bar: 24 pt in from each side, the brand row 23 pt below the line,
+/// the title 26.4 pt bold, the words 16.1 pt, the light blue panel of six 45 x 56 pt boxes, the 16 pt checkbox, the two 48 pt
+/// pills, "Having trouble?" 17.5 pt bold and its links 16 pt (the first link's baseline 36.7 pt under its baseline).
 struct TwoStepView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -31,22 +34,26 @@ struct TwoStepView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Divider()
-                    BrandRow()
-                        .padding(.top, 16)
-                        .padding(.leading, 17)
+                    SignInBrandRow()
+                        .padding(.top, 23)
+                        .padding(.leading, 24)
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text(title)
-                            .pfFont(30, .bold, relativeTo: .largeTitle)
+                            .pfFont(26.4, .bold, relativeTo: .largeTitle)
+                            .foregroundStyle(SignInLook.title)
+                            .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isHeader)
                         explanation(auth)
-                            .pfFont(18)
-                            .lineSpacing(3)
-                            .padding(.top, 16)
+                            .pfFont(16.1)
+                            .foregroundStyle(SignInLook.text)
+                            .lineSpacing(1)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 24)
 
                         Group {
                             if mode == .recovery {
-                                BoxField(focused: recoveryFocused) {
+                                SignInField(focused: recoveryFocused) {
                                     TextField("XXXXX-XXXXX", text: $recovery)
                                         .keyboardType(.asciiCapable)
                                         .textInputAutocapitalization(.characters)
@@ -60,12 +67,13 @@ struct TwoStepView: View {
                                 CodeBoxes(code: $code, focused: $codeFocused)
                             }
                         }
-                        .padding(.top, 24)
+                        .padding(.top, 16)
 
                         if !error.isEmpty {
                             Text(error)
                                 .pfFont(15)
                                 .foregroundStyle(Theme.error)
+                                .fixedSize(horizontal: false, vertical: true)
                                 .padding(.top, 12)
                         }
                         if !info.isEmpty {
@@ -75,8 +83,8 @@ struct TwoStepView: View {
                                 .padding(.top, 12)
                         }
 
-                        CheckRow(on: $remember, label: "Remember this device for 14 days")
-                            .padding(.top, 28)
+                        CheckRowSmall(on: $remember, label: "Remember this device for 14 days")
+                            .padding(.top, 31)
 
                         Button {
                             submit()
@@ -87,30 +95,31 @@ struct TwoStepView: View {
                                 Text("Log in")
                             }
                         }
-                        .buttonStyle(SolidButtonStyle(fill: ready ? Theme.blue : Color(.systemGray6), text: ready ? .white : Color(.systemGray3), radius: 25, height: 50))
+                        .buttonStyle(SignInPillStyle(fill: ready || busy ? Theme.blue : SignInLook.waitingFill, text: ready || busy ? .white : SignInLook.waitingText))
                         .disabled(!ready)
-                        .padding(.top, 28)
+                        .padding(.top, 30)
 
                         Button("Cancel") {
                             dismiss()
                         }
-                        .buttonStyle(SolidButtonStyle(fill: Color(.systemGray5), text: .primary, radius: 25, height: 50))
+                        .buttonStyle(SignInPillStyle(fill: SignInLook.cancelFill, text: .primary))
                         .padding(.top, 12)
 
                         Text("Having trouble?")
-                            .pfFont(19, .bold)
-                            .padding(.top, 56)
+                            .pfFont(17.5, .bold)
+                            .padding(.top, 65)
                             .accessibilityAddTraits(.isHeader)
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 14) {
                             troubleLinks(auth)
                         }
-                        .padding(.top, 14)
+                        .padding(.top, 17)
                     }
-                    .padding(.horizontal, 17)
-                    .padding(.top, 56)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 48)
 
                     Spacer(minLength: 40)
-                    AuthFooter(showsLegal: false)
+                    SignInRegionRow()
+                        .padding(.bottom, 6)
                 }
                 .frame(minHeight: geometry.size.height)
             }
@@ -119,13 +128,7 @@ struct TwoStepView: View {
         .background(Color(.systemBackground))
         .navigationTitle("Login")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Login")
-                    .pfFont(18, .bold)
-                    .accessibilityAddTraits(.isHeader)
-            }
-        }
+        .toolbar { SignInBarTitle() }
         .onAppear {
             Task {
                 try? await Task.sleep(nanoseconds: 450_000_000)
@@ -163,19 +166,19 @@ struct TwoStepView: View {
     @ViewBuilder
     private func troubleLinks(_ auth: AuthFlow) -> some View {
         if mode == .text {
-            LinkButton(title: "Resend verification code") { resend() }
+            LinkButton(title: "Resend verification code", size: 16) { resend() }
             if auth.methods.contains("app") {
-                LinkButton(title: "Use your authenticator app instead") { switchTo(.app) }
+                LinkButton(title: "Use your authenticator app instead", size: 16) { switchTo(.app) }
             }
         } else if mode == .app {
             if auth.methods.contains("text") {
-                LinkButton(title: "Text me a code instead") { resend() }
+                LinkButton(title: "Text me a code instead", size: 16) { resend() }
             }
         }
         if mode == .recovery {
-            LinkButton(title: "Use a 6-digit code instead") { switchTo(lastCodeMode) }
+            LinkButton(title: "Use a 6-digit code instead", size: 16) { switchTo(lastCodeMode) }
         } else {
-            LinkButton(title: "Use a recovery code instead") { switchTo(.recovery) }
+            LinkButton(title: "Use a recovery code instead", size: 16) { switchTo(.recovery) }
         }
     }
 
@@ -269,6 +272,9 @@ struct TwoStepView: View {
 }
 
 /// Six boxes for the code, built on one hidden text field that stays focused (so codes from Messages fill in by themselves).
+/// From the photo: a light blue panel 15 pt above and below the boxes and 4 pt at the sides, boxes 45 x 56 pt with 4 pt corners and
+/// a 1 pt grey border, 8 pt apart and 17 pt between the third and the fourth; the box being filled has a dark 1 pt border with a
+/// 2 pt blue ring around it.
 struct CodeBoxes: View {
     @Binding var code: String
     var focused: FocusState<Bool>.Binding
@@ -282,8 +288,8 @@ struct CodeBoxes: View {
                 .frame(width: 1, height: 1)
                 .opacity(0.02)
                 .accessibilityLabel("Verification code")
-            // Two groups of three: 8 pt between boxes, 18 pt between the 3rd and the 4th, as in the photo.
-            HStack(spacing: 18) {
+                .accessibilityValue("\(code.count) of 6 digits entered")
+            HStack(spacing: 17) {
                 HStack(spacing: 8) {
                     ForEach(0..<3, id: \.self) { index in box(index) }
                 }
@@ -293,7 +299,8 @@ struct CodeBoxes: View {
             }
             .accessibilityHidden(true)
         }
-        .padding(12)
+        .padding(.vertical, 15)
+        .padding(.horizontal, 4)
         .frame(maxWidth: .infinity)
         .background(Theme.lightBlue)
         .contentShape(Rectangle())
@@ -304,16 +311,54 @@ struct CodeBoxes: View {
         let characters = Array(code)
         let digit = index < characters.count ? String(characters[index]) : ""
         let current = focused.wrappedValue && index == min(characters.count, 5) && characters.count < 6
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
         return Text(digit)
-            .pfFont(26, .medium)
+            .pfFont(24, .medium)
             .foregroundStyle(.primary)
-            .frame(minWidth: 30, maxWidth: 46, minHeight: 56, maxHeight: 56)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color(.systemBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(current ? Color.primary : Color(.systemGray2), lineWidth: current ? 2.5 : 1))
+            .frame(minWidth: 30, maxWidth: 45, minHeight: 56, maxHeight: 56)
+            .background(shape.fill(Color(.systemBackground)))
+            .overlay(shape.strokeBorder(current ? Color.primary : SignInLook.boxBorder, lineWidth: 1))
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Theme.blue.opacity(current ? 0.45 : 0), lineWidth: 3)
-                    .padding(-3)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Theme.blue.opacity(current ? 0.5 : 0), lineWidth: 2)
+                    .padding(-1)
             )
+    }
+}
+
+/// The photo's checkbox row: a 16 pt square with 2.5 pt corners and a 1 pt grey border (filled blue with a white tick when on),
+/// 17.6 pt before the words, which are 16.1 pt and set a little apart, as in the photo. The whole row toggles it.
+struct CheckRowSmall: View {
+    @Binding var on: Bool
+    let label: String
+
+    var body: some View {
+        Button {
+            on.toggle()
+        } label: {
+            HStack(spacing: 17.6) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(on ? Theme.blue : Color.clear)
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .strokeBorder(on ? Theme.blue : SignInLook.boxBorder, lineWidth: 1)
+                    if on {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 16, height: 16)
+                Text(label)
+                    .pfFont(16.1)
+                    .tracking(0.4)
+                    .foregroundStyle(SignInLook.text)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(on ? "Checked" : "Not checked")
     }
 }

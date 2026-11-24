@@ -37,9 +37,9 @@ struct RootView: View {
             WelcomeFlow()
                 .transition(.opacity)
         case .choosingLocation:
-            LocationPickerView(style: .signIn, sites: model.sites, current: nil, onCancel: {}) { chosen in
+            LocationPickerView(style: .signIn, sites: model.sites, current: nil, onCancel: {}, onChoose: { chosen in
                 model.chooseLocation(chosen)
-            }
+            })
             .transition(.opacity)
         case .passcode(let step):
             if step.purpose != .lock {

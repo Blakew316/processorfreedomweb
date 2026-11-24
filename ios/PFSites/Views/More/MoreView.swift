@@ -1,7 +1,9 @@
 import SwiftUI
 
 /// More (photo 3 and the owner's next photo): the website's left sidebar as a native list. The profile row, the sidebar's
-/// sections (a section with several pages opens in place), Website, then Settings, Help and Card Reader, then the footer.
+/// sections (a section with several pages opens in place), Website, then a line and Settings, Help and Card Reader, then the footer.
+/// Sizes are measured from the photos (1125 x 2436 px of a 375 x 812 pt phone): 50 pt rows, 20 pt line icons centred 36 pt in,
+/// 16.5 pt semibold labels 64 pt in.
 struct MoreView: View {
     @Environment(AppModel.self) private var model
     @State private var open: Set<String> = []
@@ -11,22 +13,24 @@ struct MoreView: View {
         ScrollView {
             VStack(spacing: 0) {
                 profileRow
-                VStack(spacing: 0) {
-                    ForEach(OfficeCatalog.sections(owner: model.site?.isOwner == true)) { section in
-                        sectionRows(label: section.label, icon: section.icon, pages: section.pages)
-                    }
-                    websiteRows
+                ForEach(OfficeCatalog.sections(owner: model.site?.isOwner == true)) { section in
+                    sectionRows(label: section.label, icon: section.icon, pages: section.pages)
                 }
-                .padding(.vertical, 8)
-                Divider()
+                websiteRows
+                SettingsListLook.line
+                    .frame(height: 1)
+                    .padding(.top, 25)
+                    .accessibilityHidden(true)
                 lowerGroup
-                    .padding(.top, 40)
-                    .padding(.bottom, 16)
+                    .padding(.top, 24)
+                    .padding(.bottom, 20)
                 footer
             }
         }
         .background(Color(.systemBackground))
         .tabHeader("More")
+        // The name on the profile row is changed on the Profile page: it shows here when that page closes.
+        .task { await SettingsActions.reloadPerson(model) }
     }
 
     // MARK: Profile
@@ -36,18 +40,19 @@ struct MoreView: View {
             Button {
                 openPage("profile")
             } label: {
-                HStack(spacing: 18) {
+                HStack(spacing: 16) {
                     Circle()
-                        .strokeBorder(Theme.blue, lineWidth: 2)
-                        .frame(width: 41, height: 41)
+                        .fill(Color(light: .white, dark: .systemBackground))
+                        .overlay(Circle().strokeBorder(Theme.blue, lineWidth: 1))
+                        .frame(width: 40, height: 40)
                         .overlay(
                             Image(systemName: "person")
-                                .font(.system(size: 19))
+                                .font(.system(size: 17, weight: .regular))
                                 .foregroundStyle(Theme.blue)
                         )
                     Text(model.firstName.isEmpty ? "Profile" : model.firstName)
-                        .pfFont(20)
-                        .foregroundStyle(.primary)
+                        .pfFont(16.5, .semibold)
+                        .foregroundStyle(Color.primary)
                         .lineLimit(1)
                 }
                 .contentShape(Rectangle())
@@ -59,14 +64,17 @@ struct MoreView: View {
                 model.lock()
             } label: {
                 Text("Lock screen")
-                    .pfFont(18, .semibold)
+                    .pfFont(14.5, .semibold)
                     .foregroundStyle(Theme.blue)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 25)
-        .frame(minHeight: 75)
-        .background(Color(.secondarySystemBackground))
+        .padding(.leading, 24)
+        .padding(.trailing, 25)
+        .frame(minHeight: 72)
+        .background(SettingsListLook.band)
     }
 
     // MARK: Sections
@@ -82,7 +90,7 @@ struct MoreView: View {
                 openPage(only.id)
             }
         } label: {
-            sectionLabel(label: label, icon: icon, chevron: many, isOpen: isOpen, enabled: true)
+            rowLabel(label: label, icon: icon, chevron: many, isOpen: isOpen, enabled: true)
         }
         .buttonStyle(.plain)
         .accessibilityValue(many ? (isOpen ? "Open" : "Closed") : "")
@@ -100,7 +108,7 @@ struct MoreView: View {
         Button {
             withAnimation(.snappy) { toggle("Website") }
         } label: {
-            sectionLabel(label: "Website", icon: "globe", chevron: true, isOpen: isOpen, enabled: true)
+            rowLabel(label: "Website", icon: "globe", chevron: true, isOpen: isOpen, enabled: true)
         }
         .buttonStyle(.plain)
         .accessibilityValue(isOpen ? "Open" : "Closed")
@@ -114,37 +122,38 @@ struct MoreView: View {
         }
     }
 
-    private func sectionLabel(label: String, icon: String, chevron: Bool, isOpen: Bool, enabled: Bool) -> some View {
+    private func rowLabel(label: String, icon: String, chevron: Bool, isOpen: Bool, enabled: Bool) -> some View {
         HStack(spacing: 0) {
             Image(systemName: icon)
-                .font(.system(size: 22))
+                .font(.system(size: 20, weight: .regular))
                 .frame(width: 26)
                 .accessibilityHidden(true)
             Text(label)
-                .pfFont(20, .medium)
-                .padding(.leading, 16)
+                .pfFont(16.5, .semibold)
+                .padding(.leading, 15)
             Spacer(minLength: 8)
             if chevron {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 12.5, weight: .medium))
                     .rotationEffect(.degrees(isOpen ? 180 : 0))
                     .accessibilityHidden(true)
             }
         }
-        .foregroundStyle(enabled ? Color.primary : Color(.tertiaryLabel))
-        .padding(.horizontal, 26)
-        .frame(minHeight: 52)
+        .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
+        .padding(.leading, 23)
+        .padding(.trailing, 27)
+        .frame(minHeight: 50)
         .contentShape(Rectangle())
     }
 
     private func pageRow(_ label: String, current: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .pfFont(17)
+                .pfFont(15.5)
                 .foregroundStyle(current ? Theme.blue : Color.primary)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .padding(.leading, 68)
-                .padding(.trailing, 26)
+                .padding(.leading, 64)
+                .padding(.trailing, 27)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -157,17 +166,17 @@ struct MoreView: View {
             Button {
                 model.shell.more.append(.settings)
             } label: {
-                sectionLabel(label: "Settings", icon: "gearshape", chevron: false, isOpen: false, enabled: true)
+                rowLabel(label: "Settings", icon: "gearshape", chevron: false, isOpen: false, enabled: true)
             }
             .buttonStyle(.plain)
             Button {
                 UIPresenter.safari(Config.url("/contact"))
             } label: {
-                sectionLabel(label: "Help", icon: "questionmark.circle", chevron: false, isOpen: false, enabled: true)
+                rowLabel(label: "Help", icon: "questionmark.circle", chevron: false, isOpen: false, enabled: true)
             }
             .buttonStyle(.plain)
             // Card readers are not connected to Processor Freedom yet.
-            sectionLabel(label: "Card Reader", icon: "wave.3.right.circle", chevron: false, isOpen: false, enabled: false)
+            rowLabel(label: "Card Reader", icon: "wave.3.right.circle", chevron: false, isOpen: false, enabled: false)
                 .accessibilityElement(children: .combine)
                 .accessibilityValue("Not available yet")
         }
@@ -177,24 +186,28 @@ struct MoreView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Divider()
+            SettingsListLook.line
+                .frame(height: 1)
+                .accessibilityHidden(true)
             // Terms, Privacy Policy and Accessibility always share one row: with a larger text size the row steps down
             // to smaller type and gaps instead of wrapping, and as a last resort shrinks to fit.
             ViewThatFits(in: .horizontal) {
-                footerRow(size: 18, spacing: 18)
-                footerRow(size: 16, spacing: 14)
-                footerRow(size: 14, spacing: 12)
-                footerRow(size: 13, spacing: 10)
+                footerRow(size: 14.5, spacing: 17)
+                footerRow(size: 13, spacing: 14)
+                footerRow(size: 12, spacing: 12)
+                footerRow(size: 11, spacing: 10)
                     .minimumScaleFactor(0.5)
             }
-            .padding(.top, 24)
-            .padding(.horizontal, 25)
+            .padding(.top, 15)
+            .padding(.horizontal, 24)
             Text("© \(String(Calendar.current.component(.year, from: Date()))) Processor Freedom")
-                .pfFont(18)
-                .padding(.top, 18)
-                .padding(.horizontal, 25)
-                .padding(.bottom, 28)
+                .pfFont(14.5)
+                .foregroundStyle(Color.primary)
+                .padding(.top, 19)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 26)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func footerRow(size: CGFloat, spacing: CGFloat) -> some View {
@@ -204,7 +217,7 @@ struct MoreView: View {
             // There is no accessibility page for the platform yet.
             Text("Accessibility")
                 .pfFont(size, .semibold)
-                .foregroundStyle(Color(.tertiaryLabel))
+                .foregroundStyle(SettingsLook.greyed)
                 .accessibilityValue("Not available yet")
         }
         .lineLimit(1)

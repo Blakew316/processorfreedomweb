@@ -21,6 +21,31 @@ enum WebRouter {
         return .outside
     }
 
+    /// Where a back-office address leads that the app itself takes care of, instead of the page: the website's list of businesses
+    /// (the app has its own location list), or another business's back office (the app changes business its own way).
+    enum Takeover {
+        case locations
+        case business(id: String, tab: String)
+    }
+
+    static func takeover(for url: URL, from page: OfficePage) -> Takeover? {
+        // Only the dashboard's own pages: the kitchen screen and the "create your business" page move around freely.
+        guard page.kind == .office || page.kind == .sheet else { return nil }
+        let parts = url.path.split(separator: "/").map(String.init)
+        if parts == ["app"] { return .locations }
+        guard parts.count >= 3, parts[0] == "app", parts[1] == "site", parts[2] != page.siteID, !page.siteID.isEmpty else { return nil }
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        let tab = query?.first(where: { $0.name == "tab" })?.value ?? (parts.count > 3 ? parts[3] : "")
+        return .business(id: parts[2], tab: tab)
+    }
+
+    static func hand(_ takeover: Takeover) {
+        switch takeover {
+        case .locations: AppModel.shared.openLocationsFromWeb()
+        case .business(let id, let tab): AppModel.shared.openBusinessFromWeb(id: id, tab: tab)
+        }
+    }
+
     /// Opens an address outside the page: our own back-office pages in the page, the website preview in the in-app browser
     /// (it needs the session), our files as downloads, other web addresses in Safari, and mail, phone and text links in their apps.
     static func open(_ url: URL, from page: OfficePage?) {
@@ -28,6 +53,10 @@ enum WebRouter {
         if scheme == "http" || scheme == "https" {
             if Config.isOwn(url) {
                 if url.path == "/app" || url.path.hasPrefix("/app/") {
+                    if let page, let takeover = takeover(for: url, from: page) {
+                        hand(takeover)
+                        return
+                    }
                     page?.load(url.path + (url.query.map { "?\($0)" } ?? ""))
                     return
                 }
@@ -76,7 +105,12 @@ extension OfficePage: WKNavigationDelegate, WKUIDelegate {
         }
         switch WebRouter.place(for: url) {
         case .here:
-            decisionHandler(.allow)
+            if let takeover = WebRouter.takeover(for: url, from: self) {
+                decisionHandler(.cancel)
+                WebRouter.hand(takeover)
+            } else {
+                decisionHandler(.allow)
+            }
         case .signedOut:
             decisionHandler(.cancel)
             AppModel.shared.sessionEnded()

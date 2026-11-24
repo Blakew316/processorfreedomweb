@@ -32,7 +32,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Take photos of items and documents to upload.</string>
+	<string>Scan barcodes to find items, and take photos of items and documents to upload.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to open PF Sites without typing your passcode.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

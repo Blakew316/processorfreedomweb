@@ -30,8 +30,18 @@ struct PasscodeStep: Hashable {
 enum PasscodeResult {
     case ok
     case wrong(String)
-    case signIn(String)
+    case signIn(String)        // the server forgot this phone's key: the email and password are needed again
+    case sessionEnded(String)  // the session ended while this screen was open; the phone's key is still good
     case failed(String)
+}
+
+/// How the automatic Face ID attempt on the lock screen ended.
+enum FaceIDAttempt {
+    case unlocked                  // the server opened a session
+    case stay                      // cancelled (by the person, the system or the app): the lock screen stays as it is
+    case keypad                    // "Enter Passcode", a face not recognised, or Face ID locked: the number pad comes up
+    case hidden                    // Face ID cannot be used on this iPhone now: its control goes away
+    case refused(PasscodeResult)   // the server said no, or the faces enrolled changed: said under the dots
 }
 
 enum LogInOutcome {
@@ -57,14 +67,21 @@ final class AppModel {
     var user: User? = nil
     var sites: [Site] = []
     var site: Site? = nil
+    /// The session was opened with a team member's passcode (or Face ID): the server lets it open only that business, so the
+    /// location list shows just that one, with a way to sign in with email to see the others.
+    var sessionLimited = false
     var config = AppConfig()
     var ordersBadge = 0
     var notesDot = false
 
-    let biometry: Biometry
+    /// Face ID or Touch ID as it can be used right now (none when it is not set up or is turned off for the app in Settings).
+    var biometry: Biometry
     var faceIDOn: Bool
     var pushAuthorized = false
     var pushDenied = false
+    /// Whether the server has this phone's address for notifications, as far as this run knows: it is sent each time the dashboard
+    /// opens and whenever iOS hands over a new one. Notifications only show as on once the server has it.
+    var pushSent = false
 
     let auth = AuthFlow()
     let idle = IdleMonitor()
@@ -74,6 +91,8 @@ final class AppModel {
     @ObservationIgnored var pushToken: String?
     /// Whether the last device token reached the server (nil while waiting for iOS).
     @ObservationIgnored var tokenSent: Bool?
+    /// Device-token uploads on their way to the server, so an answer about notifications can wait for them.
+    @ObservationIgnored var pushUploads = 0
     @ObservationIgnored var unlockedSiteID: String?
     /// The logout that runs when the app locks. Unlocking and signing in wait for it, so it can never clear the new session's cookie.
     @ObservationIgnored var endingSession: Task<Void, Never>?
@@ -86,6 +105,13 @@ final class AppModel {
     @ObservationIgnored private var iconBadge = -1
     /// What Try again on the loading screen runs: the step after signing in or unlocking that could not reach the server.
     @ObservationIgnored private var retryStep: (() async -> Void)?
+    /// Counts the times the lock screen has gone up. Face ID is offered by itself once for each (showing Face ID makes the app
+    /// inactive for a moment, so offering it again on every return to the app would go round in a loop).
+    @ObservationIgnored private(set) var lockEvent = 0
+    @ObservationIgnored private var faceIDAskedFor = -1
+
+    /// The server's words when a session opened with a team passcode tries another business.
+    static let elsewhere = "Sign in with your email and password to open this business."
 
     init() {
         biometry = Biometry.current()
@@ -95,6 +121,22 @@ final class AppModel {
     // MARK: Phase
 
     var isLocked: Bool { lockStepShowing != nil }
+
+    /// Whether the location list has anything to offer: another business, or (after a team passcode) signing in to see them all.
+    var canChangeLocation: Bool { sites.count > 1 || sessionLimited }
+
+    /// True the first time it is asked during this lock, so the lock screen starts Face ID by itself only once.
+    func takeFaceIDTurn() -> Bool {
+        guard faceIDAskedFor != lockEvent else { return false }
+        faceIDAskedFor = lockEvent
+        return true
+    }
+
+    /// Face ID can be turned off for the app, set up or removed in Settings while the app is away.
+    func refreshBiometry() {
+        let now = Biometry.current()
+        if biometry != now { biometry = now }
+    }
 
     var lockStepShowing: PasscodeStep? {
         if case .passcode(let step) = phase, step.purpose == .lock { return step }
@@ -111,6 +153,7 @@ final class AppModel {
         let wasLocked = isLocked
         phase = next
         if isLocked && !wasLocked {
+            lockEvent += 1
             OverlayWindows.shared.showLock()
         } else if !isLocked && wasLocked {
             OverlayWindows.shared.hideLock(animated: next == .ready)
@@ -136,8 +179,20 @@ final class AppModel {
         setPhase(.launching)
         showLoading = true
         launchError = nil
+        forgetEarlierInstall()
         if hasSessionCookie { endSessionInBackground() }
         if let step = lockStep() { setPhase(.passcode(step)) } else { goWelcome() }
+    }
+
+    /// The Keychain keeps this phone's key when the app is deleted, but everything else the app remembers goes with it, and the name
+    /// and email are always remembered when someone signs in. A key found without them belongs to an earlier install: deleting the
+    /// app signed it out, so the key is given up on the server (without a session, so nothing else ends) and forgotten here.
+    private func forgetEarlierInstall() {
+        let defaults = UserDefaults.standard
+        guard let key = Keychain.device, defaults.object(forKey: Keys.name) == nil, defaults.object(forKey: Keys.email) == nil else { return }
+        Keychain.forgetDevice()
+        setFaceIDFlag(false)
+        Task { _ = try? await API.send("POST", "/api/app/signout", body: ["device": key.id, "secret": key.secret], cookies: false) }
     }
 
     /// Try again on the loading screen. Problems only show there after a full sign-in or an unlock (loading the businesses or the
@@ -284,7 +339,7 @@ final class AppModel {
         do {
             let list = try await loadSites()
             if let fresh = list.first(where: { $0.id == business.id }) { setOrdersBadge(fresh.newOrders) }
-        } catch let error as APIError where error.status == 401 {
+        } catch let error as APIError where error.sessionEnded {
             // Signed out everywhere, or the server ended the session: check, then lock.
             sessionEnded()
             return
@@ -325,6 +380,8 @@ final class AppModel {
             // Fifteen minutes away locks before anything is shown again.
             if phase == .ready, idle.expired, site?.isKitchen != true { lock() }
             OverlayWindows.shared.hideCover()
+            // Not while Face ID is up: its own sheet makes the app inactive and active again.
+            if !suppressCover { refreshBiometry() }
             if phase == .ready {
                 idle.cameToForeground()
                 startPolling()
@@ -332,7 +389,10 @@ final class AppModel {
             }
             Task { await refreshPushStatus() }
         case .inactive:
-            if !suppressCover { OverlayWindows.shared.showCover() }
+            // Only the dashboard has anything to hide (Welcome, Log in, Two-step and the passcode screens have nothing, and the
+            // lock screen already covers the dashboard). Face ID, Password AutoFill or a permission alert make the app inactive for
+            // a moment too, and the cover should not flash over them.
+            if !suppressCover && phase == .ready { OverlayWindows.shared.showCover() }
         case .background:
             OverlayWindows.shared.showCover()
             idle.wentToBackground()
@@ -357,21 +417,72 @@ final class AppModel {
             return
         }
         if siteID != current.id {
-            guard let target = sites.first(where: { $0.id == siteID }) else { return }
+            guard let target = sites.first(where: { $0.id == siteID }) else {
+                // A session opened with a team passcode only lists its own business; the server would refuse the other one too.
+                if sessionLimited { UIPresenter.message(Self.elsewhere) }
+                return
+            }
             shell.pendingTab = tab
-            shell.sheet = nil
-            shell.cover = .switchTo(target)
+            present(.switchTo(target))
             return
         }
-        shell.sheet = nil
-        shell.open(tab: tab)
+        open(tab: tab)
     }
 
-    /// The Setup tasks and Notifications web pages ask the app to open a page natively.
+    /// The Setup tasks and Notifications web pages ask the app to open a page natively ({ type: 'open', tab }). A page asked for
+    /// from the Notifications sheet opens once the sheet has gone, on the tab underneath it.
     func openFromWeb(tab: String) {
-        guard phase == .ready else { return }
-        shell.sheet = nil
-        shell.open(tab: tab)
+        guard phase == .ready, !tab.isEmpty else { return }
+        open(tab: tab)
+    }
+
+    /// Opens a page on the current tab, closing the sheet first when one is up.
+    private func open(tab: String) {
+        if shell.sheet != nil {
+            shell.afterSheetTab = tab
+            shell.sheet = nil
+        } else {
+            shell.open(tab: tab)
+        }
+    }
+
+    /// A full-screen step over the dashboard; one presentation at a time, so a sheet that is up closes first.
+    private func present(_ cover: ShellCover) {
+        if shell.sheet != nil {
+            shell.afterSheet = cover
+            shell.sheet = nil
+        } else {
+            shell.cover = cover
+        }
+    }
+
+    /// A page of this business tried to go to another business's back office (a link, or the website's own list): the app changes
+    /// business its own way, with that business's passcode step, so the bars, badge and lock always belong to the business on screen.
+    func openBusinessFromWeb(id: String, tab: String) {
+        guard phase == .ready, let current = site else { return }
+        if id == current.id {
+            open(tab: tab.isEmpty ? "start" : tab)
+            return
+        }
+        if let target = sites.first(where: { $0.id == id }) {
+            shell.pendingTab = tab.isEmpty ? nil : tab
+            present(.switchTo(target))
+        } else if sessionLimited {
+            UIPresenter.message(Self.elsewhere)
+        } else {
+            // Perhaps a business made a moment ago on the website: look again once.
+            Task {
+                guard let list = try? await loadSites(), let target = list.first(where: { $0.id == id }), phase == .ready else { return }
+                shell.pendingTab = tab.isEmpty ? nil : tab
+                present(.switchTo(target))
+            }
+        }
+    }
+
+    /// A page went to the website's list of businesses (/app): the app's own location list instead.
+    func openLocationsFromWeb() {
+        guard phase == .ready, shell.cover == nil, shell.sheet == nil else { return }
+        shell.sheet = .locations
     }
 
     /// The person's name and email for the greeting and to fill in the Log in form next time.

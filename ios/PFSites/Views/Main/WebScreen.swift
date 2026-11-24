@@ -5,6 +5,9 @@ import SwiftUI
 struct WebScreen: View {
     let tab: String
     var script: String? = nil
+    /// Opened from a native page that is the way back (the Template Library): the system back button always shows and returns
+    /// there, instead of a button to the website's own parent list.
+    var keepsBack = false
     @Environment(AppModel.self) private var model
     @State private var page: OfficePage?
 
@@ -46,33 +49,11 @@ struct WebScreen: View {
     }
 
     /// A page opened from a list (a category, a menu, an invoice) goes back to its list inside the page.
-    private var hasParent: Bool { !(page?.parent ?? "").isEmpty }
+    private var hasParent: Bool { !keepsBack && !(page?.parent ?? "").isEmpty }
 
     private var title: String {
         if let page, !page.title.isEmpty { return page.title }
         return OfficeCatalog.title(for: tab)
-    }
-}
-
-/// The Orders tab (E5): the website's Orders list, under the same header as the other tabs.
-struct OrdersView: View {
-    @Environment(AppModel.self) private var model
-    @State private var page: OfficePage?
-
-    var body: some View {
-        Group {
-            if let page {
-                WebPageView(page: page)
-            } else {
-                Color(.systemBackground)
-            }
-        }
-        .tabHeader("Orders")
-        .onAppear {
-            if page == nil, let business = model.site {
-                page = OfficePage(siteID: business.id, path: Config.sitePath(business.id, "orders"))
-            }
-        }
     }
 }
 

@@ -157,7 +157,7 @@ struct KitchenView: View {
                 Color(.systemBackground)
             }
             Menu {
-                if model.sites.count > 1 {
+                if model.canChangeLocation {
                     Button("Switch business", systemImage: "arrow.left.arrow.right") { model.shell.sheet = .locations }
                 }
                 Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { confirmSignOut = true }

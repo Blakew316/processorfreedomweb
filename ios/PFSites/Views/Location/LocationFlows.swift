@@ -1,18 +1,29 @@
 import SwiftUI
 
 /// "Choose primary location" from the dashboard (the switch-location button, Merchants, Change location).
-/// Saving a different business goes on to its passcode step.
+/// Saving a different business goes on to its passcode step. After a team passcode the session covers only that business,
+/// so the list shows just that one and offers signing in with email to see them all.
 struct LocationSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        LocationPickerView(style: .sheet, sites: model.sites, current: model.site?.id, onCancel: { dismiss() }) { chosen in
+        LocationPickerView(style: .sheet, sites: model.sites, current: model.site?.id, onCancel: { dismiss() }, onSignInForAll: model.sessionLimited ? { model.signInForAllBusinesses() } : nil) { chosen in
             model.shell.afterSheet = .switchTo(chosen)
             dismiss()
         }
         .presentationDetents([.large])
-        .task { _ = try? await model.loadSites() }
+        .presentationDragIndicator(.hidden)
+        .task {
+            do {
+                try await model.loadSites()
+            } catch let error as APIError where error.sessionEnded {
+                // Signed out everywhere meanwhile: check, then lock.
+                model.sessionEnded()
+            } catch {
+                // Offline for a moment: the list the app already has stays.
+            }
+        }
     }
 }
 
@@ -45,8 +56,11 @@ struct SwitchPasscodeView: View {
                     Button("Try again") { Task { await load() } }
                         .buttonStyle(SolidButtonStyle(radius: 24, height: 48, size: 17))
                         .frame(maxWidth: 220)
-                    Button("Cancel") { dismiss() }
-                        .pfFont(17)
+                    Button("Cancel") {
+                        model.shell.pendingTab = nil
+                        dismiss()
+                    }
+                    .pfFont(17)
                 }
                 .padding(32)
             } else {
@@ -61,7 +75,13 @@ struct SwitchPasscodeView: View {
         do {
             let answer = try await API.get("/api/app/passcode?site=\(Config.query(business.id))")
             has = answer["has"].bool
+        } catch let error as APIError where error.sessionEnded {
+            // The session ended (signed out everywhere, or the server dropped it): this step closes and the app locks.
+            model.shell.pendingTab = nil
+            dismiss()
+            model.sessionEnded()
         } catch {
+            // A 403 (this session may not open that business) or anything else: the server's words, with Try again.
             problem = (error as? APIError)?.message ?? APIError.unreachableMessage
         }
     }

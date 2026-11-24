@@ -13,6 +13,8 @@ enum Route: Hashable {
     case settings
     case settingsGroup(String)
     case appSecurity
+    case settingsPage(SettingsPageID)        // a native Settings page pushed onto the tab (Invoice number, Payment note, ...)
+    case order(String)                       // one order of the Orders tab, by its id
 }
 
 /// Sheets the main screens show over everything.
@@ -50,6 +52,8 @@ final class Shell {
     var cover: ShellCover? = nil
     /// A step to show once the open sheet has finished closing (two presentations cannot overlap).
     @ObservationIgnored var afterSheet: ShellCover?
+    /// A page to open on the current tab once the open sheet has finished closing (a choice in the Notifications sheet).
+    @ObservationIgnored var afterSheetTab: String?
     /// The tab to open once a notification's business has been switched to.
     @ObservationIgnored var pendingTab: String?
     /// The business to open once the passcode step for it has finished closing.
@@ -60,6 +64,8 @@ final class Shell {
     var salesAllowed = true
 
     let order = SaleModel()
+    /// The Orders tab's list, kept here so an order opened from it is a page of the tab's stack (a notification pops back to the list).
+    let orderList = OrdersModel()
 
     func popToRoot(_ which: MainTab) {
         switch which {
@@ -88,6 +94,9 @@ final class Shell {
         } else if id == "start" {
             home = []
             tab = .home
+        } else if id == "settings" {
+            // The app's Settings are its own screen (E9), built from the website's Settings cards.
+            push(.settings)
         } else {
             push(.page(id))
         }
@@ -97,6 +106,10 @@ final class Shell {
         if let next = afterSheet {
             afterSheet = nil
             cover = next
+        }
+        if let page = afterSheetTab {
+            afterSheetTab = nil
+            open(tab: page)
         }
     }
 }

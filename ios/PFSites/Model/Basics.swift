@@ -2,14 +2,18 @@ import Foundation
 import LocalAuthentication
 import UIKit
 
-/// Which kind of biometrics this phone has, so the screens can say "Face ID" or "Touch ID" (or offer neither).
+/// Which kind of biometrics this phone can use for the app right now, so the screens can say "Face ID" or "Touch ID", or offer
+/// neither: Face ID that is not set up, is turned off for PF Sites in Settings, or has no iPhone passcode behind it is `none`.
 enum Biometry: Equatable {
     case none, faceID, touchID
 
     static func current() -> Biometry {
         let context = LAContext()
         var error: NSError?
-        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        let usable = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        // Locked after too many tries lasts only until the iPhone is unlocked with its passcode, so the control stays meanwhile.
+        let lockedOut = error.map { $0.domain == LAErrorDomain && LAError.Code(rawValue: $0.code) == .biometryLockout } ?? false
+        guard usable || lockedOut else { return .none }
         switch context.biometryType {
         case .faceID: return .faceID
         case .touchID: return .touchID

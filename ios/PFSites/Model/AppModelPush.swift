@@ -7,8 +7,8 @@ extension AppModel {
     /// Whether the person turned notifications on in the app (they can turn them off again without going to iOS Settings).
     var pushWanted: Bool { UserDefaults.standard.bool(forKey: Keys.pushWanted) }
 
-    /// On when the server can send them, iOS allows them and the person wants them.
-    var pushOn: Bool { config.appPush && pushAuthorized && pushWanted }
+    /// On when the server can send them, iOS allows them, the person wants them and the server has this phone's address.
+    var pushOn: Bool { config.appPush && pushAuthorized && pushWanted && pushSent }
 
     func refreshPushStatus() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -75,11 +75,27 @@ extension AppModel {
         return false
     }
 
-    /// Turns notifications off for this phone (the server forgets its address).
-    func disablePush() async {
+    /// Turns notifications off for this phone (the server forgets its address). False when the server could not be told: then
+    /// nothing changes here, since the server still has the address and keeps sending.
+    @discardableResult
+    func disablePush() async -> Bool {
+        let wanted = pushWanted
+        // Off first, so no address is sent again while the server is being told.
         UserDefaults.standard.set(false, forKey: Keys.pushWanted)
-        guard let key = Keychain.device else { return }
-        _ = try? await API.delete("/api/app/push", ["device": key.id, "secret": key.secret])
+        if let key = Keychain.device {
+            do {
+                try await API.delete("/api/app/push", ["device": key.id, "secret": key.secret])
+            } catch let error as APIError where error.signIn {
+                // The server already forgot this phone, and its address went with it.
+            } catch {
+                UserDefaults.standard.set(wanted, forKey: Keys.pushWanted)
+                // A plain 401: the session ended (signed out everywhere); check, then lock.
+                if let failure = error as? APIError, failure.sessionEnded { sessionEnded() }
+                return false
+            }
+        }
+        pushSent = false
+        return true
     }
 
     /// iOS handed over the device token.
@@ -94,21 +110,34 @@ extension AppModel {
 
     func uploadPushTokenIfWanted() async {
         guard let token = pushToken else { return }
-        _ = await uploadToken(token)
+        tokenSent = await uploadToken(token)
     }
 
     /// The answer to the website's "Notifications on this device" switch (pfAsk pushState / pushEnable / pushDisable).
     func pushStateReply() async -> [String: Any] {
         await refreshPushStatus()
+        // A token on its way to the server (it is sent as the dashboard opens) is waited for, up to 10 seconds, so the answer is
+        // what the server has.
+        for _ in 0..<40 where pushUploads > 0 {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
         return ["supported": config.appPush, "on": pushOn, "denied": pushDenied]
     }
 
+    /// Sends this phone's address to the server, only while signed in on this phone (the server ties the address to the person and to
+    /// this phone's key). When the server cannot be reached, what it has stays as it was, and so does `pushSent`.
     private func uploadToken(_ token: String) async -> Bool {
-        // Only while signed in on this phone (the server ties the address to the person and to this phone's key).
         guard pushWanted, user != nil, let key = Keychain.device else { return false }
+        pushUploads += 1
+        defer { pushUploads -= 1 }
         do {
             try await API.post("/api/app/push", ["device": key.id, "secret": key.secret, "token": token, "env": Config.pushEnvironment])
+            pushSent = true
             return true
+        } catch let error as APIError where error.status == 400 || error.signIn {
+            // Refused (an address the server cannot use), or the server forgot this phone and its address with it.
+            pushSent = false
+            return false
         } catch {
             return false
         }

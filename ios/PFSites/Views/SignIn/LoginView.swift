@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// Log in (photo 2, and the website's log in page): email, password with the eye, Log in, and the way to reset a password.
+/// Sizes from the photo, measured from the line under the bar: the brand row 16 pt below it, "Log in" 24.6 pt bold, the labels
+/// 14.2 pt, the fields 48 pt tall with 12 pt corners, the navy Log in pill 48 pt, the lines under it 16 pt; at the foot a hairline,
+/// the legal line and the region row. Everything sits 16 pt in from each side.
 struct LoginView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var focus: Field?
@@ -16,25 +19,27 @@ struct LoginView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Divider()
-                    BrandRow()
+                    SignInBrandRow()
                         .padding(.top, 16)
-                        .padding(.leading, 17)
+                        .padding(.leading, 16)
 
                     VStack(alignment: .leading, spacing: 0) {
                         if !auth.note.isEmpty {
+                            // After "Forgot passcode?" or the like: what happens after signing in.
                             Text(auth.note)
-                                .pfFont(16)
+                                .pfFont(15)
                                 .foregroundStyle(.secondary)
-                                .padding(.bottom, 18)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.bottom, 16)
                         }
                         Text("Log in")
-                            .pfFont(30, .bold, relativeTo: .largeTitle)
+                            .pfFont(24.6, .bold, relativeTo: .largeTitle)
                             .accessibilityAddTraits(.isHeader)
 
                         Text("Email")
-                            .pfFont(16)
-                            .padding(.top, 22)
-                        BoxField(focused: focus == .email) {
+                            .pfFont(14.2)
+                            .padding(.top, 19)
+                        SignInField(focused: focus == .email) {
                             TextField("", text: $auth.email)
                                 .textContentType(.username)
                                 .keyboardType(.emailAddress)
@@ -45,12 +50,12 @@ struct LoginView: View {
                                 .onSubmit { focus = .password }
                                 .accessibilityLabel("Email")
                         }
-                        .padding(.top, 8)
+                        .padding(.top, 5)
 
                         Text("Password")
-                            .pfFont(16)
-                            .padding(.top, 20)
-                        BoxField(focused: focus == .password) {
+                            .pfFont(14.2)
+                            .padding(.top, 19)
+                        SignInField(focused: focus == .password) {
                             HStack(spacing: 8) {
                                 Group {
                                     if showPassword {
@@ -71,21 +76,23 @@ struct LoginView: View {
                                     focus = .password
                                 } label: {
                                     Image(systemName: showPassword ? "eye.slash" : "eye")
-                                        .font(.system(size: 18))
+                                        .font(.system(size: 17))
                                         .foregroundStyle(.primary)
                                         .frame(width: 36, height: 36)
                                 }
                                 .buttonStyle(.plain)
+                                .padding(.trailing, -6)
                                 .accessibilityLabel(showPassword ? "Hide password" : "Show password")
                             }
                         }
-                        .padding(.top, 8)
+                        .padding(.top, 5)
 
                         if !auth.error.isEmpty {
                             Text(auth.error)
                                 .pfFont(15)
                                 .foregroundStyle(Theme.error)
-                                .padding(.top, 12)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.top, 10)
                                 .accessibilityAddTraits(.updatesFrequently)
                         }
 
@@ -93,29 +100,40 @@ struct LoginView: View {
                             logIn()
                         } label: {
                             if auth.busy {
-                                ProgressView().tint(.white)
+                                ProgressView().tint(SignInLook.navyButtonText)
                             } else {
                                 Text("Log in")
                             }
                         }
-                        .buttonStyle(SolidButtonStyle(radius: 25, height: 50))
-                        .opacity(canSubmit ? 1 : 0.6)
+                        // Clover's dark green button, in our navy; like the photo it stays at full strength while the fields are empty.
+                        .buttonStyle(SignInPillStyle(fill: SignInLook.navyButton, text: SignInLook.navyButtonText))
                         .disabled(!canSubmit)
                         .padding(.top, 20)
 
                         Text("New user or forgot your password?")
-                            .pfFont(18)
-                            .padding(.top, 24)
-                        LinkButton(title: "Access your account", underline: false) {
+                            .pfFont(16.1)
+                            .foregroundStyle(SignInLook.text)
+                            .padding(.top, 17)
+                        LinkButton(title: "Access your account", size: 16.5, underline: false) {
                             UIPresenter.safari(Config.url("/forgot"))
                         }
-                        .padding(.top, 4)
+                        .padding(.top, 3)
                     }
-                    .padding(.horizontal, 17)
-                    .padding(.top, 96)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 94)
 
                     Spacer(minLength: 40)
-                    AuthFooter(showsLegal: true)
+
+                    VStack(spacing: 0) {
+                        Divider()
+                            .padding(.horizontal, 16)
+                        SignInLegalLine()
+                            .padding(.top, 20)
+                            .padding(.horizontal, 16)
+                        SignInRegionRow()
+                            .padding(.top, 25)
+                            .padding(.bottom, 18)
+                    }
                 }
                 .frame(minHeight: geometry.size.height)
             }
@@ -124,13 +142,7 @@ struct LoginView: View {
         .background(Color(.systemBackground))
         .navigationTitle("Login")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Login")
-                    .pfFont(18, .bold)
-                    .accessibilityAddTraits(.isHeader)
-            }
-        }
+        .toolbar { SignInBarTitle() }
         .onAppear {
             guard model.auth.email.isEmpty else { return }
             Task {

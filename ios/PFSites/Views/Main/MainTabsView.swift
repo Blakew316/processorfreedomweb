@@ -21,9 +21,10 @@ struct MainTabsView: View {
                 }
             }
             // The receipt icon from the owner's Clover photo (Assets: OrdersTab, a template so it tints like the others).
+            // The Orders list is native (E19); the badge counts the orders still marked new.
             Tab("Orders", image: "OrdersTab", value: MainTab.orders) {
                 NavigationStack(path: $shell.orders) {
-                    OrdersView()
+                    OrdersTabView()
                         .navigationDestination(for: Route.self) { route in RouteDestination(route: route) }
                 }
             }
@@ -43,6 +44,7 @@ struct MainTabsView: View {
 /// The screen for each kind of pushed route.
 struct RouteDestination: View {
     let route: Route
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         switch route {
@@ -56,6 +58,10 @@ struct RouteDestination: View {
             SettingsGroupView(groupID: id)
         case .appSecurity:
             AppSecurityView()
+        case .settingsPage(let page):
+            SettingsPageHost(id: page)
+        case .order(let id):
+            OrderDetailView(orders: model.shell.orderList, orderID: id)
         }
     }
 }
@@ -87,7 +93,8 @@ struct TabHeader: ViewModifier {
                         } label: {
                             Image(systemName: "arrow.left.arrow.right")
                         }
-                        .disabled(model.sites.count < 2)
+                        // With one business it is shown disabled; after a team passcode it opens the list to sign in for all of them.
+                        .disabled(!model.canChangeLocation)
                         .accessibilityLabel("Switch location")
                     }
                     Button {

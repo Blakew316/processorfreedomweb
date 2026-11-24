@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// App security and privacy (E9): the app's own sign-in settings on this iPhone.
+/// App security and privacy (E9, in E10's sub-page layout): the app's own sign-in settings on this iPhone.
 struct AppSecurityView: View {
     @Environment(AppModel.self) private var model
     @State private var faceIDBusy = false
@@ -9,65 +9,44 @@ struct AppSecurityView: View {
     @State private var faceIDWanted = false
     @State private var pushWanted = false
 
+    static let lockTitle = "Lock after 15 minutes without activity"
+
+    /// Change location is offered by the header's switch-location rule: with more than one business, or after a team member's
+    /// passcode unlock (that session covers only the business that gave out the passcode, and the location list is where they
+    /// sign in with email to see the rest).
+    static func offersChangeLocation(_ model: AppModel) -> Bool {
+        model.canChangeLocation
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Global settings")
-                    .pfFont(17, .semibold)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 17)
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
-                    .accessibilityAddTraits(.isHeader)
+        SettingsListScreen(title: "App security and privacy") {
+            SettingsListBand(title: "Global settings")
 
-                SettingsRowView(title: "Change passcode", enabled: Keychain.device != nil) {
-                    model.shell.cover = .changePasscode
+            SettingsRowView(title: "Change passcode", enabled: Keychain.device != nil) {
+                model.shell.cover = .changePasscode
+            }
+
+            if model.biometry != .none {
+                toggleRow(title: model.biometry.name, isOn: $faceIDWanted, busy: faceIDBusy)
+            }
+
+            notificationsRow
+
+            SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
+                model.shell.push(.page("profile"))
+            }
+
+            infoRow(Self.lockTitle)
+
+            if Self.offersChangeLocation(model) {
+                SettingsRowView(title: "Change location", enabled: true) {
+                    model.shell.sheet = .locations
                 }
+            }
 
-                if model.biometry != .none {
-                    toggleRow(title: model.biometry.name, detail: "Open PF Sites with \(model.biometry.name) instead of typing your passcode.", isOn: $faceIDWanted, busy: faceIDBusy)
-                }
-
-                notificationsRow
-
-                SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
-                    model.shell.push(.page("profile"))
-                }
-
-                infoRow(title: "Lock after 15 minutes without activity", detail: "For your security, PF Sites locks itself after 15 minutes without a tap or typing, and asks for your passcode again.")
-
-                if model.sites.count > 1 {
-                    SettingsRowView(title: "Change location", enabled: true) {
-                        model.shell.sheet = .locations
-                    }
-                }
-
-                Button {
-                    confirmLogOut = true
-                } label: {
-                    Text("Log out")
-                        .pfFont(20, .medium)
-                        .foregroundStyle(Color.red)
-                        .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
-                        .padding(.horizontal, 17)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+            logOutRow
                 .padding(.top, 12)
-            }
         }
-        .background(Color(.systemBackground))
-        .navigationTitle("App security and privacy")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("App security and privacy")
-                    .pfFont(18, .bold)
-                    .lineLimit(1)
-                    .accessibilityAddTraits(.isHeader)
-            }
-        }
-        .steadyNavigationBar()
         .onAppear {
             faceIDWanted = model.faceIDOn
             pushWanted = model.pushOn
@@ -75,6 +54,8 @@ struct AppSecurityView: View {
         .task {
             await model.refreshPushStatus()
             pushWanted = model.pushOn
+            // Two-step sign-in is turned on or off on the Profile page: its state shows here when that page closes.
+            await SettingsActions.reloadPerson(model)
         }
         // The switches apply when they change, then show what really happened (iOS may refuse, Face ID may be cancelled).
         .onChange(of: faceIDWanted) { _, wanted in
@@ -118,50 +99,58 @@ struct AppSecurityView: View {
             // The server cannot send Apple push yet.
             SettingsRowView(title: "Notifications", subtitle: "Not available yet", small: true, enabled: false) {}
         } else if model.pushDenied {
-            SettingsRowView(title: "Notifications", subtitle: "Turned off in iOS Settings. Tap to open Settings.", small: true, enabled: true) {
+            // Refused in iOS: only iOS Settings can turn them back on.
+            SettingsRowView(title: "Notifications", subtitle: "Off in iOS Settings", small: true, enabled: true) {
                 UIPresenter.openNotificationSettings()
             }
         } else {
-            toggleRow(title: "Notifications", detail: "New orders and booking requests on this iPhone.", isOn: $pushWanted, busy: pushBusy)
+            toggleRow(title: "Notifications", isOn: $pushWanted, busy: pushBusy)
         }
     }
 
-    private func toggleRow(title: String, detail: String, isOn: Binding<Bool>, busy: Bool) -> some View {
+    /// A row with a switch, in the Settings row style.
+    private func toggleRow(title: String, isOn: Binding<Bool>, busy: Bool) -> some View {
         VStack(spacing: 0) {
             Toggle(isOn: isOn) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .pfFont(20, .medium)
-                    Text(detail)
-                        .pfFont(14)
-                        .foregroundStyle(.secondary)
-                }
+                Text(title)
+                    .pfFont(17.5, .semibold)
+                    .foregroundStyle(Color.primary)
             }
             .tint(Theme.blue)
             .disabled(busy)
-            .padding(.horizontal, 17)
-            .padding(.vertical, 14)
-            .frame(minHeight: 60)
-            Divider()
-                .padding(.leading, 17)
+            .padding(.leading, 24)
+            .padding(.trailing, 20)
+            .padding(.vertical, 10)
+            .frame(minHeight: 55)
+            SettingsListSeparator()
         }
     }
 
-    private func infoRow(title: String, detail: String) -> some View {
+    /// A fact about the app, with nothing to change.
+    private func infoRow(_ title: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .pfFont(20, .medium)
-                Text(detail)
-                    .pfFont(14)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 17)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            Divider()
-                .padding(.leading, 17)
+            Text(title)
+                .pfFont(17.5, .semibold)
+                .foregroundStyle(Color.primary)
+                .padding(.leading, 24)
+                .padding(.trailing, 20)
+                .padding(.vertical, 17)
+                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
+            SettingsListSeparator()
         }
+    }
+
+    private var logOutRow: some View {
+        Button {
+            confirmLogOut = true
+        } label: {
+            Text("Log out")
+                .pfFont(17.5, .semibold)
+                .foregroundStyle(Color.red)
+                .padding(.horizontal, 24)
+                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

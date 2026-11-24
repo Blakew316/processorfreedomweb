@@ -74,6 +74,10 @@ final class OfficePage: NSObject {
     @ObservationIgnored private var lastGoodURL: URL?
     /// A script run once, the first time the page reports in (the Sale screen's hand-off to the Virtual Terminal).
     @ObservationIgnored private var pendingScript: String?
+    /// The hand-off is tried again once, on the next report, if the website answered false (its page was not ready for it).
+    @ObservationIgnored private var scriptTries = 0
+    /// The business the page last said it shows (the nav message's site), so another business's order count is never shown here.
+    @ObservationIgnored private var reportedSite = ""
     /// Blank windows the page opened (window.open with no address yet), kept until we see where they go.
     @ObservationIgnored var catchers: [PopupCatcher] = []
 
@@ -287,12 +291,15 @@ final class OfficePage: NSObject {
         switch json["type"].string {
         case "nav": applyNav(json)
         case "ready": reportedReady(path: json["path"].string)
-        case "badge": AppModel.shared.setOrdersBadge(json["orders"].int)
+        // The count of new orders, for the business this page belongs to (the kitchen screen and the create page have no say).
+        case "badge": if (kind == .office || kind == .sheet) && (reportedSite.isEmpty || reportedSite == siteID) { AppModel.shared.setOrdersBadge(json["orders"].int) }
         case "signedOut": AppModel.shared.sessionEnded()
         case "activity": AppModel.shared.idle.touch()
         case "print": printPage(title: json["title"].string)
+        // The Setup tasks and Notifications pages hand their choice to the app, which opens it natively.
         case "open": AppModel.shared.openFromWeb(tab: json["tab"].string)
-        // The Virtual Terminal recorded the sale it was handed through PF.sale.
+        // The Virtual Terminal recorded the sale it was handed through PF.sale. The website does not send this yet (its Complete
+        // Payment button cannot record a sale), so until it does the Sale order is only cleared with Clear order.
         case "saleDone": if carriesSaleOrder { AppModel.shared.shell.order.clear() }
         default: break
         }
@@ -315,9 +322,16 @@ final class OfficePage: NSObject {
                 let state = await model.pushStateReply()
                 reply(state, nil)
             case "pushDisable":
-                await model.disablePush()
+                // When the server could not be told, the website shows "Notifications could not be changed" for the refusal.
+                guard await model.disablePush() else {
+                    reply(nil, "Notifications could not be changed. Please try again.")
+                    return
+                }
                 let state = await model.pushStateReply()
                 reply(state, nil)
+            case "scanBarcode":
+                // The website's item editor asks for a product code: the camera opens for one read (E20).
+                if let code = await BarcodeScan.scanOnce() { reply(["code": code], nil) } else { reply(["cancelled": true], nil) }
             default:
                 reply(nil, "The app does not know that request.")
             }
@@ -325,6 +339,16 @@ final class OfficePage: NSObject {
     }
 
     private func applyNav(_ json: JSON) {
+        let site = json["site"].string
+        if kind == .office || kind == .sheet, !site.isEmpty, !siteID.isEmpty, site != siteID {
+            // The website moved this page into another business's back office by itself: the app changes business its own way
+            // (with that business's passcode step), and this page goes back to where it started.
+            reportedSite = ""
+            load(startPath)
+            AppModel.shared.openBusinessFromWeb(id: site, tab: json["tab"].string)
+            return
+        }
+        reportedSite = site
         tab = json["tab"].string
         title = json["title"].string
         group = json["group"].string
@@ -352,9 +376,19 @@ final class OfficePage: NSObject {
         fadeOverlay()
         endRefreshing()
         AppModel.shared.webPageReported()
-        if let script = pendingScript {
-            pendingScript = nil
-            webView.evaluateJavaScript(script, completionHandler: nil)
+        runPendingScript()
+    }
+
+    /// Runs the hand-off once the page is up. PF.sale answers whether it filled the Virtual Terminal: when it says false (the page
+    /// was not ready), the hand-off is tried once more on the page's next report, and never after that, so nothing typed since is
+    /// ever overwritten.
+    private func runPendingScript() {
+        guard let script = pendingScript else { return }
+        pendingScript = nil
+        scriptTries += 1
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            guard let self, (result as? Bool) == false, self.scriptTries < 2 else { return }
+            self.pendingScript = script
         }
     }
 
@@ -395,6 +429,8 @@ final class OfficePage: NSObject {
 
     // MARK: Print and files
 
+    /// The website hands printing to the app (window.print in app mode, and its tickets). When the print sheet closes, printed or
+    /// not, the page is told with the browser's own afterprint event, so it puts back what it changed for the paper (its colours).
     private func printPage(title: String) {
         let controller = UIPrintInteractionController.shared
         let info = UIPrintInfo.printInfo()
@@ -402,7 +438,16 @@ final class OfficePage: NSObject {
         info.outputType = .general
         controller.printInfo = info
         controller.printFormatter = webView.viewPrintFormatter()
-        _ = controller.present(animated: true, completionHandler: nil)
+        let shown = controller.present(animated: true) { [weak self] _, _, _ in
+            guard let page = self else { return }
+            Task { @MainActor in page.printSheetClosed() }
+        }
+        if !shown { printSheetClosed() }
+    }
+
+    private func printSheetClosed() {
+        guard !closed else { return }
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('afterprint'))", completionHandler: nil)
     }
 
     /// Downloads a file of ours (an attachment) and offers it to save or share.

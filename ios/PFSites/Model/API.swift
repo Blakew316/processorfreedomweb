@@ -17,6 +17,12 @@ struct APIError: Error, LocalizedError {
     var bioOff: Bool { data["bioOff"].bool }
     var left: Int? { data["left"].exists ? data["left"].int : nil }
 
+    /// The session itself has ended (signed out everywhere, or left longer than the server's 16 minutes): a plain 401, without the
+    /// flags the sign-in, passcode and Face ID answers carry. The app checks and locks; a 401 with those flags means something else.
+    var sessionEnded: Bool { status == 401 && !signIn && !twoFactor && !bioOff && left == nil }
+    /// Signed in, but this login may not do that, or this session may not open that business: a message to show, never a sign-out.
+    var forbidden: Bool { status == 403 }
+
     static let offlineMessage = "You're offline. Check your connection and try again."
     static let unreachableMessage = "We could not reach the server. Check your connection and try again."
     static let restartingMessage = "PF Sites is restarting. Give it a moment and try again."

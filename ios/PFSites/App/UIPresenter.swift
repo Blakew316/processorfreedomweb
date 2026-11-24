@@ -50,6 +50,13 @@ enum UIPresenter {
         present(controller)
     }
 
+    /// The server's own words in an alert of their own, without a title (a 403, for example: shown, never a sign-out).
+    static func message(_ text: String) {
+        let controller = UIAlertController(title: nil, message: text, preferredStyle: .alert)
+        controller.addAction(UIAlertAction(title: "OK", style: .default))
+        present(controller)
+    }
+
     static func openNotificationSettings() {
         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)

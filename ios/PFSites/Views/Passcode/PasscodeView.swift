@@ -1,7 +1,11 @@
 import SwiftUI
+import UIKit
 
 /// The passcode screen (photo 5), for every reason it shows: typing the passcode after signing in or making one,
 /// the lock screen, the passcode for another business, and changing it. The keypad is the real iOS number pad.
+/// Sizes from the photo, from the top of the safe area: "Log out" 18.4 pt with its icon, centred 30 pt down; the 32 pt tile 77 pt
+/// down; "Hi, Blake" 17.5 pt; the title 26.5 pt bold; "Forgot passcode?" 14.2 pt; four 17 pt dots 50 pt apart, 82 pt lower; the
+/// 40 pt "Enable Face ID" box 51 pt under them; "Switch User" 15 pt, its baseline 38.8 pt under the box.
 struct PasscodeView: View {
     let step: PasscodeStep
     let onDone: (() -> Void)?
@@ -16,7 +20,6 @@ struct PasscodeView: View {
     @State private var finished = false
     @State private var shakes: CGFloat = 0
     @State private var faceIDWanted = false
-    @State private var triedFaceID = false
     @FocusState private var focused: Bool
 
     private enum Stage: Equatable {
@@ -44,30 +47,30 @@ struct PasscodeView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     topBar
-                    LogoTile(size: 40, radius: 9)
-                        .padding(.top, 12)
+                    LogoTile(size: 32, radius: 7)
+                        .padding(.top, 25)
                     Text(model.firstName.isEmpty ? "Hi there" : "Hi, \(model.firstName)")
-                        .pfFont(19, .medium)
+                        .pfFont(17.5, .medium)
                         .padding(.top, 14)
                     Text(title)
-                        .pfFont(30, .bold, relativeTo: .largeTitle)
-                        .padding(.top, 8)
+                        .pfFont(26.5, .bold, relativeTo: .largeTitle)
+                        .padding(.top, 9)
                         .accessibilityAddTraits(.isHeader)
                     subline
-                        .padding(.top, 12)
+                        .padding(.top, 14)
                         .padding(.horizontal, 24)
                     dots
-                        .padding(.top, 72)
+                        .padding(.top, 82)
+                    // The server's message (with tries left) sits between the dots and the Face ID box, which never moves for it.
                     feedback
-                        .padding(.top, 16)
                         .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity, minHeight: 51)
                     if model.biometry != .none {
                         faceIDControl
-                            .padding(.top, 22)
                     }
                     if showsSwitchUser {
-                        LinkButton(title: "Switch User", size: 19) { switchUser() }
-                            .padding(.top, 36)
+                        LinkButton(title: "Switch User", size: 15) { switchUser() }
+                            .padding(.top, 24.5)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -87,7 +90,9 @@ struct PasscodeView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { if !finished { focused = true } }
-        .onAppear { appeared() }
+        .onAppear { faceIDWanted = model.faceIDOn }
+        // Ends with the screen, so a Face ID attempt still waiting for the app to come to the front never outlives it.
+        .task { await appeared() }
         .onChange(of: code) { _, newValue in typed(newValue) }
     }
 
@@ -101,7 +106,7 @@ struct PasscodeView: View {
                     focused = false
                     onCancel()
                 }
-                .pfFont(18)
+                .pfFont(17)
                 .foregroundStyle(Theme.blue)
                 Spacer()
             } else {
@@ -109,19 +114,22 @@ struct PasscodeView: View {
                 Button {
                     logOut()
                 } label: {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 20))
+                            .font(.system(size: 17))
                         Text("Log out")
-                            .pfFont(20)
+                            .pfFont(18.4)
                     }
                     .foregroundStyle(.primary)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 22)
-        .frame(minHeight: 44)
+        .padding(.horizontal, 21)
+        .frame(height: 44)
+        .padding(.top, 8)
     }
 
     private var title: String {
@@ -136,25 +144,25 @@ struct PasscodeView: View {
     private var subline: some View {
         switch stage {
         case .enter:
-            LinkButton(title: "Forgot passcode?", size: 16) { forgot() }
+            LinkButton(title: "Forgot passcode?", size: 14.2) { forgot() }
         case .create:
             Text("4 digits. No repeats or runs like 1111 or 1234.")
-                .pfFont(15)
+                .pfFont(14.2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         case .confirm:
             Text("Enter it again.")
-                .pfFont(15)
+                .pfFont(14.2)
                 .foregroundStyle(.secondary)
         }
     }
 
     private var dots: some View {
-        HStack(spacing: 35) {
+        HStack(spacing: 33) {
             ForEach(0..<4, id: \.self) { index in
                 Circle()
                     .fill(index < code.count || finished ? Theme.blue : Color.clear)
-                    .overlay(Circle().strokeBorder(Theme.blue, lineWidth: 2))
+                    .overlay(Circle().strokeBorder(Theme.blue, lineWidth: 1.3))
                     .frame(width: 17, height: 17)
             }
         }
@@ -170,20 +178,22 @@ struct PasscodeView: View {
             ProgressView().tint(Theme.blue)
         } else if !problem.isEmpty {
             Text(problem)
-                .pfFont(15)
+                .pfFont(14.2)
                 .foregroundStyle(Theme.error)
                 .multilineTextAlignment(.center)
-        } else {
-            Color.clear.frame(height: 20)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 6)
+                .accessibilityAddTraits(.updatesFrequently)
         }
     }
 
+    /// "Enable Face ID": a 40 pt box with 10 pt corners and a 1 pt blue border, holding a 20 pt round tick box and the words.
     private var faceIDControl: some View {
         Button {
             faceIDWanted.toggle()
             Haptics.light()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 11) {
                 ZStack {
                     Circle()
                         .fill(faceIDWanted ? Theme.blue : Color.clear)
@@ -197,12 +207,12 @@ struct PasscodeView: View {
                 }
                 .frame(width: 20, height: 20)
                 Text("Enable \(model.biometry.name)")
-                    .pfFont(17)
+                    .pfFont(14.2)
                     .foregroundStyle(Theme.blue)
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 41)
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.blue, lineWidth: 2))
+            .frame(minHeight: 40)
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.blue, lineWidth: 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -219,25 +229,42 @@ struct PasscodeView: View {
 
     // MARK: Behaviour
 
-    private func appeared() {
-        faceIDWanted = model.faceIDOn
-        // With Face ID on, the lock screen asks for it by itself, once; cancelling leaves the keypad.
-        if step.purpose == .lock && model.faceIDOn && !triedFaceID {
-            triedFaceID = true
-            Task {
-                let result = await model.unlockWithFaceID()
-                if let result {
-                    if case .ok = result {
-                        await finish()
-                        return
-                    }
-                    faceIDWanted = model.faceIDOn
-                    handle(result)
-                }
-                focusSoon()
-            }
+    private func appeared() async {
+        // With Face ID on, the lock screen asks for it by itself, once for each time the app locks.
+        if step.purpose == .lock && model.faceIDOn && model.biometry != .none {
+            await tryFaceID()
         } else {
             focusSoon()
+        }
+    }
+
+    /// Face ID once, when the app is in front (asking while it is still opening would be cancelled by the system). When the app is
+    /// not in front within 2 seconds (the phone was locked, or another app opened, as it started), the number pad comes up meanwhile,
+    /// and Face ID still asks once the app is in front. This lock's one turn is only taken when Face ID really asks.
+    private func tryFaceID() async {
+        var waited = 0
+        while UIApplication.shared.applicationState != .active {
+            if waited == 20 { focusSoon() }
+            waited += 1
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            if Task.isCancelled || finished { return }
+        }
+        guard !finished, model.takeFaceIDTurn() else {
+            if !finished { focusSoon() }
+            return
+        }
+        switch await model.unlockWithFaceID() {
+        case .unlocked:
+            await finish()
+        case .stay:
+            // Cancelled: the lock screen stays as it is; a tap anywhere brings up the number pad.
+            break
+        case .keypad, .hidden:
+            focusSoon()
+        case .refused(let result):
+            faceIDWanted = model.faceIDOn
+            handle(result)
+            if !finished { focusSoon() }
         }
     }
 
@@ -320,9 +347,22 @@ struct PasscodeView: View {
         case .wrong(let message), .failed(let message):
             refuse(message)
         case .signIn(let message):
-            // The server forgot this phone (for example after five wrong passcodes): the email and password are needed again.
+            // The server forgot this phone (five wrong passcodes, two-step sign-in turned on, removed from the team):
+            // the email and password are needed again, and the Log in screen says why.
             focused = false
             model.deviceForgotten(message)
+        case .sessionEnded(let message):
+            // The session ended while this screen was open (the phone's key is still good).
+            focused = false
+            switch step.purpose {
+            case .afterSignIn:
+                model.sessionEndedBeforeReady(message)
+            case .switchTo, .change:
+                onCancel?()
+                model.sessionEnded()
+            case .lock:
+                refuse(message)
+            }
         }
     }
 
