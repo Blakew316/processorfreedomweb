@@ -23,9 +23,9 @@ struct ItemsScreen: View {
                 .navigationDestination(for: ItemsRoute.self) { route in
                     switch route {
                     case .edit(let id):
-                        ItemEditorPage(items: items, itemID: id, close: { dismiss() })
+                        ItemEditorPage(items: items, itemID: id, close: { dismiss() }, openMenus: { path.append(.web("menus")) })
                     case .add:
-                        ItemEditorPage(items: items, itemID: nil, close: { dismiss() })
+                        ItemEditorPage(items: items, itemID: nil, close: { dismiss() }, openMenus: { path.append(.web("menus")) })
                     case .web(let tab):
                         WebScreen(tab: tab)
                     }
@@ -66,6 +66,12 @@ struct ItemsCoverBar: ViewModifier {
     }
 }
 
+/// When the list loads again: each time it shows, and when the app is back in front and unlocked.
+private struct ItemsLoadKey: Hashable {
+    let active: Bool
+    let ready: Bool
+}
+
 /// A question the bulk actions ask (the website's prompts), answered in an alert with a text box.
 private struct ItemsPrompt: Identifiable {
     enum Kind {
@@ -88,6 +94,7 @@ struct ItemsListPage: View {
     let close: () -> Void
 
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
     @FocusState private var searchFocused: Bool
     @State private var showFilters = false
     @State private var choosingFile = false
@@ -123,7 +130,11 @@ struct ItemsListPage: View {
         .animation(.snappy, value: items.toast)
         .background(Color(.systemBackground))
         .modifier(ItemsCoverBar(close: close))
-        .task { await items.load(model) }
+        .task(id: ItemsLoadKey(active: scenePhase == .active, ready: model.phase == .ready)) {
+            // When the list shows and whenever the app comes back, so a change made on the website or another phone shows up.
+            guard scenePhase == .active, model.phase == .ready else { return }
+            await items.load(model)
+        }
         .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText]) { result in
             switch result {
             case .success(let url):
@@ -183,13 +194,13 @@ struct ItemsListPage: View {
             Button {
                 export()
             } label: {
-                Label("Export", systemImage: "square.and.arrow.down")
+                Label("Export", systemImage: "tray.and.arrow.down")
             }
             .disabled(!items.loaded)
             Button {
                 choosingFile = true
             } label: {
-                Label("Import", systemImage: "square.and.arrow.up")
+                Label("Import", systemImage: "tray.and.arrow.up")
             }
             .disabled(!items.loaded)
             Button {
@@ -562,10 +573,10 @@ struct ItemsListRow: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text(item.name)
-                    .pfFont(16.5, .bold)
+                    .pfFont(17, .bold)
                     .foregroundStyle(Color.primary)
                     .lineLimit(2)
-                    .lineSpacing(4)
+                    .lineSpacing(3.7)
                 Text("Item name: \(item.name)")
                     .pfFont(14)
                     .foregroundStyle(ItemsLook.rowGrey)
@@ -682,7 +693,7 @@ struct ItemsFilterPanel: View {
                 toggle?()
             } label: {
                 HStack(spacing: 13) {
-                    ItemsCheckbox(on: on, greyed: greyed)
+                    ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
                     Text(label)
                         .pfFont(16, .medium)
                         .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)

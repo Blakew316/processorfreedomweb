@@ -88,8 +88,6 @@ final class ItemEditorModel {
     private(set) var start: ItemDraft
     /// The stock count this editor last saw (the website's stockWas).
     private(set) var seenStock: Int
-    /// An item that was opened but is no longer on the list (deleted on the website or another phone).
-    let missing: Bool
 
     var nameProblem = ""
     var priceProblem = ""
@@ -99,12 +97,10 @@ final class ItemEditorModel {
     private(set) var saving = false
     private(set) var uploading = false
 
-    init(item: CatalogItem?, opened id: String?, newCategory: String) {
+    init(item: CatalogItem?) {
         itemID = item?.id
         original = item
-        missing = id != nil && item == nil
-        var first = item.map { ItemDraft($0) } ?? ItemDraft()
-        if item == nil { first.category = newCategory }
+        let first = item.map { ItemDraft($0) } ?? ItemDraft()
         draft = first
         start = first
         seenStock = item?.stock ?? 100
@@ -116,6 +112,61 @@ final class ItemEditorModel {
     var heading: String {
         guard let name = original?.name.trimmed, !name.isEmpty else { return "New item" }
         return name
+    }
+
+    /// What customers pay while a sale is on, in the website's words (or how to have no sale).
+    var saleLine: String {
+        guard draft.sale > 0, let price = ItemsMoney.parse(draft.priceText) else { return "Leave empty for no sale." }
+        let paid = Int((Double(price * (100 - min(90, draft.sale))) / 100).rounded())
+        return "Customers pay \(Money.format(paid)) while the sale is on."
+    }
+
+    // MARK: Editing
+
+    /// Fixed or variable, as the website switches it: a variable price has no price box and no sale; going back to a fixed price
+    /// shows the price it had, or an empty box when it never had one.
+    func setVariable(_ on: Bool) {
+        guard draft.variable != on else { return }
+        draft.variable = on
+        priceProblem = ""
+        if !on && (ItemsMoney.parse(draft.priceText) ?? 0) <= 0 {
+            // Sent as 0.00 it would make the item free: the box starts empty, and Save asks for a price.
+            draft.priceText = ""
+        }
+    }
+
+    /// An item has exactly one category: the one chosen replaces the one it had.
+    func chooseCategory(_ name: String) {
+        draft.category = name
+    }
+
+    /// Taken off: saved like that, the server puts the item back in its default category.
+    func removeCategory() {
+        draft.category = ""
+    }
+
+    /// One more or one fewer in stock, as the website's − and + do.
+    func bumpStock(_ by: Int) {
+        draft.stockText = String(max(0, min(999_999, draft.stock + by)))
+        stockProblem = ""
+    }
+
+    /// The website's new option: sizes first (one must be chosen), then add-ons (several may be).
+    func addOption() {
+        let first = draft.options.isEmpty
+        draft.options.append(ItemOptionDraft(name: first ? "Size" : "Add-ons", required: first, multi: !first))
+    }
+
+    func removeOption(_ id: UUID) {
+        draft.options.removeAll { $0.id == id }
+    }
+
+    func toggleMod(_ id: String) {
+        if draft.mods.contains(id) {
+            draft.mods.removeAll { $0 == id }
+        } else {
+            draft.mods.append(id)
+        }
     }
 
     // MARK: Saving
@@ -169,46 +220,48 @@ final class ItemEditorModel {
         return body
     }
 
-    /// Saves the item. True when everything was saved; otherwise what went wrong is shown by the field it is about, or returned
+    /// Saves the item. True when everything was saved; otherwise what went wrong is shown by the field it is about, or given back
     /// for a message when it is about none of them.
     func save(_ model: AppModel, items: ItemsModel) async -> (saved: Bool, message: String?) {
         guard !saving, let business = model.site else { return (false, nil) }
         guard var payload = body() else { return (false, nil) }
         saving = true
         defer { saving = false }
-        let before = Set(items.items.map(\.id))
-        let wantedColor = draft.color
-        let colorChanged = wantedColor != start.color
+        let wanted = draft
         do {
-            let answer: JSON
+            let savedID: String
             if let id = itemID {
                 payload["stockWas"] = seenStock
-                answer = try await API.send("PUT", "/api/sites/\(business.id)/menu/\(id)", body: payload)
+                let answer = try await API.send("PUT", "/api/sites/\(business.id)/menu/\(id)", body: payload)
+                items.take(answer)
+                savedID = id
             } else {
-                answer = try await API.post("/api/sites/\(business.id)/menu", payload)
+                let before = Set(items.items.map(\.id))
+                let answer = try await API.post("/api/sites/\(business.id)/menu", payload)
+                items.take(answer)
+                // The new item is the one the list did not have; the server adds it at the end.
+                let made = answer["items"].array.map { $0["id"].string }.filter { !$0.isEmpty }
+                guard let id = made.last(where: { !before.contains($0) }) ?? made.last else { return (true, nil) }
+                savedID = id
+                adopt(id, items: items, keepDraft: true)
+                // A new item is made without modifier groups, a printer label or a revenue class (the server's insertItems), so
+                // they follow with the website's PUT of the whole item, which leaves the stock it was just given as it is.
+                if !wanted.mods.isEmpty || !wanted.label.isEmpty || !wanted.revclass.isEmpty {
+                    payload["stock"] = seenStock
+                    payload["stockWas"] = seenStock
+                    let again = try await API.send("PUT", "/api/sites/\(business.id)/menu/\(id)", body: payload)
+                    items.take(again)
+                }
             }
-            items.take(answer)
             items.changed(model)
-            // From here on this editor is for the saved item, so trying again never sends an old stock count or a second new item.
-            let madeID = answer["items"].array.map { $0["id"].string }.first(where: { !$0.isEmpty && !before.contains($0) })
-            let savedID = itemID ?? madeID
-            if let savedID, let fresh = items.item(savedID) {
-                itemID = savedID
-                original = fresh
-                seenStock = fresh.stock
-                var saved = ItemDraft(fresh)
-                // The colour is only kept by the bulk route; until it has been sent it stays a change.
-                saved.color = start.color
-                start = saved
-                draft = ItemDraft(fresh)
-                draft.color = wantedColor
-            }
-            if colorChanged, let savedID {
-                if let problem = await items.bulk(model, ids: [savedID], body: ["set": ["color": wantedColor]]) {
+            adopt(savedID, items: items, keepDraft: true)
+            // The colour is kept only by the website's bulk change; until it has been sent it stays a change to save.
+            if wanted.color != (items.item(savedID)?.color ?? "") {
+                if let problem = await items.bulk(model, ids: [savedID], body: ["set": ["color": wanted.color]]) {
                     return (false, problem)
                 }
-                start.color = wantedColor
             }
+            adopt(savedID, items: items, keepDraft: false)
             return (true, nil)
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
@@ -217,12 +270,28 @@ final class ItemEditorModel {
                 let real = max(0, error.data["stock"].int)
                 seenStock = real
                 draft.stockText = String(real)
+                start.stockText = String(real)
                 stockProblem = error.message
                 return (false, nil)
             }
             return (false, place(error.message))
         } catch {
             return (false, nil)
+        }
+    }
+
+    /// From here on this editor is for the saved item, so trying again never sends an old stock count or a second new item. With
+    /// `keepDraft` the person's own values stay on screen (a later step may still fail); otherwise the server's cleaned values show.
+    private func adopt(_ id: String, items: ItemsModel, keepDraft: Bool) {
+        guard let fresh = items.item(id) else { return }
+        itemID = id
+        original = fresh
+        seenStock = fresh.stock
+        start = ItemDraft(fresh)
+        if keepDraft {
+            draft.stockText = String(fresh.stock)
+        } else {
+            draft = start
         }
     }
 
@@ -274,20 +343,6 @@ final class ItemEditorModel {
             return nil
         } catch {
             return "Something went wrong. Please try again."
-        }
-    }
-
-    // MARK: Price type
-
-    /// Fixed or variable, as the website switches it: a variable price has no price box and no sale; going back to a fixed price
-    /// shows the price it had, or an empty box when it never had one.
-    func setVariable(_ on: Bool) {
-        guard draft.variable != on else { return }
-        draft.variable = on
-        priceProblem = ""
-        if !on && (ItemsMoney.parse(draft.priceText) ?? 0) <= 0 {
-            // Sent as 0.00 it would make the item free: the box starts empty, and Save asks for a price.
-            draft.priceText = ""
         }
     }
 }

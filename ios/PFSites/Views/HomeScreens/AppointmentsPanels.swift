@@ -10,29 +10,34 @@ enum AppointmentDayPanel: Hashable {
 struct AppointmentDayEmployeesPanel: View {
     let list: AppointmentsModel
     let close: () -> Void
-    @State private var chosen: Set<String>
+    /// nil: everyone, people the list learns of later too, until a box is changed.
+    @State private var chosen: Set<String>?
 
     init(list: AppointmentsModel, close: @escaping () -> Void) {
         self.list = list
         self.close = close
-        _chosen = State(initialValue: list.employees ?? Set(list.employeeChoices))
+        _chosen = State(initialValue: list.employees)
     }
 
     private var choices: [String] { list.employeeChoices }
-    private var applied: Set<String> { list.employees ?? Set(choices) }
-    private var allOn: Bool { choices.allSatisfy { chosen.contains($0) } }
+
+    private func isOn(_ name: String) -> Bool { chosen?.contains(name) ?? true }
+
+    private var allOn: Bool { choices.allSatisfy { isOn($0) } }
 
     var body: some View {
-        AppointmentDayPanelFrame(title: "Employee(s)", buttonInset: 13, changed: chosen != applied, close: close, apply: apply) {
+        AppointmentDayPanelFrame(title: "Employee(s)", buttonInset: 13, changed: list.employeeFilter(chosen) != list.employeeFilter(list.employees), close: close, apply: apply) {
             VStack(spacing: 0) {
                 AppointmentDayCheckRow(title: "All", on: allOn) {
-                    if allOn { chosen.subtract(choices) } else { chosen.formUnion(choices) }
+                    chosen = allOn ? [] : nil
                 }
                 AppointmentDayHairline()
                     .padding(.horizontal, 17)
                 ForEach(choices, id: \.self) { name in
-                    AppointmentDayCheckRow(title: name, on: chosen.contains(name)) {
-                        if chosen.contains(name) { chosen.remove(name) } else { chosen.insert(name) }
+                    AppointmentDayCheckRow(title: name, on: isOn(name)) {
+                        var set = chosen ?? Set(choices)
+                        if set.contains(name) { set.remove(name) } else { set.insert(name) }
+                        chosen = set
                     }
                 }
             }
@@ -41,7 +46,7 @@ struct AppointmentDayEmployeesPanel: View {
 
     /// Everyone chosen shows everyone, people added later too (the website keeps no list then).
     private func apply() {
-        list.employees = allOn ? nil : chosen.intersection(choices)
+        list.employees = list.employeeFilter(chosen)
         close()
     }
 }
@@ -140,7 +145,8 @@ struct AppointmentDayPanelFrame<Content: View>: View {
     }
 }
 
-/// A checkbox row: 56 pt with just a name, 62 pt with a status icon (the photos' spacing). Greyed rows cannot be changed.
+/// A checkbox row (the photos): 56 pt with just a name, centred; 62 pt with a status icon, the icon 16 pt from the row's top and
+/// the name 8 pt after it, sitting 3 pt low. The checkbox is 37 pt from the edge. Greyed rows cannot be changed.
 struct AppointmentDayCheckRow: View {
     let title: String
     var icon: AppointmentDayStatusIcon.Kind? = nil
@@ -150,30 +156,43 @@ struct AppointmentDayCheckRow: View {
 
     var body: some View {
         Button(action: toggle) {
-            HStack(spacing: 0) {
-                AppointmentDayCheckbox(on: on, greyed: greyed)
-                if let icon {
-                    AppointmentDayStatusIcon(kind: icon, greyed: greyed)
-                        .padding(.leading, 12.33)
-                    label
-                        .padding(.leading, 9.67)
-                } else {
-                    label
-                        .padding(.leading, 12.5)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, 37)
-            .padding(.trailing, 17)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, minHeight: icon == nil ? 56 : 62, alignment: .leading)
-            .contentShape(Rectangle())
+            row
+                .padding(.leading, 37)
+                .padding(.trailing, 17)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(greyed)
         .accessibilityLabel(title)
         .accessibilityValue(on ? "Checked" : "Not checked")
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var row: some View {
+        if let icon {
+            HStack(spacing: 0) {
+                AppointmentDayCheckbox(on: on, greyed: greyed)
+                AppointmentDayStatusIcon(kind: icon, greyed: greyed)
+                    .padding(.leading, 12)
+                label
+                    .offset(y: 3)
+                    .padding(.leading, 8)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 16)
+            .padding(.bottom, 22)
+        } else {
+            HStack(spacing: 0) {
+                AppointmentDayCheckbox(on: on, greyed: greyed)
+                label
+                    .padding(.leading, 12.5)
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 6)
+            .frame(minHeight: 56)
+        }
     }
 
     private var label: some View {
@@ -185,7 +204,7 @@ struct AppointmentDayCheckRow: View {
     }
 }
 
-/// A grey band naming a group ("Appointment status", "Order status"), 56 pt with a hairline under it.
+/// A grey band naming a group ("Appointment status", "Order status"), 56 pt with a hairline under it, 17 pt in from each side.
 struct AppointmentDayBand: View {
     let title: String
 

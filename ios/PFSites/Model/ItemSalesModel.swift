@@ -10,7 +10,7 @@ struct ItemSalesDay: Hashable, Comparable {
 
     private static let utc: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? TimeZone.current
         return calendar
     }()
 
@@ -40,7 +40,12 @@ struct ItemSalesDay: Hashable, Comparable {
     static func today(in zone: TimeZone) -> ItemSalesDay { on(Date(), in: zone) }
 
     /// "2026-11-24".
-    var text: String { String(format: "%04d-%02d-%02d", year, month, day) }
+    var text: String { "\(Self.padded(year, 4))-\(Self.padded(month, 2))-\(Self.padded(day, 2))" }
+
+    private static func padded(_ value: Int, _ width: Int) -> String {
+        let digits = String(value)
+        return digits.count >= width ? digits : String(repeating: "0", count: width - digits.count) + digits
+    }
 
     /// Noon UTC on this day: what the formatters and the arithmetic work on.
     var noon: Date {
@@ -48,7 +53,7 @@ struct ItemSalesDay: Hashable, Comparable {
     }
 
     /// Noon on this day at the business, for the date pickers (which show days in the business's time zone).
-    func noon(in zone: TimeZone) -> Date {
+    func noonDate(in zone: TimeZone) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = zone
         return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)) ?? noon
@@ -71,7 +76,9 @@ struct ItemSalesDay: Hashable, Comparable {
     var firstOfMonth: ItemSalesDay { ItemSalesDay(year: year, month: month, day: 1) }
 
     static func < (a: ItemSalesDay, b: ItemSalesDay) -> Bool {
-        (a.year, a.month, a.day) < (b.year, b.month, b.day)
+        if a.year != b.year { return a.year < b.year }
+        if a.month != b.month { return a.month < b.month }
+        return a.day < b.day
     }
 }
 
@@ -125,7 +132,7 @@ enum ItemSalesOrderType: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The stats route's `type`: the order method, or none for all of them.
+    /// The stats route's `type`: the order method's key, or none for all of them.
     var serverValue: String? { self == .all ? nil : rawValue }
 }
 
@@ -139,6 +146,7 @@ struct ItemSalesRow: Identifiable, Hashable {
     /// Whole percent of all the items' net sales, rounded the way the website rounds it.
     let percent: Int
 
+    /// The server adds up items by name, so a name is one row.
     var id: String { name }
 }
 
@@ -151,29 +159,28 @@ struct ItemSalesChoices: Equatable {
     var orderType: ItemSalesOrderType = .all
 }
 
-/// The report's choices are kept while the business is open: they belong to that business's Shell, which a new business
-/// (or signing out) replaces, and then the report starts again on Today with all order types.
+/// The report's choices are kept while the business is open: the app makes a new dashboard (a new shell ID) for each business it
+/// opens or signs in to, and the report then starts again on Today with all order types, like the rest of the dashboard.
 @MainActor
 enum ItemSalesKeeper {
-    private static weak var shell: Shell?
+    private static var shellID: UUID? = nil
     private static var kept = ItemSalesChoices()
 
-    static func choices(for shell: Shell?) -> ItemSalesChoices {
-        guard let shell, self.shell === shell else { return ItemSalesChoices() }
-        return kept
+    static func choices(for shellID: UUID) -> ItemSalesChoices {
+        self.shellID == shellID ? kept : ItemSalesChoices()
     }
 
-    static func keep(_ choices: ItemSalesChoices, for shell: Shell?) {
-        guard let shell else { return }
-        self.shell = shell
+    static func keep(_ choices: ItemSalesChoices, for shellID: UUID) {
+        self.shellID = shellID
         kept = choices
     }
 }
 
-/// Days written the way the website's reports write them ("Tue, Nov 24, 2026").
+/// Days and money written the way the website's reports write them.
 enum ItemSalesFormat {
-    private static let utc = TimeZone(secondsFromGMT: 0) ?? .current
+    private static let utc = TimeZone(secondsFromGMT: 0) ?? TimeZone.current
 
+    /// "Tue, Nov 24, 2026".
     static func longDay(_ day: ItemSalesDay) -> String {
         day.noon.formatted(Date.FormatStyle(calendar: Calendar(identifier: .gregorian), timeZone: utc).weekday(.abbreviated).month(.abbreviated).day().year())
     }
@@ -191,8 +198,9 @@ enum ItemSalesFormat {
     }
 }
 
-/// CSV files the way the website writes them (saveSheetFile in public/js/ui.js): a byte-order mark, every cell in quotes,
-/// lines ending CR LF. They go in the same temporary folder as the app's other downloads, cleared on the next launch.
+/// CSV files the way the website writes them (saveSheetFile in public/js/ui.js): a byte-order mark, every cell in quotes, lines
+/// ending CR LF. Each goes in its own folder in the same temporary Downloads folder as the app's other downloads, which the app
+/// clears on its next launch, so the file keeps its name and never overwrites another.
 enum ItemSalesFile {
     static func csv(_ rows: [[String]]) -> String {
         "\u{FEFF}" + rows.map { row in
@@ -216,43 +224,49 @@ enum ItemSalesFile {
 /// worked out like the website's Item sales report (public/js/editor.js CL['r-items']), with its periods, ‹ and › and order type.
 @Observable @MainActor
 final class ItemSalesModel {
+    /// The website's sentence under "No results found" on this report (NORES in public/js/editor.js).
     static let noResults = "Try again with a different timeframe, filters or search criteria."
-    /// The website's words about this report (ABOUT['r-items'] in public/js/editor.js).
+    /// The website's name for this report and its words about it (nameOf('r-items') and ABOUT['r-items'] in public/js/editor.js).
+    static let aboutTitle = "Item and Service sales"
     static let about = "How many of each item sold and what it brought in."
+    /// The most days the stats route takes between the first and the last day of a custom period, and its words past that.
+    static let longestRange = 731
+    static let tooLong = "Choose a range of two years or less."
 
     private(set) var choices: ItemSalesChoices
     /// The items of the period, best sellers by net sales first.
     private(set) var rows: [ItemSalesRow] = []
     /// Why the report for the current choices did not load (the server's own words), when nothing is shown for them.
     private(set) var problem = ""
-    /// This login may not see reports: the message stays, and trying again would not help.
+    /// This login may not see reports: the words stay, and trying again would not help.
     private(set) var forbidden = false
     /// The business's time zone (ordering.timezone): "Today" is the business's today.
-    private(set) var zone: TimeZone = TimeZone(identifier: "America/Chicago") ?? .current
+    private(set) var zone: TimeZone = TimeZone(identifier: "America/Chicago") ?? TimeZone.current
     private(set) var slug = ""
     private(set) var businessName = ""
-    /// The business's people (GET /api/sites/<id>/shifts), for the Employees filter.
+    /// The business's people (GET /api/sites/<id>/shifts: the owner and the team), for the Employees filter.
     private(set) var people: [String] = []
-
+    private(set) var peopleLoaded = false
     /// The request the rows answer; nil while nothing has come in for the current choices.
     private(set) var shownQuery: String? = nil
     /// The days the server answered for, which the date line shows once they come.
-    private var answeredFrom: ItemSalesDay?
-    private var answeredTo: ItemSalesDay?
+    private var answeredFrom: ItemSalesDay? = nil
+    private var answeredTo: ItemSalesDay? = nil
 
-    @ObservationIgnored private weak var shell: Shell?
-    @ObservationIgnored private var siteLoadedAt: Date?
+    private let shellID: UUID
+    @ObservationIgnored private var siteLoadedAt: Date? = nil
 
-    init(shell: Shell?) {
-        self.shell = shell
-        choices = ItemSalesKeeper.choices(for: shell)
+    init(shellID: UUID) {
+        self.shellID = shellID
+        choices = ItemSalesKeeper.choices(for: shellID)
     }
 
     // MARK: The period
 
     var today: ItemSalesDay { ItemSalesDay.today(in: zone) }
 
-    /// The first and last day of the chosen period on the business's calendar. Weeks start on Sunday, as the website's This week does.
+    /// The first and last day of the chosen period on the business's calendar. Weeks start on Sunday, as the website's and the
+    /// server's This week do.
     var span: (from: ItemSalesDay, to: ItemSalesDay) {
         let now = today
         switch choices.period {
@@ -279,7 +293,8 @@ final class ItemSalesModel {
             return (now.adding(-89), now)
         case .custom:
             guard let from = choices.from, let to = choices.to else { return (now, now) }
-            return from <= to ? (from, to) : (to, from)
+            if to < from { return (to, from) }
+            return (from, to)
         }
     }
 
@@ -312,7 +327,8 @@ final class ItemSalesModel {
         return days.from == days.to ? ItemSalesFormat.shortDay(days.from) : ItemSalesPeriod.custom.label
     }
 
-    /// "Tue, Nov 24, 2026 at 12:00 AM - 11:59 PM" for one day, as in the photo; first and last day for longer periods.
+    /// "Tue, Nov 24, 2026 at 12:00 AM - 11:59 PM" for one day, as in the photo; the first and last day for longer periods, as the
+    /// website writes them.
     var rangeLine: String {
         let days = shownSpan
         if days.from == days.to { return "\(ItemSalesFormat.longDay(days.from)) at 12:00 AM - 11:59 PM" }
@@ -322,6 +338,7 @@ final class ItemSalesModel {
     /// › is greyed once the period ends today.
     var canStepLater: Bool { shownSpan.to < today }
 
+    /// How many filters are on, for the count on the Filters button (the website's `.fbtn em`).
     var filtersOn: Int { choices.orderType == .all ? 0 : 1 }
 
     // MARK: Choosing
@@ -377,24 +394,12 @@ final class ItemSalesModel {
         answeredTo = nil
         problem = ""
         forbidden = false
-        ItemSalesKeeper.keep(next, for: shell)
+        ItemSalesKeeper.keep(next, for: shellID)
     }
 
     // MARK: Loading
 
-    /// The time zone first (once a minute at most), then the report: the screen does this when it appears and when the choices change.
-    func refresh(siteID: String) async {
-        await loadSite(siteID: siteID)
-        await load(siteID: siteID)
-    }
-
-    /// Pull to refresh. A failure while the rows stay on screen comes back as words for a short message.
-    func reload(siteID: String) async -> String? {
-        await loadSite(siteID: siteID, force: true)
-        return await load(siteID: siteID)
-    }
-
-    /// The business's time zone, address name and name (GET /api/sites/<id>).
+    /// The business's time zone, web address name and name (GET /api/sites/<id>), at most once a minute unless forced.
     func loadSite(siteID: String, force: Bool = false) async {
         guard !siteID.isEmpty else { return }
         if !force, let at = siteLoadedAt, Date().timeIntervalSince(at) < 60 { return }
@@ -406,7 +411,8 @@ final class ItemSalesModel {
         if !site["name"].string.isEmpty { businessName = site["name"].string }
     }
 
-    /// The report for the current choices. Its answer is used only if the choices are still the same when it comes.
+    /// The report for the current choices. Its answer is used only if the choices are still the same when it comes. A refresh that
+    /// does not work while the rows for these choices stay on screen gives back the server's words for a short message.
     @discardableResult
     func load(siteID: String) async -> String? {
         guard !siteID.isEmpty else { return nil }
@@ -418,11 +424,9 @@ final class ItemSalesModel {
             return nil
         } catch let error as APIError {
             guard asked == query else { return nil }
+            // Signed out everywhere, or the server ended the session: the app checks, then locks. A 403 is only a message.
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            if error.status != 403 && shownQuery == asked {
-                // A refresh that did not work: the report on screen stays.
-                return error.message
-            }
+            if error.status != 403 && shownQuery == asked { return error.message }
             rows = []
             shownQuery = nil
             forbidden = error.status == 403
@@ -436,14 +440,14 @@ final class ItemSalesModel {
 
     private func show(_ answer: JSON, for asked: String) {
         let items = answer["items"].array
-        let total = items.reduce(0) { $0 + $1["sales"].int }
-        rows = items.map { item in
+        let total = items.reduce(0) { sum, item in sum + item["sales"].int }
+        let made = items.map { (item: JSON) -> ItemSalesRow in
             let sales = item["sales"].int
-            // Math.round in the website: halves go up.
+            // Math.round, as the website rounds it: halves go up.
             let share = total != 0 ? Int((Double(sales) / Double(total) * 100 + 0.5).rounded(.down)) : 0
             return ItemSalesRow(name: item["name"].string, category: item["category"].string, qty: item["qty"].int, sales: sales, percent: share)
         }
-        .sorted { a, b in
+        rows = made.sorted { (a: ItemSalesRow, b: ItemSalesRow) -> Bool in
             if a.sales != b.sales { return a.sales > b.sales }
             if a.qty != b.qty { return a.qty > b.qty }
             return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
@@ -463,27 +467,30 @@ final class ItemSalesModel {
         var seen = Set<String>()
         let names = answer["people"].array.map { $0.string.trimmed }.filter { !$0.isEmpty && seen.insert($0).inserted }
         people = names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        peopleLoaded = true
     }
 
     // MARK: Print, export and accounting sync, as the website's ⋮ menu does them
 
     private func slugPart(_ siteName: String) -> String {
         if !slug.isEmpty { return slug }
-        let lowered = siteName.lowercased().map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "-" }
-        let joined = String(lowered).split(separator: "-").joined(separator: "-")
+        let joined = siteName.lowercased().split(whereSeparator: { !($0.isASCII && ($0.isLetter || $0.isNumber)) }).joined(separator: "-")
         return joined.isEmpty ? "report" : joined
     }
 
     private func name(_ siteName: String) -> String { businessName.isEmpty ? siteName : businessName }
 
-    /// The report as the website's "Export to Excel or CSV" writes it (pageRows and exportReport in public/js/editor.js).
+    /// The report as the website's "Export to Excel or CSV" writes it as CSV (pageRows and exportReport in public/js/editor.js):
+    /// the report's name, the business, the period and when it was exported, then the table with money as plain numbers.
     func exportFile(siteName: String) throws -> URL {
         let days = shownSpan
+        let period = days.from == days.to ? days.from.text : days.from.text + " to " + days.to.text
+        let exported = Date().formatted(date: .numeric, time: .standard)
         var lines: [[String]] = [
-            ["Item and Service sales"],
+            [Self.aboutTitle],
             [name(siteName)],
-            ["Period: \(days.from == days.to ? days.from.text : "\(days.from.text) to \(days.to.text)")"],
-            ["Exported \(Date().formatted(date: .numeric, time: .standard))"],
+            ["Period: " + period],
+            ["Exported " + exported],
             [],
         ]
         if !rows.isEmpty {
@@ -493,7 +500,8 @@ final class ItemSalesModel {
             }
             lines.append([])
         }
-        return try ItemSalesFile.write(name: "\(slugPart(siteName))-item-and-service-sales-\(today.text)", rows: lines)
+        let fileName = Self.aboutTitle.lowercased().split(whereSeparator: { !($0.isASCII && ($0.isLetter || $0.isNumber)) }).joined(separator: "-")
+        return try ItemSalesFile.write(name: "\(slugPart(siteName))-\(fileName)-\(today.text)", rows: lines)
     }
 
     /// What the website's "Sync with QuickBooks" downloads (quickbooks() in public/js/editor.js): the period's payments and refunds

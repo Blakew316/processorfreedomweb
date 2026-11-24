@@ -1,41 +1,47 @@
 import SwiftUI
 
-/// The Insights chart (the owner's photo, rebranded): the "Net sales" legend, amounts on the left at four dotted lines, the line of
-/// net sales by day (by hour for a one-day period) in brand blue over a fading blue area, and the slanted day names under it.
+/// The Insights chart (the owner's photo, rebranded): the "Net sales" legend, the amounts on the left at four dotted lines, the
+/// line of net sales by day (by hour for a one-day period) in brand blue over a fading blue area, and the slanted day names under
+/// each point.
 struct InsightsChart: View {
     let points: [StatsPoint]
 
+    /// Half the height of an amount's line, so the top amount (centred on the top line) has room above the plot.
     @ScaledMetric(relativeTo: .caption) private var labelHalf: CGFloat = 8
+    /// About how wide a character of the slanted names is, to leave room for the longest one under the plot.
+    @ScaledMetric(relativeTo: .caption) private var nameCharacter: CGFloat = 7.1
+    @ScaledMetric(relativeTo: .caption) private var nameLine: CGFloat = 16
 
-    /// Measured from the photo: four lines 52.7 pt apart, the plot 9 pt in from the card's right edge, room for slanted names.
+    /// Measured from the photo: four lines 52.7 pt apart, the plot 9.5 pt in from both sides of the card's content, 15.7 pt
+    /// between the amounts and the plot, and the names' ends 22 pt under the bottom line.
     private var plotHeight: CGFloat { 158 }
-    private var namesBand: CGFloat { 46 }
+    private var namesDrop: CGFloat { 22.3 }
 
     var body: some View {
         let scale = StatsScale(values: points.map(\.cents))
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 13) {
             legend
-                .padding(.leading, 17)
-            HStack(alignment: .top, spacing: 16) {
+                .padding(.leading, 17.5)
+            HStack(alignment: .top, spacing: 15.7) {
                 amounts(scale)
                 plot(scale)
             }
             .padding(.top, labelHalf)
-            .padding(.trailing, 9)
+            .padding(.horizontal, 9.5)
         }
     }
 
     private var legend: some View {
-        HStack(spacing: 13) {
+        HStack(alignment: .lastTextBaseline, spacing: 13.3) {
             VStack(spacing: 0) {
-                Theme.blue.frame(height: 2)
-                LinearGradient(colors: [Theme.blue.opacity(0.35), Theme.blue.opacity(0.05)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 4)
+                Theme.blue.frame(height: 1.2)
+                LinearGradient(colors: [Theme.blue.opacity(0.32), Theme.blue.opacity(0.06)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 5.5)
             }
-            .frame(width: 16)
+            .frame(width: 15)
             .accessibilityHidden(true)
             Text("Net sales")
-                .pfFont(16, .semibold)
+                .pfFont(16, .bold)
                 .foregroundStyle(StatsLook.axisText)
         }
     }
@@ -43,7 +49,7 @@ struct InsightsChart: View {
     /// The amounts at the lines, right-aligned in a column as wide as the widest one.
     private func amounts(_ scale: StatsScale) -> some View {
         Text(scale.widestLabel)
-            .pfFont(12.8)
+            .pfFont(13.5, .light)
             .fixedSize()
             .hidden()
             .frame(height: plotHeight)
@@ -51,7 +57,7 @@ struct InsightsChart: View {
                 GeometryReader { geo in
                     ForEach(scale.ticks, id: \.self) { tick in
                         Text(Money.format(tick))
-                            .pfFont(12.8)
+                            .pfFont(13.5, .light)
                             .foregroundStyle(StatsLook.axisText)
                             .fixedSize()
                             .frame(width: geo.size.width, alignment: .trailing)
@@ -62,16 +68,30 @@ struct InsightsChart: View {
             .accessibilityHidden(true)
     }
 
+    /// Room under the plot for the longest slanted name.
+    private var namesBand: CGFloat {
+        let longest = CGFloat(shownNames.map(\.label.count).max() ?? 3)
+        return namesDrop + (longest * nameCharacter + nameLine / 2) * 0.7071 + 3
+    }
+
+    /// Every name for a week or less; otherwise every few, so about eight show.
+    private var every: Int {
+        points.count <= 8 ? 1 : Int((Double(points.count) / 8).rounded(.up))
+    }
+
+    private var shownNames: [StatsPoint] {
+        points.enumerated().filter { $0.offset % every == 0 }.map { $0.element }
+    }
+
     private func plot(_ scale: StatsScale) -> some View {
         GeometryReader { geo in
             let width = geo.size.width
             let slot = width / CGFloat(max(points.count, 1))
             let xs = points.indices.map { slot * (CGFloat($0) + 0.5) }
             let ys = points.map { scale.y($0.cents, height: plotHeight) }
-            let baseY = scale.y(max(scale.low, min(0, scale.high)), height: plotHeight)
-            let every = points.count <= 7 ? 1 : max(1, Int((Double(points.count) / 7).rounded(.up)))
+            let baseY = scale.y(0, height: plotHeight)
             ZStack(alignment: .topLeading) {
-                drawing(scale: scale, width: width, xs: xs, ys: ys, baseY: baseY, every: every)
+                drawing(scale: scale, width: width, xs: xs, ys: ys, baseY: baseY)
                     .accessibilityHidden(true)
                 // VoiceOver reads each day (or hour) and its net sales.
                 HStack(spacing: 0) {
@@ -92,7 +112,7 @@ struct InsightsChart: View {
     }
 
     /// The lines, the area and the line of net sales, and the slanted names, in the plot's own points.
-    private func drawing(scale: StatsScale, width: CGFloat, xs: [CGFloat], ys: [CGFloat], baseY: CGFloat, every: Int) -> some View {
+    private func drawing(scale: StatsScale, width: CGFloat, xs: [CGFloat], ys: [CGFloat], baseY: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(Array(scale.ticks.enumerated()), id: \.offset) { index, tick in
                 let y = scale.y(tick, height: plotHeight)
@@ -100,7 +120,15 @@ struct InsightsChart: View {
                     path.move(to: CGPoint(x: 0, y: y))
                     path.addLine(to: CGPoint(x: width, y: y))
                 }
-                .stroke(index == 0 ? StatsLook.axisLine : StatsLook.grid, style: StrokeStyle(lineWidth: 1, dash: index == 0 ? [] : [1, 1]))
+                .stroke(StatsLook.grid, style: StrokeStyle(lineWidth: 1, dash: [1, 1]))
+                if index == 0 {
+                    // The bottom line: darker dots between the grid's, so it reads as one solid light line.
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: y))
+                        path.addLine(to: CGPoint(x: width, y: y))
+                    }
+                    .stroke(StatsLook.axisLine, style: StrokeStyle(lineWidth: 1, dash: [1, 1], dashPhase: 1))
+                }
             }
             if xs.count > 1 {
                 Path { path in
@@ -109,12 +137,12 @@ struct InsightsChart: View {
                     path.addLine(to: CGPoint(x: xs[xs.count - 1], y: baseY))
                     path.closeSubpath()
                 }
-                .fill(LinearGradient(colors: [Theme.blue.opacity(0.3), Theme.blue.opacity(0.04)], startPoint: .top, endPoint: .bottom))
+                .fill(LinearGradient(colors: [Theme.blue.opacity(0.36), Theme.blue.opacity(0.06)], startPoint: .top, endPoint: .bottom))
                 Path { path in
                     path.move(to: CGPoint(x: xs[0], y: ys[0]))
                     for index in xs.indices.dropFirst() { path.addLine(to: CGPoint(x: xs[index], y: ys[index])) }
                 }
-                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 1.3, lineCap: .round, lineJoin: .round))
             } else if let x = xs.first, let y = ys.first {
                 Circle()
                     .fill(Theme.blue)
@@ -123,13 +151,14 @@ struct InsightsChart: View {
             }
             ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
                 if index % every == 0 {
+                    // Slanted up to the right, its end just under its point, as in the photo.
                     Text(point.label)
-                        .pfFont(12.8)
+                        .pfFont(13.5, .light)
                         .foregroundStyle(StatsLook.axisText)
                         .fixedSize()
-                        .rotationEffect(.degrees(-45), anchor: .topTrailing)
-                        .frame(width: 0, height: 0, alignment: .topTrailing)
-                        .position(x: xs[index], y: plotHeight + 10)
+                        .rotationEffect(.degrees(-45), anchor: .trailing)
+                        .frame(width: 0, height: 0, alignment: .trailing)
+                        .position(x: xs[index] - 1, y: plotHeight + namesDrop)
                 }
             }
         }

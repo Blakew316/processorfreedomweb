@@ -26,18 +26,21 @@ enum ItemSalesFilterSection: String, CaseIterable, Identifiable {
 
 /// The Filters panel (photo 4c9f3737), over the report under the bar: "Filters" with an X, the rows Employees, Devices and
 /// Order Types that each open in place (photos 46785940, 87b176f1, 73a140ea), then "Show results" and "Reset filters".
-/// Only Order Types can change the report: the server cannot narrow item sales by employee, and Processor Freedom has no
-/// point-of-sale devices, so those two show their true value, all of them, greyed.
+/// The row last tapped keeps the photos' grey fill and focus ring. Only Order Types can change the report: the server cannot narrow
+/// item sales by employee, and Processor Freedom has no point-of-sale devices, so those two show their true value, all of them, greyed.
 struct ItemSalesFiltersPanel: View {
     let report: ItemSalesModel
+    let siteID: String
     let close: () -> Void
 
     @State private var draft: ItemSalesOrderType
     @State private var open: ItemSalesFilterSection? = nil
+    @State private var focused: ItemSalesFilterSection? = nil
     @State private var search = ""
 
-    init(report: ItemSalesModel, close: @escaping () -> Void) {
+    init(report: ItemSalesModel, siteID: String, close: @escaping () -> Void) {
         self.report = report
+        self.siteID = siteID
         self.close = close
         _draft = State(initialValue: report.choices.orderType)
     }
@@ -51,34 +54,25 @@ struct ItemSalesFiltersPanel: View {
                     ForEach(ItemSalesFilterSection.allCases) { section in
                         sectionView(section)
                         // Hairlines between the rows, and under the last one while it is open.
-                        if section != ItemSalesFilterSection.allCases.last || open == section {
+                        if section != .orderTypes || open == section {
                             Rectangle().fill(SettingsLook.border).frame(height: 1)
                         }
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 17)
+                .padding(.top, 16)
                 .padding(.bottom, 24)
             }
             .scrollBounceBehavior(.basedOnSize)
             Rectangle().fill(SettingsLook.border).frame(height: 1)
-            VStack(spacing: 8) {
-                Button("Show results") {
-                    report.chooseOrderType(draft)
-                    close()
-                }
-                .buttonStyle(SolidButtonStyle(fill: Theme.blue, text: .white, radius: 24, height: 48, size: 16))
-                Button("Reset filters") {
-                    withAnimation(.snappy) { draft = .all }
-                }
-                .buttonStyle(SolidButtonStyle(fill: SettingsLook.border, text: .primary, radius: 24, height: 48, size: 16))
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 17)
-            .padding(.bottom, 11)
+            buttons
         }
-        .background(Color(.systemBackground))
+        .background(Color(.systemBackground).ignoresSafeArea())
+        .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { close() }
+        .task {
+            if !report.peopleLoaded { await report.loadPeople(siteID: siteID) }
+        }
     }
 
     private var header: some View {
@@ -97,16 +91,35 @@ struct ItemSalesFiltersPanel: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close filters")
-            .padding(.trailing, -7)
+            .padding(.trailing, -9)
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 52)
+    }
+
+    /// "Show results" (brand blue) uses the chosen order type; "Reset filters" (grey) goes back to all of them.
+    private var buttons: some View {
+        VStack(spacing: 8) {
+            Button("Show results") {
+                report.chooseOrderType(draft)
+                close()
+            }
+            .buttonStyle(SolidButtonStyle(fill: Theme.blue, text: ItemSalesLook.onBlue, radius: 24, height: 48, size: 16.5))
+            Button("Reset filters") {
+                withAnimation(.snappy(duration: 0.2)) { draft = .all }
+            }
+            .buttonStyle(SolidButtonStyle(fill: SettingsLook.border, text: .primary, radius: 24, height: 48, size: 16.5))
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 17)
+        .padding(.bottom, 11)
     }
 
     // MARK: A row and what it opens
 
     private func toggle(_ section: ItemSalesFilterSection) {
         withAnimation(.snappy(duration: 0.25)) {
+            focused = section
             open = open == section ? nil : section
             search = ""
         }
@@ -115,53 +128,47 @@ struct ItemSalesFiltersPanel: View {
     @ViewBuilder
     private func sectionView(_ section: ItemSalesFilterSection) -> some View {
         let isOpen = open == section
+        let isFocused = focused == section
         VStack(spacing: 0) {
-            Button { toggle(section) } label: {
+            Button {
+                toggle(section)
+            } label: {
                 HStack(spacing: 12) {
                     Text(section.title)
-                        .pfFont(16, .semibold)
+                        .pfFont(16.5, .semibold)
                         .foregroundStyle(Color.primary)
                     Spacer(minLength: 8)
                     ItemSalesChevron(up: isOpen)
-                        .padding(.trailing, 4.7)
+                        .padding(.trailing, 4.3)
                 }
                 .padding(.horizontal, 14)
-                .frame(maxWidth: .infinity, minHeight: 46)
+                .frame(maxWidth: .infinity, minHeight: 48)
                 .background {
-                    if isOpen {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(SettingsLook.border)
-                            .padding(.horizontal, 1)
-                    }
-                }
-                .overlay {
-                    if isOpen {
-                        // The photos' ring around the open row, in brand blue: a fine line at its edge and a wider one 2 pt out.
+                    if isFocused {
+                        // The grey of the focused row, inside a white band that the focus ring is drawn on.
                         ZStack {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .strokeBorder(Theme.blue, lineWidth: 1)
-                                .padding(.vertical, -1)
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .strokeBorder(Theme.blue, lineWidth: 2)
-                                .padding(.horizontal, -4)
-                                .padding(.vertical, -5)
+                            RoundedRectangle(cornerRadius: 16, style: .circular)
+                                .fill(Color(.systemBackground))
+                                .padding(-4)
+                            RoundedRectangle(cornerRadius: 12, style: .circular)
+                                .fill(SettingsLook.border)
                         }
-                        .allowsHitTesting(false)
                     }
                 }
                 .contentShape(Rectangle())
+                .modifier(ItemSalesFocusRing(shown: isFocused, across: 4, down: 4))
             }
             .buttonStyle(.plain)
             .accessibilityValue(value(of: section))
             .accessibilityHint(isOpen ? "Closes the list" : "Opens the list")
             if isOpen {
                 options(section)
-                    .padding(.top, 9)
+                    .padding(.top, 8)
                     .padding(.bottom, 4)
                     .transition(.opacity)
             }
         }
-        .zIndex(isOpen ? 1 : 0)
+        .zIndex(isFocused ? 1 : 0)
     }
 
     private func value(of section: ItemSalesFilterSection) -> String {
@@ -176,22 +183,22 @@ struct ItemSalesFiltersPanel: View {
     private func choices(_ section: ItemSalesFilterSection) -> [ItemSalesFilterChoice] {
         switch section {
         case .employees:
-            return [ItemSalesFilterChoice(label: "All Employees", chosen: true, type: nil)]
-                + report.people.map { ItemSalesFilterChoice(label: $0, chosen: false, type: nil) }
+            let everyone = [ItemSalesFilterChoice(id: "all", label: "All Employees", chosen: true, type: nil)]
+            return everyone + report.people.map { name in ItemSalesFilterChoice(id: "person-\(name)", label: name, chosen: false, type: nil) }
         case .devices:
-            return [ItemSalesFilterChoice(label: "All Devices", chosen: true, type: nil)]
+            return [ItemSalesFilterChoice(id: "all", label: "All Devices", chosen: true, type: nil)]
         case .orderTypes:
-            return ItemSalesOrderType.allCases.map { ItemSalesFilterChoice(label: $0.label, chosen: draft == $0, type: $0) }
+            return ItemSalesOrderType.allCases.map { type in ItemSalesFilterChoice(id: type.rawValue, label: type.label, chosen: draft == type, type: type) }
         }
     }
 
     /// A section opened: a search field, then a radio row for each choice. Long lists scroll inside it.
     private func options(_ section: ItemSalesFilterSection) -> some View {
         let enabled = section == .orderTypes
-        let query = search.trimmed.lowercased()
+        let words = search.trimmed.lowercased()
         let all = choices(section)
         // As on the website, the search narrows every row, the "All …" row too.
-        let shown = query.isEmpty ? all : all.filter { $0.label.lowercased().contains(query) }
+        let shown = words.isEmpty ? all : all.filter { $0.label.lowercased().contains(words) }
         return VStack(spacing: 0) {
             ItemSalesSearchField(text: $search, enabled: enabled, name: section.searchName)
                 .padding(.horizontal, 12)
@@ -207,18 +214,17 @@ struct ItemSalesFiltersPanel: View {
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
-            .frame(height: min(CGFloat(shown.count) * 42, 280))
+            .frame(height: min(CGFloat(shown.count) * 42, 281))
         }
     }
 }
 
 /// One radio row of an opened filter: its words, whether it is the chosen one, and the order type it stands for.
 struct ItemSalesFilterChoice: Identifiable {
+    let id: String
     let label: String
     let chosen: Bool
     let type: ItemSalesOrderType?
-
-    var id: String { label }
 }
 
 /// The search field of an opened row: a 1 pt grey border, 12 pt corners and a magnifying glass, with no words (the photos').
@@ -234,20 +240,20 @@ struct ItemSalesSearchField: View {
                 .foregroundStyle(enabled ? SettingsLook.muted : SettingsLook.greyed)
                 .accessibilityHidden(true)
             TextField("", text: $text)
-                .pfFont(16)
+                .pfFont(16.5)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .disabled(!enabled)
                 .accessibilityLabel(name)
+                .accessibilityValue(enabled ? text : "Not available yet")
         }
         .padding(.horizontal, 17)
         .frame(minHeight: 48)
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .circular)
                 .strokeBorder(enabled ? ItemSalesLook.fieldBorder : SettingsLook.border, lineWidth: 1)
         }
-        .accessibilityValue(enabled ? "" : "Not available yet")
     }
 }
 
@@ -273,14 +279,14 @@ struct ItemSalesRadioRow: View {
                 .frame(width: 16, height: 16)
                 .accessibilityHidden(true)
                 Text(label)
-                    .pfFont(16)
+                    .pfFont(16.5)
                     .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
             }
             .padding(.leading, 17)
-            .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42)
+            .frame(maxWidth: .infinity, minHeight: 42)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

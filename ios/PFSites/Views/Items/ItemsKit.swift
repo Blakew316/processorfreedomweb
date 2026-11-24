@@ -7,30 +7,36 @@ enum ItemsLook {
     /// #F9F9F9 behind everything below the bar.
     static let page = SettingsLook.page
     static let card = SettingsLook.card
-    /// #2B2B2B: card titles.
+    /// #2B2B2B: card titles and their fold chevrons.
     static let title = Color(light: UIColor(hex: 0x2B2B2B), dark: .label)
     /// #5C5C5C: card descriptions, grey headings and labels.
     static let grey = Color(light: UIColor(hex: 0x5C5C5C), dark: UIColor(hex: 0xAEAEB2))
-    /// #4D4D4D: the notes under radio buttons and checkboxes.
+    /// #4D4D4D: the notes under radio buttons and checkboxes, and checkbox borders.
     static let soft = Color(light: UIColor(hex: 0x4D4D4D), dark: UIColor(hex: 0xAEAEB2))
-    /// #727272: the grey lines of a list row.
+    /// #727272: the grey lines of a list row and its checkboxes.
     static let rowGrey = Color(light: UIColor(hex: 0x727272), dark: .secondaryLabel)
     /// #E5E5E5: hairlines and card borders.
     static let line = Color(light: UIColor(hex: 0xE5E5E5), dark: UIColor(hex: 0x38383A))
     /// The white line under each list hairline (nothing in dark mode).
     static let lineLight = Color(light: .white, dark: .clear)
-    /// #E3E3E3: round buttons and grey pills.
+    /// #E3E3E3: round buttons, grey pills, the Menus card and its table.
     static let control = Color(light: UIColor(hex: 0xE3E3E3), dark: UIColor(hex: 0x3A3A3C))
-    /// #C4C4C4: the darker Cancel pill of Select.
+    /// #C4C4C4: the darker Cancel pill of Select, and a switch that is off.
     static let controlDark = Color(light: UIColor(hex: 0xC4C4C4), dark: UIColor(hex: 0x545458))
     /// #868686: field borders.
     static let field = Color(light: UIColor(hex: 0x868686), dark: UIColor(hex: 0x636366))
-    /// The light blue of a "+" or a label on a brand-blue button (Clover's light green, rebranded).
+    /// The light blue of a "+" or the words on a brand-blue button (Clover's light green, rebranded).
     static let onBrand = Color(light: UIColor(hex: 0xE8F1FC), dark: .white)
     /// #FBFBFB inside the photo box.
     static let imageFill = Color(light: UIColor(hex: 0xFBFBFB), dark: UIColor(hex: 0x1C1C1E))
+    /// Words in a field before anything is typed.
+    static let placeholder = Color(.placeholderText)
     /// Things Processor Freedom does not do: shown, greyed, and not tappable.
     static let greyed = SettingsLook.greyed
+    /// The fainter grey of a greyed field's placeholder.
+    static let greyedFaint = Color(.quaternaryLabel)
+    /// Where a radio button's label starts, from the card's edge: the radio's own 3.3 pt indent, the 16 pt radio and the 13 pt gap.
+    static let radioLabelInset: CGFloat = 32.3
 }
 
 // MARK: - Lines
@@ -60,16 +66,17 @@ struct ItemsListLine: View {
 
 // MARK: - Buttons
 
-/// The photos' round grey buttons (50 x 48 pt), the brand-blue "+" and the pills: a filled capsule around the label.
+/// The photos' round grey buttons (50 x 48 pt) and the brand-blue "+": a filled capsule around the icon.
 struct ItemsCapsuleStyle: ButtonStyle {
     var fill: Color = ItemsLook.control
     var width: CGFloat? = 50
     var height: CGFloat = 48
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: width, height: height)
-            .background(fill, in: Capsule())
+            .background(isEnabled ? fill : ItemsLook.control, in: Capsule())
             .contentShape(Capsule())
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
@@ -84,7 +91,7 @@ struct ItemsPillStyle: ButtonStyle {
     var kind: Kind = .grey
     var width: CGFloat? = nil
     var height: CGFloat = 48
-    var size: CGFloat = 16.5
+    var size: CGFloat = 17
     var weight: Font.Weight = .regular
     /// What a brand-blue pill shows behind its greyed words while it cannot be used (nothing for Save, as in the photos).
     var disabledFill: Color = .clear
@@ -203,7 +210,7 @@ struct ItemsCheckbox: View {
     }
 }
 
-/// A 16 pt radio button: a grey ring, or a brand-blue ring with a dot when chosen.
+/// A 16 pt radio button: a grey ring, or a brand-blue ring with a 6 pt dot when chosen.
 struct ItemsRadio: View {
     let on: Bool
     var greyed = false
@@ -211,11 +218,11 @@ struct ItemsRadio: View {
     var body: some View {
         ZStack {
             Circle()
-                .strokeBorder(greyed ? ItemsLook.greyed : (on ? Theme.blue : ItemsLook.soft), lineWidth: 1.33)
+                .strokeBorder(greyed ? ItemsLook.greyed : (on ? Theme.blue : ItemsLook.soft), lineWidth: 1.2)
             if on {
                 Circle()
                     .fill(greyed ? ItemsLook.greyed : Theme.blue)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 6, height: 6)
             }
         }
         .frame(width: 16, height: 16)
@@ -223,7 +230,8 @@ struct ItemsRadio: View {
     }
 }
 
-/// The photos' small switch: a brand-blue track with a white knob holding a tick when on, grey when off, pale when greyed.
+/// The photos' switch (40 x 24 pt): a brand-blue track with a white 20 pt knob holding a tick when on, grey when off, pale when
+/// greyed.
 struct ItemsSwitchMark: View {
     let on: Bool
     var greyed = false
@@ -234,17 +242,17 @@ struct ItemsSwitchMark: View {
                 .fill(track)
             Circle()
                 .fill(Color.white)
-                .frame(width: 18, height: 18)
+                .frame(width: 20, height: 20)
                 .overlay {
                     if on {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(greyed ? ItemsLook.greyed : Theme.blue)
                     }
                 }
                 .padding(2)
         }
-        .frame(width: 40, height: 22)
+        .frame(width: 40, height: 24)
         .accessibilityHidden(true)
     }
 
@@ -254,7 +262,7 @@ struct ItemsSwitchMark: View {
     }
 }
 
-/// A switch with its label; greyed ones say "Not available yet" and do nothing.
+/// A switch with its label ("Show on POS", "Available", "Charge sales tax"); greyed ones say "Not available yet" and do nothing.
 struct ItemsSwitchRow: View {
     let label: String
     @Binding var on: Bool
@@ -267,11 +275,12 @@ struct ItemsSwitchRow: View {
             guard !greyed else { return }
             on.toggle()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: dotted ? 12.7 : 13) {
                 ItemsSwitchMark(on: on, greyed: greyed)
                 Text(label)
                     .pfFont(size)
                     .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
                 Spacer(minLength: 0)
             }
@@ -286,7 +295,7 @@ struct ItemsSwitchRow: View {
     }
 }
 
-/// A checkbox with its bold label and grey note (the age-restricted and non-revenue rows).
+/// A checkbox with its label and grey note (the age-restricted and non-revenue rows).
 struct ItemsCheckRow: View {
     let label: String
     var note: String? = nil
@@ -294,7 +303,7 @@ struct ItemsCheckRow: View {
     var greyed = false
     var bold = true
     var dotted = false
-    var gap: CGFloat = 22
+    var gap: CGFloat = 12.7
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -311,30 +320,32 @@ struct ItemsCheckRow: View {
     }
 
     private var row: some View {
-        HStack(alignment: .top, spacing: gap) {
+        HStack(alignment: dotted ? .center : .top, spacing: gap) {
             ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
-                .padding(.top, 3)
-            VStack(alignment: .leading, spacing: 4) {
+                .padding(.top, dotted ? 0 : 1.3)
+            VStack(alignment: .leading, spacing: 6.3) {
                 Text(label)
-                    .pfFont(16.5, bold ? .bold : .regular)
+                    .pfFont(bold ? 16 : 16.5, bold ? .bold : .regular)
                     .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
                     .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
                 if let note {
                     Text(note)
-                        .pfFont(16)
+                        .pfFont(14)
                         .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
-                        .lineSpacing(1)
+                        .lineSpacing(3.3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
         }
+        .padding(.leading, 3.3)
         .contentShape(Rectangle())
     }
 }
 
-/// A radio button with its bold label and the note under it ("Service" and "Item", the two ways of managing stock).
+/// A radio button with its bold label and the note under it ("Service" and "Item", the two ways of managing stock). Anything
+/// under the chosen one (the stock fields) lines up with the label.
 struct ItemsRadioRow<Extra: View>: View {
     let label: String
     var note: String? = nil
@@ -357,29 +368,31 @@ struct ItemsRadioRow<Extra: View>: View {
             .accessibilityAddTraits(on ? .isSelected : [])
             .accessibilityValue(greyed ? "Not available yet" : "")
             extra()
-                .padding(.leading, 38)
+                .padding(.leading, ItemsLook.radioLabelInset)
         }
     }
 
     private var row: some View {
-        HStack(alignment: .top, spacing: 22) {
+        HStack(alignment: .top, spacing: 13) {
             ItemsRadio(on: on, greyed: greyed)
-                .padding(.top, 3)
-            VStack(alignment: .leading, spacing: 6) {
+                .padding(.top, 1.7)
+            VStack(alignment: .leading, spacing: 6.3) {
                 Text(label)
                     .pfFont(16.5, .bold)
                     .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.grey)
+                    .lineSpacing(5.5)
                     .fixedSize(horizontal: false, vertical: true)
                 if let note {
                     Text(note)
-                        .pfFont(16)
+                        .pfFont(14)
                         .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
-                        .lineSpacing(1)
+                        .lineSpacing(3.3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
         }
+        .padding(.leading, 3.3)
         .contentShape(Rectangle())
     }
 }
@@ -392,20 +405,23 @@ extension ItemsRadioRow where Extra == EmptyView {
 
 // MARK: - Text
 
-/// The dotted underline Clover puts under words that explain something.
+/// The dotted underline Clover puts under words that explain something: 2.2 pt dots every 3 pt, starting 3.3 pt before the words
+/// and ending 3.3 pt after them.
 struct ItemsDotted: ViewModifier {
     var show = true
     var color: Color = .primary
 
+    @ViewBuilder
     func body(content: Content) -> some View {
         if show {
             content
-                .padding(.bottom, 7)
+                .padding(.horizontal, 3.3)
+                .padding(.bottom, 5.8)
                 .overlay(alignment: .bottom) {
                     ItemsDotLine()
-                        .stroke(color, style: StrokeStyle(lineWidth: 1.8, lineCap: .round, dash: [0.1, 2.9]))
-                        .frame(height: 2)
-                        .padding(.horizontal, -3)
+                        .stroke(color, style: StrokeStyle(lineWidth: 2.2, lineCap: .round, dash: [0.01, 2.99]))
+                        .frame(height: 2.2)
+                        .accessibilityHidden(true)
                 }
         } else {
             content
@@ -416,30 +432,32 @@ struct ItemsDotted: ViewModifier {
 private struct ItemsDotLine: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        path.move(to: CGPoint(x: rect.minX + 1, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.maxX - 1, y: rect.midY))
+        path.move(to: CGPoint(x: rect.minX + 1.1, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.maxX - 1.1, y: rect.midY))
         return path
     }
 }
 
-/// A grey bold heading inside a card ("On device", "Stock", "Availability").
+/// A bold heading inside a card: grey ("On device", "Stock", "Availability") or black with the dotted underline ("Online
+/// ordering", "Revenue class").
 struct ItemsHeading: View {
     let text: String
     var color: Color = ItemsLook.grey
-    var size: CGFloat = 18.5
+    var dotted = false
 
     var body: some View {
         Text(text)
-            .pfFont(size, .bold, relativeTo: .headline)
+            .pfFont(19, .bold, relativeTo: .headline)
             .foregroundStyle(color)
             .fixedSize(horizontal: false, vertical: true)
+            .modifier(ItemsDotted(show: dotted, color: color))
             .accessibilityAddTraits(.isHeader)
     }
 }
 
 // MARK: - Fields
 
-/// A boxed field with its label above (48 pt tall, a 1 pt grey border, 8 pt corners), the server's words under it when it refused
+/// A boxed field with its label above (48 pt tall, a 1 pt grey border, 9 pt corners), the server's words under it when it refused
 /// what was typed there, and greyed when it cannot be used.
 struct ItemsField<Field: View, Trailing: View>: View {
     let label: String
@@ -451,23 +469,26 @@ struct ItemsField<Field: View, Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .pfFont(15)
+                .pfFont(14)
                 .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
                 field()
                     .pfFont(17)
                     .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                     .disabled(greyed)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 trailing()
             }
-            .padding(.leading, 14)
+            .padding(.leading, 13)
             .padding(.trailing, 10)
+            .padding(.vertical, 6)
             .frame(minHeight: 48)
-            .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: focused && problem.isEmpty ? 1.5 : 1)
             }
             if !problem.isEmpty {
@@ -475,10 +496,12 @@ struct ItemsField<Field: View, Trailing: View>: View {
                     .pfFont(14)
                     .foregroundStyle(Theme.error)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.updatesFrequently)
             } else if let note {
                 Text(note)
                     .pfFont(14)
                     .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
+                    .lineSpacing(3.3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -486,7 +509,7 @@ struct ItemsField<Field: View, Trailing: View>: View {
 
     private var borderColor: Color {
         if !problem.isEmpty { return Theme.error }
-        if greyed { return ItemsLook.line }
+        if greyed { return ItemsLook.greyed }
         return focused ? Theme.blue : ItemsLook.field
     }
 }
@@ -506,9 +529,9 @@ struct ItemsDropdown<Choices: View, Leading: View>: View {
     @ViewBuilder var leading: () -> Leading
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .pfFont(15)
+                .pfFont(14)
                 .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
             Menu {
                 choices()
@@ -516,7 +539,7 @@ struct ItemsDropdown<Choices: View, Leading: View>: View {
                 HStack(spacing: 10) {
                     leading()
                     Text(value)
-                        .pfFont(17)
+                        .pfFont(16.5)
                         .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
@@ -524,19 +547,19 @@ struct ItemsDropdown<Choices: View, Leading: View>: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                 }
-                .padding(.leading, 14)
+                .padding(.leading, 13)
                 .padding(.trailing, 18)
                 .frame(minHeight: 48)
-                .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(greyed ? ItemsLook.line : ItemsLook.field, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(greyed ? ItemsLook.greyed : ItemsLook.field, lineWidth: 1)
                 }
                 .contentShape(Rectangle())
             }
             .disabled(greyed)
             .accessibilityLabel(label)
-            .accessibilityValue(value)
+            .accessibilityValue(greyed ? "\(value), not available yet" : value)
         }
     }
 }
@@ -550,8 +573,8 @@ extension ItemsDropdown where Leading == EmptyView {
 // MARK: - Cards
 
 /// A white card of the item editor, as in the photos: the title with its fold chevron, the grey description, a hairline, then the
-/// card's fields. `ruled` puts the hairline right under the title (the Cost card); `side` puts the chevron beside the description
-/// (the Menus card).
+/// card's fields. `ruled` puts the hairline right under the title (the Cost card); `side` is the rounder Menus card, with the
+/// chevron beside the description and no hairline.
 struct ItemsCard<Content: View>: View {
     enum Kind {
         case standard, ruled, side
@@ -560,9 +583,8 @@ struct ItemsCard<Content: View>: View {
     let title: String
     var note: String? = nil
     var kind: Kind = .standard
-    var radius: CGFloat = 8
-    var titleColor: Color = ItemsLook.title
-    var noteColor: Color = ItemsLook.grey
+    /// The space under the card's last field.
+    var bottom: CGFloat = 22
     @ViewBuilder let content: () -> Content
 
     @State private var open = true
@@ -571,48 +593,53 @@ struct ItemsCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             switch kind {
             case .standard:
-                VStack(alignment: .leading, spacing: 4) {
-                    titleRow(chevron: true)
-                    if let note { noteText(note) }
+                titleRow(chevron: true)
+                if let note {
+                    noteText(note)
+                        .padding(.top, 5.5)
                 }
                 if open {
                     ItemsHairline()
-                        .padding(.top, 15)
+                        .padding(.top, 12)
                 }
             case .ruled:
                 titleRow(chevron: true)
-                    .padding(.bottom, 4)
                 ItemsHairline()
+                    .padding(.top, 1.5)
                 if let note {
                     noteText(note)
-                        .padding(.top, 26)
+                        .padding(.top, 27.7)
                 }
             case .side:
                 titleRow(chevron: false)
                 if let note {
                     HStack(alignment: .top, spacing: 16) {
                         noteText(note)
-                            .padding(.top, 2)
                         Spacer(minLength: 0)
                         chevron
+                            .padding(.top, -8.5)
+                            .padding(.trailing, 11)
                     }
-                    .padding(.top, 22)
+                    .padding(.top, 19.3)
                 }
             }
             if open {
                 content()
             }
         }
-        .padding(.horizontal, 17)
-        .padding(.top, 20)
-        .padding(.bottom, 22)
+        .padding(.horizontal, 16)
+        .padding(.top, kind == .side ? 26.4 : 20)
+        .padding(.bottom, open ? bottom : 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .strokeBorder(ItemsLook.line, lineWidth: 1)
+                .strokeBorder(kind == .side ? ItemsLook.control : ItemsLook.line, lineWidth: 1)
         }
     }
+
+    private var radius: CGFloat { kind == .side ? 24 : 8 }
+    private var titleColor: Color { kind == .side ? Color.primary : ItemsLook.title }
 
     private func titleRow(chevron show: Bool) -> some View {
         HStack(alignment: .center, spacing: 12) {
@@ -644,15 +671,15 @@ struct ItemsCard<Content: View>: View {
     private func noteText(_ text: String) -> some View {
         Text(text)
             .pfFont(16)
-            .foregroundStyle(noteColor)
-            .lineSpacing(7)
+            .foregroundStyle(kind == .side ? ItemsLook.soft : ItemsLook.grey)
+            .lineSpacing(kind == .side ? 4.9 : 7)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
 // MARK: - Messages
 
-/// A short message that comes and goes at the bottom (what a bulk change or an import did).
+/// A short message that comes and goes at the bottom (what a bulk change, an import or a save did).
 struct ItemsToast: View {
     let text: String
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency

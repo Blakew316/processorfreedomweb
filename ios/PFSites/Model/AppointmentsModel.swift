@@ -10,7 +10,7 @@ import Observation
 @Observable @MainActor
 final class AppointmentsModel {
     /// The website's name for an appointment without one of the team's names, and the first choice of the Employee(s) filter.
-    static let anyAvailable = "Any available"
+    static let anyAvailable = AppointmentDayCalendar.anyAvailable
 
     var appointments: [Appointment] = []
     /// The business's today ("2026-11-23"), from the server.
@@ -25,6 +25,9 @@ final class AppointmentsModel {
     var employees: Set<String>? = nil
     /// The Appointment attributes filter: the statuses shown; nil shows all five.
     var statuses: Set<AppointmentStatus>? = nil
+
+    /// Counts the loads and the changes, so an answer that set out before a newer one is never shown over it.
+    @ObservationIgnored private var generation = 0
 
     private static var kept: (shell: UUID, model: AppointmentsModel)?
 
@@ -43,7 +46,7 @@ final class AppointmentsModel {
 
     /// A screen opened from Home starts on today; the filters stay.
     func startOnToday() {
-        pickedDay = nil
+        if pickedDay != nil { pickedDay = nil }
     }
 
     func pick(_ day: String) {
@@ -57,22 +60,34 @@ final class AppointmentsModel {
     // MARK: Loading
 
     func load(siteID: String) async {
+        generation += 1
+        let mine = generation
         async let names: Void = loadPeople(siteID: siteID)
         do {
             let answer = try await API.get("/api/sites/\(siteID)/appointments")
-            let list = answer["appointments"].array.compactMap { Appointment($0) }
-            let serverToday = answer["today"].string
-            if list != appointments { appointments = list }
-            if !serverToday.isEmpty, serverToday != today {
-                today = serverToday
-                if pickedDay == serverToday { pickedDay = nil }
+            // A newer load or a change made meanwhile has the fresher list.
+            if mine == generation {
+                let list = answer["appointments"].array.compactMap { Appointment($0) }
+                let serverToday = answer["today"].string
+                if list != appointments { appointments = list }
+                if !serverToday.isEmpty, serverToday != today {
+                    today = serverToday
+                    if pickedDay == serverToday { pickedDay = nil }
+                }
+                if !loaded { loaded = true }
+                if !loadError.isEmpty { loadError = "" }
             }
-            if !loaded { loaded = true }
-            if !loadError.isEmpty { loadError = "" }
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            // A failed refresh keeps the list it had; the message shows when there is nothing yet, or when this login may not see it.
-            if !loaded || error.status == 403 { loadError = error.message }
+            if error.status == 403 {
+                // This login may not see this business's appointments: the server's words, and none of them.
+                if !appointments.isEmpty { appointments = [] }
+                if !loaded { loaded = true }
+                loadError = error.message
+            } else if !loaded {
+                // A failed refresh keeps the list it had; the message shows when there is nothing yet.
+                loadError = error.message
+            }
         } catch {
             // Cancelled: the screen went away.
         }
@@ -96,7 +111,7 @@ final class AppointmentsModel {
 
     func replace(_ fresh: Appointment) {
         if let index = appointments.firstIndex(where: { $0.id == fresh.id }) {
-            appointments[index] = fresh
+            if appointments[index] != fresh { appointments[index] = fresh }
         } else {
             appointments.append(fresh)
         }
@@ -141,6 +156,13 @@ final class AppointmentsModel {
         return statuses.count
     }
 
+    /// A choice of names as the filter keeps it: nil when it holds everyone on the list now (people added later are shown too).
+    func employeeFilter(_ chosen: Set<String>?) -> Set<String>? {
+        guard let chosen else { return nil }
+        let choices = employeeChoices
+        return choices.allSatisfy({ chosen.contains($0) }) ? nil : chosen.intersection(choices)
+    }
+
     // MARK: Actions (the website's appointment sheet); the server checks each one again
 
     func setStatus(_ appointment: Appointment, to status: AppointmentStatus, siteID: String) async throws -> Appointment {
@@ -160,10 +182,12 @@ final class AppointmentsModel {
         return try took(answer)
     }
 
+    /// The server's answer replaces the appointment at once; a load that set out before the change cannot put the old one back.
     private func took(_ answer: JSON) throws -> Appointment {
         guard let fresh = Appointment(answer["appointment"]) else {
             throw APIError(status: 0, message: "Something went wrong. Please try again.")
         }
+        generation += 1
         replace(fresh)
         return fresh
     }
@@ -173,6 +197,8 @@ final class AppointmentsModel {
 /// where no time zone can move them to another day, and shown in the phone's own way of writing dates and times.
 enum AppointmentDayCalendar {
     static let zone = TimeZone(secondsFromGMT: 0) ?? .current
+    /// The website's words for an appointment that names no one on the team (AppointmentsModel.anyAvailable).
+    static let anyAvailable = "Any available"
 
     static var gregorian: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -189,7 +215,7 @@ enum AppointmentDayCalendar {
 
     static func day(_ date: Date) -> String {
         let parts = gregorian.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        return iso(year: parts.year ?? 0, month: parts.month ?? 0, day: parts.day ?? 0)
     }
 
     static func adding(_ days: Int, to day: String) -> String {
@@ -202,7 +228,14 @@ enum AppointmentDayCalendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let parts = calendar.dateComponents([.year, .month, .day], from: Date())
-        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        return iso(year: parts.year ?? 0, month: parts.month ?? 0, day: parts.day ?? 0)
+    }
+
+    /// "2026-11-03".
+    private static func iso(year: Int, month: Int, day: Int) -> String {
+        func two(_ value: Int) -> String { value < 10 ? "0\(value)" : String(value) }
+        let digits = String(year)
+        return String(repeating: "0", count: max(0, 4 - digits.count)) + digits + "-" + two(month) + "-" + two(day)
     }
 
     /// "Nov 23", with the year when the day is in another year than the business's today.
@@ -236,5 +269,14 @@ enum AppointmentDayCalendar {
     static func when(_ appointment: Appointment) -> String {
         "\(long(appointment.day)) · \(clock(appointment.startMinute, on: appointment.day))"
             + (appointment.minutes > 0 ? " · \(appointment.minutes) min" : "")
+    }
+
+    /// The website's words for what the appointment is for, and who it is with.
+    static func service(_ appointment: Appointment) -> String {
+        appointment.service.isEmpty ? "Booking" : appointment.service
+    }
+
+    static func employee(_ appointment: Appointment) -> String {
+        appointment.employee.isEmpty ? anyAvailable : appointment.employee
     }
 }

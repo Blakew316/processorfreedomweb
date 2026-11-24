@@ -10,11 +10,11 @@ struct AppointmentsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var started = false
-    /// Counts the times the day view came back into sight (Create appointment closing), so each one loads the day again.
-    @State private var returns = 0
     @State private var panel: AppointmentDayPanel? = nil
     @State private var pickingFromTitle = false
     @State private var pickingFromButton = false
+    /// The calendar's choice: noon (GMT) of the day on screen when it opens.
+    @State private var pickerDate = Date()
     @State private var opened: Opened? = nil
     @State private var toast: String? = nil
 
@@ -26,7 +26,6 @@ struct AppointmentsScreen: View {
         let active: Bool
         let ready: Bool
         let site: String
-        let returns: Int
     }
 
     init() {}
@@ -47,6 +46,7 @@ struct AppointmentsScreen: View {
                     .zIndex(1)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.snappy(duration: 0.3), value: panel)
         .background(Color(.systemBackground))
         .navigationTitle("Appointments")
@@ -62,21 +62,31 @@ struct AppointmentsScreen: View {
         .toolbarVisibility(.hidden, for: .tabBar)
         .steadyNavigationBar()
         .onAppear {
-            if started {
-                returns += 1
-            } else {
+            // Opened from Home it starts on today; back from Create appointment it stays on the day it showed.
+            if !started {
                 started = true
                 list.startOnToday()
             }
         }
-        .task(id: PollKey(active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "", returns: returns)) {
+        // Runs each time the day view comes into sight (also back from Create appointment), and again when the app comes back.
+        .task(id: PollKey(active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
             await poll()
+        }
+        // A day tapped in the calendar shows at once and closes it (the day already on screen changes nothing).
+        .onChange(of: pickerDate) { _, picked in
+            let day = AppointmentDayCalendar.day(picked)
+            guard pickingFromTitle || pickingFromButton, day != list.day else { return }
+            model.idle.touch()
+            list.pick(day)
+            pickingFromTitle = false
+            pickingFromButton = false
         }
         .sheet(item: $opened, onDismiss: { Task { await refresh() } }) { item in
             AppointmentDaySheet(list: list, appointmentID: item.id) { message in
                 opened = nil
                 if let message { show(message) }
             }
+            .environment(model)
         }
         .overlay(alignment: .bottom) {
             if let toast {
@@ -88,12 +98,13 @@ struct AppointmentsScreen: View {
         }
     }
 
-    // MARK: The row under the bar (the photo: the day at 32 pt, then 48 pt circles 12, 8 and 8 pt apart, 16 pt from the edge)
+    // MARK: The row under the bar (the photo: the day 16 pt bold, then 48 pt circles 12, 8 and 8 pt apart, 16 pt from the edge)
 
     private var toolbarRow: some View {
         let shown = list
         return HStack(spacing: 0) {
             Button {
+                openCalendar()
                 pickingFromTitle = true
             } label: {
                 HStack(spacing: 21) {
@@ -101,9 +112,9 @@ struct AppointmentsScreen: View {
                         .pfFont(16, .bold)
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(0.6)
                     AppointmentDayGlyph(kind: .chevronDown)
-                        .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                        .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                         .frame(width: 13.33, height: 7.33)
                 }
                 .padding(.leading, 16)
@@ -117,8 +128,11 @@ struct AppointmentsScreen: View {
 
             Spacer(minLength: 12)
 
-            roundButton(.calendar, label: "Choose a day", count: nil) { pickingFromButton = true }
-                .popover(isPresented: $pickingFromButton) { dayPicker }
+            roundButton(.calendar, label: "Choose a day", count: nil) {
+                openCalendar()
+                pickingFromButton = true
+            }
+            .popover(isPresented: $pickingFromButton) { dayPicker }
             roundButton(.people, label: "Employee(s)", count: shown.employeesShown) { open(.employees) }
                 .padding(.leading, 12)
             roundButton(.sliders, label: "Appointment attributes", count: shown.statusesShown) { open(.attributes) }
@@ -127,9 +141,11 @@ struct AppointmentsScreen: View {
                 model.idle.touch()
                 model.shell.push(.createAppointment(date: nil, time: nil, employee: nil))
             } label: {
+                // The photo's "+" sits 1.67 pt below the middle of its circle.
                 AppointmentDayGlyph(kind: .plus)
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 1.33, lineCap: .round))
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 1.25, lineCap: .round))
                     .frame(width: 11.33, height: 11.33)
+                    .offset(y: 1.67)
                     .frame(width: 48, height: 48)
                     .background(Theme.blue, in: Circle())
                     .contentShape(Circle())
@@ -146,16 +162,18 @@ struct AppointmentsScreen: View {
     /// buttons show it.
     private func roundButton(_ glyph: AppointmentDayGlyph.Kind, label: String, count: Int?, action: @escaping () -> Void) -> some View {
         Button(action: action) {
+            // In the photo the two people sit 1 pt above the middle of their circle; the other drawings are centred.
             AppointmentDayGlyph(kind: glyph)
-                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
                 .frame(width: glyph.size.width, height: glyph.size.height)
+                .offset(y: glyph == .people ? -1 : 0)
                 .frame(width: 48, height: 48)
                 .background(AppointmentDayLook.grey, in: Circle())
                 .overlay(alignment: .topTrailing) {
                     if let count {
                         Text(String(count))
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.white)
                             .padding(.horizontal, 4)
                             .frame(minWidth: 18, minHeight: 18)
                             .background(Capsule().fill(Theme.blue))
@@ -169,25 +187,21 @@ struct AppointmentsScreen: View {
         .accessibilityValue(count.map { "\($0) shown" } ?? "")
     }
 
+    /// The calendar opens on the day on screen.
+    private func openCalendar() {
+        model.idle.touch()
+        if let shownDate = AppointmentDayCalendar.date(list.day), shownDate != pickerDate { pickerDate = shownDate }
+    }
+
     /// The calendar for choosing the day: from the first day the server sends appointments for (30 days back) onward.
     private var dayPicker: some View {
-        let shown = list
-        let first = shown.firstDay.flatMap { AppointmentDayCalendar.date($0) } ?? .distantPast
-        let day = Binding<Date>(
-            get: { AppointmentDayCalendar.date(shown.day) ?? Date() },
-            set: { picked in
-                model.idle.touch()
-                shown.pick(AppointmentDayCalendar.day(picked))
-                pickingFromTitle = false
-                pickingFromButton = false
-            }
-        )
-        return DatePicker("Day", selection: day, in: first..., displayedComponents: .date)
+        let first = list.firstDay.flatMap { AppointmentDayCalendar.date($0) } ?? Date.distantPast
+        return DatePicker("Day", selection: $pickerDate, in: first..., displayedComponents: .date)
             .datePickerStyle(.graphical)
             .labelsHidden()
             .tint(Theme.blue)
             .environment(\.timeZone, AppointmentDayCalendar.zone)
-            .frame(minWidth: 300)
+            .frame(width: 320)
             .padding(12)
             .presentationCompactAdaptation(.popover)
     }
@@ -218,7 +232,7 @@ struct AppointmentsScreen: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if !shown.loadError.isEmpty {
-                        // This login may no longer see them: the server's words, plainly.
+                        // This login may not see them: the server's words, plainly.
                         Text(shown.loadError)
                             .pfFont(16)
                             .foregroundStyle(SettingsLook.muted)
@@ -232,6 +246,7 @@ struct AppointmentsScreen: View {
                 .padding(.top, 24)
                 .padding(.bottom, 32)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .refreshable { await refresh() }
         }
     }
@@ -239,8 +254,8 @@ struct AppointmentsScreen: View {
     /// One appointment in the app's card style: the time, the customer, the service and who it is with, and its status icon.
     private func card(_ appointment: Appointment) -> some View {
         let status = AppointmentStatus(rawValue: appointment.status)
-        let service = appointment.service.isEmpty ? "Booking" : appointment.service
-        let employee = appointment.employee.isEmpty ? AppointmentsModel.anyAvailable : appointment.employee
+        let service = AppointmentDayCalendar.service(appointment)
+        let employee = AppointmentDayCalendar.employee(appointment)
         let times = AppointmentDayCalendar.times(appointment)
         return Button {
             model.idle.touch()
@@ -327,7 +342,9 @@ struct AppointmentsScreen: View {
         withAnimation(.snappy) { toast = text }
         Task {
             try? await Task.sleep(nanoseconds: 2_200_000_000)
-            withAnimation(.easeOut(duration: 0.25)) { if toast == text { toast = nil } }
+            withAnimation(.easeOut(duration: 0.25)) {
+                if toast == text { toast = nil }
+            }
         }
     }
 }

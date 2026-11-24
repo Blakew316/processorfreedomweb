@@ -98,18 +98,30 @@ struct ItemsImportSheet: View {
             ItemsHairline()
             VStack(spacing: 10) {
                 if count > 0 {
-                    Button(label(for: hasItems, normal: hasItems ? "Replace my menu" : "Build my menu")) { run(replace: hasItems) }
-                        .buttonStyle(ItemsPillStyle(kind: .brand, width: nil, height: 48, size: 16.5, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                    if hasItems {
-                        Button(label(for: false, normal: "Add to my menu")) { run(replace: false) }
-                            .buttonStyle(ItemsPillStyle(kind: .grey, width: nil, height: 48, size: 16.5, weight: .semibold))
+                    Button {
+                        run(replace: hasItems)
+                    } label: {
+                        Text(label(for: hasItems, normal: hasItems ? "Replace my menu" : "Build my menu"))
                             .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(ItemsPillStyle(kind: .brand, height: 48, size: 16.5, weight: .semibold))
+                    if hasItems {
+                        Button {
+                            run(replace: false)
+                        } label: {
+                            Text(label(for: false, normal: "Add to my menu"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(ItemsPillStyle(kind: .grey, height: 48, size: 16.5, weight: .semibold))
+                    }
                 }
-                Button("Cancel") { dismiss() }
-                    .buttonStyle(ItemsPillStyle(kind: count > 0 ? .plain : .grey, width: nil, height: 48, size: 16.5, weight: .semibold))
-                    .frame(maxWidth: .infinity)
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(ItemsPillStyle(kind: .grey, height: 48, size: 16.5, weight: .semibold))
             }
             .disabled(running != nil)
             .padding(.horizontal, 20)

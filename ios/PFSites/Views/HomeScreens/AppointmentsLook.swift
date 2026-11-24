@@ -75,8 +75,9 @@ struct AppointmentDayGlyph: Shape {
             path.addLine(to: CGPoint(x: 6.67, y: 6.53))
             path.addLine(to: CGPoint(x: 12.53, y: 0.8))
         case .tick:
-            path.move(to: CGPoint(x: 3.8, y: 8.9))
-            path.addLine(to: CGPoint(x: 6.3, y: 11.5))
+            // The checkbox's tick, traced from the photos' 16 pt box.
+            path.move(to: CGPoint(x: 3.9, y: 9.0))
+            path.addLine(to: CGPoint(x: 6.2, y: 11.6))
             path.addLine(to: CGPoint(x: 12.0, y: 4.8))
         case .cross:
             Self.line(&path, 0.6, 0.6, 10.4, 10.4)
@@ -125,10 +126,11 @@ struct AppointmentDayStatusIcon: View {
     var body: some View {
         let scale = size / 24
         ZStack {
+            // The photo's ring and marks are 1.5 pt; the exclamation mark's stem tapers from about 2.1 to 1.5 pt.
             Circle()
-                .strokeBorder(color, lineWidth: 1.33 * scale)
+                .strokeBorder(color, lineWidth: 1.5 * scale)
             AppointmentDayStatusMarks(kind: kind)
-                .stroke(color, style: StrokeStyle(lineWidth: (kind == .noShow ? 1.9 : 1.4) * scale, lineCap: .round, lineJoin: .round))
+                .stroke(color, style: StrokeStyle(lineWidth: (kind == .noShow ? 1.85 : 1.5) * scale, lineCap: .round, lineJoin: .round))
             if kind == .noShow {
                 Circle()
                     .fill(color)
@@ -195,7 +197,7 @@ struct AppointmentDayStatusMarks: Shape {
     }
 }
 
-/// Clover's square checkbox from the photos: 16 pt with 2.5 pt corners, navy with a white tick when checked.
+/// Clover's square checkbox from the photos: 16 pt with 2.67 pt corners, navy with a white tick when checked.
 struct AppointmentDayCheckbox: View {
     let on: Bool
     var greyed = false
@@ -203,12 +205,12 @@ struct AppointmentDayCheckbox: View {
     var body: some View {
         ZStack {
             if on {
-                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                RoundedRectangle(cornerRadius: 2.67, style: .continuous)
                     .fill(greyed ? SettingsLook.greyed : AppointmentDayLook.navy)
                 AppointmentDayGlyph(kind: .tick)
                     .stroke(Color.white, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             } else {
-                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                RoundedRectangle(cornerRadius: 2.67, style: .continuous)
                     .strokeBorder(greyed ? SettingsLook.greyed : AppointmentDayLook.boxBorder, lineWidth: 1)
             }
         }
@@ -217,7 +219,8 @@ struct AppointmentDayCheckbox: View {
     }
 }
 
-/// The panels' close button from the photos: an X in a thin ring, inside a thicker navy ring (34 pt across, in a 44 pt tap area).
+/// The panels' close button from the photos: a navy ring (2 pt) around a thin one (1 pt, 2 pt inside it) with the X in the
+/// middle (11 pt, 1.5 pt lines); 34 pt across, in a 44 pt tap area.
 struct AppointmentDayCloseButton: View {
     let action: () -> Void
 
@@ -227,10 +230,10 @@ struct AppointmentDayCloseButton: View {
                 Circle()
                     .strokeBorder(Theme.ink, lineWidth: 2)
                 Circle()
-                    .strokeBorder(Theme.ink, lineWidth: 1.2)
-                    .padding(4)
+                    .strokeBorder(Theme.ink, lineWidth: 1)
+                    .padding(4.17)
                 AppointmentDayGlyph(kind: .cross)
-                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.25, lineCap: .round))
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
                     .frame(width: 11, height: 11)
             }
             .frame(width: 34, height: 34)
@@ -243,7 +246,7 @@ struct AppointmentDayCloseButton: View {
 }
 
 /// The 48 pt pills at the foot of the panels and the appointment sheet: grey (Cancel), navy (Show results and the sheet's main
-/// action), and #F9F9F9 with #C4C4C4 words while one cannot be pressed yet.
+/// action), and #F9F9F9 with #C4C4C4 words while one cannot be pressed yet. The words are 16 pt medium, as in the photos.
 struct AppointmentDayPillStyle: ButtonStyle {
     enum Kind {
         case primary, soft
@@ -264,7 +267,7 @@ private struct AppointmentDayPill<Label: View>: View {
 
     var body: some View {
         label
-            .pfFont(17, .medium)
+            .pfFont(16, .medium)
             .foregroundStyle(text)
             .lineLimit(1)
             .minimumScaleFactor(0.8)

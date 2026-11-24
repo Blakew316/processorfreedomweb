@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Home → Sales overview (the owner's Clover photos, rebranded): the time frame row, net sales with its transactions and the
 /// change against the previous period, the chart, the cards that scroll sideways, then the top employees and the top items.
-/// Everything is the server's numbers (GET /api/sites/<id>/stats). It refreshes when it appears, when the app comes back, when
-/// the time frame changes, and on pull.
+/// Everything is the server's numbers (GET /api/sites/<id>/stats, and the ledger's refunds). It refreshes when it appears, when the
+/// app comes back, when the time frame changes, on pull, and every minute while it shows a period that runs up to today.
 struct SalesOverviewScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
@@ -46,8 +46,15 @@ struct SalesOverviewScreen: View {
         }
         .steadyNavigationBar()
         .task(id: LoadKey(frame: stats.frame.key, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
-            guard scenePhase == .active else { return }
+            guard scenePhase == .active, model.phase == .ready else { return }
             await load(stats)
+            // A period that runs up to today is read again every minute while the screen shows, so sales taken on the website or
+            // another phone show up here.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                if Task.isCancelled { return }
+                if stats.reachesToday { await load(stats) }
+            }
         }
         .sheet(isPresented: $choosingFrame) {
             TimeFrameSheet(chosen: stats.frame, today: stats.businessToday) { frame in
@@ -68,9 +75,9 @@ struct SalesOverviewScreen: View {
                     cards(report, ledger: stats.ledgerRefunds)
                     StatsBand()
                         .padding(.top, 16)
-                    SalesOverviewTopList(title: "Top employees by amount collected", symbol: "person", rows: employeeRows(report))
+                    SalesOverviewTopList(title: "Top employees by amount collected", art: .person, rows: employeeRows(report))
                     StatsBand()
-                    SalesOverviewTopList(title: "Top items by net sales", symbol: "shippingbox", rows: itemRows(report))
+                    SalesOverviewTopList(title: "Top items by net sales", art: .box, rows: itemRows(report))
                     StatsBand()
                 }
             }
@@ -93,23 +100,21 @@ struct SalesOverviewScreen: View {
                 .pfFont(16, .semibold)
                 .foregroundStyle(Theme.blue)
             Text(Money.format(totals.net))
-                .pfFont(36, .bold, relativeTo: .largeTitle)
+                .pfFont(35, .bold, relativeTo: .largeTitle)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .padding(.top, 6)
             Text(StatsFormat.count(totals.orders, "Transaction", "Transactions"))
-                .pfFont(14)
+                .pfFont(13.5)
                 .foregroundStyle(StatsLook.subtle)
                 .padding(.leading, 2)
-            if let change = StatsChange.of(totals.net, report.previous.net, decimals: 0) {
-                StatsChangeLine(change: change, words: report.sinceWords, style: .triangle)
-                    .padding(.leading, 2)
-                    .padding(.top, 2)
-            }
+            StatsChangeLine(change: StatsChange.of(totals.net, report.previous.net, decimals: 0), words: report.sinceWords, style: .triangle)
+                .padding(.leading, 3)
+                .padding(.top, 2)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 17)
+        .padding(.top, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
@@ -147,19 +152,20 @@ struct SalesOverviewScreen: View {
 
     // MARK: Top lists
 
-    /// The people credited with the period's orders, by what their orders took in (the website's Employee sales "Total collected").
+    /// The people credited with the period's orders, by what their orders took in (the website's Sales by employee "Total
+    /// collected"), top five, as the website's top lists keep only amounts above zero.
     private func employeeRows(_ report: StatsReport) -> [SalesOverviewTopRow] {
         report.employees
-            .filter { $0.orders != 0 || $0.total != 0 }
+            .filter { $0.total > 0 }
             .sorted { $0.total > $1.total }
             .prefix(5)
             .map { SalesOverviewTopRow(id: $0.name, name: $0.name, detail: StatsFormat.count($0.orders, "order", "orders"), cents: $0.total) }
     }
 
-    /// The items with the most net sales (after their share of discounts and refunds, as the server works it out).
+    /// The items with the most net sales (after their share of discounts and refunds, as the server works it out), top five.
     private func itemRows(_ report: StatsReport) -> [SalesOverviewTopRow] {
         report.items
-            .filter { $0.qty != 0 || $0.sales != 0 }
+            .filter { $0.sales > 0 }
             .sorted { $0.sales != $1.sales ? $0.sales > $1.sales : $0.qty > $1.qty }
             .prefix(5)
             .map { SalesOverviewTopRow(id: $0.name, name: $0.name, detail: "\($0.qty) sold", cents: $0.sales) }
@@ -180,7 +186,7 @@ struct SalesOverviewCardData: Identifiable {
     var id: String { title }
 }
 
-/// The card from the photo: 166 pt wide, 1 pt #C7C7C7 border, 6 pt corners.
+/// The card from the photo: 166 pt wide, 1 pt #C7C7C7 border, 5 pt corners; the name, the amount bold, the count in grey.
 struct SalesOverviewCard: View {
     let card: SalesOverviewCardData
     @ScaledMetric(relativeTo: .body) private var width: CGFloat = 166
@@ -193,11 +199,11 @@ struct SalesOverviewCard: View {
             Text(card.amount)
                 .pfFont(17, .bold)
                 .foregroundStyle(Color.primary)
-                .padding(.top, 5)
+                .padding(.top, 4)
             Text(card.detail ?? " ")
                 .pfFont(13.5)
                 .foregroundStyle(StatsLook.subtle)
-                .padding(.top, 2)
+                .padding(.top, 1.5)
                 .opacity(card.detail == nil ? 0 : 1)
                 .accessibilityHidden(card.detail == nil)
         }
@@ -206,11 +212,11 @@ struct SalesOverviewCard: View {
         .padding(.leading, 17)
         .padding(.trailing, 12)
         .padding(.top, 14)
-        .padding(.bottom, 18)
+        .padding(.bottom, 19)
         .frame(width: width, alignment: .leading)
-        .background(StatsLook.card, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .background(StatsLook.card, in: RoundedRectangle(cornerRadius: 5, style: .circular))
         .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: 5, style: .circular)
                 .strokeBorder(StatsLook.cardBorder, lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
@@ -225,72 +231,61 @@ struct SalesOverviewTopRow: Identifiable {
     let cents: Int
 }
 
-/// "Top employees by amount collected" and "Top items by net sales": the top five with a blue bar for their share of the first,
-/// or the photo's empty state (the round drawing, the title and the photo's words) when the period has none.
+/// "Top employees by amount collected" and "Top items by net sales" (the photo): the round drawing, the title (wrapping after "by"
+/// as in the photo), then the top five with a blue bar for their share of the first, or the photo's words when the period has none.
 struct SalesOverviewTopList: View {
     let title: String
-    let symbol: String
+    let art: StatsArt.Subject
     let rows: [SalesOverviewTopRow]
 
-    var body: some View {
-        if rows.isEmpty {
-            empty
-        } else {
-            list
-        }
-    }
+    /// The photo's title wraps "Top employees by amount collected" after "by" but keeps "Top items by net sales" on one line.
+    @ScaledMetric(relativeTo: .title3) private var titleWidth: CGFloat = 205
 
-    private var empty: some View {
-        HStack(alignment: .top, spacing: 19) {
-            Circle()
-                .fill(StatsLook.artFill)
-                .frame(width: 64, height: 64)
-                .overlay {
-                    Image(systemName: symbol)
-                        .font(.system(size: 27, weight: .light))
-                        .foregroundStyle(StatsLook.artInk)
-                }
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 9) {
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            StatsArt(subject: art)
+                .padding(.top, 28)
+            VStack(alignment: .leading, spacing: 12) {
                 Text(title)
-                    .pfFont(18.5, .bold, relativeTo: .title3)
+                    .pfFont(18, .bold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
+                    .lineHeight(.exact(points: 18))
                     .fixedSize(horizontal: false, vertical: true)
-                    // The photo's title wraps after "by", narrower than the words under it.
-                    .frame(maxWidth: 215, alignment: .leading)
+                    .frame(maxWidth: titleWidth, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
-                Text("No transactions or transactions with items were recorded for the time period.")
-                    .pfFont(14)
-                    .foregroundStyle(StatsLook.sectionText)
-                    .fixedSize(horizontal: false, vertical: true)
+                if rows.isEmpty {
+                    Text("No transactions or transactions with items were recorded for the time period.")
+                        .pfFont(14)
+                        .foregroundStyle(StatsLook.sectionText)
+                        .lineHeight(.exact(points: 14))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    list
+                        .padding(.top, 2)
+                }
             }
-            .padding(.top, 1)
-            Spacer(minLength: 0)
+            .padding(.top, 30)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 27)
-        .padding(.bottom, 16)
+        .padding(.leading, 16)
+        .padding(.trailing, 22)
+        .padding(.bottom, 12)
         .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
     }
 
     private var list: some View {
         let top = max(rows.map(\.cents).max() ?? 0, 1)
-        return VStack(alignment: .leading, spacing: 18) {
-            Text(title)
-                .pfFont(18.5, .bold, relativeTo: .title3)
-                .foregroundStyle(Color.primary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+        return VStack(alignment: .leading, spacing: 14) {
             ForEach(rows) { row in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
                         Text(row.name)
-                            .pfFont(16)
+                            .pfFont(15)
                             .foregroundStyle(Color.primary)
                             .lineLimit(2)
                         Spacer(minLength: 8)
                         Text(Money.format(row.cents))
-                            .pfFont(16, .semibold)
+                            .pfFont(15, .semibold)
                             .foregroundStyle(Color.primary)
                     }
                     Text(row.detail)
@@ -306,14 +301,12 @@ struct SalesOverviewTopList: View {
                             }
                     }
                     .frame(height: 4)
+                    .padding(.top, 2)
                     .accessibilityHidden(true)
                 }
                 .accessibilityElement(children: .combine)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 24)
-        .padding(.bottom, 26)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 10)
     }
 }

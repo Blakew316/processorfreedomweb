@@ -6,8 +6,8 @@ import SwiftUI
 /// does not have (greyed, with its true zero), then every closed batch. A row opens its details in the cover's own navigation
 /// stack, where the current batch is closed out.
 /// Everything is the server's (`GET /api/sites/<id>/closeouts`), shown with the website's words and rules (public/js/editor.js
-/// CL.close), and loaded when the screen appears, on pull to refresh, and when the app comes back, so a closeout made on the
-/// website or another phone shows here too.
+/// CL.close), and loaded when the page appears, on pull to refresh, every 30 seconds while it is on screen, and when the app
+/// comes back, so a payment or a closeout made on the website or another phone shows here too.
 struct CloseoutScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -16,14 +16,15 @@ struct CloseoutScreen: View {
     @State private var path: [CloseoutRoute] = []
     @State private var toast: String?
 
-    private struct LoadKey: Hashable {
+    private struct PollKey: Hashable {
         let active: Bool
         let ready: Bool
+        let site: String
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            list
+            page
                 .navigationDestination(for: CloseoutRoute.self) { route in
                     switch route {
                     case .current:
@@ -37,17 +38,17 @@ struct CloseoutScreen: View {
 
     // MARK: The page
 
-    private var list: some View {
+    private var page: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Finances")
-                    .pfFont(16.5, .medium)
+                    .pfFont(16, .medium)
                     .foregroundStyle(SettingsLook.muted)
                 Text("Closeout")
-                    .pfFont(24.5, .bold, relativeTo: .title)
+                    .pfFont(24, .bold, relativeTo: .title)
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
-                    .padding(.top, 8.5)
+                    .padding(.top, 9)
                 CloseoutDescription(text: CloseoutLook.description)
                     .padding(.top, 7.3)
                 batches
@@ -85,9 +86,8 @@ struct CloseoutScreen: View {
             }
         }
         .steadyNavigationBar()
-        .task(id: LoadKey(active: scenePhase == .active, ready: model.phase == .ready)) {
-            guard scenePhase == .active, model.phase == .ready else { return }
-            await reload()
+        .task(id: PollKey(active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
+            await poll()
         }
     }
 
@@ -108,7 +108,7 @@ struct CloseoutScreen: View {
                     .accessibilityAddTraits(.isHeader)
                     .padding(.top, 27)
                 history(open)
-                    .padding(.top, 17.5)
+                    .padding(.top, 17.2)
             }
         } else {
             SettingsA.LoadState(loading: closeout.loading, problem: closeout.loadError) {
@@ -125,15 +125,16 @@ struct CloseoutScreen: View {
                 Text("Open batch")
                     .pfFont(20, .bold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                 Button {
                     showCurrent()
                 } label: {
                     HStack(spacing: 8) {
                         Text("Open batch")
-                            .pfFont(16.5, .semibold)
+                            .pfFont(16, .semibold)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 16, weight: .regular))
+                            .font(.system(size: 17, weight: .regular))
                             .accessibilityHidden(true)
                     }
                     .foregroundStyle(SettingsLook.muted)
@@ -150,20 +151,20 @@ struct CloseoutScreen: View {
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                    .padding(.top, 3.5)
+                    .padding(.top, 4.7)
                 Text(CloseoutLook.openSentence)
                     .pfFont(14)
                     .foregroundStyle(CloseoutLook.note)
                     .lineSpacing(7.3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 21)
+                    .padding(.top, 20.7)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    /// The website's batch table as rows: the current batch, the L3 batch (greyed: Processor Freedom has no L3 transactions, so it
-    /// is always 0 and $0.00), then each closed batch, newest first.
+    /// The website's batch table as rows: the current batch, the L3 batch (greyed and not tappable: Processor Freedom has no L3
+    /// transactions, so it is always 0 and $0.00), then each closed batch, newest first.
     private func history(_ open: CloseoutOpenBatch) -> some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             CloseoutRule(height: 1)
@@ -176,11 +177,9 @@ struct CloseoutScreen: View {
             .buttonStyle(CloseoutRowStyle())
             .accessibilityHint("Shows the open batch")
             CloseoutRule()
-            Button {} label: {
-                CloseoutBatchRow(title: "Current Batch", open: true, kind: "L3 transactions", count: 0, total: 0, greyed: true)
-            }
-            .buttonStyle(CloseoutRowStyle())
-            .disabled(true)
+            CloseoutBatchRow(title: "Current Batch", open: true, kind: "L3 transactions", count: 0, total: 0, greyed: true)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue("Not available yet")
             CloseoutRule()
             ForEach(closeout.history) { batch in
                 Button {
@@ -223,5 +222,16 @@ struct CloseoutScreen: View {
     private func reload() async {
         guard let business = model.site else { return }
         await closeout.load(siteID: business.id)
+    }
+
+    /// Fresh now, then every 30 seconds while this page is on screen and the app is open and unlocked: the open batch grows with
+    /// every payment taken anywhere.
+    private func poll() async {
+        guard scenePhase == .active, model.phase == .ready, let business = model.site else { return }
+        let closeout = self.closeout
+        while !Task.isCancelled {
+            await closeout.load(siteID: business.id)
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+        }
     }
 }

@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Tapping an appointment (the website's apptSheet): the customer's name, the day and time, its details, and the website's
-/// actions with its words: Confirm or Complete, Record payment with the tenders, No show, Void payment, Cancel. Each one goes to
-/// the server; the sheet closes after it, and the day shows the server's answer.
+/// actions with its words: Confirm or Complete (or Done), Record payment with the tenders, No show, Void payment, Cancel. Each one
+/// goes to the server; the sheet closes after it, and the day shows the server's answer.
 struct AppointmentDaySheet: View {
     let list: AppointmentsModel
     let appointmentID: String
@@ -26,7 +26,7 @@ struct AppointmentDaySheet: View {
     private struct Question {
         enum Step {
             case status(AppointmentStatus)
-            case void
+            case voiding
         }
 
         let step: Step
@@ -125,8 +125,8 @@ struct AppointmentDaySheet: View {
     /// The website's lines, in its order: Service, Employee, Total, Payment, Phone, Email, Notes.
     @ViewBuilder
     private func lines(_ appointment: Appointment) -> some View {
-        line("Service", appointment.service.isEmpty ? "Booking" : appointment.service)
-        line("Employee", appointment.employee.isEmpty ? AppointmentsModel.anyAvailable : appointment.employee)
+        line("Service", AppointmentDayCalendar.service(appointment))
+        line("Employee", AppointmentDayCalendar.employee(appointment))
         if appointment.total > 0 {
             line("Total", Money.format(appointment.total))
         }
@@ -195,12 +195,13 @@ struct AppointmentDaySheet: View {
     // MARK: The website's actions
 
     private func actions(_ appointment: Appointment) -> some View {
-        let open = appointment.status == AppointmentStatus.pending.rawValue || appointment.status == AppointmentStatus.confirmed.rawValue
+        let pending = appointment.status == AppointmentStatus.pending.rawValue
+        let confirmed = appointment.status == AppointmentStatus.confirmed.rawValue
         return VStack(spacing: 12) {
-            if appointment.status == AppointmentStatus.pending.rawValue {
-                mainButton("Confirm", step: "confirmed") { change(to: .confirmed) }
-            } else if appointment.status == AppointmentStatus.confirmed.rawValue {
-                mainButton("Complete", step: "completed") { change(to: .completed) }
+            if pending {
+                mainButton("Confirm", step: AppointmentStatus.confirmed.rawValue) { change(to: .confirmed) }
+            } else if confirmed {
+                mainButton("Complete", step: AppointmentStatus.completed.rawValue) { change(to: .completed) }
             } else {
                 Button("Done") { finish(nil) }
                     .buttonStyle(AppointmentDayPillStyle(kind: .primary))
@@ -211,15 +212,15 @@ struct AppointmentDaySheet: View {
                     .buttonStyle(AppointmentDayPillStyle(kind: .soft))
                     .disabled(working != nil)
             }
-            if appointment.status == AppointmentStatus.confirmed.rawValue && !appointment.paid {
+            if confirmed && !appointment.paid {
                 Button("No show") { ask(.status(.noshow), appointment) }
                     .buttonStyle(AppointmentDayPillStyle(kind: .soft))
                     .disabled(working != nil)
             }
             if appointment.paid {
-                textButton("Void payment", color: Theme.blue) { ask(.void, appointment) }
+                textButton("Void payment", color: Theme.blue) { ask(.voiding, appointment) }
             }
-            if open && !appointment.paid {
+            if (pending || confirmed) && !appointment.paid {
                 textButton("Cancel", color: Theme.error) { ask(.status(.cancelled), appointment) }
             }
         }
@@ -228,7 +229,7 @@ struct AppointmentDaySheet: View {
     private func mainButton(_ title: String, step: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             if working == step {
-                ProgressView().tint(.white)
+                ProgressView().tint(Color.white)
             } else {
                 Text(title)
             }
@@ -260,7 +261,7 @@ struct AppointmentDaySheet: View {
             let decline = appointment.status == AppointmentStatus.pending.rawValue
             question = Question(step: step, title: decline ? "Decline \(appointment.name)'s booking?" : "Cancel \(appointment.name)'s appointment?",
                                 text: "The customer is told by email.", action: decline ? "Decline" : "Cancel appointment")
-        case .void:
+        case .voiding:
             question = Question(step: step, title: "Void the \(Money.format(appointment.total)) payment?",
                                 text: "It was recorded as \(appointment.paidMethod.lowercased()). The appointment can be paid again afterwards.",
                                 action: "Void payment")
@@ -270,10 +271,11 @@ struct AppointmentDaySheet: View {
     private func run(_ step: Question.Step) {
         switch step {
         case .status(let status): change(to: status)
-        case .void: voidPayment()
+        case .voiding: voidPayment()
         }
     }
 
+    /// The website's apptPay sheet: "Record payment for Jane Doe" and "$45.00 for Haircut."
     private var tenderTitle: String { appointment.map { "Record payment for \($0.name)" } ?? "Record payment" }
 
     private var tenderText: String {
@@ -341,8 +343,8 @@ struct AppointmentDaySheet: View {
         }
     }
 
-    /// The server's own words. A 401 is checked (it locks only when the session really ended); a 403 or a conflict is a message,
-    /// and the day is loaded again so the sheet shows what is true now.
+    /// The server's own words. A 401 is checked (it locks only when the session really ended); a 403 (a team member voiding a
+    /// payment) or a conflict is a message, and the day is loaded again so the sheet shows what is true now.
     private func failed(_ error: APIError) {
         Haptics.error()
         if error.status == 401 {
@@ -356,7 +358,7 @@ struct AppointmentDaySheet: View {
 
     private func phoneURL(_ phone: String) -> URL? {
         let digits = phone.filter { $0.isASCII && ($0.isNumber || $0 == "+") }
-        guard digits.filter(\.isNumber).count >= 3 else { return nil }
+        guard digits.filter({ $0.isNumber }).count >= 3 else { return nil }
         return URL(string: "tel:\(digits)")
     }
 

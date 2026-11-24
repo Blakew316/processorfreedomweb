@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// One tender of a batch (Cash, Card, Gift card, ...), as the server's tally adds it up (server/app.js `tally`): how many payments
+/// One tender of a batch (Cash, Card, Gift card, ...), as the server's `tally` adds it up (server/app.js): how many payments
 /// (a payment taken back counts as minus one), what they came to, and what was refunded by that tender.
 struct CloseoutTender: Hashable {
     let method: String
@@ -16,12 +16,13 @@ struct CloseoutTender: Hashable {
         refunds = json["refunds"].int
     }
 
-    /// What the tender came to less what it gave back, the way the website's batch lines show it.
+    /// What the tender came to less what it gave back, as the website's batch lines show it (`x.amount - (x.refunds || 0)`).
     var net: Int { amount - refunds }
 }
 
 /// The money of a batch: the sums of `tally` (payments, count, refunds, refundCount, net), the tenders, and the cash put in and
-/// taken out of the drawer. The open batch keeps the tenders and the cash beside `totals`; a closed batch keeps them inside it.
+/// taken out of the drawer. The open batch keeps the tenders and the cash beside `totals`; a closed batch keeps them inside it
+/// (very old closed batches may have none, which reads as no tenders and no cash).
 struct CloseoutTotals: Hashable {
     let payments: Int
     let count: Int
@@ -43,8 +44,8 @@ struct CloseoutTotals: Hashable {
         paidOut = extras["paidOut"].int
     }
 
-    /// Nothing recorded since the last closeout: no payments, no refunds, no cash in or out. The website disables "Close out batch"
-    /// then, and the server answers "There is nothing in the open batch to close out."
+    /// Nothing recorded since the last closeout: no payments, no refunds, no cash in or out. The website turns "Close out batch"
+    /// off then, and the server answers "There is nothing in the open batch to close out."
     var isEmpty: Bool { count == 0 && refundCount == 0 && paidIn == 0 && paidOut == 0 }
 }
 
@@ -90,16 +91,16 @@ struct CloseoutBatch: Identifiable, Hashable {
 }
 
 /// The Closeout screen's data: the open batch and the batch history from the server, and closing out the open batch.
-/// It is loaded when the screen appears, on pull to refresh, and when the app comes back, so a closeout made on the website or
-/// another phone shows here too.
+/// It is loaded when a Closeout page appears, on pull to refresh, every 30 seconds while the list or the open batch is on screen,
+/// and when the app comes back, so a payment or a closeout made on the website or another phone shows here too.
 @Observable @MainActor
 final class CloseoutModel {
     private(set) var open: CloseoutOpenBatch?
     private(set) var history: [CloseoutBatch] = []
     private(set) var loaded = false
     private(set) var loading = false
-    /// What went wrong, in the server's words: shown in place of the batches until a load works, and above them when this login
-    /// may not see them (a 403 is a message, never a sign-out).
+    /// What went wrong, in the server's words: shown in place of the batches until a load works, and in one quiet line above them
+    /// when this login may not see them (a 403 is a message, never a sign-out).
     private(set) var loadError = ""
     @ObservationIgnored private var round = 0
 
@@ -115,8 +116,8 @@ final class CloseoutModel {
                 let list = answer["history"].array.compactMap { CloseoutBatch($0) }
                 if fresh != open { open = fresh }
                 if list != history { history = list }
-                loaded = true
-                loadError = ""
+                if !loaded { loaded = true }
+                if !loadError.isEmpty { loadError = "" }
             } else if !loaded {
                 loadError = "Something went wrong. Please try again."
             }
@@ -127,7 +128,7 @@ final class CloseoutModel {
             if error.status == 401 { AppModel.shared.sessionEnded() }
             if !loaded || error.forbidden { loadError = error.message }
         } catch {
-            // Cancelled: the screen went away.
+            // Cancelled: the page went away.
         }
         if mine == round { loading = false }
     }

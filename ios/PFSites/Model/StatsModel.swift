@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 // The numbers behind Home's "Sales overview" and "Insights" tiles: GET /api/sites/<id>/stats (server/app.js), read the way the
-// website's reports read them (public/js/editor.js: CL.sales, CL['r-disc'], insights()). Days are the business's own days, in its
-// time zone (site.ordering.timezone), exactly as the server counts them.
+// website's reports read them (public/js/editor.js: CL.sales, CL['r-disc'], the Sales by employee table and insights()). Days are
+// the business's own days, in its time zone (site.ordering.timezone), exactly as the server counts them.
 
 // MARK: - Time frames
 
@@ -150,7 +150,7 @@ enum StatsDays {
     static var allDay: String {
         let start = date("2000-01-01") ?? Date(timeIntervalSince1970: 946_684_800)
         let times = style(Date.FormatStyle(date: .omitted, time: .shortened))
-        return "\(start.formatted(times)) – \(start.addingTimeInterval(86_340).formatted(times))"
+        return "\(start.formatted(times))\u{2009}–\u{2009}\(start.addingTimeInterval(86_340).formatted(times))"
     }
 
     /// "November 17, 2026".
@@ -178,7 +178,7 @@ enum StatsDays {
         date(day)?.formatted(style(Date.FormatStyle().weekday(.wide).month(.wide).day())) ?? day
     }
 
-    /// "12am", "1pm": the hour names under the Sales Overview chart, as in the photo.
+    /// "12am", "1pm": the hour names under the charts, as in the Sales Overview photo.
     static func hourLabel(_ hour: Int) -> String {
         "\(hour % 12 == 0 ? 12 : hour % 12)\(hour < 12 ? "am" : "pm")"
     }
@@ -192,7 +192,7 @@ enum StatsDays {
 
 // MARK: - The report
 
-/// Sales of the period, from orders that were not cancelled (the server's `totals`).
+/// Sales of the period, from orders that were not cancelled, less refunds (the server's `totals`).
 struct StatsTotals {
     let orders: Int
     let gross: Int
@@ -257,6 +257,7 @@ struct StatsBucket {
     }
 }
 
+/// An item sold in the period: how many, and its net sales (after its share of discounts and refunds).
 struct StatsItem {
     let name: String
     let qty: Int
@@ -300,7 +301,8 @@ struct StatsMethod {
     }
 }
 
-/// Orders credited to the person who took each one on (the name the server records, or "Not recorded").
+/// Orders credited to the person who took each one on (the name the server records, or "Not recorded"), and what those orders took
+/// in: the website's "Total collected" of its Sales by employee table.
 struct StatsEmployee {
     let name: String
     let orders: Int
@@ -402,7 +404,7 @@ struct StatsReport {
         totals.discounts + totals.itemDiscounts + promos.filter { $0.invoice }.reduce(0) { $0 + $1.amount }
     }
 
-    /// How many times a discount was applied (the same report's count).
+    /// How many times a discount was applied (the same report's count: orders and invoices, plus item lines on sale).
     var discountCount: Int {
         promos.filter { !$0.item }.reduce(0) { $0 + $1.uses } + totals.itemDiscountLines
     }
@@ -412,7 +414,8 @@ struct StatsReport {
         previous.orders > 0 ? Int((Double(previous.total) / Double(previous.orders)).rounded()) : 0
     }
 
-    /// The words after the change in net sales on Sales Overview: what the server compared the period with.
+    /// The words after the change in net sales on Sales Overview: what the server compared the period with (the same number of
+    /// days just before it).
     var sinceWords: String {
         if days == 1 { return from == today ? "since yesterday" : "since the day before" }
         return "since the previous \(days) days"
@@ -443,8 +446,8 @@ struct StatsReport {
 
     // MARK: Your business snapshot
 
-    /// The Insights paragraph, written from the numbers by the website's insights() rules: every sentence states something the
-    /// numbers show, and nothing else.
+    /// The Insights paragraph, in the sentences of the owner's photo, written from the numbers by the website's insights() rules:
+    /// every sentence states something the numbers show, and nothing else (no advice).
     func snapshot() -> String {
         let t = totals
         var said: [String] = []
@@ -452,70 +455,65 @@ struct StatsReport {
         if t.orders == 0 {
             if t.net == 0 {
                 said.append("\(when) your business had no sales.")
+                if money.refunds > 0 { said.append("Refunds of \(Money.format(money.refunds)) were processed.") }
             } else {
                 said.append("\(when) your business had no orders, and refunds brought net sales to \(Money.format(t.net)).")
             }
         } else {
-            said.append("\(when) your business made net sales of \(Money.format(t.net)) from \(StatsFormat.count(t.orders, "order", "orders"))\(comparison).")
-            said.append("The average order was \(Money.format(t.average)).")
-            let discounts = discountTotal
-            let refunded = money.refunds
-            switch (discounts > 0, refunded > 0) {
-            case (false, false):
-                said.append("No refunds or discounts were given.")
-            case (true, true):
-                said.append("You gave \(Money.format(discounts)) in discounts and refunded \(Money.format(refunded)).")
-            case (true, false):
-                said.append("You gave \(Money.format(discounts)) in discounts, and no refunds were given.")
-            case (false, true):
-                said.append("You refunded \(Money.format(refunded)), and no discounts were given.")
-            }
-            if t.tips > 0 { said.append("Customers added \(Money.format(t.tips)) in tips.") }
+            said.append("\(when) your business generated total net sales of \(Money.format(t.net)) across "
+                        + "\(StatsFormat.count(t.orders, "order", "orders")), resulting in an average order value of \(Money.format(t.average)).")
+            said.append(refundsAndDiscounts)
             if let busiest { said.append(busiest) }
             if let bestSeller { said.append(bestSeller) }
             if let favouriteWay { said.append(favouriteWay) }
+            if t.tips > 0 { said.append("Customers added \(Money.format(t.tips)) in tips.") }
         }
         if t.cancelled > 0 { said.append(t.cancelled == 1 ? "1 order was cancelled." : "\(t.cancelled) orders were cancelled.") }
         return said.joined(separator: " ")
     }
 
-    /// ", up 154% on the previous 7 days", or nothing when there is nothing to compare.
-    private var comparison: String {
-        let now = totals.net, was = previous.net
-        let before = days == 1 ? "the day before" : "the previous \(days) days"
-        if was == 0 {
-            guard now != 0, previous.orders == 0 else { return "" }
-            return days == 1 ? ", with no sales the day before to compare" : ", with no sales in the previous \(days) days to compare"
+    /// "No refunds or discounts were processed.", or what was given: every discount (the Discounts report's total) and the money
+    /// refunded (the ledger's refunds, the Refunds card's amount).
+    private var refundsAndDiscounts: String {
+        let discounts = discountTotal
+        let refunded = money.refunds
+        switch (discounts > 0, refunded > 0) {
+        case (false, false):
+            return "No refunds or discounts were processed."
+        case (true, false):
+            return "Discounts of \(Money.format(discounts)) were applied, and no refunds were processed."
+        case (false, true):
+            return "Refunds of \(Money.format(refunded)) were processed, and no discounts were applied."
+        case (true, true):
+            return "Discounts of \(Money.format(discounts)) were applied, and refunds of \(Money.format(refunded)) were processed."
         }
-        if now == was { return ", the same as \(before)" }
-        let change = Double(now - was) / Double(abs(was)) * 100
-        let whole = Int(abs(change).rounded())
-        let way = change > 0 ? "up" : "down"
-        return whole == 0 ? ", \(way) less than 1% on \(before)" : ", \(way) \(whole)% on \(before)"
     }
 
-    /// The busiest hour of a day, or the strongest and quietest days of a longer period.
+    /// A day of the period by name: "November 17", with its year when the period runs over two years.
+    private func dayName(_ day: String) -> String {
+        from.prefix(4) == to.prefix(4) ? StatsDays.monthDay(day) : StatsDays.long(day)
+    }
+
+    /// The busiest hour of a day, or the strongest day of a longer period and the days without sales (or the quietest one).
     private var busiest: String? {
-        guard var best = series.first, var quiet = series.first else { return nil }
-        for bucket in series {
-            if bucket.net > best.net { best = bucket }
-            if bucket.net < quiet.net { quiet = bucket }
-        }
+        guard var best = series.first else { return nil }
+        for bucket in series where bucket.net > best.net { best = bucket }
         guard best.net > 0 else { return nil }
         if hourly {
             guard let hour = Int(best.key) else { return nil }
             return "Your busiest hour was \(StatsDays.hourSpoken(hour)), bringing in \(Money.format(best.net))."
         }
-        var text = "\(StatsDays.monthDay(best.key)) was your strongest day, bringing in \(Money.format(best.net))"
-        if totals.net > 0 && best.net < totals.net {
-            text += ", \(Int((Double(best.net) / Double(totals.net) * 100).rounded()))% of your net sales"
-        }
-        if quiet.key != best.key {
-            if quiet.orders == 0 && quiet.net == 0 {
-                text += ", while \(StatsDays.monthDay(quiet.key)) had no sales"
-            } else {
-                text += ", while \(StatsDays.monthDay(quiet.key)) was the quietest at \(Money.format(quiet.net))"
-            }
+        guard series.count > 1 else { return nil }
+        var text = "\(dayName(best.key)) was your strongest day, bringing in \(Money.format(best.net))"
+        let idle = series.filter { $0.orders == 0 && $0.net == 0 }
+        if idle.count == 1, let day = idle.first {
+            text += ", while \(dayName(day.key)) had no sales"
+        } else if idle.count > 1 {
+            text += ", while \(idle.count) days had no sales"
+        } else {
+            var quiet = best
+            for bucket in series where bucket.net < quiet.net { quiet = bucket }
+            if quiet.key != best.key { text += ", while \(dayName(quiet.key)) was your quietest day at \(Money.format(quiet.net))" }
         }
         return text + "."
     }
@@ -543,20 +541,19 @@ struct StatsReport {
 
 // MARK: - Changes and words
 
-/// How a figure moved against the previous period: "▲ 12%" on Sales Overview, "↑ 154.48%" on Insights.
+/// How a figure moved against the previous period: "▼ 100%" on Sales Overview (whole percents), "↑ 154.48%" on Insights (two
+/// decimals, as the website's Full Report writes them). A period after one at zero is "New", and two at zero are "0%", as there.
 struct StatsChange: Equatable {
-    enum Direction {
+    enum Direction: Equatable {
         case up, down, flat
     }
 
     let direction: Direction
     let text: String
 
-    /// nil when there is nothing to say: both periods at zero on Sales Overview (the website shows nothing then either).
-    /// A period after one at zero is "New", as on the website.
-    static func of(_ now: Int, _ was: Int, decimals: Int) -> StatsChange? {
+    static func of(_ now: Int, _ was: Int, decimals: Int) -> StatsChange {
         if was == 0 {
-            if now == 0 { return decimals > 0 ? StatsChange(direction: .flat, text: percent(0, decimals: decimals)) : nil }
+            if now == 0 { return StatsChange(direction: .flat, text: percent(0, decimals: decimals)) }
             return StatsChange(direction: now > 0 ? .up : .down, text: "New")
         }
         let change = Double(now - was) / Double(abs(was)) * 100
@@ -640,7 +637,7 @@ final class StatsModel {
         return problem
     }
 
-    /// The Refunds card's count and amount from the ledger, when they were loaded with the numbers shown.
+    /// The Refunds card's count and amount from the ledger, when they were loaded for the time frame shown.
     var ledgerRefunds: (count: Int, total: Int)? {
         guard ledgerKey == frame.key, let refundCount, let refundTotal else { return nil }
         return (refundCount, refundTotal)
@@ -653,38 +650,36 @@ final class StatsModel {
         return StatsDays.today(in: .current)
     }
 
+    /// The chosen period runs up to the business's today, so its numbers change as sales come in.
+    var reachesToday: Bool {
+        let today = businessToday
+        return frame.days(today: today).to >= today
+    }
+
     /// Loads the chosen time frame's numbers. A failed refresh keeps numbers already shown for the same time frame; the message
-    /// shows when there is nothing to show, or when this login may not see them (403, never a sign-out).
+    /// shows when there is nothing to show, or when this login may not see them (403: a message, never a sign-out).
     func load(siteID: String) async {
-        let asked = self.frame
+        let asked = frame
         if asked.range == .last90 && zone == nil { await loadZone(siteID: siteID) }
         let today = businessToday
         let span = asked.days(today: today)
         let query = asked.query(today: today)
-        // The refunds count comes from the ledger's list, which grows with the period: only asked for up to about three months.
+        // The refunds count comes from the ledger's list, which grows with the period: only for Sales Overview's Refunds card, and
+        // only up to about three months.
         let wantsLedger = screen == .salesOverview && StatsDays.count(from: span.from, to: span.to) <= 92
-        let ledgerPath: String? = wantsLedger ? "/api/sites/\(siteID)/transactions?\(query)" : nil
-        async let ledger = StatsModel.quietly(ledgerPath)
+        async let ledgerRead: Void = loadLedger(siteID: siteID, query: query, key: asked.key, wanted: wantsLedger)
         do {
             let answer = try await API.get("/api/sites/\(siteID)/stats?\(query)")
-            let refunds = await ledger
-            guard asked == self.frame else { return }
+            await ledgerRead
+            guard asked == frame else { return }
             let fresh = StatsReport(answer, key: asked.key)
             if let found = fresh.timeZone, found.identifier != zone?.identifier { zone = found }
             report = fresh
-            if let refunds, refunds["totals"].isObject {
-                refundCount = refunds["totals"]["refundCount"].int
-                refundTotal = refunds["totals"]["refunds"].int
-                ledgerKey = asked.key
-            } else {
-                refundCount = nil
-                refundTotal = nil
-                ledgerKey = ""
-            }
             problem = ""
             problemKey = ""
         } catch let error as APIError {
-            guard asked == self.frame else { return }
+            guard asked == frame else { return }
+            // Signed out everywhere, or the session ended: the app checks, then locks.
             if error.status == 401 { AppModel.shared.sessionEnded() }
             if error.status == 403 { report = nil }
             if current == nil {
@@ -696,15 +691,20 @@ final class StatsModel {
         }
     }
 
+    /// The period's refunds from the money ledger: how many, and how much (the Refunds card). Nothing changes when it fails.
+    private func loadLedger(siteID: String, query: String, key: String, wanted: Bool) async {
+        guard wanted else { return }
+        guard let answer = try? await API.get("/api/sites/\(siteID)/transactions?\(query)"), answer["totals"].isObject else { return }
+        guard key == frame.key else { return }
+        refundCount = answer["totals"]["refundCount"].int
+        refundTotal = answer["totals"]["refunds"].int
+        ledgerKey = key
+    }
+
     /// Reads the business's time zone (GET /api/sites/<id>).
     func loadZone(siteID: String) async {
         guard let answer = try? await API.get("/api/sites/\(siteID)") else { return }
         if let found = TimeZone(identifier: answer["site"]["ordering"]["timezone"].string) { zone = found }
-    }
-
-    private nonisolated static func quietly(_ path: String?) async -> JSON? {
-        guard let path else { return nil }
-        return try? await API.get(path)
     }
 }
 

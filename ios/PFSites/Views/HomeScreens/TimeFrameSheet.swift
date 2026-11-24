@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The Time frame sheet (the owner's photo): Today, Yesterday, This week, This month, Last 7 days, Last 30 days, Last 90 days and
-/// Custom, each with the days it covers, the chosen one in brand blue with a check. Custom opens a start and end date (not after
-/// the business's today, at most 731 days apart, the server's limit). Sales Overview and Insights both use it.
+/// The Time frame sheet (the owner's photo): "Time frame" with an X, then Today, Yesterday, This week, This month, Last 7 days,
+/// Last 30 days, Last 90 days and Custom (with its calendar), each with the days it covers, the chosen one in brand blue with a
+/// check. Custom opens a start and an end date (never after the business's today, at most 731 days apart, the server's limit).
+/// Sales Overview and Insights both use it; each keeps its own choice.
 struct TimeFrameSheet: View {
     let chosen: StatsTimeFrame
     /// The business's date ("2026-11-24").
@@ -12,42 +13,51 @@ struct TimeFrameSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
     @State private var customOpen = false
+    /// Counts the taps that open Custom, so the list scrolls to show its dates.
+    @State private var revealCustom = 0
     @State private var start = Date()
     @State private var end = Date()
 
+    private static let customID = "customDates"
+
     var body: some View {
         VStack(spacing: 0) {
-            header
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(StatsRange.allCases.filter { $0 != .custom }) { range in
-                        presetRow(range)
-                        separator
+            // Measured from the photo: the title's line starts 20 pt under the top of the sheet; the rows start 42.7 pt under it.
+            Text("Time frame")
+                .pfFont(20, .medium, relativeTo: .title3)
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, 19.8)
+                .padding(.leading, 18)
+                .padding(.trailing, 64)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 42.7, alignment: .top)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(StatsRange.allCases.filter { $0 != .custom }) { range in
+                            presetRow(range)
+                            separator
+                        }
+                        customRow
+                        if customOpen {
+                            customDates
+                                .id(TimeFrameSheet.customID)
+                                .transition(.opacity)
+                        }
                     }
-                    customRow
-                    if customOpen {
-                        customDates
-                            .transition(.opacity)
+                    .padding(.bottom, 24)
+                }
+                .onChange(of: revealCustom) { _, _ in
+                    Task {
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        withAnimation(.snappy) { proxy.scrollTo(TimeFrameSheet.customID, anchor: .bottom) }
                     }
                 }
-                .padding(.bottom, 24)
             }
         }
-        .background(Color(.systemBackground))
-        .presentationDetents([.large])
-        .presentationDragIndicator(.hidden)
-        .onAppear(perform: prefill)
-    }
-
-    // MARK: Title
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text("Time frame")
-                .pfFont(20, .semibold, relativeTo: .title3)
-                .foregroundStyle(Color.primary)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
+        .overlay(alignment: .topTrailing) {
             Button {
                 dismiss()
             } label: {
@@ -59,11 +69,13 @@ struct TimeFrameSheet: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close")
+            .padding(.top, 10.7)
+            .padding(.trailing, 8)
         }
-        .padding(.leading, 18)
-        .padding(.trailing, 8)
-        .frame(minHeight: 34)
-        .padding(.top, 10)
+        .background(Color(.systemBackground))
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+        .onAppear(perform: prefill)
     }
 
     // MARK: Rows
@@ -89,7 +101,6 @@ struct TimeFrameSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -99,14 +110,15 @@ struct TimeFrameSheet: View {
         let span = chosen.days(today: today)
         return Button {
             withAnimation(.snappy) { customOpen.toggle() }
+            if customOpen { revealCustom += 1 }
         } label: {
             HStack(alignment: .center, spacing: 0) {
-                HStack(spacing: 14) {
+                HStack(spacing: 17) {
                     Text(StatsRange.custom.label)
                         .pfFont(15.5, .medium)
                         .foregroundStyle(on ? Theme.blue : Color.primary)
                     Image(systemName: "calendar")
-                        .font(.system(size: 17))
+                        .font(.system(size: 16))
                         .foregroundStyle(Theme.blue)
                         .accessibilityHidden(true)
                 }
@@ -122,11 +134,11 @@ struct TimeFrameSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(on ? .isSelected : [])
         .accessibilityHint(customOpen ? "Hides the dates" : "Shows a start and end date")
     }
 
+    /// The days on the right: the date (or first and last day) semibold, the hours under it; brand blue on the chosen row.
     private func dates(from: String, to: String, on: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(StatsDays.title(from: from, to: to))
@@ -145,8 +157,8 @@ struct TimeFrameSheet: View {
         Image(systemName: "checkmark")
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(Theme.blue)
-            .frame(width: 16)
-            .padding(.leading, 21)
+            .frame(width: 13)
+            .padding(.leading, 22)
             .opacity(on ? 1 : 0)
             .accessibilityHidden(true)
     }
@@ -161,28 +173,33 @@ struct TimeFrameSheet: View {
 
     private var todayDate: Date { StatsDays.date(today) ?? Date() }
 
-    /// The last day the end can be: two years after the start, and never after today.
+    /// The last day the end can be: 731 days after the start, and never after today.
     private var latestEnd: Date {
         let limit = StatsDays.calendar.date(byAdding: .day, value: StatsTimeFrame.longest, to: start) ?? start
         return max(start, min(limit, todayDate))
     }
 
     private var customDates: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
+            separator
             DatePicker("Start date", selection: $start, in: ...todayDate, displayedComponents: .date)
-                .pfFont(16)
+                .pfFont(15.5, .medium)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 60)
+            separator
             DatePicker("End date", selection: $end, in: start...latestEnd, displayedComponents: .date)
-                .pfFont(16)
+                .pfFont(15.5, .medium)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 60)
             Button("Apply", action: apply)
                 .buttonStyle(SolidButtonStyle(radius: 8, height: 48, size: 17))
-                .padding(.top, 6)
+                .padding(.horizontal, 18)
+                .padding(.top, 14)
         }
         .tint(Theme.blue)
         // The pickers work in whole days of the business's calendar, kept as midnight UTC.
         .environment(\.timeZone, StatsDays.utc)
         .environment(\.calendar, StatsDays.calendar)
-        .padding(.horizontal, 18)
-        .padding(.top, 4)
         .onChange(of: start) { _, _ in
             if end < start { end = start }
             if end > latestEnd { end = latestEnd }

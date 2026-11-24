@@ -201,6 +201,15 @@ final class ItemsModel {
         return out
     }
 
+    /// A category name as the server will keep it: one that exists in another case is that one ('sides' goes into 'Sides', the
+    /// server's canonCategory), so the editor shows the category the item will really be in.
+    func canonicalCategory(_ name: String) -> String {
+        let wanted = String(name.trimmed.prefix(60)).trimmed
+        guard !wanted.isEmpty else { return "" }
+        let known = items.map(\.category) + settings.cats
+        return known.first { $0 == wanted } ?? known.first { $0.lowercased() == wanted.lowercased() } ?? wanted
+    }
+
     /// The items the list shows: the search words (name and category, or the product code, as the website searches) and the filters.
     var shown: [CatalogItem] {
         let query = search.trimmed.lowercased()
@@ -337,6 +346,39 @@ final class ItemsModel {
         controller.printInfo = info
         controller.printFormatter = UIMarkupTextPrintFormatter(markupText: html)
         _ = controller.present(animated: true, completionHandler: nil)
+    }
+}
+
+// MARK: - Item colours
+
+/// One of the colours an item can have.
+struct ItemColorChoice: Hashable {
+    let name: String
+    let hex: String
+}
+
+/// The colours an item can have: the website's list (CAT_COLORS in public/js/editor.js), which the server keeps as "#rrggbb".
+enum ItemColors {
+    static let all: [ItemColorChoice] = [
+        ItemColorChoice(name: "Red", hex: "#d93f3f"), ItemColorChoice(name: "Orange", hex: "#ef7d32"),
+        ItemColorChoice(name: "Yellow", hex: "#e7b416"), ItemColorChoice(name: "Green", hex: "#3d9b5f"),
+        ItemColorChoice(name: "Teal", hex: "#1f9aa0"), ItemColorChoice(name: "Blue", hex: "#3b74d6"),
+        ItemColorChoice(name: "Indigo", hex: "#5b5bd6"), ItemColorChoice(name: "Purple", hex: "#8e4ec6"),
+        ItemColorChoice(name: "Pink", hex: "#c96b9c"), ItemColorChoice(name: "Brown", hex: "#8a5a3c"),
+        ItemColorChoice(name: "Grey", hex: "#7d8590"), ItemColorChoice(name: "Black", hex: "#2b2b2b"),
+    ]
+
+    /// "None", the colour's name, or the colour itself when it is not one of the list (set some other way).
+    static func name(_ hex: String) -> String {
+        guard !hex.isEmpty else { return "None" }
+        return all.first { $0.hex == hex.lowercased() }?.name ?? hex.uppercased()
+    }
+
+    /// The colour of "#rrggbb", or nil for none or anything else.
+    static func uiColor(_ hex: String) -> UIColor? {
+        let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard digits.count == 6, let value = UInt32(digits, radix: 16) else { return nil }
+        return UIColor(hex: value)
     }
 }
 

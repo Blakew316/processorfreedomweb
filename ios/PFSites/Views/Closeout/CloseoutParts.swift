@@ -13,16 +13,18 @@ enum CloseoutLook {
     static let pressed = Color(light: UIColor(hex: 0xF5F5F5), dark: .systemGray6)
     /// #F9F9F9: the box behind "Show more...".
     static let moreFill = Color(light: UIColor(hex: 0xF9F9F9), dark: .systemGray6)
-    /// The yellow "Open" pill with near-black words.
+    /// #FAE9AD with #0F0B00 words: the "Open" pill.
     static let openFill = Color(light: UIColor(hex: 0xFAE9AD), dark: UIColor(hex: 0xFAE9AD, alpha: 0.24))
     static let openText = Color(light: UIColor(hex: 0x0F0B00), dark: UIColor(hex: 0xFCEFC2))
 
-    /// The page's description and the Open batch card's sentence: the website's own words (public/js/editor.js CL.close).
+    /// The page's description: the website's own words on its Closeout page (public/js/editor.js CL.close).
     static let description = "A batch consists of your transactions from a given time period. Your open batch consists of all transactions since your last closeout."
+    /// The Open batch card's sentence: the website's true sentence about the open batch. Processor Freedom makes no promise about
+    /// when funds are deposited, so the photo's deposit sentence is not used.
     static let openSentence = "Your open batch consists of all transactions since your last closeout."
 
-    /// A moment the way the website's Closeout page writes it (toLocaleString with a short weekday and month, the year, the hour
-    /// and the minutes, on the phone's own clock): "Mon, Nov 23, 2026, 6:35 PM".
+    /// A moment the way the website's Closeout page writes it (toLocaleString with a short weekday and month, the day, the year,
+    /// the hour and the minutes, on the phone's own clock and in its own language): "Mon, Nov 23, 2026, 6:35 PM".
     static func when(_ date: Date) -> String {
         let day = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().year())
         let time = date.formatted(.dateTime.hour().minute())
@@ -36,15 +38,15 @@ enum CloseoutRoute: Hashable {
     case closed(CloseoutBatch)
 }
 
-/// The status pill of a batch row: "Open" in yellow, "Closed" in light blue with brand-blue words (Clover's green, rebranded).
-/// Greyed for the L3 row, which Processor Freedom does not have.
+/// The status pill of a batch row (the photos): "Open" in yellow; "Closed" in light blue #E8F1FC with brand-blue words (Clover's
+/// green, rebranded). Greyed for the L3 row, which Processor Freedom does not have.
 struct CloseoutPill: View {
     let open: Bool
     var greyed = false
 
     var body: some View {
         Text(open ? "Open" : "Closed")
-            .pfFont(13.5, .semibold)
+            .pfFont(14, .semibold)
             .foregroundStyle(text)
             .lineLimit(1)
             .padding(.horizontal, 13)
@@ -63,8 +65,8 @@ struct CloseoutPill: View {
     }
 }
 
-/// A row of the batch history (the photo): the batch's name or the time it was closed, its pill, then its lines in grey, and a
-/// chevron centred at the right.
+/// A row of the batch history (the photos): the batch's name or the time it was closed (16 pt), its pill, then its lines in grey
+/// (14 pt, 24 pt apart), and a chevron centred at the right. 168 pt tall, 192 pt with the ID line, as in the photos.
 struct CloseoutBatchRow: View {
     let title: String
     let open: Bool
@@ -78,10 +80,11 @@ struct CloseoutBatchRow: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
-                    .pfFont(16.5, .semibold)
+                    .pfFont(16, .semibold)
                     .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 CloseoutPill(open: open, greyed: greyed)
-                    .padding(.top, 6)
+                    .padding(.top, 5.8)
                 VStack(alignment: .leading, spacing: 7.3) {
                     Text(kind)
                     Text("Count: \(String(count))")
@@ -92,18 +95,18 @@ struct CloseoutBatchRow: View {
                 }
                 .pfFont(14)
                 .foregroundStyle(greyed ? SettingsLook.greyed : CloseoutLook.detail)
-                .padding(.top, 6.7)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6.3)
             }
-            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .regular))
+                .font(.system(size: 17, weight: .regular))
                 .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
                 .accessibilityHidden(true)
         }
         .padding(.leading, 18)
         .padding(.trailing, 26)
-        .padding(.top, 20)
+        .padding(.top, 21)
         .padding(.bottom, 19)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -118,7 +121,7 @@ struct CloseoutRowStyle: ButtonStyle {
     }
 }
 
-/// The line between batch rows: 2 pt of #E3E3E3 (1 pt above the first row).
+/// The line between batch rows: 2 pt of #E3E3E3 (1 pt above the first row), across the page between its 16 pt margins.
 struct CloseoutRule: View {
     var height: CGFloat = 2
 
@@ -129,8 +132,9 @@ struct CloseoutRule: View {
     }
 }
 
-/// The page's description, clipped at three lines with "Show more..." on a light grey box over the end of the third line (the
-/// photo); opened, the whole text with "Show less" at its end. The link only shows when the text is longer than three lines.
+/// The page's description (16 pt #4D4D4D, 24 pt lines), clipped at three lines with the brand-blue "Show more..." on its light grey
+/// box at the end of the third line (the photo); opened, the whole text with a brand-blue "Show less" at its end. The link only
+/// shows when the text is longer than three lines.
 struct CloseoutDescription: View {
     let text: String
 
@@ -156,7 +160,8 @@ struct CloseoutDescription: View {
             } else {
                 Text(text)
                     .modifier(CloseoutDescriptionStyle(lines: 3))
-                    .overlay(alignment: .bottomTrailing) {
+                    // On the third line's baseline, whatever the text size.
+                    .overlay(alignment: Alignment(horizontal: .trailing, vertical: .lastTextBaseline)) {
                         if longer { showMore }
                     }
             }
@@ -196,7 +201,8 @@ struct CloseoutDescription: View {
         return out
     }
 
-    /// "Show more..." on its #F9F9F9 box at the end of the third line, with the line's words fading out just before it.
+    /// "Show more..." on its #F9F9F9 box (24 pt tall, 10 pt either side of the words, 4 pt in from the right edge), over the end
+    /// of the third line; the line's last letters fade out just before it.
     private var showMore: some View {
         Button {
             withAnimation(.snappy) { expanded = true }
@@ -206,19 +212,21 @@ struct CloseoutDescription: View {
                 .foregroundStyle(Theme.blue)
                 .lineLimit(1)
                 .fixedSize()
-                .padding(.leading, 10)
-                .padding(.trailing, 9.5)
-                .padding(.top, 2.6)
-                .padding(.bottom, 2)
+                .padding(.horizontal, 10)
+                .padding(.top, 2.8)
+                .padding(.bottom, 2.1)
                 .background(CloseoutLook.moreFill)
+                // A taller place to tap than the box itself, without moving anything.
+                .padding(.vertical, 10)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -10)
         .accessibilityLabel("Show more")
         .background(alignment: .leading) {
             LinearGradient(colors: [CloseoutLook.page.opacity(0), CloseoutLook.page], startPoint: .leading, endPoint: .trailing)
-                .frame(width: 16)
-                .offset(x: -16)
+                .frame(width: 12)
+                .offset(x: -12)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
@@ -229,11 +237,10 @@ struct CloseoutDescription: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .offset(y: 2)
     }
 }
 
-/// 16 pt #4D4D4D with 24 pt between lines, as in the photo.
+/// 16 pt #4D4D4D with 24 pt between baselines, as in the photo.
 private struct CloseoutDescriptionStyle: ViewModifier {
     let lines: Int?
 
@@ -248,7 +255,7 @@ private struct CloseoutDescriptionStyle: ViewModifier {
     }
 }
 
-/// The bold "Closeout" in the middle of the bar, as on the photo (19 pt).
+/// The bold "Closeout" in the middle of the bar on every page of the cover, as on the photo (19 pt).
 struct CloseoutBarTitle: View {
     var body: some View {
         Text("Closeout")

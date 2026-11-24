@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// The Items sales report's look, measured from the owner's Clover photos (1125 x 2436 px of a 375 x 812 pt phone, so 3 px = 1 pt).
-/// Clover's green is Processor Freedom's blue here, and its light green fills are light blue.
+/// Clover's greens are Processor Freedom's brand blue here, and its light green fills are light blue.
 enum ItemSalesLook {
     /// #868686: the 1 pt border of the date field and of the search fields.
     static let fieldBorder = Color(light: UIColor(hex: 0x868686), dark: UIColor(hex: 0x636366))
@@ -10,6 +10,12 @@ enum ItemSalesLook {
     static let dateText = Color(light: UIColor(hex: 0x253338), dark: .label)
     /// A hairline around the drop-down cards in dark mode, where their shadow does not show.
     static let popupEdge = Color(light: .clear, dark: UIColor(hex: 0x38383A))
+    /// The ring around the focused row of a list, a menu or the Filters panel (Clover's dark green focus outline).
+    static let focus = Theme.blue
+    /// The words on "Show results": Clover's light green on its dark green button, so light blue on brand blue here.
+    static let onBlue = Color(light: UIColor(hex: 0xE8F1FC), dark: .white)
+    /// The Filters count badge, navy like the website's (`.fbtn em`), brand blue in dark mode.
+    static let badge = Color(light: UIColor(hex: 0x0A1F44), dark: UIColor(hex: 0x1D4F9E))
 }
 
 // MARK: Line icons, drawn on the grid they were measured on
@@ -127,34 +133,34 @@ struct ItemSalesChevron: View {
     }
 }
 
-/// ‹ or › beside the dates (7.7 x 14 pt).
+/// ‹ or › beside the dates (7.3 x 14 pt).
 struct ItemSalesStepShape: Shape {
     var later = false
 
     func path(in rect: CGRect) -> Path {
-        let grid = ItemSalesGrid(rect: rect, width: 7.7, height: 14)
+        let grid = ItemSalesGrid(rect: rect, width: 7.3, height: 14)
         var path = Path()
         if later {
             path.move(to: grid.point(0.8, 0.8))
-            path.addLine(to: grid.point(6.9, 7))
+            path.addLine(to: grid.point(6.5, 7))
             path.addLine(to: grid.point(0.8, 13.2))
         } else {
-            path.move(to: grid.point(6.9, 0.8))
+            path.move(to: grid.point(6.5, 0.8))
             path.addLine(to: grid.point(0.8, 7))
-            path.addLine(to: grid.point(6.9, 13.2))
+            path.addLine(to: grid.point(6.5, 13.2))
         }
         return path
     }
 }
 
-/// The tick beside the chosen period (15.3 x 15 pt).
+/// The tick beside the chosen period (15 x 15 pt).
 struct ItemSalesCheckShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let grid = ItemSalesGrid(rect: rect, width: 15.3, height: 15)
+        let grid = ItemSalesGrid(rect: rect, width: 15, height: 15)
         var path = Path()
         path.move(to: grid.point(0.8, 10.4))
         path.addLine(to: grid.point(4.6, 14.2))
-        path.addLine(to: grid.point(14.5, 0.8))
+        path.addLine(to: grid.point(14.2, 0.8))
         return path
     }
 }
@@ -173,7 +179,7 @@ struct ItemSalesMenuIconShape: Shape {
         var path = Path()
         switch icon {
         case .print:
-            // The paper in, the body (its bottom edge hidden behind the paper coming out), the paper out and a light.
+            // The paper going in, the body (its bottom edge hidden behind the paper coming out), the paper out and a light.
             path.move(to: grid.point(5.5, 6))
             path.addLine(to: grid.point(5.5, 3.3))
             path.addQuadCurve(to: grid.point(6.7, 2), control: grid.point(5.5, 2))
@@ -191,7 +197,8 @@ struct ItemSalesMenuIconShape: Shape {
             path.addQuadCurve(to: grid.point(16.5, 14.5), control: grid.point(18.5, 14.5))
             path.addLine(to: grid.point(14.5, 14.5))
             let paper = grid.point(5.5, 10.8)
-            path.addRoundedRect(in: CGRect(x: paper.x, y: paper.y, width: 9 * s, height: 7.7 * s), cornerSize: CGSize(width: 0.8 * s, height: 0.8 * s))
+            path.addRoundedRect(in: CGRect(x: paper.x, y: paper.y, width: 9 * s, height: 7.7 * s),
+                                cornerSize: CGSize(width: 0.8 * s, height: 0.8 * s), style: .circular)
             path.move(to: grid.point(4.2, 9))
             path.addLine(to: grid.point(5.2, 9))
         case .export:
@@ -220,6 +227,7 @@ struct ItemSalesMenuIconShape: Shape {
             path.addLine(to: grid.point(17.5, 14))
             path.addLine(to: grid.point(14, 17.5))
         case .info:
+            // A circle with an "i": its dot, and a stem with a small foot to the right.
             path.addEllipse(in: grid.circle(10, 10, 8.6))
             path.move(to: grid.point(8.9, 9.2))
             path.addLine(to: grid.point(10, 9.2))
@@ -231,8 +239,8 @@ struct ItemSalesMenuIconShape: Shape {
     }
 }
 
-/// The empty state's drawing: the website's own 'look' tile (clArt in public/js/editor.js), a magnifying glass on a light blue
-/// rounded square, redrawn in the brand colours.
+/// The empty state's drawing: the website's own 'look' tile (clArt in public/js/editor.js: a magnifying glass on a 56 px rounded
+/// square tinted with 9% of the brand blue, with a 1 px ring of 14%), redrawn at twice its size in the brand colours.
 struct ItemSalesLookTileShape: Shape {
     func path(in rect: CGRect) -> Path {
         let grid = ItemSalesGrid(rect: rect, width: 24, height: 24)
@@ -245,24 +253,56 @@ struct ItemSalesLookTileShape: Shape {
 }
 
 struct ItemSalesLookTile: View {
+    static let size: CGFloat = 112
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 27, style: .continuous)
-                .fill(Theme.lightBlue)
-            RoundedRectangle(cornerRadius: 27, style: .continuous)
-                .strokeBorder(Theme.blue.opacity(0.14), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(SettingsLook.card)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(Theme.blue.opacity(0.09))
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .strokeBorder(Theme.blue.opacity(0.14), lineWidth: 2)
             ItemSalesLookTileShape()
-                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
-                .frame(width: 45, height: 45)
+                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 3.9, lineCap: .round, lineJoin: .round))
+                .frame(width: 52, height: 52)
         }
-        .frame(width: 96, height: 96)
+        .frame(width: Self.size, height: Self.size)
         .accessibilityHidden(true)
     }
 }
 
 // MARK: Pieces of the page
 
-/// The round grey button of the photos (⋮ at 48 x 48 pt, the sliders at 50 x 48 pt).
+/// The ring the photos draw around the focused row (Clover's focus outline, in brand blue): a 2 pt line, a 2 pt gap, then a 1 pt
+/// line. `across` and `down` say how far the outer line reaches past the row's sides and above and below it; the inner line is
+/// 4 pt inside the outer one.
+struct ItemSalesFocusRing: ViewModifier {
+    let shown: Bool
+    var across: CGFloat = 0
+    var down: CGFloat = 2
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if shown {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .circular)
+                        .strokeBorder(ItemSalesLook.focus, lineWidth: 2)
+                        .padding(.horizontal, -across)
+                        .padding(.vertical, -down)
+                    RoundedRectangle(cornerRadius: 12, style: .circular)
+                        .strokeBorder(ItemSalesLook.focus, lineWidth: 1)
+                        .padding(.horizontal, 4 - across)
+                        .padding(.vertical, 4 - down)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
+/// The round grey button of the photos (⋮ at 48 x 48 pt, the sliders at 50 x 48 pt), with the website's count when filters are on.
 struct ItemSalesRoundButton<Label: View>: View {
     var width: CGFloat = 48
     var badge = 0
@@ -276,13 +316,12 @@ struct ItemSalesRoundButton<Label: View>: View {
                 .background(SettingsLook.border, in: Capsule())
                 .overlay(alignment: .topTrailing) {
                     if badge > 0 {
-                        // The website's Filters count (.fbtn em): a small brand-blue badge.
                         Text(String(badge))
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.white)
                             .padding(.horizontal, 6)
                             .frame(minWidth: 20, minHeight: 20)
-                            .background(Theme.blue, in: Capsule())
+                            .background(ItemSalesLook.badge, in: Capsule())
                             .offset(x: 4, y: -4)
                     }
                 }
@@ -292,7 +331,7 @@ struct ItemSalesRoundButton<Label: View>: View {
     }
 }
 
-/// ⋮: three 4 pt dots, 7 pt apart.
+/// ⋮: three 4 pt dots, 3 pt apart.
 struct ItemSalesDots: View {
     var body: some View {
         VStack(spacing: 3) {
@@ -304,55 +343,63 @@ struct ItemSalesDots: View {
     }
 }
 
-/// The tabs under the dates: "Revenue items" chosen (light blue with a brand-blue underline), "Non revenue items" greyed,
-/// because Processor Freedom has no non-revenue items (the website's tab is greyed too).
+/// The tabs under the dates: "Revenue items" chosen (light blue with a brand-blue underline), and "Non revenue items" greyed and
+/// not tappable, because Processor Freedom has no non-revenue items (the website's tab is greyed too).
 struct ItemSalesTabs: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            tab("Revenue items", chosen: true)
-            tab("Non revenue items", chosen: false)
-                .accessibilityValue("Not available yet")
+        // They fit the photo's width; with larger text they scroll sideways instead of running off the page.
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 8) {
+                tab("Revenue items", chosen: true)
+                tab("Non revenue items", chosen: false)
+                    .disabled(true)
+                    .accessibilityValue("Not available yet")
+            }
+            .padding(.leading, 4)
         }
-        .padding(.leading, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .background(alignment: .bottom) {
             Rectangle().fill(SettingsLook.border).frame(height: 1)
         }
     }
 
     private func tab(_ title: String, chosen: Bool) -> some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .pfFont(16, .semibold)
-                .foregroundStyle(chosen ? Theme.blue : SettingsLook.greyed)
-                .lineLimit(1)
-                .padding(.horizontal, 18.5)
-                .frame(minHeight: 34)
-                .background(chosen ? Theme.lightBlue : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            Rectangle()
-                .fill(chosen ? Theme.blue : Color.clear)
-                .frame(height: 2)
+        Button {} label: {
+            VStack(spacing: 8) {
+                Text(title)
+                    .pfFont(16.5, .semibold)
+                    .foregroundStyle(chosen ? Theme.blue : SettingsLook.greyed)
+                    .lineLimit(1)
+                    .padding(.horizontal, 18.3)
+                    .frame(minHeight: 34)
+                    .background(chosen ? Theme.lightBlue : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                Rectangle()
+                    .fill(chosen ? Theme.blue : Color.clear)
+                    .frame(height: 2)
+            }
+            .fixedSize()
+            .contentShape(Rectangle())
         }
-        .fixedSize()
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
         .accessibilityAddTraits(chosen ? [.isSelected] : [])
     }
 }
 
-/// No items in the period: the website's drawing and words (cEmpty with 'look' and NORES in public/js/editor.js).
+/// No items in the period: the website's drawing and words (cEmpty with 'look' and NORES in public/js/editor.js), at the photo's
+/// sizes and gaps (the title 33 pt under the drawing, the sentence 27 pt under the title).
 struct ItemSalesEmptyState: View {
     var body: some View {
         VStack(spacing: 0) {
             ItemSalesLookTile()
             Text("No results found")
-                .pfFont(24, .bold, relativeTo: .title)
+                .pfFont(24.5, .bold, relativeTo: .title)
                 .foregroundStyle(Color.primary)
                 .padding(.top, 33)
             Text(ItemSalesModel.noResults)
-                .pfFont(16)
+                .pfFont(16.5)
                 .foregroundStyle(Color.primary)
                 .lineSpacing(4)
-                .frame(maxWidth: 290)
+                .frame(maxWidth: 300)
                 .padding(.top, 27)
         }
         .multilineTextAlignment(.center)
@@ -406,12 +453,12 @@ struct ItemSalesRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(row.name)
-                    .pfFont(16, .bold)
+                    .pfFont(16.5, .bold)
                     .foregroundStyle(Color.primary)
                     .lineLimit(2)
                 Spacer(minLength: 0)
                 Text(Money.format(row.sales))
-                    .pfFont(16, .bold)
+                    .pfFont(16.5, .bold)
                     .monospacedDigit()
                     .foregroundStyle(Color.primary)
                     .layoutPriority(1)
@@ -425,12 +472,36 @@ struct ItemSalesRowView: View {
                     .lineLimit(1)
                     .layoutPriority(1)
             }
-            .pfFont(15)
+            .pfFont(16)
             .foregroundStyle(SettingsLook.muted)
         }
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
+    }
+}
+
+/// The first load of the report did not work: the server's words, and Try again unless this login may not see reports.
+struct ItemSalesProblem: View {
+    let problem: String
+    let canRetry: Bool
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(problem)
+                .pfFont(17)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if canRetry {
+                Button("Try again", action: retry)
+                    .buttonStyle(SolidButtonStyle(radius: 24, height: 48, size: 17))
+                    .frame(maxWidth: 220)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
     }
 }
 
@@ -440,17 +511,18 @@ struct ItemSalesRowView: View {
 struct ItemSalesPopupCard: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 12, style: .circular))
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .circular)
                     .strokeBorder(ItemSalesLook.popupEdge, lineWidth: 1)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .circular))
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
     }
 }
 
-/// The date drop-down opened (photo 19dbb6e0): the periods, the chosen one ticked inside a brand-blue ring. Long, so it scrolls.
+/// The date drop-down opened (photo 19dbb6e0): the periods, the chosen one ticked inside the focus ring. Taller than the card,
+/// so it scrolls.
 struct ItemSalesRangeList: View {
     let chosen: ItemSalesPeriod
     let pick: (ItemSalesPeriod) -> Void
@@ -460,7 +532,9 @@ struct ItemSalesRangeList: View {
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(ItemSalesPeriod.allCases) { period in
-                        Button { pick(period) } label: {
+                        Button {
+                            pick(period)
+                        } label: {
                             row(period)
                         }
                         .buttonStyle(.plain)
@@ -480,7 +554,7 @@ struct ItemSalesRangeList: View {
     private func row(_ period: ItemSalesPeriod) -> some View {
         HStack(spacing: 8) {
             Text(period.label)
-                .pfFont(16)
+                .pfFont(16.5)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -488,7 +562,7 @@ struct ItemSalesRangeList: View {
             if period == chosen {
                 ItemSalesCheckShape()
                     .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
-                    .frame(width: 15.3, height: 15)
+                    .frame(width: 15, height: 15)
                     .accessibilityHidden(true)
             }
         }
@@ -496,20 +570,7 @@ struct ItemSalesRangeList: View {
         .padding(.trailing, 21)
         .frame(maxWidth: .infinity, minHeight: 46)
         .contentShape(Rectangle())
-        .overlay {
-            if period == chosen {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Theme.blue, lineWidth: 2)
-                        .padding(.vertical, -2)
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Theme.blue, lineWidth: 1)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                }
-                .allowsHitTesting(false)
-            }
-        }
+        .modifier(ItemSalesFocusRing(shown: period == chosen))
     }
 }
 
@@ -518,6 +579,7 @@ struct ItemSalesMenuRow: View {
     let icon: ItemSalesMenuIcon
     let title: String
     var enabled = true
+    var focused = false
     let action: () -> Void
 
     var body: some View {
@@ -528,7 +590,7 @@ struct ItemSalesMenuRow: View {
                     .frame(width: 20, height: 20)
                     .accessibilityHidden(true)
                 Text(title)
-                    .pfFont(16)
+                    .pfFont(16.5)
                     .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -538,6 +600,7 @@ struct ItemSalesMenuRow: View {
             .padding(.trailing, 18)
             .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
             .contentShape(Rectangle())
+            .modifier(ItemSalesFocusRing(shown: focused && enabled))
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

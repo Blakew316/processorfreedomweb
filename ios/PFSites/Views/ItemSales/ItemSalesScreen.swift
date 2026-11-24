@@ -1,13 +1,448 @@
 import SwiftUI
+import UIKit
 
-// PLACEHOLDER, replaced by the Items sales report agent (Part F). Nothing here may ship.
+/// The coordinate space the screen places the drop-down list and the ⋮ menu in.
+private let itemSalesSpace = "ItemSalesScreen"
+
+/// Which card is open over the page: the date drop-down's list, or the ⋮ menu.
+enum ItemSalesPopup {
+    case range, menu
+}
+
+/// Home → Items sales report (Part F, the owner's Clover photos): a full-screen cover with an X and the bold title in the bar, over
+/// the grey page: the small grey "Reports", "Item sales" with the round grey ⋮ (Print, Export, Accounting sync, Learn about this
+/// report), the date drop-down and the round grey Filters button, the period's dates with ‹ and ›, the Revenue items tab (Non revenue
+/// items greyed: Processor Freedom has none), then the period's items or the website's empty state.
+/// Everything is the server's (`GET /api/sites/<id>/stats`), worked out and worded like the website's Item sales report
+/// (public/js/editor.js CL['r-items']), and loaded when the screen appears, when the choices change, on pull to refresh and when the
+/// app comes back, so a sale made on the website or another phone shows here too. The period and the order type are kept while the
+/// business is open.
 struct ItemSalesScreen: View {
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var report: ItemSalesModel
+    @State private var popup: ItemSalesPopup? = nil
+    @State private var filtersOpen = false
+    @State private var customOpen = false
+    @State private var syncOpen = false
+    @State private var aboutOpen = false
+    @State private var toast: String? = nil
+    /// The QuickBooks file, offered once the Accounting sync sheet has finished closing (two presentations cannot overlap).
+    @State private var fileToOffer: URL? = nil
+    @State private var fieldFrame = CGRect.zero
+    @State private var dotsFrame = CGRect.zero
+    @State private var pageHeight: CGFloat = 0
+    /// The ⋮ menu's width in the photo (241 pt), growing with the person's text size like its words do.
+    @ScaledMetric(relativeTo: .body) private var menuWidth: CGFloat = 241
+
+    private struct LoadKey: Hashable {
+        let query: String
+        let active: Bool
+        let ready: Bool
+    }
+
+    init() {
+        _report = State(initialValue: ItemSalesModel(shellID: AppModel.shared.shellID))
+    }
+
+    private var siteID: String { model.site?.id ?? "" }
+    private var siteName: String { model.site?.name ?? "" }
+
     var body: some View {
         NavigationStack {
-            Color(.systemBackground)
-                .navigationTitle("Items sales report")
-                .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Close", systemImage: "xmark") { dismiss() } } }
+            ZStack(alignment: .topLeading) {
+                page
+                if popup != nil {
+                    // A tap anywhere else closes the list or the menu, as on the website.
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .ignoresSafeArea()
+                        .onTapGesture { closePopup() }
+                        .accessibilityHidden(true)
+                        .zIndex(1)
+                }
+                popupCard
+                if filtersOpen {
+                    ItemSalesFiltersPanel(report: report, siteID: siteID) {
+                        closeFilters()
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(3)
+                }
+            }
+            .coordinateSpace(.named(itemSalesSpace))
+            .overlay(alignment: .bottom) {
+                if let toast {
+                    GlassToast(text: toast)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 20)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .navigationTitle("Items sales report")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Items sales report")
+                        .pfFont(19, .bold, relativeTo: .headline)
+                        .lineLimit(1)
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
+            .steadyNavigationBar()
+            .sheet(isPresented: $customOpen) {
+                ItemSalesCustomRangeSheet(report: report)
+            }
+            .sheet(isPresented: $syncOpen, onDismiss: { offerFile() }) {
+                ItemSalesSyncSheet {
+                    await downloadForQuickBooks()
+                }
+            }
+            .alert(ItemSalesModel.aboutTitle, isPresented: $aboutOpen) {
+                Button("Got it", role: .cancel) {}
+            } message: {
+                Text(ItemSalesModel.about)
+            }
+            .task(id: LoadKey(query: report.query, active: scenePhase == .active, ready: model.phase == .ready)) {
+                await load()
+            }
         }
+    }
+
+    // MARK: The page
+
+    private var page: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                heading
+                controls
+                    .padding(.top, 28)
+                dateLine
+                    .padding(.top, 20)
+                ItemSalesTabs()
+                    .padding(.top, 30)
+                results
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 18.5)
+            .padding(.bottom, 40)
+            .frame(maxWidth: .infinity, minHeight: pageHeight, alignment: .topLeading)
+            .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+        }
+        .background(Color(.systemBackground))
+        .scrollEdgeEffectStyle(.hard, for: .top)
+        .scrollDisabled(popup != nil)
+        .refreshable { await pullToRefresh() }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            pageHeight = height
+        }
+        .accessibilityHidden(filtersOpen)
+    }
+
+    /// The small grey "Reports", then "Item sales" with the round grey ⋮ beside it.
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Reports")
+                .pfFont(16.5, .medium)
+                .foregroundStyle(SettingsLook.muted)
+            HStack(spacing: 12) {
+                Text("Item sales")
+                    .pfFont(24.5, .bold, relativeTo: .title)
+                    .foregroundStyle(Color.primary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                ItemSalesRoundButton(width: 48) {
+                    toggle(.menu)
+                } label: {
+                    ItemSalesDots()
+                }
+                .accessibilityLabel("More")
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .named(itemSalesSpace))
+                } action: { frame in
+                    dotsFrame = frame
+                }
+            }
+            .padding(.top, 6.5)
+        }
+    }
+
+    /// The date drop-down field (calendar, the period's name, a chevron) and the round grey Filters button.
+    private var controls: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Button {
+                toggle(.range)
+            } label: {
+                HStack(spacing: 10) {
+                    ItemSalesCalendarIcon()
+                    Text(report.fieldLabel)
+                        .pfFont(16.5)
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Spacer(minLength: 8)
+                    ItemSalesChevron(up: popup == .range)
+                }
+                .padding(.leading, 13)
+                .padding(.trailing, 16)
+                .frame(width: 220, height: 50)
+                .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 12, style: .circular))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .circular)
+                        .strokeBorder(ItemSalesLook.fieldBorder, lineWidth: 1)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .circular))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Date range")
+            .accessibilityValue(report.fieldLabel)
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .named(itemSalesSpace))
+            } action: { frame in
+                fieldFrame = frame
+            }
+            ItemSalesRoundButton(width: 50, badge: report.filtersOn) {
+                openFilters()
+            } label: {
+                ItemSalesSlidersShape()
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                    .frame(width: 17.3, height: 19.3)
+                    .accessibilityHidden(true)
+            }
+            .accessibilityLabel("Filters")
+            .accessibilityValue(report.filtersOn == 0 ? "None on" : "\(report.filtersOn) on")
+        }
+        .padding(.leading, 2)
+    }
+
+    /// "Tue, Nov 24, 2026 at 12:00 AM - 11:59 PM", then ‹ and ›, which move the period by its own length (› greyed once it ends today).
+    private var dateLine: some View {
+        HStack(spacing: 0) {
+            Text(report.rangeLine)
+                .pfFont(14.5, .semibold)
+                .foregroundStyle(ItemSalesLook.dateText)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                report.step(-1)
+            } label: {
+                ItemSalesStepShape()
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                    .frame(width: 7.3, height: 14)
+                    .frame(width: 34, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Earlier")
+            .padding(.leading, 1.7)
+            Button {
+                report.step(1)
+            } label: {
+                ItemSalesStepShape(later: true)
+                    .stroke(report.canStepLater ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                    .frame(width: 7.3, height: 14)
+                    .frame(width: 34, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!report.canStepLater)
+            .accessibilityLabel("Later")
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// The period's items, or the website's empty state once the report for these choices has come; until then a spinner, or what
+    /// went wrong (never a red banner).
+    @ViewBuilder
+    private var results: some View {
+        if report.isCurrent {
+            if report.rows.isEmpty {
+                // Where the photo's drawing sits: the website's drawing in the middle of the same area, then the words under it.
+                ItemSalesEmptyState()
+                    .padding(.top, 81)
+            } else {
+                ItemSalesRowsCard(rows: report.rows)
+                    .padding(.top, 24)
+            }
+        } else if !report.problem.isEmpty {
+            ItemSalesProblem(problem: report.problem, canRetry: !report.forbidden) {
+                Task { await load() }
+            }
+        } else {
+            ProgressView()
+                .controlSize(.large)
+                .tint(Theme.blue)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+        }
+    }
+
+    // MARK: The list and the menu over the page
+
+    @ViewBuilder
+    private var popupCard: some View {
+        switch popup {
+        case .range:
+            ItemSalesRangeList(chosen: report.choices.period) { period in
+                pick(period)
+            }
+            .frame(width: fieldFrame.width)
+            .offset(x: fieldFrame.minX, y: fieldFrame.maxY + 4)
+            .transition(.opacity)
+            .zIndex(2)
+            .accessibilityAddTraits(.isModal)
+            .accessibilityAction(.escape) { closePopup() }
+        case .menu:
+            menu
+                .frame(width: max(dotsFrame.maxX, 0), alignment: .trailing)
+                .offset(y: dotsFrame.maxY + 4)
+                .transition(.opacity)
+                .zIndex(2)
+                .accessibilityAddTraits(.isModal)
+                .accessibilityAction(.escape) { closePopup() }
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// The ⋮ menu (photo 63e1e3b0). Print and Export wait for the report of the chosen period; Learn about this report shows the
+    /// website's words about it.
+    private var menu: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ItemSalesMenuRow(icon: .print, title: "Print", enabled: report.isCurrent, focused: true) {
+                printReport()
+            }
+            ItemSalesMenuRow(icon: .export, title: "Export", enabled: report.isCurrent) {
+                exportReport()
+            }
+            ItemSalesMenuRow(icon: .sync, title: "Accounting sync") {
+                openSync()
+            }
+            ItemSalesMenuRow(icon: .info, title: "Learn about this report") {
+                openAbout()
+            }
+        }
+        .padding(.vertical, 6)
+        .frame(width: min(menuWidth, max(dotsFrame.maxX - 16, 160)))
+        .modifier(ItemSalesPopupCard())
+    }
+
+    // MARK: Actions
+
+    private func toggle(_ which: ItemSalesPopup) {
+        withAnimation(.easeOut(duration: 0.15)) {
+            popup = popup == which ? nil : which
+        }
+    }
+
+    private func closePopup() {
+        guard popup != nil else { return }
+        withAnimation(.easeOut(duration: 0.15)) { popup = nil }
+    }
+
+    private func pick(_ period: ItemSalesPeriod) {
+        closePopup()
+        if period == .custom {
+            customOpen = true
+        } else {
+            report.choose(period)
+        }
+    }
+
+    private func openFilters() {
+        closePopup()
+        withAnimation(.snappy(duration: 0.3)) { filtersOpen = true }
+    }
+
+    private func closeFilters() {
+        withAnimation(.snappy(duration: 0.3)) { filtersOpen = false }
+    }
+
+    private func printReport() {
+        closePopup()
+        ItemSalesPrinter.show(html: report.printPage(siteName: siteName), title: "Item sales")
+    }
+
+    private func exportReport() {
+        closePopup()
+        do {
+            let file = try report.exportFile(siteName: siteName)
+            UIPresenter.share(file)
+        } catch {
+            show("The file could not be saved. Please try again.")
+        }
+    }
+
+    private func openSync() {
+        closePopup()
+        syncOpen = true
+    }
+
+    private func openAbout() {
+        closePopup()
+        aboutOpen = true
+    }
+
+    /// The website's QuickBooks download: its words when the period has no payments or the server said no; otherwise the sheet
+    /// closes, the file is offered, and "3 transactions ready for QuickBooks" shows, as on the website.
+    private func downloadForQuickBooks() async -> String? {
+        do {
+            guard let made = try await report.quickBooksFile(siteID: siteID, siteName: siteName) else {
+                return "No payments in this period to send to QuickBooks."
+            }
+            fileToOffer = made.file
+            syncOpen = false
+            show("\(made.count) transaction\(made.count == 1 ? "" : "s") ready for QuickBooks")
+            return nil
+        } catch let error as APIError {
+            // Signed out everywhere, or the server ended the session: the app checks, then locks. A 403 is only a message.
+            if error.status == 401 { model.sessionEnded() }
+            return error.message
+        } catch is CancellationError {
+            return nil
+        } catch {
+            return "The file could not be saved. Please try again."
+        }
+    }
+
+    private func offerFile() {
+        guard let file = fileToOffer else { return }
+        fileToOffer = nil
+        UIPresenter.share(file)
+    }
+
+    private func show(_ text: String) {
+        withAnimation(.snappy) { toast = text }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            withAnimation(.easeOut(duration: 0.25)) {
+                if toast == text { toast = nil }
+            }
+        }
+    }
+
+    // MARK: Loading
+
+    /// The business's time zone first (at most once a minute), then the report for the current choices.
+    private func load() async {
+        guard scenePhase == .active, model.phase == .ready, !siteID.isEmpty else { return }
+        await report.loadSite(siteID: siteID)
+        await report.load(siteID: siteID)
+    }
+
+    private func pullToRefresh() async {
+        guard !siteID.isEmpty else { return }
+        await report.loadSite(siteID: siteID, force: true)
+        if let words = await report.load(siteID: siteID) { show(words) }
     }
 }

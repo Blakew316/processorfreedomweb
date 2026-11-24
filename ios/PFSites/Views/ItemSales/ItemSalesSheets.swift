@@ -12,16 +12,16 @@ struct ItemSalesCustomRangeSheet: View {
     init(report: ItemSalesModel) {
         self.report = report
         let days = report.span
-        _from = State(initialValue: days.from.noon(in: report.zone))
-        _to = State(initialValue: days.to.noon(in: report.zone))
+        _from = State(initialValue: days.from.noonDate(in: report.zone))
+        _to = State(initialValue: days.to.noonDate(in: report.zone))
     }
 
     private var zone: TimeZone { report.zone }
     private var fromDay: ItemSalesDay { ItemSalesDay.on(from, in: zone) }
     private var toDay: ItemSalesDay { ItemSalesDay.on(to, in: zone) }
     /// The end of today at the business: no later day can be chosen.
-    private var latest: Date { report.today.noon(in: zone).addingTimeInterval(11 * 3600 + 59 * 60) }
-    private var tooLong: Bool { abs(fromDay.days(to: toDay)) > 731 }
+    private var latest: Date { report.today.noonDate(in: zone).addingTimeInterval(11 * 3600 + 59 * 60) }
+    private var tooLong: Bool { abs(fromDay.days(to: toDay)) > ItemSalesModel.longestRange }
 
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -37,7 +37,7 @@ struct ItemSalesCustomRangeSheet: View {
                     DatePicker("To", selection: $to, in: ...latest, displayedComponents: .date)
                 } footer: {
                     if tooLong {
-                        Text("Choose a range of two years or less.")
+                        Text(ItemSalesModel.tooLong)
                             .pfFont(15)
                             .foregroundStyle(SettingsLook.muted)
                     }
@@ -65,9 +65,9 @@ struct ItemSalesCustomRangeSheet: View {
     }
 }
 
-/// "Accounting sync" does what the website's "Sync with QuickBooks" does (quickbooks() in public/js/editor.js): the steps, then a
+/// "Accounting sync" does what the website's "Sync with QuickBooks" does (quickbooks() in public/js/editor.js): its steps, then a
 /// file of the period's payments and refunds that QuickBooks Online reads. `download` gives back words when there is nothing to send
-/// or the server said no; on success the parent closes this sheet and offers the file.
+/// or the server said no; when the file is made, the screen closes this sheet and offers the file.
 struct ItemSalesSyncSheet: View {
     let download: () async -> String?
     @Environment(\.dismiss) private var dismiss
@@ -118,7 +118,7 @@ struct ItemSalesSyncSheet: View {
                         Text("Download for QuickBooks")
                     }
                 }
-                .buttonStyle(SolidButtonStyle(fill: Theme.blue, text: .white, radius: 24, height: 48, size: 16))
+                .buttonStyle(SolidButtonStyle(fill: Theme.blue, text: .white, radius: 24, height: 48, size: 16.5))
                 .disabled(busy)
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -151,7 +151,7 @@ struct ItemSalesSyncSheet: View {
 /// AirPrint for the report, like the website's Print (which prints its report page on white).
 @MainActor
 enum ItemSalesPrinter {
-    static func print(html: String, title: String) {
+    static func show(html: String, title: String) {
         let controller = UIPrintInteractionController.shared
         let info = UIPrintInfo.printInfo()
         info.jobName = title
@@ -160,6 +160,6 @@ enum ItemSalesPrinter {
         let formatter = UIMarkupTextPrintFormatter(markupText: html)
         formatter.perPageContentInsets = UIEdgeInsets(top: 36, left: 36, bottom: 36, right: 36)
         controller.printFormatter = formatter
-        controller.present(animated: true, completionHandler: nil)
+        _ = controller.present(animated: true, completionHandler: nil)
     }
 }
