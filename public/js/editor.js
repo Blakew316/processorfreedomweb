@@ -1064,6 +1064,8 @@ export async function editor(id, mount, title, startTab = '') {
     appearance() {
       const now = getTheme();
       const choice = (k, label, note) => h('button', { class: 'look-opt', type: 'button', 'aria-pressed': String(now === k), onclick: () => { setTheme(k); paintPanel(); } }, h('span', { class: `look-prev ${k}`, 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), h('b', {}, label), h('small', {}, note));
+      // The iPhone app always follows the iPhone's own light or dark setting, so it offers only that choice.
+      if (inApp) return [group('Light or dark', h('div', { class: 'look-opts' }, choice('auto', 'Match this iPhone', 'Follows the Light or Dark setting on this iPhone.')))];
       return [group('Light or dark', h('div', { class: 'look-opts' }, choice('light', 'Light', 'Bright background, dark text.'), choice('dark', 'Dark', 'Dark background, easier at night.'), choice('auto', 'Match this device', 'Follows the setting on your phone or computer.')))];
     },
     devices() {
