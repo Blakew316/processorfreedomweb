@@ -131,10 +131,13 @@ struct ItemSalesSyncSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .disabled(busy)
                 }
             }
         }
         .presentationDetents([.medium, .large])
+        // While the file is being made the sheet stays, so the file is offered when it closes and never later by surprise.
+        .interactiveDismissDisabled(busy)
     }
 
     private func run() async {

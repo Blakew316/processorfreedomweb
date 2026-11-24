@@ -162,7 +162,7 @@ struct ItemSalesScreen: View {
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                ItemSalesRoundButton(width: 48) {
+                ItemSalesRoundButton(width: 48, active: popup == .menu) {
                     toggle(.menu)
                 } label: {
                     ItemSalesDots()
@@ -270,15 +270,17 @@ struct ItemSalesScreen: View {
     private var results: some View {
         if report.isCurrent {
             if report.rows.isEmpty {
-                // Where the photo's drawing sits: the website's drawing in the middle of the same area, then the words under it.
+                // The photo's drawing area starts 24 pt under the tabs: the website's drawing in its middle, the words under it.
                 ItemSalesEmptyState()
-                    .padding(.top, 81)
+                    .padding(.top, 24)
             } else {
                 ItemSalesRowsCard(rows: report.rows)
                     .padding(.top, 24)
             }
         } else if !report.problem.isEmpty {
             ItemSalesProblem(problem: report.problem, canRetry: !report.forbidden) {
+                // The words go and the spinner shows while the report is asked for again.
+                report.clearProblem()
                 Task { await load() }
             }
         } else {
@@ -388,6 +390,7 @@ struct ItemSalesScreen: View {
 
     private func openSync() {
         closePopup()
+        fileToOffer = nil
         syncOpen = true
     }
 
@@ -403,6 +406,8 @@ struct ItemSalesScreen: View {
             guard let made = try await report.quickBooksFile(siteID: siteID, siteName: siteName) else {
                 return "No payments in this period to send to QuickBooks."
             }
+            // The sheet stays while the file is made; if it went anyway, the file is not kept to pop up later.
+            guard syncOpen else { return nil }
             fileToOffer = made.file
             syncOpen = false
             let plural = made.count == 1 ? "" : "s"
@@ -437,16 +442,28 @@ struct ItemSalesScreen: View {
 
     // MARK: Loading
 
-    /// The business's time zone first (at most once a minute), then the report for the current choices.
+    /// The report for the current choices and the business's details (its time zone, web address name and name; at most once a
+    /// minute). The stats route works out its own periods and answers with the business's time zone, so for those the report is
+    /// asked for first; the periods worked out here need the business's calendar before their days are asked for.
     private func load() async {
         guard scenePhase == .active, model.phase == .ready, !siteID.isEmpty else { return }
-        await report.loadSite(siteID: siteID)
-        await report.load(siteID: siteID)
+        if report.choices.period.serverKey != nil {
+            await report.load(siteID: siteID)
+            await report.loadSite(siteID: siteID)
+        } else {
+            await report.loadSite(siteID: siteID)
+            await report.load(siteID: siteID)
+        }
     }
 
     private func pullToRefresh() async {
         guard !siteID.isEmpty else { return }
-        await report.loadSite(siteID: siteID, force: true)
-        if let words = await report.load(siteID: siteID) { show(words) }
+        if report.choices.period.serverKey != nil {
+            if let words = await report.load(siteID: siteID) { show(words) }
+            await report.loadSite(siteID: siteID, force: true)
+        } else {
+            await report.loadSite(siteID: siteID, force: true)
+            if let words = await report.load(siteID: siteID) { show(words) }
+        }
     }
 }

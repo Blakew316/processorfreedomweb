@@ -26,8 +26,9 @@ enum ItemSalesFilterSection: String, CaseIterable, Identifiable {
 
 /// The Filters panel (photo 4c9f3737), over the report under the bar: "Filters" with an X, the rows Employees, Devices and
 /// Order Types that each open in place (photos 46785940, 87b176f1, 73a140ea), then "Show results" and "Reset filters".
-/// The row last tapped keeps the photos' grey fill and focus ring. Only Order Types can change the report: the server cannot narrow
-/// item sales by employee, and Processor Freedom has no point-of-sale devices, so those two show their true value, all of them, greyed.
+/// The row last tapped keeps the photos' grey fill and focus ring; the panel opens with it on Order Types, as in photo 4c9f3737.
+/// Only Order Types can change the report: the server cannot narrow item sales by employee, and Processor Freedom has no
+/// point-of-sale devices, so those two show their true value, all of them, greyed.
 struct ItemSalesFiltersPanel: View {
     let report: ItemSalesModel
     let siteID: String
@@ -35,7 +36,7 @@ struct ItemSalesFiltersPanel: View {
 
     @State private var draft: ItemSalesOrderType
     @State private var open: ItemSalesFilterSection? = nil
-    @State private var focused: ItemSalesFilterSection? = nil
+    @State private var focused: ItemSalesFilterSection? = .orderTypes
     @State private var search = ""
 
     init(report: ItemSalesModel, siteID: String, close: @escaping () -> Void) {
@@ -71,7 +72,8 @@ struct ItemSalesFiltersPanel: View {
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { close() }
         .task {
-            if !report.peopleLoaded { await report.loadPeople(siteID: siteID) }
+            // Each time the panel opens, so someone added to the team on the website is listed.
+            await report.loadPeople(siteID: siteID)
         }
     }
 
@@ -272,7 +274,7 @@ struct ItemSalesRadioRow: View {
                         .strokeBorder(ringColor, lineWidth: 1)
                     if chosen {
                         Circle()
-                            .fill(enabled ? Theme.blue : SettingsLook.greyed)
+                            .fill(enabled ? Theme.ink : SettingsLook.greyed)
                             .frame(width: 6, height: 6)
                     }
                 }
@@ -295,8 +297,9 @@ struct ItemSalesRadioRow: View {
         .accessibilityValue(enabled ? "" : "Not available yet")
     }
 
+    /// The chosen radio is Clover's dark green in the photos, so navy here (white in dark mode); the others #4D4D4D.
     private var ringColor: Color {
         guard enabled else { return SettingsLook.greyed }
-        return chosen ? Theme.blue : SettingsLook.muted
+        return chosen ? Theme.ink : SettingsLook.muted
     }
 }

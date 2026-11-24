@@ -60,7 +60,6 @@ struct CloseoutScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(CloseoutLook.page)
-        .scrollEdgeEffectStyle(.hard, for: .top)
         .refreshable { await reload() }
         .overlay(alignment: .bottom) {
             if let toast {
@@ -73,14 +72,22 @@ struct CloseoutScreen: View {
         .navigationTitle("Closeout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // The photo's bare black X, its centre 28 pt from the edge: no glass circle behind it.
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundStyle(Color.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .offset(x: -10)
                 .accessibilityLabel("Close")
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .principal) {
                 CloseoutBarTitle()
             }

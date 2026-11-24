@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 /// The Items sales report's look, measured from the owner's Clover photos (1125 x 2436 px of a 375 x 812 pt phone, so 3 px = 1 pt).
-/// Clover's greens are Processor Freedom's brand blue here, and its light green fills are light blue.
+/// Clover's dark green (#0D4109: the focus rings, the chosen tab's words, the chosen radio) is navy here, its light green fills are
+/// light blue, and the tab's underline and "Show results" are the brand blue.
 enum ItemSalesLook {
     /// #868686: the 1 pt border of the date field and of the search fields.
     static let fieldBorder = Color(light: UIColor(hex: 0x868686), dark: UIColor(hex: 0x636366))
@@ -10,12 +11,15 @@ enum ItemSalesLook {
     static let dateText = Color(light: UIColor(hex: 0x253338), dark: .label)
     /// A hairline around the drop-down cards in dark mode, where their shadow does not show.
     static let popupEdge = Color(light: .clear, dark: UIColor(hex: 0x38383A))
-    /// The ring around the focused row of a list, a menu or the Filters panel (Clover's dark green focus outline).
-    static let focus = Theme.blue
+    /// The ring around the focused row of a list, a menu or the Filters panel: Clover's dark green focus outline, so navy (white in
+    /// dark mode).
+    static let focus = Theme.ink
     /// The words on "Show results": Clover's light green on its dark green button, so light blue on brand blue here.
     static let onBlue = Color(light: UIColor(hex: 0xE8F1FC), dark: .white)
     /// The Filters count badge, navy like the website's (`.fbtn em`), brand blue in dark mode.
     static let badge = Color(light: UIColor(hex: 0x0A1F44), dark: UIColor(hex: 0x1D4F9E))
+    /// #C4C4C4: the round ⋮ button while its menu is open (photo 63e1e3b0), darker than its usual #E3E3E3.
+    static let pressed = Color(light: UIColor(hex: 0xC4C4C4), dark: UIColor(hex: 0x48484A))
 }
 
 // MARK: Line icons, drawn on the grid they were measured on
@@ -202,18 +206,19 @@ struct ItemSalesMenuIconShape: Shape {
             path.move(to: grid.point(4.2, 9))
             path.addLine(to: grid.point(5.2, 9))
         case .export:
-            // An arrow down into a tray.
-            path.move(to: grid.point(10, 2))
-            path.addLine(to: grid.point(10, 12.6))
-            path.move(to: grid.point(6.4, 9))
-            path.addLine(to: grid.point(10, 12.6))
-            path.addLine(to: grid.point(13.6, 9))
-            path.move(to: grid.point(2, 13))
-            path.addLine(to: grid.point(2, 16))
-            path.addQuadCurve(to: grid.point(4.5, 18.5), control: grid.point(2, 18.5))
-            path.addLine(to: grid.point(15.5, 18.5))
-            path.addQuadCurve(to: grid.point(18, 16), control: grid.point(18, 18.5))
-            path.addLine(to: grid.point(18, 13))
+            // An arrow down into a shallow tray, 19.4 x 14.7 pt with the line, as in the photo: the arrow's tip level with the tops
+            // of the tray's sides, and the whole of it a little above the middle of the row, as there.
+            path.move(to: grid.point(10, 2.7))
+            path.addLine(to: grid.point(10, 12.2))
+            path.move(to: grid.point(6.5, 8.8))
+            path.addLine(to: grid.point(10, 12.2))
+            path.addLine(to: grid.point(13.5, 8.8))
+            path.move(to: grid.point(1.1, 12.3))
+            path.addLine(to: grid.point(1.1, 13.35))
+            path.addQuadCurve(to: grid.point(3.6, 15.85), control: grid.point(1.1, 15.85))
+            path.addLine(to: grid.point(16.4, 15.85))
+            path.addQuadCurve(to: grid.point(18.9, 13.35), control: grid.point(18.9, 15.85))
+            path.addLine(to: grid.point(18.9, 12.3))
         case .sync:
             // Two arrows: back along the top, forward along the bottom.
             path.move(to: grid.point(17.5, 6))
@@ -274,7 +279,7 @@ struct ItemSalesLookTile: View {
 
 // MARK: Pieces of the page
 
-/// The ring the photos draw around the focused row (Clover's focus outline, in brand blue): a 2 pt line, a 2 pt gap, then a 1 pt
+/// The ring the photos draw around the focused row (Clover's focus outline, in navy): a 2 pt line, a 2 pt gap, then a 1 pt
 /// line. `across` and `down` say how far the outer line reaches past the row's sides and above and below it; the inner line is
 /// 4 pt inside the outer one.
 struct ItemSalesFocusRing: ViewModifier {
@@ -303,9 +308,11 @@ struct ItemSalesFocusRing: ViewModifier {
 }
 
 /// The round grey button of the photos (⋮ at 48 x 48 pt, the sliders at 50 x 48 pt), with the website's count when filters are on.
+/// `active` darkens it while what it opened is showing, as ⋮ is while its menu is open.
 struct ItemSalesRoundButton<Label: View>: View {
     var width: CGFloat = 48
     var badge = 0
+    var active = false
     let action: () -> Void
     @ViewBuilder let label: () -> Label
 
@@ -313,7 +320,7 @@ struct ItemSalesRoundButton<Label: View>: View {
         Button(action: action) {
             label()
                 .frame(width: width, height: 48)
-                .background(SettingsLook.border, in: Capsule())
+                .background(active ? ItemSalesLook.pressed : SettingsLook.border, in: Capsule())
                 .overlay(alignment: .topTrailing) {
                     if badge > 0 {
                         Text(String(badge))
@@ -343,8 +350,8 @@ struct ItemSalesDots: View {
     }
 }
 
-/// The tabs under the dates: "Revenue items" chosen (light blue with a brand-blue underline), and "Non revenue items" greyed and
-/// not tappable, because Processor Freedom has no non-revenue items (the website's tab is greyed too).
+/// The tabs under the dates: "Revenue items" chosen (navy words on light blue, with a brand-blue underline), and "Non revenue items"
+/// greyed and not tappable, because Processor Freedom has no non-revenue items (the website's tab is greyed too).
 struct ItemSalesTabs: View {
     var body: some View {
         // They fit the photo's width; with larger text they scroll sideways instead of running off the page.
@@ -366,10 +373,10 @@ struct ItemSalesTabs: View {
     private func tab(_ title: String, chosen: Bool) -> some View {
         Button {} label: {
             VStack(spacing: 8) {
-                // 16 pt keeps both tabs inside the photo's width (Clover's letters are a little narrower than the iPhone's).
+                // The photo's 16.5 pt (11.7 pt capitals). Both tabs still fit the page's width; larger text scrolls sideways.
                 Text(title)
-                    .pfFont(16, .semibold)
-                    .foregroundStyle(chosen ? Theme.blue : SettingsLook.greyed)
+                    .pfFont(16.5, .semibold)
+                    .foregroundStyle(chosen ? Theme.ink : SettingsLook.greyed)
                     .lineLimit(1)
                     .padding(.horizontal, 18.3)
                     .frame(minHeight: 34)
@@ -387,11 +394,17 @@ struct ItemSalesTabs: View {
 }
 
 /// No items in the period: the website's drawing and words (cEmpty with 'look' and NORES in public/js/editor.js), at the photo's
-/// sizes and gaps (the title 33 pt under the drawing, the sentence 27 pt under the title).
+/// sizes and gaps: the drawing in the middle of the photo's 226 pt drawing area (which starts 24 pt under the tabs), the title 33 pt
+/// under that area and the sentence 27 pt under the title.
 struct ItemSalesEmptyState: View {
+    /// The height of the photo's drawing area.
+    static let artHeight: CGFloat = 226
+
     var body: some View {
         VStack(spacing: 0) {
             ItemSalesLookTile()
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.artHeight)
             Text("No results found")
                 .pfFont(24.5, .bold, relativeTo: .title)
                 .foregroundStyle(Color.primary)

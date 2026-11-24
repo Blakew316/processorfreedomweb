@@ -18,10 +18,10 @@ enum CloseoutLook {
     static let openText = Color(light: UIColor(hex: 0x0F0B00), dark: UIColor(hex: 0xFCEFC2))
 
     /// The page's description: the photo's two sentences (the owner asked for the screen to be identical to the photo), then the
-    /// website's own sentence about the open batch (public/js/editor.js CL.close) behind "Show more...". "Show more..." shows only
-    /// when the description runs past three lines; this text needs about five, so the link sits at the end of the third, as in
-    /// the photo.
-    static let description = "Card transactions make up a batch for a given time period. Funds are deposited 1–3 days after each batch closes. Your open batch consists of all transactions since your last closeout."
+    /// website's own sentence about the open batch (public/js/editor.js CL.close), as its own paragraph, behind "Show more...".
+    /// "Show more..." shows only when the description runs past three lines; the paragraph break makes the third line end at
+    /// "closes.", so the link sits after whole words at the end of the third line, as in the photo.
+    static let description = "Card transactions make up a batch for a given time period. Funds are deposited 1–3 days after each batch closes.\n\nYour open batch consists of all transactions since your last closeout."
     /// The Open batch card's sentence, as in the photo (the owner asked for the screen to be identical to the photo).
     static let openSentence = "Funds are deposited within 1-3 business days after each closeout event"
 

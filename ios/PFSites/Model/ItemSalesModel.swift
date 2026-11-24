@@ -246,7 +246,6 @@ final class ItemSalesModel {
     private(set) var businessName = ""
     /// The business's people (GET /api/sites/<id>/shifts: the owner and the team), for the Employees filter.
     private(set) var people: [String] = []
-    private(set) var peopleLoaded = false
     /// The request the rows answer; nil while nothing has come in for the current choices.
     private(set) var shownQuery: String? = nil
     /// The days the server answered for, which the date line shows once they come.
@@ -399,6 +398,12 @@ final class ItemSalesModel {
 
     // MARK: Loading
 
+    /// Try again was tapped after the report did not load: the words go, so the spinner shows until the new answer comes.
+    func clearProblem() {
+        problem = ""
+        forbidden = false
+    }
+
     /// The business's time zone, web address name and name (GET /api/sites/<id>), at most once a minute unless forced.
     func loadSite(siteID: String, force: Bool = false) async {
         guard !siteID.isEmpty else { return }
@@ -461,13 +466,14 @@ final class ItemSalesModel {
         if let found = TimeZone(identifier: answer["timezone"].string), found.identifier != zone.identifier { zone = found }
     }
 
-    /// Everyone at the business, for the Employees filter: the owner and the team, as the Shifts page lists them.
+    /// Everyone at the business, for the Employees filter: the owner and the team, as the Shifts page lists them. Asked for each time
+    /// the Filters panel opens, so someone added on the website shows; the names shown stay until the answer comes, and when it
+    /// does not come.
     func loadPeople(siteID: String) async {
         guard !siteID.isEmpty, let answer = try? await API.get("/api/sites/\(siteID)/shifts") else { return }
         var seen = Set<String>()
         let names = answer["people"].array.map { $0.string.trimmed }.filter { !$0.isEmpty && seen.insert($0).inserted }
         people = names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-        peopleLoaded = true
     }
 
     // MARK: Print, export and accounting sync, as the website's ⋮ menu does them
