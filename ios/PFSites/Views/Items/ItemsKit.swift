@@ -86,6 +86,8 @@ struct ItemsPillStyle: ButtonStyle {
     var height: CGFloat = 48
     var size: CGFloat = 16.5
     var weight: Font.Weight = .regular
+    /// What a brand-blue pill shows behind its greyed words while it cannot be used (nothing for Save, as in the photos).
+    var disabledFill: Color = .clear
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
@@ -111,7 +113,7 @@ struct ItemsPillStyle: ButtonStyle {
         switch kind {
         case .grey: return ItemsLook.control
         case .darkGrey: return ItemsLook.controlDark
-        case .brand: return isEnabled ? Theme.blue : Color.clear
+        case .brand: return isEnabled ? Theme.blue : disabledFill
         case .plain: return Color.clear
         }
     }
@@ -296,34 +298,39 @@ struct ItemsCheckRow: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        Button {
-            action?()
-        } label: {
-            HStack(alignment: .top, spacing: gap) {
-                ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
-                    .padding(.top, 3)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(label)
-                        .pfFont(16.5, bold ? .bold : .regular)
-                        .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
-                    if let note {
-                        Text(note)
-                            .pfFont(16)
-                            .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
-                            .lineSpacing(1)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer(minLength: 0)
+        Group {
+            if let action, !greyed {
+                Button(action: action) { row }
+                    .buttonStyle(.plain)
+            } else {
+                row
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .disabled(greyed || action == nil)
         .accessibilityElement(children: .combine)
         .accessibilityValue(greyed ? "Not available yet" : (on ? "Checked" : "Not checked"))
+    }
+
+    private var row: some View {
+        HStack(alignment: .top, spacing: gap) {
+            ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .pfFont(16.5, bold ? .bold : .regular)
+                    .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
+                if let note {
+                    Text(note)
+                        .pfFont(16)
+                        .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
+                        .lineSpacing(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -338,37 +345,42 @@ struct ItemsRadioRow<Extra: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                action?()
-            } label: {
-                HStack(alignment: .top, spacing: 22) {
-                    ItemsRadio(on: on, greyed: greyed)
-                        .padding(.top, 3)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(label)
-                            .pfFont(16.5, .bold)
-                            .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.grey)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let note {
-                            Text(note)
-                                .pfFont(16)
-                                .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
-                                .lineSpacing(1)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    Spacer(minLength: 0)
+            Group {
+                if let action, !greyed {
+                    Button(action: action) { row }
+                        .buttonStyle(.plain)
+                } else {
+                    row
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .disabled(greyed || action == nil)
             .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAddTraits(on ? .isSelected : [])
             .accessibilityValue(greyed ? "Not available yet" : "")
             extra()
                 .padding(.leading, 38)
         }
+    }
+
+    private var row: some View {
+        HStack(alignment: .top, spacing: 22) {
+            ItemsRadio(on: on, greyed: greyed)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(label)
+                    .pfFont(16.5, .bold)
+                    .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.grey)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let note {
+                    Text(note)
+                        .pfFont(16)
+                        .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.soft)
+                        .lineSpacing(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
     }
 }
 

@@ -286,7 +286,8 @@ final class ItemsModel {
         var payload = body
         payload["ids"] = ids
         do {
-            take(try await API.post("/api/sites/\(business.id)/menu/bulk", payload))
+            let answer = try await API.post("/api/sites/\(business.id)/menu/bulk", payload)
+            take(answer)
             changed(model)
             return nil
         } catch let error as APIError {

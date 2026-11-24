@@ -8,10 +8,8 @@ struct InsightsChart: View {
     @ScaledMetric(relativeTo: .caption) private var labelHalf: CGFloat = 8
 
     /// Measured from the photo: four lines 52.7 pt apart, the plot 9 pt in from the card's right edge, room for slanted names.
-    private static let plotHeight: CGFloat = 158
-    private static let namesBand: CGFloat = 46
-    private var plotHeight: CGFloat { InsightsChart.plotHeight }
-    private var namesBand: CGFloat { InsightsChart.namesBand }
+    private var plotHeight: CGFloat { 158 }
+    private var namesBand: CGFloat { 46 }
 
     var body: some View {
         let scale = StatsScale(values: points.map(\.cents))
