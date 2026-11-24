@@ -12,6 +12,10 @@ struct HomeView: View {
         let orders: Int
     }
 
+    /// Every tile is as tall as the tallest one (a two-line name like "Items and services"), so the grid stays even at any text size.
+    @State private var tileHeights: [String: CGFloat] = [:]
+    private var tileHeight: CGFloat { max(118, tileHeights.values.max() ?? 0) }
+
     private struct HomeTile {
         let tab: String
         let title: String
@@ -171,7 +175,12 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 22)
                 .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, minHeight: 118)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    ceil(proxy.size.height)
+                } action: { height in
+                    tileHeights[tile.tab] = height
+                }
+                .frame(maxWidth: .infinity, minHeight: tileHeight)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(light: .white, dark: .secondarySystemBackground)))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(.systemGray5), lineWidth: 1))
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
