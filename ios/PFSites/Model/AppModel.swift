@@ -1,0 +1,386 @@
+import SwiftUI
+import UIKit
+import Observation
+import UserNotifications
+
+/// Where the app is. Welcome, Log in and Two-step are one stack under `.welcome`.
+enum Phase: Equatable {
+    case launching
+    case welcome
+    case choosingLocation
+    case passcode(PasscodeStep)
+    case creatingBusiness
+    case ready
+}
+
+/// Why the passcode screen is showing.
+enum PasscodePurpose: Hashable {
+    case afterSignIn(has: Bool, forgot: Bool)   // right after the email and password: type the passcode, or make one
+    case lock                                   // the app locked itself or was opened again: the passcode opens it
+    case switchTo(has: Bool)                    // changing to another business: its passcode, or a new one there
+    case change                                 // Change passcode: the current one, then a new one
+}
+
+struct PasscodeStep: Hashable {
+    var purpose: PasscodePurpose
+    var site: SiteRef
+}
+
+/// What the server said about a passcode (or Face ID) attempt.
+enum PasscodeResult {
+    case ok
+    case wrong(String)
+    case signIn(String)
+    case failed(String)
+}
+
+enum LogInOutcome {
+    case success
+    case needsCode(APIError)
+    case failed(String)
+}
+
+/// The app's single source of truth: who is signed in, which business is open, which screen shows, and everything that
+/// survives the app locking itself (the dashboard and its pages stay as they were underneath the lock screen).
+@Observable @MainActor
+final class AppModel {
+    static let shared = AppModel()
+
+    var phase: Phase = .launching
+    var launchError: String? = nil
+    /// The loading screen (D9) over the main window: on launch, and after signing in or unlocking until the first page is ready.
+    var showLoading = true
+    var shellAlive = false
+    var shellID = UUID()
+    var shell = Shell()
+
+    var user: User? = nil
+    var sites: [Site] = []
+    var site: Site? = nil
+    var config = AppConfig()
+    var ordersBadge = 0
+    var notesDot = false
+
+    let biometry: Biometry
+    var faceIDOn: Bool
+    var pushAuthorized = false
+    var pushDenied = false
+
+    let auth = AuthFlow()
+    let idle = IdleMonitor()
+
+    /// Set while Face ID or a permission alert is up: the app goes inactive for those, and the privacy cover should not flash.
+    @ObservationIgnored var suppressCover = false
+    @ObservationIgnored var pushToken: String?
+    /// Whether the last device token reached the server (nil while waiting for iOS).
+    @ObservationIgnored var tokenSent: Bool?
+    @ObservationIgnored var unlockedSiteID: String?
+    /// The logout that runs when the app locks. Unlocking and signing in wait for it, so it can never clear the new session's cookie.
+    @ObservationIgnored var endingSession: Task<Void, Never>?
+    @ObservationIgnored var checkingSession = false
+    @ObservationIgnored private var started = false
+    @ObservationIgnored private var waitingForWeb = false
+    @ObservationIgnored private var loadingCap: Task<Void, Never>?
+    @ObservationIgnored private var poller: Task<Void, Never>?
+    @ObservationIgnored private var pendingNotification: String?
+    @ObservationIgnored private var iconBadge = -1
+
+    init() {
+        biometry = Biometry.current()
+        faceIDOn = UserDefaults.standard.bool(forKey: Keys.faceID) && Keychain.device != nil
+    }
+
+    // MARK: Phase
+
+    var isLocked: Bool { lockStepShowing != nil }
+
+    var lockStepShowing: PasscodeStep? {
+        if case .passcode(let step) = phase, step.purpose == .lock { return step }
+        return nil
+    }
+
+    /// "Blake": the signed-in person's first name, or the last one this phone saw (the lock screen shows it before anyone signs in).
+    var firstName: String {
+        let defaults = UserDefaults.standard
+        return User.firstName(name: user?.name ?? defaults.string(forKey: Keys.name) ?? "", email: user?.email ?? defaults.string(forKey: Keys.email) ?? "")
+    }
+
+    func setPhase(_ next: Phase) {
+        let wasLocked = isLocked
+        phase = next
+        if isLocked && !wasLocked {
+            OverlayWindows.shared.showLock()
+        } else if !isLocked && wasLocked {
+            OverlayWindows.shared.hideLock(animated: next == .ready)
+        }
+        switch next {
+        case .ready, .launching: break
+        default: hideLoading()
+        }
+    }
+
+    // MARK: Launch
+
+    func start() async {
+        guard !started else { return }
+        started = true
+        await launch()
+    }
+
+    func retryLaunch() {
+        launchError = nil
+        Task { await launch() }
+    }
+
+    private func launch() async {
+        setPhase(.launching)
+        showLoading = true
+        launchError = nil
+        await loadConfig()
+        // The 15-minute rule survives restarts: a session left alone too long is ended before anything shows.
+        if idle.expired, hasSessionCookie { await endServerSession() }
+        do {
+            let me = try await API.get("/api/me")
+            if let person = User(me["user"]) {
+                user = person
+                remember(person)
+                try await continueSignedIn()
+            } else if let step = lockStep() {
+                setPhase(.passcode(step))
+            } else {
+                goWelcome()
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            showLaunchError(error)
+        }
+    }
+
+    /// The loading screen says what went wrong and offers Try again; it also tries again by itself when the connection returns.
+    func showLaunchError(_ error: Error) {
+        setPhase(.launching)
+        showLoading = true
+        launchError = (error as? APIError)?.message ?? APIError.unreachableMessage
+        NetworkMonitor.shared.whenBackOnline { [weak self] in
+            guard let self, self.phase == .launching, self.launchError != nil else { return }
+            self.retryLaunch()
+        }
+    }
+
+    /// Signed in already (the session cookie is still good): straight to the business this phone opens, or ask which one.
+    func continueSignedIn() async throws {
+        let list = try await loadSites()
+        if list.isEmpty {
+            setPhase(.creatingBusiness)
+        } else if let saved = Keychain.siteID, let match = list.first(where: { $0.id == saved }) {
+            await enterReady(match)
+        } else if list.count == 1 {
+            await passcodeStep(for: list[0])
+        } else {
+            setPhase(.choosingLocation)
+        }
+    }
+
+    // MARK: Loading screen
+
+    func hideLoading() {
+        loadingCap?.cancel()
+        loadingCap = nil
+        waitingForWeb = false
+        if showLoading { showLoading = false }
+    }
+
+    /// Keeps the loading screen up until a page reports in, for at most 8 seconds (then the page or its offline card shows).
+    private func waitForWeb() {
+        waitingForWeb = true
+        showLoading = true
+        loadingCap?.cancel()
+        loadingCap = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.hideLoading()
+        }
+    }
+
+    /// A web page said where it is (or that it could not load).
+    func webPageReported() {
+        if waitingForWeb { hideLoading() }
+    }
+
+    // MARK: The dashboard
+
+    /// Opens the dashboard for a business. `reloadPages` is for after unlocking: the pages left under the lock screen load again
+    /// with the new session, behind the loading screen.
+    func enterReady(_ business: Site, reloadPages: Bool = false) async {
+        let changed = site?.id != business.id
+        site = business
+        Keychain.saveSiteID(business.id)
+        await syncCookiesToWeb()
+        if changed || !shellAlive {
+            WebStore.shared.closeAll()
+            shell = Shell()
+            shellID = UUID()
+        }
+        shellAlive = true
+        setOrdersBadge(business.newOrders)
+        setPhase(.ready)
+        idle.start(kitchen: business.isKitchen)
+        startPolling()
+        if reloadPages && WebStore.shared.hasLivePages {
+            waitForWeb()
+            WebStore.shared.reloadAll()
+        } else {
+            hideLoading()
+        }
+        await uploadPushTokenIfWanted()
+        if let path = pendingNotification {
+            pendingNotification = nil
+            openNotification(path: path)
+        }
+        maybeAskForPush()
+    }
+
+    // MARK: Server data
+
+    func loadConfig() async {
+        guard let answer = try? await API.get("/api/config") else { return }
+        config = AppConfig(smsEnabled: answer["smsEnabled"].bool, appPush: answer["appPush"].bool)
+    }
+
+    /// The person's businesses, newest first. Falls back to the full list when the server has no light list yet.
+    @discardableResult
+    func loadSites() async throws -> [Site] {
+        let answer: JSON
+        do {
+            answer = try await API.get("/api/app/sites")
+        } catch let error as APIError where error.status == 404 {
+            answer = try await API.get("/api/sites")
+        }
+        let list = answer["sites"].array.compactMap { Site($0) }
+        sites = list
+        if let current = site, let fresh = list.first(where: { $0.id == current.id }) { site = fresh }
+        return list
+    }
+
+    // MARK: Badge and notifications, kept fresh while the dashboard shows
+
+    func startPolling() {
+        poller?.cancel()
+        guard let business = site, !business.isKitchen else { return }
+        poller = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshNow()
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+            }
+        }
+    }
+
+    func stopPolling() {
+        poller?.cancel()
+        poller = nil
+    }
+
+    /// New orders for the tab badge and anything new behind the bell (also used by pull to refresh on Home).
+    func refreshNow() async {
+        guard phase == .ready, let business = site, !business.isKitchen else { return }
+        do {
+            let list = try await loadSites()
+            if let fresh = list.first(where: { $0.id == business.id }) { setOrdersBadge(fresh.newOrders) }
+        } catch let error as APIError where error.status == 401 {
+            // Signed out everywhere, or the server ended the session: check, then lock.
+            sessionEnded()
+            return
+        } catch {
+            // Offline for a moment: the next round tries again.
+        }
+        await refreshNotesDot()
+    }
+
+    func refreshNotesDot() async {
+        guard let business = site, let answer = try? await API.get("/api/sites/\(business.id)/notifications") else { return }
+        let seen = UserDefaults.standard.double(forKey: Keys.notesSeen(business.id))
+        let fresh = answer["notifications"].array.contains { Double($0["at"].int) > seen }
+        if notesDot != fresh { notesDot = fresh }
+    }
+
+    func markNotesSeen() {
+        guard let business = site else { return }
+        UserDefaults.standard.set(Date().timeIntervalSince1970 * 1000, forKey: Keys.notesSeen(business.id))
+        notesDot = false
+    }
+
+    /// The Orders tab badge and the app icon badge: the count of new orders (the same count the website's menu badge uses).
+    func setOrdersBadge(_ count: Int) {
+        let value = max(0, count)
+        if ordersBadge != value { ordersBadge = value }
+        if iconBadge != value {
+            iconBadge = value
+            UNUserNotificationCenter.current().setBadgeCount(value, withCompletionHandler: nil)
+        }
+    }
+
+    // MARK: Coming and going
+
+    func scenePhaseChanged(_ newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            // Fifteen minutes away locks before anything is shown again.
+            if phase == .ready, idle.expired, site?.isKitchen != true { lock() }
+            OverlayWindows.shared.hideCover()
+            if phase == .ready {
+                idle.cameToForeground()
+                startPolling()
+                WebStore.shared.refreshVisibleIfStale()
+            }
+            Task { await refreshPushStatus() }
+        case .inactive:
+            if !suppressCover { OverlayWindows.shared.showCover() }
+        case .background:
+            OverlayWindows.shared.showCover()
+            idle.wentToBackground()
+            stopPolling()
+        @unknown default:
+            break
+        }
+    }
+
+    // MARK: Opening things from notifications and web pages
+
+    /// A tap on a notification: /app/site/<id>?tab=orders opens that business (switching to it first) and that page.
+    func openNotification(path: String) {
+        guard let url = URL(string: path, relativeTo: Config.baseURL) else { return }
+        let parts = url.path.split(separator: "/").map(String.init)
+        guard parts.count >= 3, parts[0] == "app", parts[1] == "site" else { return }
+        let siteID = parts[2]
+        let query = URLComponents(url: url.absoluteURL, resolvingAgainstBaseURL: false)?.queryItems
+        let tab = query?.first(where: { $0.name == "tab" })?.value ?? (parts.count > 3 ? parts[3] : "orders")
+        guard phase == .ready, let current = site else {
+            pendingNotification = path
+            return
+        }
+        if siteID != current.id {
+            guard let target = sites.first(where: { $0.id == siteID }) else { return }
+            shell.pendingTab = tab
+            shell.sheet = nil
+            shell.cover = .switchTo(target)
+            return
+        }
+        shell.sheet = nil
+        shell.open(tab: tab)
+    }
+
+    /// The Setup tasks and Notifications web pages ask the app to open a page natively.
+    func openFromWeb(tab: String) {
+        guard phase == .ready else { return }
+        shell.sheet = nil
+        shell.open(tab: tab)
+    }
+
+    /// The person's name and email for the greeting and to fill in the Log in form next time.
+    func remember(_ person: User) {
+        let defaults = UserDefaults.standard
+        defaults.set(person.name, forKey: Keys.name)
+        if !person.email.isEmpty { defaults.set(person.email, forKey: Keys.email) }
+    }
+}
