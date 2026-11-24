@@ -111,11 +111,13 @@ struct AppointmentDayPanelFrame<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
+                // The photos' titles sit 1 pt below the middle of the X.
                 Text(title)
                     .pfFont(20, .bold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
+                    .offset(y: 1)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityFocused($titleFocused)
                 Spacer(minLength: 8)
@@ -131,6 +133,8 @@ struct AppointmentDayPanelFrame<Content: View>: View {
                     .padding(.top, 16)
                     .padding(.bottom, 16)
             }
+            // A short list stays still: it only moves when there is more than fits.
+            .scrollBounceBehavior(.basedOnSize)
             AppointmentDayHairline()
             VStack(spacing: 8) {
                 Button("Cancel", action: close)
@@ -176,7 +180,8 @@ struct AppointmentDayCheckRow: View {
         .buttonStyle(.plain)
         .disabled(greyed)
         .accessibilityLabel(title)
-        .accessibilityValue(on ? "Checked" : "Not checked")
+        // A greyed row is said the way the rest of the app says what Processor Freedom does not do yet.
+        .accessibilityValue(greyed ? "Not available yet" : (on ? "Checked" : "Not checked"))
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -197,8 +202,9 @@ struct AppointmentDayCheckRow: View {
         } else {
             HStack(spacing: 0) {
                 AppointmentDayCheckbox(on: on, greyed: greyed)
+                // The photos' names begin 65.3 pt from the edge: 11.5 pt after the box, before the letter's own side space.
                 label
-                    .padding(.leading, 12.5)
+                    .padding(.leading, 11.5)
                 Spacer(minLength: 0)
             }
             .padding(.vertical, 6)
@@ -217,6 +223,7 @@ struct AppointmentDayCheckRow: View {
 }
 
 /// A grey band naming a group ("Appointment status", "Order status"), 56 pt with a hairline under it, 17 pt in from each side.
+/// Its name begins 33.3 pt from the edge and sits two thirds of a point below the band's middle, as in the photo.
 struct AppointmentDayBand: View {
     let title: String
 
@@ -225,9 +232,10 @@ struct AppointmentDayBand: View {
             Text(title)
                 .pfFont(18.5, .bold, relativeTo: .headline)
                 .foregroundStyle(Color.primary)
+                .offset(y: 0.67)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                .padding(.horizontal, 16.67)
+                .padding(.horizontal, 15.67)
                 .background(AppointmentDayLook.band)
             AppointmentDayHairline()
         }

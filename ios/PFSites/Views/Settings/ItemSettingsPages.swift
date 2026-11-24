@@ -1,7 +1,8 @@
 import SwiftUI
+import UIKit
 
 // Settings → Business operations → Inventory, and the "PF Sites settings" under it (Clover's "Clover Go settings"): Item images
-// and Custom item name, from the owner's photos.
+// and Custom item name, from the owner's photos (1125 x 2436 px of a 375 x 812 pt phone, 3 px = 1 pt).
 
 // MARK: - Inventory
 
@@ -14,7 +15,8 @@ struct InventorySettingsPage: View {
 
     var body: some View {
         SettingsPage(title: "Inventory", backLink: true, heading: "Item settings") {
-            SettingsCard(title: "Stock tracking", pencil: .circle(action: { editing = true }), spacing: 32) {
+            // As in the photo: the first name's baseline 103 pt into the card, and the card ends 13 pt under the last pill.
+            SettingsCard(title: "Stock tracking", pencil: .circle(action: { editing = true }), spacing: 27) {
                 VStack(alignment: .leading, spacing: 0) {
                     row("Track stock", on: StockTracking.trackStock)
                     hairline
@@ -22,6 +24,7 @@ struct InventorySettingsPage: View {
                     hairline
                     row("Allow negative stock counts", on: StockTracking.allowNegative)
                 }
+                .padding(.bottom, -7)
             }
         }
         .sheet(isPresented: $editing) {
@@ -29,22 +32,24 @@ struct InventorySettingsPage: View {
         }
     }
 
+    /// The line between two settings: 12 pt under a pill and 14 pt over the next name.
     private var hairline: some View {
         Rectangle()
             .fill(SettingsLook.border)
             .frame(height: 1)
-            .padding(.vertical, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 14.33)
             .accessibilityHidden(true)
     }
 
-    /// A setting as the photo shows it: the name in bold over its On or Off pill.
+    /// A setting as the photo shows it: the name in bold over its On or Off pill (the photo's darker grey when off).
     private func row(_ label: String, on: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .pfFont(16, .bold)
                 .foregroundStyle(Color.primary)
                 .fixedSize(horizontal: false, vertical: true)
-            TxPill(on: on)
+            TxPill(text: on ? "On" : "Off", on: on, solid: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -58,8 +63,11 @@ private enum StockTracking {
     static let allowNegative = false
 }
 
-/// The Stock tracking sheet from the photo: the title with the circled X, the three settings with their notes, and Cancel and Save
-/// at the foot. The switches show Processor Freedom's fixed behaviour and cannot be changed, so Save stays pale.
+/// The Stock tracking sheet from the photo: the title with the circled X, the three settings each under its bold heading with its
+/// switch, name and note, and Cancel and Save at the foot. The switches show Processor Freedom's fixed behaviour and cannot be
+/// changed, so they are drawn as the photo draws a switch that cannot be changed, and Save stays pale.
+/// Measured from the photo: a 53 pt title row; each heading's baseline 55 pt under the line above the first and 53 pt under the
+/// note before it; the switch 21 pt under the heading's baseline, its name beside it and the note under the name on 22 pt lines.
 private struct StockTrackingSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -87,15 +95,13 @@ private struct StockTrackingSheet: View {
             }
             .padding(.leading, 17)
             .padding(.trailing, 8)
-            .padding(.vertical, 8)
+            .padding(.top, 5)
+            .padding(.bottom, 4)
 
-            Rectangle()
-                .fill(SettingsLook.border)
-                .frame(height: 1)
-                .accessibilityHidden(true)
+            line
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 34) {
+                VStack(alignment: .leading, spacing: 31.67) {
                     setting("Track stock", on: StockTracking.trackStock,
                             note: "This allows you to set stock counts for your items. Each order takes the count down, and an item shows as sold out at zero.")
                     setting("Automatically update item counts", on: StockTracking.autoUpdate,
@@ -103,62 +109,104 @@ private struct StockTrackingSheet: View {
                     setting("Allow negative stock counts", on: StockTracking.allowNegative,
                             note: "Stock counts never drop below zero: an order can't take more items than you have.")
                 }
-                .padding(.horizontal, 29)
-                .padding(.top, 34)
+                .padding(.leading, 35)
+                .padding(.trailing, 35)
+                .padding(.top, 37.33)
                 .padding(.bottom, 24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            Rectangle()
-                .fill(SettingsLook.border)
-                .frame(height: 1)
-                .accessibilityHidden(true)
-            HStack(spacing: 14) {
+            line
+            HStack(spacing: 16) {
                 Button("Cancel") { dismiss() }
                     .buttonStyle(StockSheetButtonStyle(kind: .cancel))
                 Button("Save") {}
                     .buttonStyle(StockSheetButtonStyle(kind: .save))
                     .disabled(true)
+                    .accessibilityValue("Nothing to save")
             }
-            .padding(.vertical, 14)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
         }
         .background(Color(.systemBackground))
         .presentationDetents([.large])
     }
 
-    /// One setting: its bold heading, then the switch with the setting's name and its note beside it, greyed because it is fixed.
+    private var line: some View {
+        Rectangle()
+            .fill(SettingsLook.border)
+            .frame(height: 1)
+            .accessibilityHidden(true)
+    }
+
+    /// One setting: its bold heading, then the switch with the setting's name beside it and its note under the name, greyed
+    /// because it is fixed.
     private func setting(_ title: String, on: Bool, note: String) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(title)
-                .pfFont(20, .bold)
+                .pfFont(18.5, .bold)
                 .foregroundStyle(Color.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            HStack(alignment: .top, spacing: 16) {
-                Toggle(title, isOn: .constant(on))
-                    .labelsHidden()
-                    .tint(Theme.blue)
-                    .disabled(true)
-                VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 12) {
+                    StockSwitchMark(on: on)
                     Text(title)
-                        .pfFont(17)
+                        .pfFont(15)
                         .foregroundStyle(SettingsLook.greyed)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(note)
-                        .pfFont(16)
-                        .foregroundStyle(SettingsLook.greyed)
-                        .lineSpacing(5)
+                        .lineSpacing(7)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.top, 4)
+                Text(note)
+                    .pfFont(15)
+                    .foregroundStyle(SettingsLook.greyed)
+                    .lineSpacing(4.4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, StockSwitchMark.width + 12)
             }
+            .padding(.leading, 12)
+            .padding(.top, 16.33)
             .accessibilityElement(children: .combine)
             .accessibilityValue(on ? "On" : "Off")
+            .accessibilityHint("This cannot be changed.")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// The sheet's Cancel (grey) and Save (pale until there is something to save) buttons.
+/// The photo's small switch (40 x 24 pt) as it is drawn when it cannot be changed: a pale track and a dark 20 pt knob, with a tick
+/// in the knob when it is on.
+private struct StockSwitchMark: View {
+    static let width: CGFloat = 40
+    let on: Bool
+
+    private static let track = Color(light: UIColor(hex: 0xC4C4C4), dark: UIColor(hex: 0x48484A))
+    private static let knob = Color(light: UIColor(hex: 0x2E2E2E), dark: UIColor(hex: 0xAEAEB2))
+    private static let tick = Color(light: .white, dark: UIColor(hex: 0x1C1C1E))
+
+    var body: some View {
+        ZStack(alignment: on ? .trailing : .leading) {
+            Capsule()
+                .fill(Self.track)
+            Circle()
+                .fill(Self.knob)
+                .frame(width: 20, height: 20)
+                .overlay {
+                    if on {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Self.tick)
+                    }
+                }
+                .padding(2)
+        }
+        .frame(width: Self.width, height: 24)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The sheet's Cancel (grey) and Save (pale until there is something to save) buttons: 50 pt tall with 8 pt corners, as wide as
+/// their words and 17 pt either side.
 private struct StockSheetButtonStyle: ButtonStyle {
     enum Kind { case cancel, save }
     let kind: Kind
@@ -168,9 +216,10 @@ private struct StockSheetButtonStyle: ButtonStyle {
         configuration.label
             .pfFont(17, .semibold)
             .foregroundStyle(kind == .cancel ? Color.primary : (isEnabled ? Color.white : SettingsLook.greyed))
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 17)
             .frame(minHeight: 50)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(kind == .cancel ? Color(.systemGray5) : (isEnabled ? Theme.blue : Color(.systemGray6))))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(kind == .cancel ? SettingsLook.border : (isEnabled ? Theme.blue : SettingsLook.offFill)))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .opacity(configuration.isPressed ? 0.8 : 1)
     }
 }
@@ -181,8 +230,10 @@ private struct StockSheetButtonStyle: ButtonStyle {
 /// business shows the same).
 struct ItemImagesPage: View {
     var body: some View {
+        // The photo: the grey line's first baseline 21 pt under the bar, the switch 54 pt under it and 22 pt from the edge.
         SaleSwitchPage(title: "Item images", key: "images", label: "Enable item images", boldLabel: true,
-                       intro: "Item images are used to easily identify an item in your inventory.", note: nil) { order, on in
+                       intro: "Item images are used to easily identify an item in your inventory.", note: nil,
+                       top: 7.33, switchInset: 6) { order, on in
             order.showImages = on
         }
     }
@@ -192,8 +243,10 @@ struct ItemImagesPage: View {
 /// the server, so every phone of the business does the same).
 struct CustomItemNamePage: View {
     var body: some View {
+        // The photo: the switch 16 pt under the bar and 13 pt from the edge, the grey line's first baseline 24 pt under the name's.
         SaleSwitchPage(title: "Custom item name", key: "customName", label: "Custom item name", boldLabel: false,
-                       intro: nil, note: "Require an item name when creating a custom item.") { order, on in
+                       intro: nil, note: "Require an item name when creating a custom item.",
+                       top: 16, switchInset: -3) { order, on in
             order.customNameRequired = on
         }
     }
@@ -202,6 +255,7 @@ struct CustomItemNamePage: View {
 /// A white page pushed onto the tab, as in the photos: the page name over the business name, one switch for one of the business's
 /// Sale settings (ordering.sale.<key>), and Save at the foot. Saving reads the business's latest settings, changes only this one and
 /// sends them back with the server's fingerprint, so anything changed elsewhere meanwhile is kept.
+/// The grey lines are 14 pt #727272 on lines as tall as the type, as the photos set them.
 private struct SaleSwitchPage: View {
     let title: String
     let key: String
@@ -209,6 +263,10 @@ private struct SaleSwitchPage: View {
     let boldLabel: Bool
     let intro: String?
     let note: String?
+    /// From the bar to the first line of the page.
+    let top: CGFloat
+    /// How far the switch stands in from the page's 16 pt margin.
+    let switchInset: CGFloat
     /// Brings this business's Sale screen in line straight away; other phones pick it up when they next load.
     let apply: (SaleModel, Bool) -> Void
 
@@ -221,41 +279,51 @@ private struct SaleSwitchPage: View {
     @State private var problem = ""
     @State private var problemIsError = true
 
+    /// #727272, the photos' grey for these lines.
+    private static let grey = Color(light: UIColor(hex: 0x727272), dark: UIColor(hex: 0x98989D))
+
     private var siteID: String { model.site?.id ?? "" }
 
     var body: some View {
-        TxPlainPage(title: title, subtitle: (model.site?.name ?? "").uppercased(), margin: 16, top: 14) {
+        TxPlainPage(title: title, subtitle: (model.site?.name ?? "").uppercased(), margin: 16, top: top) {
             if let intro {
                 Text(intro)
-                    .pfFont(16)
-                    .foregroundStyle(SettingsLook.muted)
+                    .pfFont(14)
+                    .foregroundStyle(Self.grey)
+                    .txLineHeight(14)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 26)
+                    .padding(.bottom, 18.67)
             }
             if settings.loaded {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 12) {
+                        // The switch carries the name for VoiceOver.
                         Text(label)
-                            .pfFont(17, boldLabel ? .semibold : .regular)
+                            .pfFont(boldLabel ? 15 : 16, boldLabel ? .semibold : .regular)
                             .foregroundStyle(Color.primary)
                             .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityHidden(true)
                         Spacer(minLength: 8)
                         Toggle(label, isOn: $on)
                             .labelsHidden()
                             .tint(Theme.blue)
                             .disabled(saving)
+                            .padding(.trailing, switchInset)
                     }
+                    .frame(minHeight: 31)
                     if let note {
                         Text(note)
-                            .pfFont(16)
-                            .foregroundStyle(SettingsLook.muted)
+                            .pfFont(14)
+                            .foregroundStyle(Self.grey)
+                            .txLineHeight(14)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.trailing, 64)
+                            .padding(.trailing, 76)
                     }
                 }
                 .accessibilityElement(children: .combine)
             } else {
                 TxLoading(problem: settings.problem) { Task { await load() } }
+                    .frame(minHeight: 31)
             }
             if !problem.isEmpty {
                 Text(problem)
@@ -263,11 +331,13 @@ private struct SaleSwitchPage: View {
                     .foregroundStyle(problemIsError ? Theme.error : SettingsLook.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 16)
+                    .transition(.opacity)
             }
         } bottom: {
-            TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving) { save() }
+            TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving, size: 13.5) { save() }
         }
-        .task { await load() }
+        .animation(.snappy, value: problem)
+        .settingsLoads { await load() }
         .refreshable { await load() }
     }
 
@@ -278,7 +348,7 @@ private struct SaleSwitchPage: View {
         let before = shown
         let wasLoaded = settings.loaded
         await settings.load(siteID: siteID)
-        guard settings.loaded else { return }
+        guard settings.loaded, !saving else { return }
         let latest = value(in: settings.ordering)
         // What the person switched stays while it differs from what was saved; otherwise the switch follows the server.
         if !wasLoaded || on == before { on = latest }
@@ -286,6 +356,7 @@ private struct SaleSwitchPage: View {
     }
 
     private func save() {
+        guard !saving else { return }
         let wanted = on
         let was = shown
         let key = key

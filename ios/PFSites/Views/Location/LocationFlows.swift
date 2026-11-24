@@ -44,30 +44,48 @@ struct SwitchPasscodeView: View {
                     model.shell.switchAfterCover = business
                     dismiss()
                 }, onCancel: {
-                    model.shell.pendingTab = nil
-                    dismiss()
+                    cancel()
                 })
-            } else if !problem.isEmpty {
-                VStack(spacing: 16) {
-                    Text(problem)
-                        .pfFont(17)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Try again") { Task { await load() } }
-                        .buttonStyle(SolidButtonStyle(radius: 24, height: 48, size: 17))
-                        .frame(maxWidth: 220)
-                    Button("Cancel") {
-                        model.shell.pendingTab = nil
-                        dismiss()
-                    }
-                    .pfFont(17)
-                }
-                .padding(32)
             } else {
-                ProgressView().controlSize(.large).tint(Theme.blue)
+                // Before the passcode screen is up (the server is being asked, or could not be reached) the step closes with the
+                // same X in the same place, so there is always a way back.
+                VStack(spacing: 0) {
+                    HStack {
+                        PasscodeCloseButton { cancel() }
+                            .padding(.leading, 6)
+                        Spacer()
+                    }
+                    .frame(height: 44)
+                    Spacer()
+                    if !problem.isEmpty {
+                        VStack(spacing: 16) {
+                            Text(problem)
+                                .pfFont(17)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try again") { Task { await load() } }
+                                .buttonStyle(SolidButtonStyle(radius: 24, height: 48, size: 17))
+                                .frame(maxWidth: 220)
+                            Button("Cancel") { cancel() }
+                                .pfFont(17)
+                                .frame(minHeight: 44)
+                        }
+                        .padding(.horizontal, 32)
+                    } else {
+                        ProgressView().controlSize(.large).tint(Theme.blue)
+                    }
+                    Spacer()
+                    // As much room under the middle as the X's row takes above it, so the spinner or the message is centred.
+                    Color.clear.frame(height: 44)
+                }
             }
         }
         .task { await load() }
+    }
+
+    private func cancel() {
+        model.shell.pendingTab = nil
+        dismiss()
     }
 
     private func load() async {

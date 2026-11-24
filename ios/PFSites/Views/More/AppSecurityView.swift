@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// App security and privacy (E9, in E10's sub-page layout): the app's own sign-in settings on this iPhone.
+/// The rows of the owner's photo are measured from it (1125 x 2436 px of a 375 x 812 pt phone, 3 px = 1 pt): a row's title has its
+/// capitals 21 pt under the row's top, a switch starts 16 pt under it and ends 15 pt from the screen's edge, a note under a title
+/// is 14 pt #5C5C5C on 18 pt lines, and a value under a title has its baseline 28 pt under the title's.
 struct AppSecurityView: View {
     @Environment(AppModel.self) private var model
     @State private var faceIDBusy = false
@@ -9,6 +12,9 @@ struct AppSecurityView: View {
     @State private var faceIDWanted = false
     @State private var pushWanted = false
     @State private var appearance = Appearance.choice
+    /// Why a switch went back by itself (the server could not be reached, or Face ID did not answer): said under its row.
+    @State private var faceIDProblem = ""
+    @State private var pushProblem = ""
 
     static let lockTitle = "Lock after 15 minutes without activity"
 
@@ -22,36 +28,38 @@ struct AppSecurityView: View {
     var body: some View {
         SettingsListScreen(title: "App security and privacy") {
             // The three settings of the owner's photo first, under Clover's "Clover Go settings" band; then the app's own.
-            SettingsListBand(title: "PF Sites settings")
-
-            if model.biometry != .none {
-                biometricRow
-            }
-
-            timeoutRow
-
-            analyticsRow
-
-            appearanceRow
-
-            SettingsRowView(title: "Change passcode", enabled: Keychain.device != nil) {
-                model.shell.cover = .changePasscode
-            }
-
-            notificationsRow
-
-            SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
-                model.shell.push(.page("profile"))
-            }
-
-            if Self.offersChangeLocation(model) {
-                SettingsRowView(title: "Change location", enabled: true) {
-                    model.shell.sheet = .locations
+            Section {
+                if model.biometry != .none {
+                    biometricRow
                 }
-            }
 
-            logOutRow
-                .padding(.top, 12)
+                timeoutRow
+
+                analyticsRow
+
+                appearanceRow
+
+                SettingsRowView(title: "Change passcode", enabled: Keychain.device != nil) {
+                    model.shell.cover = .changePasscode
+                }
+
+                notificationsRow
+
+                SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
+                    model.shell.push(.page("profile"))
+                }
+
+                if Self.offersChangeLocation(model) {
+                    SettingsRowView(title: "Change location", enabled: true) {
+                        model.shell.sheet = .locations
+                    }
+                }
+
+                logOutRow
+                    .padding(.top, 12)
+            } header: {
+                SettingsListBand(title: "PF Sites settings")
+            }
         }
         .onAppear {
             faceIDWanted = model.faceIDOn
@@ -59,7 +67,7 @@ struct AppSecurityView: View {
         }
         .task {
             await model.refreshPushStatus()
-            pushWanted = model.pushOn
+            if !pushBusy { pushWanted = model.pushOn }
             // Two-step sign-in is turned on or off on the Profile page: its state shows here when that page closes.
             await SettingsActions.reloadPerson(model)
         }
@@ -67,26 +75,43 @@ struct AppSecurityView: View {
         .onChange(of: faceIDWanted) { _, wanted in
             guard wanted != model.faceIDOn, !faceIDBusy else { return }
             faceIDBusy = true
+            faceIDProblem = ""
             Task {
                 await model.applyFaceID(wanted)
                 faceIDBusy = false
+                if model.faceIDOn != wanted {
+                    // Turning it on did not go through: the server could not be reached, or Face ID did not answer.
+                    Haptics.error()
+                    faceIDProblem = "\(model.biometry.name) could not be turned on. Try again."
+                }
                 faceIDWanted = model.faceIDOn
             }
         }
         .onChange(of: pushWanted) { _, wanted in
             guard wanted != model.pushOn, !pushBusy else { return }
             pushBusy = true
+            pushProblem = ""
             Task {
-                if wanted {
-                    await model.requestPush()
-                } else {
-                    await model.disablePush()
-                }
+                let done = wanted ? await model.requestPush() : await model.disablePush()
                 await model.refreshPushStatus()
                 pushBusy = false
+                // Refused in iOS has its own row ("Off in iOS Settings"); anything else is the server not answering.
+                if !done, !model.pushDenied, model.pushOn != wanted {
+                    Haptics.error()
+                    pushProblem = "Notifications could not be turned \(wanted ? "on" : "off"). Check your connection and try again."
+                }
                 pushWanted = model.pushOn
             }
         }
+        // Changed somewhere else meanwhile (the website's own switch, iOS Settings, the lock screen): the switches follow.
+        .onChange(of: model.faceIDOn) { _, on in
+            if !faceIDBusy, faceIDWanted != on { faceIDWanted = on }
+        }
+        .onChange(of: model.pushOn) { _, on in
+            if !pushBusy, pushWanted != on { pushWanted = on }
+        }
+        .animation(.snappy, value: faceIDProblem)
+        .animation(.snappy, value: pushProblem)
         .confirmationDialog("Log out of PF Sites on this iPhone?", isPresented: $confirmLogOut, titleVisibility: .visible) {
             Button("Log out", role: .destructive) { Task { await model.signOut() } }
         } message: {
@@ -110,50 +135,79 @@ struct AppSecurityView: View {
                 UIPresenter.openNotificationSettings()
             }
         } else {
-            toggleRow(title: "Notifications", isOn: $pushWanted, busy: pushBusy)
+            switchRow(title: "Notifications", isOn: $pushWanted, busy: pushBusy, problem: pushProblem)
         }
     }
 
-    /// A row with a switch, in the Settings row style.
-    private func toggleRow(title: String, isOn: Binding<Bool>, busy: Bool) -> some View {
+    /// A row with a switch, as the photo's App analytics row: 55.3 pt tall, the title's capitals 21 pt under the row's top and
+    /// the switch 16 pt under it. What went wrong when it was last changed is said under the title.
+    private func switchRow(title: String, isOn: Binding<Bool>, busy: Bool = false, problem: String = "", greyed: Bool = false) -> some View {
         VStack(spacing: 0) {
-            Toggle(isOn: isOn) {
+            HStack(alignment: .top, spacing: 12) {
+                // The switch carries the name for VoiceOver.
                 Text(title)
                     .pfFont(17.5, .semibold)
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 16.67)
+                    .accessibilityHidden(true)
+                Toggle(title, isOn: isOn)
+                    .labelsHidden()
+                    .tint(Theme.blue)
+                    .disabled(busy || greyed)
+                    .padding(.top, 16)
             }
-            .tint(Theme.blue)
-            .disabled(busy)
             .padding(.leading, 24)
-            .padding(.trailing, 20)
-            .padding(.vertical, 10)
-            .frame(minHeight: 55)
+            .padding(.trailing, 15)
+            .frame(minHeight: 55.33, alignment: .top)
+            rowProblem(problem)
             SettingsListSeparator()
+        }
+    }
+
+    /// Why a switch went back, in the app's error colour, under its row's words.
+    @ViewBuilder
+    private func rowProblem(_ problem: String) -> some View {
+        if !problem.isEmpty {
+            Text(problem)
+                .pfFont(14)
+                .foregroundStyle(Theme.error)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 24)
+                .padding(.trailing, 24)
+                .padding(.bottom, 14)
+                .transition(.opacity)
         }
     }
 
     /// Face ID (or Touch ID) as the photo shows it: the name in bold with the note under it, and the switch at the right.
     private var biometricRow: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4.67) {
                     Text(model.biometry.name)
                         .pfFont(17.5, .semibold)
                         .foregroundStyle(Color.primary)
+                        .accessibilityHidden(true)
                     Text("Access your account using your fingerprint or face ID, which helps keep your information secure.")
-                        .pfFont(16)
-                        .foregroundStyle(SettingsLook.muted)
+                        .pfFont(14)
+                        .foregroundStyle(SettingsListLook.quiet)
+                        .lineSpacing(1.3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Toggle(model.biometry.name, isOn: $faceIDWanted)
                     .labelsHidden()
                     .tint(Theme.blue)
                     .disabled(faceIDBusy)
+                    .padding(.top, -0.67)
             }
             .padding(.leading, 24)
-            .padding(.trailing, 20)
-            .padding(.vertical, 16)
+            .padding(.trailing, 15)
+            .padding(.top, 16.67)
+            .padding(.bottom, 14.33)
+            rowProblem(faceIDProblem)
             SettingsListSeparator()
         }
     }
@@ -161,25 +215,11 @@ struct AppSecurityView: View {
     /// The app locks after 15 minutes without activity, a fixed rule, so the chevron is greyed.
     private var timeoutRow: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Inactivity timeout")
-                        .pfFont(17.5, .semibold)
-                        .foregroundStyle(Color.primary)
-                    Text("15 minutes")
-                        .pfFont(17.5)
-                        .foregroundStyle(Color.primary)
-                }
-                Spacer(minLength: 8)
+            titleAndValue(title: "Inactivity timeout", value: "15 minutes") {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(SettingsLook.greyed)
-                    .padding(.top, 3)
-                    .accessibilityHidden(true)
             }
-            .padding(.leading, 24)
-            .padding(.trailing, 24)
-            .padding(.vertical, 16)
             .accessibilityElement(children: .combine)
             SettingsListSeparator()
         }
@@ -196,26 +236,11 @@ struct AppSecurityView: View {
                     }
                 }
             } label: {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Appearance")
-                            .pfFont(17.5, .semibold)
-                            .foregroundStyle(Color.primary)
-                        Text(appearance.title)
-                            .pfFont(17.5)
-                            .foregroundStyle(Color.primary)
-                    }
-                    .multilineTextAlignment(.leading)
-                    Spacer(minLength: 8)
+                titleAndValue(title: "Appearance", value: appearance.title) {
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.primary)
-                        .accessibilityHidden(true)
                 }
-                .padding(.leading, 24)
-                .padding(.trailing, 30)
-                .padding(.vertical, 17)
-                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -228,23 +253,35 @@ struct AppSecurityView: View {
         }
     }
 
+    /// A row with a value under its title, as the photo's Inactivity timeout row: 83.3 pt tall, the value's baseline 28 pt under
+    /// the title's, and the mark at the right level with the title, 30 pt from the screen's edge like the lists' chevrons.
+    private func titleAndValue<Mark: View>(title: String, value: String, @ViewBuilder mark: () -> Mark) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 7.33) {
+                Text(title)
+                    .pfFont(17.5, .semibold)
+                    .foregroundStyle(Color.primary)
+                Text(value)
+                    .pfFont(17.5)
+                    .foregroundStyle(Color.primary)
+            }
+            .multilineTextAlignment(.leading)
+            Spacer(minLength: 8)
+            mark()
+                .frame(height: 21)
+                .padding(.top, 1)
+                .accessibilityHidden(true)
+        }
+        .padding(.leading, 24)
+        .padding(.trailing, 30)
+        .padding(.top, 16.67)
+        .padding(.bottom, 17.33)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     /// PF Sites collects no app analytics, so the switch is off and cannot be turned on.
     private var analyticsRow: some View {
-        VStack(spacing: 0) {
-            Toggle(isOn: .constant(false)) {
-                Text("App analytics")
-                    .pfFont(17.5, .semibold)
-                    .foregroundStyle(SettingsLook.greyed)
-            }
-            .tint(Theme.blue)
-            .disabled(true)
-            .padding(.leading, 24)
-            .padding(.trailing, 20)
-            .padding(.vertical, 10)
-            .frame(minHeight: 55)
-            .accessibilityValue("Off")
-            SettingsListSeparator()
-        }
+        switchRow(title: "App analytics", isOn: .constant(false), greyed: true)
     }
 
     private var logOutRow: some View {
@@ -253,9 +290,9 @@ struct AppSecurityView: View {
         } label: {
             Text("Log out")
                 .pfFont(17.5, .semibold)
-                .foregroundStyle(Color.red)
+                .foregroundStyle(Theme.error)
                 .padding(.horizontal, 24)
-                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 55.33, alignment: .leading)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

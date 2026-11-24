@@ -20,6 +20,8 @@ struct LocationPickerView: View {
 
     @State private var query = ""
     @State private var chosen: String?
+    /// After Continue (signing in): the passcode step for the chosen business is being fetched, and this screen then goes away.
+    @State private var busy = false
 
     init(style: Style, sites: [Site], current: String? = nil, onCancel: @escaping () -> Void = {}, onSignInForAll: (() -> Void)? = nil, onChoose: @escaping (Site) -> Void) {
         self.style = style
@@ -43,8 +45,9 @@ struct LocationPickerView: View {
                     .fill(Color(.systemGray4))
                     .frame(height: 1)
                     .padding(.top, 13)
+                // Semibold: the photo's letters have strokes 1.6 pt thick at this size.
                 Text("OPEN")
-                    .pfFont(12.5, .bold)
+                    .pfFont(12.5, .semibold)
                     .foregroundStyle(SignInLook.muted)
                     .padding(.leading, 18)
                     .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
@@ -61,12 +64,23 @@ struct LocationPickerView: View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .allowsHitTesting(!busy)
         .safeAreaInset(edge: .bottom) {
-            Button(style == .signIn ? "Continue" : "Save") {
-                if let picked = sites.first(where: { $0.id == chosen }) { onChoose(picked) }
+            Button {
+                guard !busy, let picked = sites.first(where: { $0.id == chosen }) else { return }
+                // After signing in, what comes next is asked of the server first: the button shows it is working and cannot
+                // be tapped twice. (From the dashboard the sheet closes at once.)
+                if style == .signIn { busy = true }
+                onChoose(picked)
+            } label: {
+                if busy {
+                    ProgressView().tint(.white)
+                } else {
+                    Text(style == .signIn ? "Continue" : "Save")
+                }
             }
             .buttonStyle(SolidButtonStyle(fill: canContinue ? Theme.blue : Color(.systemGray3), text: .white, radius: 4, height: 46, size: 18.5))
-            .disabled(!canContinue)
+            .disabled(!canContinue || busy)
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 3)
@@ -145,7 +159,7 @@ struct LocationPickerView: View {
     @ViewBuilder
     private var rows: some View {
         let list = shown
-        if list.isEmpty {
+        if list.isEmpty && !query.trimmed.isEmpty {
             Text("No locations match \u{201C}\(query.trimmed)\u{201D}.")
                 .pfFont(16.5)
                 .foregroundStyle(.secondary)
@@ -255,11 +269,15 @@ struct LocationSearchField: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
             if !text.isEmpty {
+                // The small grey X keeps its size; the tap area around it is finger-sized.
                 Button {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        .padding(12)
+                        .contentShape(Rectangle())
                 }
+                .padding(-12)
                 .accessibilityLabel("Clear search")
             }
         }

@@ -147,6 +147,8 @@ struct ItemSalesScreen: View {
             .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
         }
         .background(Color(.systemBackground))
+        // The bar stays plain over what scrolls under it, like the Settings pages with the same grey panel.
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .scrollDisabled(popup != nil)
         .refreshable { await pullToRefresh() }
         .onGeometryChange(for: CGFloat.self) { proxy in
@@ -164,10 +166,12 @@ struct ItemSalesScreen: View {
                 .pfFont(16.5, .medium)
                 .foregroundStyle(SettingsLook.muted)
             HStack(spacing: 12) {
+                // The photo's words sit 1 pt under the middle of the round button.
                 Text("Item sales")
                     .pfFont(24.5, .bold, relativeTo: .title)
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
+                    .offset(y: 1)
                 Spacer(minLength: 8)
                 ItemSalesRoundButton(width: 48, active: popup == .menu) {
                     toggle(.menu)
@@ -191,8 +195,11 @@ struct ItemSalesScreen: View {
             Button {
                 toggle(.range)
             } label: {
-                HStack(spacing: 10) {
+                // The photo's places: the calendar 14 pt in and the chevron 17.4 pt in from the field's edges, each a little
+                // under the middle of the field (0.8 pt and 0.6 pt); the words start 43 pt in.
+                HStack(spacing: 9) {
                     ItemSalesCalendarIcon()
+                        .offset(y: 0.8)
                     Text(report.fieldLabel)
                         .pfFont(16.5)
                         .foregroundStyle(Color.primary)
@@ -200,9 +207,10 @@ struct ItemSalesScreen: View {
                         .minimumScaleFactor(0.8)
                     Spacer(minLength: 8)
                     ItemSalesChevron(up: popup == .range)
+                        .offset(y: 0.6)
                 }
-                .padding(.leading, 13)
-                .padding(.trailing, 16)
+                .padding(.leading, 14)
+                .padding(.trailing, 17.4)
                 .frame(width: 220, height: 50)
                 .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 12, style: .circular))
                 .overlay {
@@ -223,8 +231,8 @@ struct ItemSalesScreen: View {
                 openFilters()
             } label: {
                 ItemSalesSlidersShape()
-                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                    .frame(width: 17.3, height: 19.3)
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                    .frame(width: 17.5, height: 19.5)
                     .accessibilityHidden(true)
             }
             .accessibilityLabel("Filters")
@@ -244,10 +252,10 @@ struct ItemSalesScreen: View {
                 .pfFont(14, .semibold)
                 .foregroundStyle(ItemSalesLook.dateText)
                 .fixedSize(horizontal: false, vertical: true)
-            // The photo's spacing: ‹ starts 15 pt after the dates and › sits 33.7 pt after ‹. The places to tap are 30 pt wide; the
-            // right part of ›'s reaches into the margin instead of pushing the dates onto two lines.
+            // The photo's spacing: ‹ starts 14.7 pt after the dates' last letter and › sits 33.7 pt after ‹. The places to tap are
+            // 30 pt wide; the right part of ›'s reaches into the margin instead of pushing the dates onto two lines.
             stepButton(later: false)
-                .padding(.leading, 3.6)
+                .padding(.leading, 1.6)
             stepButton(later: true)
                 .padding(.leading, 3.7)
                 .padding(.trailing, -11.3)
@@ -261,7 +269,7 @@ struct ItemSalesScreen: View {
             report.step(later ? 1 : -1)
         } label: {
             ItemSalesStepShape(later: later)
-                .stroke(enabled ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                .stroke(enabled ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 .frame(width: 7.3, height: 14)
                 .frame(width: 30, height: 44)
                 .contentShape(Rectangle())
@@ -328,9 +336,11 @@ struct ItemSalesScreen: View {
     }
 
     /// The ⋮ menu (photo 63e1e3b0). Print and Export wait for the report of the chosen period; Learn about this report shows the
-    /// website's words about it.
+    /// website's words about it. It is the photo's width, or as wide as its longest line needs to stay on one line as in the
+    /// photo, and never wider than the page.
     private var menu: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let widest = max(dotsFrame.maxX - 16, 160)
+        return VStack(alignment: .leading, spacing: 0) {
             ItemSalesMenuRow(icon: .print, title: "Print", enabled: report.isCurrent, focused: true) {
                 printReport()
             }
@@ -345,7 +355,8 @@ struct ItemSalesScreen: View {
             }
         }
         .padding(.vertical, 6)
-        .frame(width: min(menuWidth, max(dotsFrame.maxX - 16, 160)))
+        .frame(minWidth: min(menuWidth, widest), maxWidth: widest)
+        .fixedSize(horizontal: true, vertical: false)
         .modifier(ItemSalesPopupCard())
     }
 

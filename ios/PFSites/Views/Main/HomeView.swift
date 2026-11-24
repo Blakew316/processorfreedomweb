@@ -1,15 +1,24 @@
 import SwiftUI
 
 /// Home (photos 1 and 2): the date and time on a navy card with today's sales on request, then tiles for the main pages.
+/// Today's sales are the server's number: read when they are asked for, again whenever Home comes back (from a page, another tab,
+/// the lock screen or the background), on pull, and every minute while they show.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
     @State private var sales: TodaySales?
-    @State private var loadingSales = false
     @State private var salesProblem = ""
 
     private struct TodaySales {
         let net: Int
         let orders: Int
+    }
+
+    private struct SalesKey: Hashable {
+        let shown: Bool
+        let active: Bool
+        let ready: Bool
+        let site: String
     }
 
     /// Tiles side by side are as tall as each other (a two-line name like "Items and services" makes its whole row taller), and a
@@ -59,8 +68,8 @@ struct HomeView: View {
         .refreshable { await refresh() }
         .background(Color(.systemBackground))
         .tabHeader("Home")
-        .task {
-            if model.shell.salesShown && sales == nil { await loadSales() }
+        .task(id: SalesKey(shown: model.shell.salesAllowed && model.shell.salesShown, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
+            await keepSalesFresh()
         }
     }
 
@@ -74,18 +83,23 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 15) {
                     Text(context.date, format: .dateTime.weekday(.wide).month(.wide).day())
                         .pfFont(23, .bold, relativeTo: .title)
-                    // Today's sales take the time's place while they are shown, in the same size, as in the photos.
+                    // Today's sales take the time's place while they are shown, in the same size, as in the photos. (The photo's
+                    // time and amount have strokes 2.2 pt thick at this size: the regular weight, not a light one.)
                     if showing, let sales {
                         Text(Money.format(sales.net))
-                            .pfFont(26, .light, relativeTo: .largeTitle)
+                            .pfFont(26, .regular, relativeTo: .largeTitle)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .accessibilityLabel("Net sales today, \(Money.format(sales.net)), \(sales.orders) \(sales.orders == 1 ? "order" : "orders")")
-                    } else if showing && loadingSales {
+                    } else if showing && salesProblem.isEmpty {
+                        // Being read: a spinner where the amount will be, as tall as the amount, so nothing moves when it arrives.
                         ProgressView()
                             .tint(.white)
                             .frame(minHeight: 31, alignment: .leading)
+                            .accessibilityLabel("Loading today's sales")
                     } else {
                         Text(context.date, format: .dateTime.hour().minute())
-                            .pfFont(26, .light, relativeTo: .largeTitle)
+                            .pfFont(26, .regular, relativeTo: .largeTitle)
                     }
                 }
                 .foregroundStyle(.white)
@@ -95,7 +109,7 @@ struct HomeView: View {
         }
         .padding(.top, 11)
         .padding(.bottom, 16)
-        .padding(.horizontal, 17)
+        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.navy))
     }
@@ -105,60 +119,92 @@ struct HomeView: View {
         let shell = model.shell
         if shell.salesAllowed {
             if shell.salesShown {
-                if sales != nil || loadingSales {
-                    cardButton("Hide today's sales") { shell.salesShown = false }
-                } else if !salesProblem.isEmpty {
+                if sales != nil || salesProblem.isEmpty {
+                    cardButton("Hide today's sales") {
+                        shell.salesShown = false
+                        // Shown again later, they are read afresh: an old amount is never put back up as today's.
+                        sales = nil
+                        salesProblem = ""
+                    }
+                } else {
+                    // The amount could not be read: why, and a way to try again.
                     VStack(alignment: .leading, spacing: 8) {
                         Text(salesProblem)
                             .pfFont(15)
                             .foregroundStyle(.white.opacity(0.8))
+                            .fixedSize(horizontal: false, vertical: true)
                         cardButton("Try again") { Task { await loadSales() } }
                     }
                 }
             } else {
-                cardButton("Show today's sales") {
-                    shell.salesShown = true
-                    Task { await loadSales() }
-                }
+                // Showing them starts the reading (the task that keeps them fresh follows this choice).
+                cardButton("Show today's sales") { shell.salesShown = true }
             }
         }
     }
 
+    /// The light blue link on the card. Its words are 14 pt, so the tap area reaches 15 pt further up and down (and a little to
+    /// the sides) without moving anything.
     private func cardButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .pfFont(14, .semibold)
                 .foregroundStyle(Theme.linkOnNavy)
+                .padding(.vertical, 15)
+                .padding(.horizontal, 12)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -15)
+        .padding(.horizontal, -12)
     }
 
-    private func loadSales() async {
-        guard let business = model.site else { return }
-        loadingSales = true
+    /// Reads today's sales now and then every minute, while they are shown and Home is on screen in an open, unlocked app: a sale
+    /// taken on the website or another phone shows up here, and after midnight the amount is the new day's. It stops on a failure
+    /// with nothing to show (the card then says why and offers Try again).
+    private func keepSalesFresh() async {
+        let shell = model.shell
+        guard shell.salesAllowed, shell.salesShown, scenePhase == .active, model.phase == .ready else { return }
+        while !Task.isCancelled {
+            let read = await loadSales()
+            if !read && sales == nil { return }
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
+        }
+    }
+
+    /// True when the amount was read. While it is being read for the first time the card shows a spinner (no amount and no
+    /// problem yet); a reading that fails while an amount is up leaves that amount (the next reading replaces it).
+    @discardableResult
+    private func loadSales() async -> Bool {
+        guard let business = model.site else { return false }
         salesProblem = ""
         do {
             let answer = try await API.get("/api/sites/\(business.id)/stats?range=today")
+            // Hidden while the answer was on its way: it is not kept.
+            guard model.shell.salesShown else { return false }
             sales = TodaySales(net: answer["totals"]["net"].int, orders: answer["totals"]["orders"].int)
+            return true
         } catch let error as APIError {
-            if error.status == 403 {
+            if error.forbidden {
                 // This login is not allowed to see sales: the button goes away.
                 model.shell.salesAllowed = false
                 model.shell.salesShown = false
-            } else if error.status == 401 {
-                model.sessionEnded()
+                sales = nil
             } else {
-                salesProblem = error.message
+                // A plain 401 means the session ended (signed out everywhere, or the server dropped it): check, then lock. Once
+                // the app is open again the amount is read afresh; until then the card keeps a way to try again.
+                if error.sessionEnded { model.sessionEnded() }
+                if sales == nil { salesProblem = error.message }
             }
         } catch {
-            // Cancelled: the screen went away.
+            // Cancelled: Home went off screen, or the sales were hidden.
         }
-        loadingSales = false
+        return false
     }
 
     private func refresh() async {
         await model.refreshNow()
-        if model.shell.salesShown { await loadSales() }
+        if model.shell.salesAllowed && model.shell.salesShown { await loadSales() }
     }
 
     // MARK: Tiles
@@ -191,8 +237,9 @@ struct HomeView: View {
                     }
                     .frame(width: 48, height: 48)
                     .accessibilityHidden(true)
+                    // 17.5 pt with strokes 2.2 pt thick in the photo: the semibold weight.
                     Text(tile.title)
-                        .pfFont(17.5, .medium)
+                        .pfFont(17.5, .semibold)
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 6)

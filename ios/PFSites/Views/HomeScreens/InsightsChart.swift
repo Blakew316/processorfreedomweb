@@ -12,14 +12,15 @@ struct InsightsChart: View {
     @ScaledMetric(relativeTo: .caption) private var nameCharacter: CGFloat = 7.1
     @ScaledMetric(relativeTo: .caption) private var nameLine: CGFloat = 16
 
-    /// Measured from the photo: four lines 52.7 pt apart, the plot 9.5 pt in from both sides of the card's content, 15.7 pt
-    /// between the amounts and the plot, and the names' ends 22 pt under the bottom line.
+    /// Measured from the photo: four lines 52.7 pt apart, the top one 24.5 pt under the legend's baseline, the plot 9.5 pt in
+    /// from both sides of the card's content, 15.7 pt between the amounts and the plot, and the names' ends 21 pt under the
+    /// bottom line.
     private var plotHeight: CGFloat { 158 }
-    private var namesDrop: CGFloat { 22.3 }
+    private var namesDrop: CGFloat { 21.1 }
 
     var body: some View {
         let scale = StatsScale(values: points.map(\.cents))
-        VStack(alignment: .leading, spacing: 13) {
+        VStack(alignment: .leading, spacing: 12.3) {
             legend
                 .padding(.leading, 17.5)
             HStack(alignment: .top, spacing: 15.7) {
@@ -31,14 +32,16 @@ struct InsightsChart: View {
         }
     }
 
+    /// The legend's sample of the chart (16 x 6.7 pt in the photo: a 1 pt line over its fading area) and "Net sales", its "N"
+    /// 13 pt after the sample.
     private var legend: some View {
-        HStack(alignment: .lastTextBaseline, spacing: 13.3) {
+        HStack(alignment: .lastTextBaseline, spacing: 11.6) {
             VStack(spacing: 0) {
-                Theme.blue.frame(height: 1.2)
+                Theme.blue.frame(height: 1)
                 LinearGradient(colors: [Theme.blue.opacity(0.32), Theme.blue.opacity(0.06)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 5.5)
+                    .frame(height: 5.7)
             }
-            .frame(width: 15)
+            .frame(width: 16)
             .accessibilityHidden(true)
             Text("Net sales")
                 .pfFont(16, .bold)
@@ -142,7 +145,8 @@ struct InsightsChart: View {
                     path.move(to: CGPoint(x: xs[0], y: ys[0]))
                     for index in xs.indices.dropFirst() { path.addLine(to: CGPoint(x: xs[index], y: ys[index])) }
                 }
-                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 1.3, lineCap: .round, lineJoin: .round))
+                // 1 pt in the photo (3 px on the level stretch from Sunday to Monday).
+                .stroke(Theme.blue, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
             } else if let x = xs.first, let y = ys.first {
                 Circle()
                     .fill(Theme.blue)

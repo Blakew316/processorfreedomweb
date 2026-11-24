@@ -85,20 +85,29 @@ final class AppointmentsModel {
             }
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            if error.status == 403 {
-                // This login may not see this business's appointments: the server's words, and none of them.
-                if !appointments.isEmpty { appointments = [] }
-                if !loaded { loaded = true }
-                loadError = error.message
-            } else if !loaded {
-                // A failed refresh keeps the list it had; the message shows when there is nothing yet.
-                loadError = error.message
+            // Like an answer, a failure that set out before a newer load or change says nothing over it.
+            if mine == generation {
+                if error.status == 403 {
+                    // This login may not see this business's appointments: the server's words, and none of them.
+                    if !appointments.isEmpty { appointments = [] }
+                    if !loaded { loaded = true }
+                    loadError = error.message
+                } else if !loaded {
+                    // A failed refresh keeps the list it had; the message shows when there is nothing yet.
+                    loadError = error.message
+                }
             }
         } catch {
             // Cancelled: the screen went away.
         }
         await names
         await clock
+    }
+
+    /// Try again after the first load did not work: the message gives way to the spinner while it loads.
+    func retry(siteID: String) async {
+        if !loaded, !loadError.isEmpty { loadError = "" }
+        await load(siteID: siteID)
     }
 
     /// The business's time zone, from GET /api/sites/<id> (site.ordering.timezone): with the first load, then at most every ten
@@ -157,6 +166,12 @@ final class AppointmentsModel {
         return appointments
             .filter { $0.day == shownDay && shows($0) }
             .sorted { ($0.startMinute, $0.name, $0.id) < ($1.startMinute, $1.name, $1.id) }
+    }
+
+    /// The day has appointments, and the filters leave none of them in (what VoiceOver says of the empty day).
+    var dayIsFilteredAway: Bool {
+        let shownDay = day
+        return dayList.isEmpty && appointments.contains { $0.day == shownDay }
     }
 
     /// How many people the Employee(s) filter shows, when it leaves someone out (the website's count on its button).

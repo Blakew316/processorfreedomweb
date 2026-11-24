@@ -17,13 +17,20 @@ enum CreateAppointmentLook {
     static let iconBox = Color(light: UIColor(hex: 0xF9F9F9), dark: .tertiarySystemBackground)
     /// #E3E3E3: the grey pills (Add another service, Add inventory item, Cancel) and the quantity buttons.
     static let pill = Color(light: UIColor(hex: 0xE3E3E3), dark: .systemGray5)
-    /// Save while the form is not ready: #F9F9F9 with #C4C4C4 words.
-    static let waitingFill = Color(light: UIColor(hex: 0xF9F9F9), dark: .secondarySystemBackground)
+    /// Save while the form is not ready: #F9F9F9 with #C4C4C4 words. In dark mode it sits on the bar's own grey (#1C1C1E), so it
+    /// is a step lighter there, as #F9F9F9 is a step darker than the white bar.
+    static let waitingFill = Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x242426))
     static let waitingText = Color(light: UIColor(hex: 0xC4C4C4), dark: .tertiaryLabel)
     /// Clover's dark green Save, as navy (brand blue in dark mode, where navy would sink into the black).
     static let navy = Color(light: UIColor(hex: 0x0A1F44), dark: UIColor(hex: 0x1D4F9E))
     /// #BE2E31: the order discount and Remove service.
     static let red = Color(light: UIColor(hex: 0xBE2E31), dark: UIColor(hex: 0xFF6B5F))
+    /// Clover's dark green ring round the field being typed in, as navy (white in dark mode).
+    static let focus = Theme.ink
+    /// #373737: the keypad's amount while it is still $0.00, as on the Sale screen's keypad.
+    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: .secondaryLabel)
+    /// 6.33 pt (the photos' 19 px) between a field's name and its box.
+    static let labelGap: CGFloat = 6.33
 }
 
 // MARK: - Drawings (traced from the photos in their own boxes, in points, and scaled to the frame they get)
@@ -50,29 +57,31 @@ struct CreateAppointmentMagnifier: Shape {
     }
 }
 
-/// The date field's calendar: a rounded box with a line under its top and two rings standing above it, in a 20 pt box.
+/// The date field's calendar: a box with barely rounded corners, a line under its top and two rings standing above it, in the
+/// photo's 19.33 pt box (58 px each way, drawn with a 1.6 pt line).
 struct CreateAppointmentCalendarGlyph: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        path.addRoundedRect(in: CGRect(x: 0.83, y: 3.5, width: 18.17, height: 15.33), cornerSize: CGSize(width: 2.2, height: 2.2))
-        path.move(to: CGPoint(x: 0.83, y: 8))
-        path.addLine(to: CGPoint(x: 19, y: 8))
-        path.move(to: CGPoint(x: 5.83, y: 1))
-        path.addLine(to: CGPoint(x: 5.83, y: 4.85))
-        path.move(to: CGPoint(x: 14.17, y: 1))
-        path.addLine(to: CGPoint(x: 14.17, y: 4.85))
-        return path.applying(CGAffineTransform(translationX: rect.minX, y: rect.minY).scaledBy(x: rect.width / 20, y: rect.height / 20))
+        path.addRoundedRect(in: CGRect(x: 0.8, y: 3.13, width: 17.73, height: 15.4), cornerSize: CGSize(width: 0.75, height: 0.75))
+        path.move(to: CGPoint(x: 0.8, y: 7.93))
+        path.addLine(to: CGPoint(x: 18.53, y: 7.93))
+        path.move(to: CGPoint(x: 5.33, y: 0.8))
+        path.addLine(to: CGPoint(x: 5.33, y: 4.77))
+        path.move(to: CGPoint(x: 14, y: 0.8))
+        path.addLine(to: CGPoint(x: 14, y: 4.77))
+        return path.applying(CGAffineTransform(translationX: rect.minX, y: rect.minY).scaledBy(x: rect.width / 19.33, y: rect.height / 19.33))
     }
 }
 
-/// The time field's clock: a ring with a hand up to twelve and one down towards four, in a 19 pt box.
+/// The time field's clock: a ring with a short hand up to twelve and a longer one down to the right, in a 19 pt box (drawn with
+/// a 1.6 pt line).
 struct CreateAppointmentClockGlyph: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        path.addEllipse(in: CGRect(x: 0.83, y: 0.83, width: 17.34, height: 17.34))
-        path.move(to: CGPoint(x: 9.5, y: 5.6))
+        path.addEllipse(in: CGRect(x: 0.8, y: 0.8, width: 17.4, height: 17.4))
+        path.move(to: CGPoint(x: 9.5, y: 6.45))
         path.addLine(to: CGPoint(x: 9.5, y: 9.5))
-        path.addLine(to: CGPoint(x: 13.9, y: 13.4))
+        path.addLine(to: CGPoint(x: 13.37, y: 13.3))
         return path.applying(CGAffineTransform(translationX: rect.minX, y: rect.minY).scaledBy(x: rect.width / 19, y: rect.height / 19))
     }
 }
@@ -94,7 +103,8 @@ struct CreateAppointmentPlusRing: Shape {
 
 /// A white card of the form (1 pt #E3E3E3 border, 20 pt corners, 17 pt inside), with its title (18 pt bold) and a chevron that
 /// opens and closes it; the whole title row is the button. Closed it is the photos' 76 pt. `gap` is the space the photo has
-/// between the title and the first line under it, and `bottom` the space under the last line.
+/// between the title and the first line under it, and `bottom` the space under the last line. The spaces here and in the form
+/// are whole pixels of the photos (thirds of a point), so every line lands where the photo has it.
 struct CreateAppointmentCard<Content: View>: View {
     let title: String
     let open: Bool
@@ -113,17 +123,18 @@ struct CreateAppointmentCard<Content: View>: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
-                    // In the photos the chevron sits 1.7 pt above the middle of the title's capitals, 17 pt in from the card's text.
+                    // In the photos the chevron starts 33.33 pt under the card's top, open or closed (1.83 pt above the middle of
+                    // the title's line), 17 pt in from the card's text.
                     CreateAppointmentChevron()
                         .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                         .frame(width: 13.33, height: 7.33)
                         .rotationEffect(.degrees(open ? 180 : 0))
-                        .offset(y: -1.67)
+                        .offset(y: -1.83)
                         .padding(.trailing, 17.33)
                         .accessibilityHidden(true)
                 }
                 .padding(.top, 28)
-                .padding(.bottom, open ? 12 : 26.5)
+                .padding(.bottom, open ? 12 : 26.33)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -139,6 +150,8 @@ struct CreateAppointmentCard<Content: View>: View {
         .padding(.horizontal, 17)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        // What is inside shows only as far as the card has opened, so nothing spills over the next card while it folds.
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(SettingsLook.border, lineWidth: 1)
@@ -168,9 +181,11 @@ struct CreateAppointmentRule: View {
     }
 }
 
-/// The 48 pt box of a field: white, 1 pt #868686 border and 12 pt corners (the photos' fields, traced to the pixel); blue and
-/// thicker while typing in it.
+/// The 48 pt box of a field: white, 1 pt #868686 border and 12 pt corners (the photos' fields, traced to the pixel); navy and
+/// thicker while typing in it. What a field holds starts 13 pt in (`inset`), where the photos' values start.
 struct CreateAppointmentFieldBox: ViewModifier {
+    static let inset: CGFloat = 13
+
     var focused = false
 
     func body(content: Content) -> some View {
@@ -179,12 +194,12 @@ struct CreateAppointmentFieldBox: ViewModifier {
             .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(focused ? Theme.blue : CreateAppointmentLook.field, lineWidth: focused ? 2 : 1)
+                    .strokeBorder(focused ? CreateAppointmentLook.focus : CreateAppointmentLook.field, lineWidth: focused ? 2 : 1)
             }
     }
 }
 
-/// What a drop-down shows: its value (16 pt, 14 pt in) and the chevron 18 pt from the right, in the field box.
+/// What a drop-down shows: its value (16 pt, 13 pt in) and the chevron 18 pt from the right, in the field box.
 struct CreateAppointmentDropdownLabel: View {
     let value: String
     var placeholder = false
@@ -201,7 +216,7 @@ struct CreateAppointmentDropdownLabel: View {
                 .frame(width: 13.33, height: 7.33)
                 .accessibilityHidden(true)
         }
-        .padding(.leading, 14)
+        .padding(.leading, CreateAppointmentFieldBox.inset)
         .padding(.trailing, 18.33)
         .modifier(CreateAppointmentFieldBox())
         .contentShape(Rectangle())
@@ -255,7 +270,8 @@ private struct CreateAppointmentPill<Label: View>: View {
     }
 }
 
-/// An underlined blue link (16 pt) whose tap area reaches 10 pt above and below the words without moving them.
+/// An underlined blue link (16 pt) whose tap area reaches 10 pt above and below the words without moving them. Like the
+/// photos' links it stands 1 pt in from the edge it is on.
 struct CreateAppointmentLink: View {
     let title: String
     var underlined = true
@@ -268,6 +284,7 @@ struct CreateAppointmentLink: View {
                 .pfFont(16)
                 .foregroundStyle(Theme.blue)
                 .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 1)
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
         }

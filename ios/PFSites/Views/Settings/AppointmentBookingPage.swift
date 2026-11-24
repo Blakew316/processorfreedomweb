@@ -25,7 +25,7 @@ struct AppointmentBookingPage: View {
                 Task { await loader.load(model) }
             })
         }
-        .task { await loader.load(model) }
+        .settingsLoads { await loader.load(model) }
     }
 
     /// What the page shows, read from the business.
@@ -57,6 +57,9 @@ struct AppointmentBookingPage: View {
         }
     }
 
+    /// Measured from the photos, from a card's top edge: a two-line title's first baseline 39 pt down with the pencil centred
+    /// on it, a one-line title centred 39 pt down; the first setting's name 116 pt down on 24 pt lines, its value 27 pt under
+    /// the name and the next name 49 pt under the value; the card ends 18 pt under its last line.
     @ViewBuilder
     private func cards(_ booking: Booking) -> some View {
         let edit: () -> Void = { openTab = "booking" }
@@ -65,19 +68,23 @@ struct AppointmentBookingPage: View {
             SettingsA.WithButton(button: SettingsA.EditButton(label: "Edit online scheduling preferences", action: edit)) {
                 SettingsA.CardTitle(text: "Online scheduling preferences")
             }
-            SettingsValueRow(label: "Online booking", value: booking.enabled ? "On" : "Off")
-            // The booking page offers a time every 30 minutes, on the hour and the half hour.
-            SettingsValueRow(label: "The start of appointments should be scheduled", value: "in 30 min blocks (i.e. 1:00, 1:30, 2:00 PM)")
-            // Any later time today can be requested.
-            SettingsValueRow(label: "Appointments must be made in advance of", value: "No minimum")
-            // The server takes requests up to 90 days ahead ("Please choose a date in the next three months.").
-            SettingsValueRow(label: "Appointments can't be scheduled farther out than", value: "90 days")
-            SettingsValueRow(label: "Booking requests per time slot", value: String(booking.perSlot))
-            SettingsValueRow(label: "Show option to book with any available employee", value: "Not available yet", greyed: true)
-            // One service per request.
-            SettingsValueRow(label: "Allow multiple services to be booked online", value: "Off")
-            SettingsValueRow(label: "Remove employees from online booking site", value: "Not available yet", greyed: true)
-            SettingsValueRow(label: "Daily appointment limit", value: "Off")
+            .padding(.bottom, 3)
+            VStack(alignment: .leading, spacing: 28) {
+                row("Online booking", booking.enabled ? "On" : "Off")
+                // The booking page offers a time every 30 minutes, on the hour and the half hour.
+                row("The start of appointments should be scheduled", "in 30 min blocks (i.e. 1:00, 1:30, 2:00 PM)")
+                // Any later time today can be requested.
+                row("Appointments must be made in advance of", "No minimum")
+                // The server takes requests up to 90 days ahead ("Please choose a date in the next three months.").
+                row("Appointments can't be scheduled farther out than", "90 days")
+                row("Booking requests per time slot", String(booking.perSlot))
+                row("Show option to book with any available employee", "Not available yet", greyed: true)
+                // One service per request.
+                row("Allow multiple services to be booked online", "Off")
+                row("Remove employees from online booking site", "Not available yet", greyed: true)
+                row("Daily appointment limit", "Off")
+            }
+            .padding(.bottom, -6)
         }
 
         // Booking requests have no cancellation policy or fee yet: nothing here can be changed.
@@ -85,11 +92,15 @@ struct AppointmentBookingPage: View {
             SettingsA.WithButton(button: SettingsA.EditButton(label: "Edit cancellation and deposit policy", action: nil)) {
                 SettingsA.CardTitle(text: "Cancellation and deposit policy")
             }
-            SettingsValueRow(label: "Policy", value: "None")
-            SettingsValueRow(label: "Show cancellation policy on your online booking site", value: "Off")
-            SettingsValueRow(label: "Cancellation policy time window", value: "Not available yet", greyed: true)
-            SettingsValueRow(label: "Cancellation policy", value: "Not available yet", greyed: true)
-            SettingsValueRow(label: "Cancellation and no-show fee protection", value: "No fee")
+            .padding(.bottom, 3)
+            VStack(alignment: .leading, spacing: 28) {
+                row("Policy", "None")
+                row("Show cancellation policy on your online booking site", "Off")
+                row("Cancellation policy time window", "Not available yet", greyed: true)
+                row("Cancellation policy", "Not available yet", greyed: true)
+                row("Cancellation and no-show fee protection", "No fee")
+            }
+            .padding(.bottom, -6)
         }
 
         // A booking request never takes a payment.
@@ -97,19 +108,26 @@ struct AppointmentBookingPage: View {
             SettingsA.WithButton(button: SettingsA.EditButton(label: "Edit payment requirements", action: nil)) {
                 SettingsA.CardTitle(text: "Payment requirements")
             }
+            .padding(.top, -3)
             SettingsA.Note(parts: [.text("Let customers book online without paying")])
+                .padding(.bottom, -8)
         }
 
         SettingsCard(spacing: 28) {
             SettingsA.WithButton(button: SettingsA.EditButton(label: "Edit online service menu", action: edit)) {
                 SettingsA.CardTitle(text: "Online service menu")
             }
+            .padding(.top, -3)
             if booking.services.isEmpty {
                 SettingsA.Note(parts: [.text("No services yet")])
+                    .padding(.bottom, -8)
             } else {
-                ForEach(booking.services) { service in
-                    SettingsValueRow(label: service.name, value: service.detail.isEmpty ? nil : service.detail)
+                VStack(alignment: .leading, spacing: 28) {
+                    ForEach(booking.services) { service in
+                        row(service.name, service.detail)
+                    }
                 }
+                .padding(.bottom, -6)
             }
         }
 
@@ -124,5 +142,25 @@ struct AppointmentBookingPage: View {
                 .foregroundStyle(SettingsLook.greyed)
                 .padding(.top, 12)
         }
+    }
+
+    /// A setting as the photos show it: the name in bold on 24 pt lines over its value in grey; greyed, with "Not available
+    /// yet", for what Processor Freedom does not do. A value left empty (a service with no length or price) shows the name only.
+    private func row(_ label: String, _ value: String, greyed: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(label)
+                .pfFont(18, .bold)
+                .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
+                .lineSpacing(2.5)
+            if !value.isEmpty {
+                Text(value)
+                    .pfFont(16)
+                    .foregroundStyle(greyed ? SettingsLook.greyed : SettingsLook.muted)
+                    .lineSpacing(5)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }

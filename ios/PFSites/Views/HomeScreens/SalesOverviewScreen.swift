@@ -68,6 +68,10 @@ struct SalesOverviewScreen: View {
         if let report = stats.current {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // A refresh that did not work (offline, say): the numbers from before stay, and one quiet line says so.
+                    SettingsA.ReloadProblem(problem: stats.refreshProblem)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                     headline(report)
                     SalesOverviewChart(points: report.points(), byHour: report.hourly)
                         .padding(.horizontal, 19)
@@ -75,11 +79,19 @@ struct SalesOverviewScreen: View {
                     cards(report, ledger: stats.ledgerRefunds)
                     StatsBand()
                         .padding(.top, 16)
-                    SalesOverviewTopList(title: "Top employees by amount collected", art: .person, rows: employeeRows(report))
+                    // The photo's words stand when the period has no orders. When it has orders but none is credited to a person
+                    // yet (an order is credited to whoever confirms it or takes its payment), or every item's sales were given
+                    // back, "no transactions were recorded" would not be true, so the lists say what is.
+                    SalesOverviewTopList(title: "Top employees by amount collected", art: .person, rows: employeeRows(report),
+                                         empty: report.totals.orders == 0 ? SalesOverviewTopList.noTransactions
+                                             : "No sales were credited to an employee for the time period.")
                     StatsBand()
-                    SalesOverviewTopList(title: "Top items by net sales", art: .box, rows: itemRows(report))
+                    SalesOverviewTopList(title: "Top items by net sales", art: .box, rows: itemRows(report),
+                                         empty: report.totals.orders == 0 ? SalesOverviewTopList.noTransactions
+                                             : "No items had net sales for the time period.")
                     StatsBand()
                 }
+                .animation(.snappy, value: stats.refreshProblem)
             }
             .refreshable { await load(stats) }
         } else if let problem = stats.currentProblem {
@@ -103,8 +115,9 @@ struct SalesOverviewScreen: View {
             Text("Net sales")
                 .pfFont(16, .semibold)
                 .foregroundStyle(Theme.blue)
+            // Measured from the photo: digits 25 pt tall with 4.5 pt strokes, which is this size at semibold (bold draws 5.1 pt).
             Text(Money.format(totals.net))
-                .pfFont(35, .bold, relativeTo: .largeTitle)
+                .pfFont(35, .semibold, relativeTo: .largeTitle)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -147,6 +160,7 @@ struct SalesOverviewScreen: View {
             SalesOverviewCardData(title: "Amount collected", amount: Money.format(report.money.collected),
                                   detail: StatsFormat.count(report.money.count, "payment", "payments")),
         ]
+        // The cards start right under the chart, 330 pt under its top, as in the photo (their border is drawn inside them).
         return ScrollView(.horizontal) {
             HStack(spacing: 12) {
                 ForEach(list) { card in
@@ -154,7 +168,6 @@ struct SalesOverviewScreen: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 1)
         }
         .scrollIndicators(.hidden)
     }
@@ -196,7 +209,8 @@ struct SalesOverviewCardData: Identifiable {
     var id: String { title }
 }
 
-/// The card from the photo: 166 pt wide, 1 pt #C7C7C7 border, 5 pt corners; the name, the amount bold, the count in grey.
+/// The card from the photo: 166 pt wide and 91 pt tall, 1 pt #C7C7C7 border, 5 pt corners; the name, the amount in the photo's
+/// weight (2.2 pt strokes at 12 pt tall: semibold), the count in grey. The words start 17 pt in from the card's edge.
 struct SalesOverviewCard: View {
     let card: SalesOverviewCardData
     @ScaledMetric(relativeTo: .body) private var width: CGFloat = 166
@@ -207,7 +221,7 @@ struct SalesOverviewCard: View {
                 .pfFont(13.5)
                 .foregroundStyle(Color.primary)
             Text(card.amount)
-                .pfFont(17, .bold)
+                .pfFont(17, .semibold)
                 .foregroundStyle(Color.primary)
                 .padding(.top, 4)
             Text(card.detail ?? " ")
@@ -219,10 +233,10 @@ struct SalesOverviewCard: View {
         }
         .lineLimit(1)
         .minimumScaleFactor(0.75)
-        .padding(.leading, 17)
+        .padding(.leading, 16)
         .padding(.trailing, 12)
         .padding(.top, 14)
-        .padding(.bottom, 19)
+        .padding(.bottom, 18.3)
         .frame(width: width, alignment: .leading)
         .background(StatsLook.card, in: RoundedRectangle(cornerRadius: 5, style: .circular))
         .overlay {
@@ -247,25 +261,32 @@ struct SalesOverviewTopList: View {
     let title: String
     let art: StatsArt.Subject
     let rows: [SalesOverviewTopRow]
+    /// What the list says when it has no rows.
+    var empty = SalesOverviewTopList.noTransactions
+
+    /// The photo's words for a period without transactions.
+    static let noTransactions = "No transactions or transactions with items were recorded for the time period."
 
     /// The photo's title wraps "Top employees by amount collected" after "by" but keeps "Top items by net sales" on one line.
     @ScaledMetric(relativeTo: .title3) private var titleWidth: CGFloat = 205
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
-            // Measured from the photo: the drawing starts 27 pt under the grey band, in both sections.
+            // Measured from the photo: the drawing starts 27 pt under the grey band, in both sections; the title's first
+            // baseline is 45.7 pt under the band and the words' first baseline 26.4 pt under the title's last (a line of an
+            // exact height ends on its baseline). The title's strokes are 2.2 pt at 13 pt tall: semibold.
             StatsArt(subject: art)
                 .padding(.top, 27)
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12.4) {
                 Text(title)
-                    .pfFont(18, .bold, relativeTo: .title3)
+                    .pfFont(18, .semibold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
                     .lineHeight(.exact(points: 18))
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: titleWidth, alignment: .leading)
                     .accessibilityAddTraits(.isHeader)
                 if rows.isEmpty {
-                    Text("No transactions or transactions with items were recorded for the time period.")
+                    Text(empty)
                         .pfFont(14)
                         .foregroundStyle(StatsLook.sectionText)
                         .lineHeight(.exact(points: 14))
@@ -275,7 +296,7 @@ struct SalesOverviewTopList: View {
                         .padding(.top, 2)
                 }
             }
-            .padding(.top, 30)
+            .padding(.top, 27.7)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.leading, 16)
@@ -295,9 +316,12 @@ struct SalesOverviewTopList: View {
                             .foregroundStyle(Color.primary)
                             .lineLimit(2)
                         Spacer(minLength: 8)
+                        // The amount keeps its whole width; a long name wraps beside it.
                         Text(Money.format(row.cents))
                             .pfFont(15, .semibold)
                             .foregroundStyle(Color.primary)
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                     Text(row.detail)
                         .pfFont(14)

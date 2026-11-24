@@ -35,7 +35,17 @@ enum ItemsLook {
     static let greyed = SettingsLook.greyed
     /// The fainter grey of a greyed field's placeholder.
     static let greyedFaint = Color(.quaternaryLabel)
-    /// Where a radio button's label starts, from the card's edge: the radio's own 3.3 pt indent, the 16 pt radio and the 13 pt gap.
+    /// A checked box: Clover's dark green, so navy (brand blue in dark mode, where navy would sink into the black), as on
+    /// Appointments.
+    static let checked = Color(light: UIColor(hex: 0x0A1F44), dark: UIColor(hex: 0x1D4F9E))
+    /// A chosen radio button and the rings of a panel's X: Clover's dark green lines, so navy (white in dark mode), as on the
+    /// Items sales report.
+    static let chosen = Theme.ink
+    /// #696969: "Search items" before anything is typed.
+    static let searchHint = Color(light: UIColor(hex: 0x696969), dark: .secondaryLabel)
+    /// The knob of a greyed switch: white, and dimmer in dark mode so it does not look like one that can be turned on.
+    static let greyedKnob = Color(light: .white, dark: UIColor(hex: 0x8E8E93))
+    /// Where a radio button's label starts, from the card's edge: the radio's own 4 pt indent, the 16 pt radio and the 12.3 pt gap.
     static let radioLabelInset: CGFloat = 32.3
 }
 
@@ -126,6 +136,17 @@ struct ItemsPillStyle: ButtonStyle {
     }
 }
 
+/// The "+" of the brand-blue round buttons: 14 pt across with 1.5 pt lines, as in the photos.
+struct ItemsPlus: View {
+    var color: Color = ItemsLook.onBrand
+
+    var body: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 17.4, weight: .regular))
+            .foregroundStyle(color)
+    }
+}
+
 /// The three dots of a ⋮ button (4 pt dots, 7 pt apart).
 struct ItemsDots: View {
     var color: Color = .primary
@@ -185,9 +206,61 @@ struct ItemsKebab<Items: View>: View {
     }
 }
 
+/// A button drawn exactly as its label, a little lighter while pressed. (The plain style also fades a button that cannot be
+/// used, which made greyed things fainter than the greyed things around them.)
+struct ItemsBareStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+/// The X of a panel or a sheet, as in the photo of "Filter item results" and on Appointments: a navy ring (2 pt) around a thin
+/// one (1 pt, 2 pt inside it) with the X in the middle (12 pt, 1.6 pt lines). 34 pt across, in a 44 pt tap area that takes no
+/// more room than the ring.
+struct ItemsCloseButton: View {
+    var disabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .strokeBorder(ring, lineWidth: 2)
+                Circle()
+                    .strokeBorder(ring, lineWidth: 1)
+                    .padding(4)
+                ItemsCross()
+                    .stroke(disabled ? ItemsLook.greyed : Color.primary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                    .frame(width: 10.4, height: 10.4)
+            }
+            .frame(width: 34, height: 34)
+            .frame(width: 44, height: 44)
+            .contentShape(Circle())
+        }
+        .buttonStyle(ItemsBareStyle())
+        .disabled(disabled)
+        .padding(-5)
+        .accessibilityLabel("Close")
+    }
+
+    private var ring: Color { disabled ? ItemsLook.greyed : ItemsLook.chosen }
+}
+
+private struct ItemsCross: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        return path
+    }
+}
+
 // MARK: - Checkboxes, radios and switches
 
-/// A 16 pt square checkbox: white with a grey border, brand blue with a white tick when checked, light grey when greyed.
+/// A 16 pt square checkbox: white with a grey border, navy with a white tick when checked, light grey when greyed.
 struct ItemsCheckbox: View {
     let on: Bool
     var greyed = false
@@ -196,9 +269,9 @@ struct ItemsCheckbox: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(greyed ? ItemsLook.control : (on ? Theme.blue : ItemsLook.card))
+                .fill(greyed ? ItemsLook.control : (on ? ItemsLook.checked : ItemsLook.card))
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .strokeBorder(greyed ? ItemsLook.greyed : (on ? Theme.blue : border), lineWidth: 1.33)
+                .strokeBorder(greyed ? ItemsLook.greyed : (on ? ItemsLook.checked : border), lineWidth: 1.33)
             if on {
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .bold))
@@ -210,7 +283,7 @@ struct ItemsCheckbox: View {
     }
 }
 
-/// A 16 pt radio button: a grey ring, or a brand-blue ring with a 6 pt dot when chosen.
+/// A 16 pt radio button: a grey ring, or a navy ring with a 6 pt dot when chosen.
 struct ItemsRadio: View {
     let on: Bool
     var greyed = false
@@ -218,10 +291,10 @@ struct ItemsRadio: View {
     var body: some View {
         ZStack {
             Circle()
-                .strokeBorder(greyed ? ItemsLook.greyed : (on ? Theme.blue : ItemsLook.soft), lineWidth: 1.2)
+                .strokeBorder(greyed ? ItemsLook.greyed : (on ? ItemsLook.chosen : ItemsLook.soft), lineWidth: 1.2)
             if on {
                 Circle()
-                    .fill(greyed ? ItemsLook.greyed : Theme.blue)
+                    .fill(greyed ? ItemsLook.greyed : ItemsLook.chosen)
                     .frame(width: 6, height: 6)
             }
         }
@@ -231,7 +304,7 @@ struct ItemsRadio: View {
 }
 
 /// The photos' switch (40 x 24 pt): a brand-blue track with a white 20 pt knob holding a tick when on, grey when off, pale when
-/// greyed.
+/// greyed. The knob slides across when it is turned on or off.
 struct ItemsSwitchMark: View {
     let on: Bool
     var greyed = false
@@ -241,7 +314,7 @@ struct ItemsSwitchMark: View {
             Capsule()
                 .fill(track)
             Circle()
-                .fill(Color.white)
+                .fill(greyed ? ItemsLook.greyedKnob : Color.white)
                 .frame(width: 20, height: 20)
                 .overlay {
                     if on {
@@ -253,6 +326,7 @@ struct ItemsSwitchMark: View {
                 .padding(2)
         }
         .frame(width: 40, height: 24)
+        .animation(.snappy(duration: 0.2), value: on)
         .accessibilityHidden(true)
     }
 
@@ -263,35 +337,52 @@ struct ItemsSwitchMark: View {
 }
 
 /// A switch with its label ("Show on POS", "Available", "Charge sales tax"); greyed ones say "Not available yet" and do nothing.
+/// `inset` is how far in from the card's edge the photo has the switch (2 pt for "Show on POS"); the label stays where it is.
 struct ItemsSwitchRow: View {
     let label: String
     @Binding var on: Bool
     var greyed = false
     var dotted = false
     var size: CGFloat = 16
+    var inset: CGFloat = 0
 
     var body: some View {
-        Button {
-            guard !greyed else { return }
-            on.toggle()
-        } label: {
-            HStack(spacing: dotted ? 12.7 : 13) {
-                ItemsSwitchMark(on: on, greyed: greyed)
-                Text(label)
-                    .pfFont(size)
-                    .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
-                Spacer(minLength: 0)
+        if greyed {
+            // Drawn as it is, never as a button that cannot be pressed: that would fade it more than the greyed things around it.
+            row
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(label)
+                .accessibilityValue("Not available yet")
+        } else {
+            Button {
+                on.toggle()
+            } label: {
+                // A taller place to tap than the switch itself, without moving anything.
+                row
+                    .padding(.vertical, 9)
+                    .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .padding(.vertical, -9)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityValue(on ? "On" : "Off")
+            .accessibilityAddTraits([.isButton, .isToggle])
+            .accessibilityAction { on.toggle() }
         }
-        .buttonStyle(.plain)
-        .disabled(greyed)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(greyed ? "Not available yet" : (on ? "On" : "Off"))
-        .accessibilityAddTraits(.isToggle)
+    }
+
+    private var row: some View {
+        HStack(spacing: (dotted ? 12.7 : 13) - inset) {
+            ItemsSwitchMark(on: on, greyed: greyed)
+            Text(label)
+                .pfFont(size)
+                .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, inset)
     }
 }
 
@@ -303,7 +394,7 @@ struct ItemsCheckRow: View {
     var greyed = false
     var bold = true
     var dotted = false
-    var gap: CGFloat = 12.7
+    var gap: CGFloat = 12
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -320,10 +411,11 @@ struct ItemsCheckRow: View {
     }
 
     private var row: some View {
-        HStack(alignment: dotted ? .center : .top, spacing: gap) {
+        // The box's top is 14 pt above the label's baseline in the photos, with or without the dots under the label.
+        HStack(alignment: .top, spacing: gap) {
             ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
-                .padding(.top, dotted ? 0 : 1.3)
-            VStack(alignment: .leading, spacing: 6.3) {
+                .padding(.top, dotted ? 1 : 1.3)
+            VStack(alignment: .leading, spacing: 6) {
                 Text(label)
                     .pfFont(16, bold ? .bold : .regular)
                     .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
@@ -339,7 +431,8 @@ struct ItemsCheckRow: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, 3.3)
+        // The box is 4 pt in from the card's edge (x = 41 pt in the photos).
+        .padding(.leading, 4)
         .contentShape(Rectangle())
     }
 }
@@ -373,14 +466,16 @@ struct ItemsRadioRow<Extra: View>: View {
     }
 
     private var row: some View {
-        HStack(alignment: .top, spacing: 13) {
+        HStack(alignment: .top, spacing: 12.3) {
+            // Its top 14 pt above the label's baseline, as in the photos.
             ItemsRadio(on: on, greyed: greyed)
-                .padding(.top, 1.7)
-            VStack(alignment: .leading, spacing: 6.3) {
+                .padding(.top, 1.2)
+            VStack(alignment: .leading, spacing: 6) {
+                // A label on two lines has them 24 pt apart, as in the photo.
                 Text(label)
                     .pfFont(16, .bold)
                     .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.grey)
-                    .lineSpacing(5.5)
+                    .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
                 if let note {
                     Text(note)
@@ -392,7 +487,8 @@ struct ItemsRadioRow<Extra: View>: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, 3.3)
+        // The radio is 4 pt in from the card's edge (x = 41 pt in the photos).
+        .padding(.leading, 4)
         .contentShape(Rectangle())
     }
 }
@@ -458,18 +554,21 @@ struct ItemsHeading: View {
 // MARK: - Fields
 
 /// A boxed field with its label above (48 pt tall, a 1 pt grey border, 9 pt corners), the server's words under it when it refused
-/// what was typed there, and greyed when it cannot be used.
+/// what was typed there, and greyed when it cannot be used. `tap` puts the keyboard in the field from anywhere in the box (the
+/// text itself is only one line tall).
 struct ItemsField<Field: View, Trailing: View>: View {
     let label: String
     var problem = ""
     var note: String? = nil
     var greyed = false
     var focused = false
+    var tap: (() -> Void)? = nil
     @ViewBuilder let field: () -> Field
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        // The label's baseline 11 pt above the box, as in the photos.
+        VStack(alignment: .leading, spacing: 7.33) {
             Text(label)
                 .pfFont(14)
                 .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
@@ -491,6 +590,10 @@ struct ItemsField<Field: View, Trailing: View>: View {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: focused && problem.isEmpty ? 1.5 : 1)
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if !greyed { tap?() }
+            }
             if !problem.isEmpty {
                 Text(problem)
                     .pfFont(14)
@@ -505,6 +608,8 @@ struct ItemsField<Field: View, Trailing: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        // The server's words come and go under the box without a jump.
+        .animation(.snappy(duration: 0.2), value: problem)
     }
 
     private var borderColor: Color {
@@ -515,8 +620,9 @@ struct ItemsField<Field: View, Trailing: View>: View {
 }
 
 extension ItemsField where Trailing == EmptyView {
-    init(label: String, problem: String = "", note: String? = nil, greyed: Bool = false, focused: Bool = false, @ViewBuilder field: @escaping () -> Field) {
-        self.init(label: label, problem: problem, note: note, greyed: greyed, focused: focused, field: field, trailing: { EmptyView() })
+    init(label: String, problem: String = "", note: String? = nil, greyed: Bool = false, focused: Bool = false, tap: (() -> Void)? = nil,
+         @ViewBuilder field: @escaping () -> Field) {
+        self.init(label: label, problem: problem, note: note, greyed: greyed, focused: focused, tap: tap, field: field, trailing: { EmptyView() })
     }
 }
 
@@ -529,7 +635,7 @@ struct ItemsDropdown<Choices: View, Leading: View>: View {
     @ViewBuilder var leading: () -> Leading
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 7.33) {
             Text(label)
                 .pfFont(14)
                 .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
@@ -548,7 +654,8 @@ struct ItemsDropdown<Choices: View, Leading: View>: View {
                         .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                 }
                 .padding(.leading, 13)
-                .padding(.trailing, 18)
+                // The chevron ends 18 pt from the box's edge, as in the photos (the symbol has 1.7 pt of air beside it).
+                .padding(.trailing, 16.3)
                 .frame(minHeight: 48)
                 .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .overlay {
@@ -585,9 +692,9 @@ struct ItemsCard<Content: View>: View {
     var kind: Kind = .standard
     /// The space under the card's last field.
     var bottom: CGFloat = 22
-    /// The space between the description and the hairline under it: 15.3 pt from its last baseline in the Categories and Item
-    /// tracking photos, 19.3 pt in the Details photo.
-    var ruleGap: CGFloat = 11.5
+    /// The space between the description and the hairline under it: the hairline is 105 pt under the card's top edge with two
+    /// lines of description in the Item tracking photo (131 pt with three in Categories), and 109 pt in the Details photo.
+    var ruleGap: CGFloat = 10.9
     @ViewBuilder let content: () -> Content
 
     @State private var open = true
@@ -598,8 +705,9 @@ struct ItemsCard<Content: View>: View {
             case .standard:
                 titleRow(chevron: true)
                 if let note {
+                    // Its first baseline 25 pt under the title's, as in the photos.
                     noteText(note)
-                        .padding(.top, 5.5)
+                        .padding(.top, 5)
                 }
                 if open {
                     ItemsHairline()
@@ -608,7 +716,7 @@ struct ItemsCard<Content: View>: View {
             case .ruled:
                 titleRow(chevron: true)
                 ItemsHairline()
-                    .padding(.top, 1.5)
+                    .padding(.top, 1.2)
                 if let note {
                     noteText(note)
                         .padding(.top, 27.7)
@@ -633,8 +741,8 @@ struct ItemsCard<Content: View>: View {
         }
         // 17 pt from the card's edge to its hairlines, fields and tables on both sides, as in the photos.
         .padding(.horizontal, 17)
-        // The title's baseline 38.7 pt under the card's top edge (21 + the 17.6 pt ascender); the Menus card's 44 pt.
-        .padding(.top, kind == .side ? 26.4 : 21)
+        // The title's baseline 39 pt under the card's top edge (21.4 + the 17.6 pt ascender); the Menus card's 44 pt.
+        .padding(.top, kind == .side ? 26.4 : 21.4)
         .padding(.bottom, open ? bottom : 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -648,7 +756,7 @@ struct ItemsCard<Content: View>: View {
     private var titleColor: Color { kind == .side ? Color.primary : ItemsLook.title }
 
     /// The title alone sets the row's height, so the description follows 25 pt under its baseline as in the photos; the chevron
-    /// sits over the row's end, centred on the title, keeping its 36 x 30 pt tap area without making the row taller.
+    /// sits over the row's end, centred on the title, with its 44 pt tap area making nothing taller.
     private func titleRow(chevron show: Bool) -> some View {
         Text(title)
             .pfFont(18.5, .bold, relativeTo: .title3)
@@ -662,7 +770,8 @@ struct ItemsCard<Content: View>: View {
             }
     }
 
-    /// The fold chevron, its glyph centred 11 pt in from the content's edge (x = 319 pt in the photos).
+    /// The fold chevron, its glyph centred 11 pt in from the content's edge (x = 319 pt in the photos). It is laid out as
+    /// 36 x 30 pt and takes taps on 44 x 44 pt.
     private var chevron: some View {
         Button {
             withAnimation(.snappy) { open.toggle() }
@@ -671,9 +780,13 @@ struct ItemsCard<Content: View>: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(titleColor)
                 .frame(width: 36, height: 30)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 7)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, -4)
+        .padding(.vertical, -7)
         .padding(.trailing, -7)
         .accessibilityLabel(open ? "Fold \(title)" : "Open \(title)")
     }
@@ -682,40 +795,33 @@ struct ItemsCard<Content: View>: View {
         Text(text)
             .pfFont(16)
             .foregroundStyle(kind == .side ? ItemsLook.soft : ItemsLook.grey)
-            .lineSpacing(kind == .side ? 4.9 : 7)
+            // Lines 26 pt apart (24 pt in the Menus card), as in the photos.
+            .lineSpacing(kind == .side ? 4.9 : 6.9)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
 // MARK: - Messages
 
-/// A short message that comes and goes at the bottom (what a bulk change, an import or a save did).
+/// Two alerts cannot be up at once, and nothing can come up while a picker is still closing: a message or a sheet that follows
+/// an alert's button or a picker waits until that has gone, as the Orders tab and Closeout wait.
+enum ItemsAlerts {
+    static func settled(since asked: Date?, wait: Double = 0.45) async {
+        guard let asked else { return }
+        let left = wait - Date().timeIntervalSince(asked)
+        if left > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000))
+        }
+    }
+}
+
+/// A short message that comes and goes at the bottom (what a bulk change, an import or a save did): the app's own toast, which
+/// also reads itself out with VoiceOver.
 struct ItemsToast: View {
     let text: String
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        Text(text)
-            .pfFont(16, .medium)
-            .foregroundStyle(Color.primary)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 13)
-            .modifier(ToastSurface(reduceTransparency: reduceTransparency))
+        GlassToast(text: text)
             .padding(.horizontal, 24)
-            .accessibilityAddTraits(.updatesFrequently)
-    }
-
-    private struct ToastSurface: ViewModifier {
-        let reduceTransparency: Bool
-
-        @ViewBuilder
-        func body(content: Content) -> some View {
-            if reduceTransparency {
-                content.background(Capsule().fill(Color(.secondarySystemBackground)))
-            } else {
-                content.glassEffect(.regular, in: .capsule)
-            }
-        }
     }
 }

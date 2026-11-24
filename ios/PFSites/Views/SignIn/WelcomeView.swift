@@ -44,7 +44,8 @@ struct WelcomeView: View {
                     Text("PF").pfFont(27, .bold, relativeTo: .largeTitle)
                     Text(" Sites").pfFont(27, .light, relativeTo: .largeTitle)
                 }
-                .padding(.top, 6)
+                // 5 pt puts the name's baseline where the photo has it, 63 pt under the tile's top (and the line under it with it).
+                .padding(.top, 5)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("PF Sites")
                 .accessibilityAddTraits(.isHeader)
@@ -59,6 +60,8 @@ struct WelcomeView: View {
             Spacer(minLength: 32)
 
             Button("Get started") {
+                // A fresh start: what an earlier try said is not shown again.
+                model.auth.error = ""
                 model.auth.path.append(.login)
             }
             .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 14.7))

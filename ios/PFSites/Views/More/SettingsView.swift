@@ -55,9 +55,17 @@ struct SettingsGroupView: View {
         SettingsListScreen(title: group?.title ?? "Settings") {
             if let group {
                 ForEach(group.bands) { band in
-                    SettingsListBand(title: band.title)
-                    ForEach(band.rows) { row in
-                        SettingsRowView(title: row.title, enabled: row.enabled) { SettingsActions.open(row, model: model) }
+                    // A band stays at the top of the list while its rows pass under it, as in the photos.
+                    Section {
+                        ForEach(band.rows) { row in
+                            // The last row before another band ends on the plain line, without the darker hairline (the photos).
+                            SettingsRowView(title: row.title, enabled: row.enabled,
+                                            plainLine: row.id == band.rows.last?.id && band.id != group.bands.last?.id) {
+                                SettingsActions.open(row, model: model)
+                            }
+                        }
+                    } header: {
+                        SettingsListBand(title: band.title)
                     }
                 }
             }
@@ -65,29 +73,33 @@ struct SettingsGroupView: View {
     }
 }
 
-/// The frame every Settings list shares (the photos): the page name bold in the middle of the bar, the "Search all settings" field,
-/// then the list, or the search results while something is typed.
+/// The frame every Settings list shares (the photos): the page name bold in the middle of the bar, the "Search all settings" field
+/// right under the bar, then the list, or the search results while something is typed. As in the photos of a scrolled list, the
+/// field stays where it is while the rows scroll under it, and a band (a `Section` header) stays at the top of the list while its
+/// rows pass.
 struct SettingsListScreen<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content
     @State private var query = ""
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                SettingsListSearchField(text: $query)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
-                if query.trimmed.isEmpty {
-                    content()
-                } else {
-                    SettingsSearchResults(query: query.trimmed)
+        VStack(spacing: 0) {
+            SettingsListSearchField(text: $query)
+                .padding(.horizontal, 20)
+                .padding(.top, 1)
+                .padding(.bottom, 8)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    if query.trimmed.isEmpty {
+                        content()
+                    } else {
+                        SettingsSearchResults(query: query.trimmed)
+                    }
                 }
+                .padding(.bottom, 24)
             }
-            .padding(.bottom, 24)
+            .scrollDismissesKeyboard(.interactively)
         }
-        .scrollDismissesKeyboard(.interactively)
         .background(Color(.systemBackground))
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -125,13 +137,18 @@ struct SettingsListSearchField: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
+                // A full-size place to tap, with the mark where it was.
+                .padding(.horizontal, -12)
             }
         }
         .padding(.leading, 8)
         .padding(.trailing, 12)
-        .frame(minHeight: 48)
+        .frame(height: 48)
         .overlay(RoundedRectangle(cornerRadius: 6.5, style: .continuous).strokeBorder(SettingsListLook.quiet, lineWidth: 1))
     }
 }
@@ -277,14 +294,17 @@ enum SettingsActions {
     }
 }
 
-/// One Settings row, as in the photos: the title 17.5 pt semibold 24 pt in, a chevron 30 pt from the right edge, 55 pt tall,
-/// and the row line under it. A second line is the same size (Profile's name and role), or small and grey (a search match's card).
+/// One Settings row, as in the photos: the title 17.5 pt semibold 24 pt in, a chevron 30 pt from the right edge, 55.3 pt tall,
+/// and the row line under it. A second line is the same size (Profile's name and role, its baseline 28 pt under the title's), or
+/// small and grey (a search match's card).
 /// A row for something Processor Freedom does not have yet is greyed, without a chevron, and does nothing.
 struct SettingsRowView: View {
     let title: String
     var subtitle: String = ""
     var small = false
     let enabled: Bool
+    /// The line under the row without its darker hairline (the last row before a band).
+    var plainLine = false
     let action: () -> Void
 
     var body: some View {
@@ -293,7 +313,7 @@ struct SettingsRowView: View {
                 if enabled { action() }
             } label: {
                 HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: small ? 4 : 8) {
+                    VStack(alignment: .leading, spacing: small ? 4 : 7) {
                         Text(title)
                             .pfFont(17.5, .semibold)
                             .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
@@ -315,13 +335,13 @@ struct SettingsRowView: View {
                 .padding(.leading, 24)
                 .padding(.trailing, 30)
                 .padding(.vertical, 17)
-                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 55.33, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!enabled)
             .accessibilityValue(enabled ? "" : "Not available yet")
-            SettingsListSeparator()
+            SettingsListSeparator(inset: !plainLine)
         }
     }
 }

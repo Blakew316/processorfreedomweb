@@ -38,6 +38,8 @@ final class SpyView: UIView {
         isUserInteractionEnabled = false
         guard let window = self.window, window !== installedOn else { return }
         installedOn = window
+        // Light or dark as chosen in the app, from the window's first frame (a cold start never shows the other one first).
+        Appearance.apply(to: window)
         OverlayWindows.shared.attach(window)
         window.addGestureRecognizer(TouchRecorder(target: nil, action: nil))
     }

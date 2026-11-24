@@ -54,10 +54,8 @@ struct ItemSalesFiltersPanel: View {
                 VStack(spacing: 0) {
                     ForEach(ItemSalesFilterSection.allCases) { section in
                         sectionView(section)
-                        // Hairlines between the rows, and under the last one while it is open.
-                        if section != .orderTypes || open == section {
-                            Rectangle().fill(SettingsLook.border).frame(height: 1)
-                        }
+                        // A hairline under every row, the last one too (photo 4c9f3737 shows its ends beside the focus ring).
+                        Rectangle().fill(SettingsLook.border).frame(height: 1)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -65,6 +63,7 @@ struct ItemSalesFiltersPanel: View {
                 .padding(.bottom, 24)
             }
             .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.immediately)
             Rectangle().fill(SettingsLook.border).frame(height: 1)
             buttons
         }
@@ -79,10 +78,12 @@ struct ItemSalesFiltersPanel: View {
 
     private var header: some View {
         HStack(spacing: 12) {
+            // The photo's words sit 1 pt under the middle of the header.
             Text("Filters")
                 .pfFont(20, .bold, relativeTo: .title3)
                 .foregroundStyle(Color.primary)
                 .accessibilityAddTraits(.isHeader)
+                .offset(y: 1)
             Spacer(minLength: 8)
             Button(action: close) {
                 Image(systemName: "xmark")
@@ -113,7 +114,7 @@ struct ItemSalesFiltersPanel: View {
             .buttonStyle(SolidButtonStyle(fill: SettingsLook.border, text: .primary, radius: 24, height: 48, size: 16.5))
         }
         .padding(.horizontal, 12)
-        .padding(.top, 17)
+        .padding(.top, 16)
         .padding(.bottom, 11)
     }
 
@@ -143,7 +144,8 @@ struct ItemSalesFiltersPanel: View {
                     ItemSalesChevron(up: isOpen)
                         .padding(.trailing, 4.3)
                 }
-                .padding(.horizontal, 14)
+                .padding(.leading, 13)
+                .padding(.trailing, 14)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background {
                     if isFocused {
@@ -216,6 +218,7 @@ struct ItemSalesFiltersPanel: View {
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.immediately)
             .frame(height: min(CGFloat(shown.count) * 42, 281))
         }
     }
@@ -230,13 +233,17 @@ struct ItemSalesFilterChoice: Identifiable {
 }
 
 /// The search field of an opened row: a 1 pt grey border, 12 pt corners and a magnifying glass, with no words (the photos').
+/// A tap anywhere in the box starts typing, not only on the one line of the words.
 struct ItemSalesSearchField: View {
     @Binding var text: String
     var enabled = true
     let name: String
 
+    @FocusState private var typing: Bool
+
     var body: some View {
-        HStack(spacing: 12) {
+        // The photo's places: the glass 15.4 pt in from the box's edge; the words start 47 pt in.
+        HStack(spacing: 13.6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(enabled ? SettingsLook.muted : SettingsLook.greyed)
@@ -246,12 +253,18 @@ struct ItemSalesSearchField: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .focused($typing)
                 .disabled(!enabled)
                 .accessibilityLabel(name)
                 .accessibilityValue(enabled ? text : "Not available yet")
         }
-        .padding(.horizontal, 17)
+        .padding(.leading, 15.4)
+        .padding(.trailing, 17)
         .frame(minHeight: 48)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if enabled { typing = true }
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .circular)
                 .strokeBorder(enabled ? ItemSalesLook.fieldBorder : SettingsLook.border, lineWidth: 1)

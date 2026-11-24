@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The Sales Overview chart (the owner's photo): a brand-blue bar for each hour of a one-day period (up to now for today) or each
-/// day of a longer one, the amount over each bar when there is room for it (otherwise tap a bar to see its amount), the grey zero
-/// line across the chart, and the hour or day names under it.
+/// day of a longer one, the amount over each bar when there is room for it (shortened when it is wide), the grey zero line across
+/// the chart, and the hour or day names under it. A tap on a bar writes its amount in full over it; another tap takes it away.
 struct SalesOverviewChart: View {
     let points: [StatsPoint]
     let byHour: Bool
@@ -58,7 +58,7 @@ struct SalesOverviewChart: View {
         ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
-                    mark(point, index: index, plan: plan)
+                    mark(point, index: index, plan: plan, width: width)
                 }
                 StatsLook.zeroLine
                     .frame(width: width, height: 1)
@@ -72,22 +72,32 @@ struct SalesOverviewChart: View {
 
     /// One bar with its amount and its name.
     @ViewBuilder
-    private func mark(_ point: StatsPoint, index: Int, plan: Plan) -> some View {
+    private func mark(_ point: StatsPoint, index: Int, plan: Plan, width: CGFloat) -> some View {
         let x = plan.x(index)
         let length = max(plan.length(point.cents), 1)
         let top = plan.top(point.cents)
+        let chosen = selected == point.id
+        let dimmed = selected != nil && !chosen
         if point.cents != 0 {
             bar(up: point.cents > 0)
-                .fill(Theme.blue.opacity(selected != nil && selected != point.id ? 0.35 : 1))
+                .fill(Theme.blue.opacity(dimmed ? 0.35 : 1))
                 .frame(width: plan.barWidth, height: length)
                 .position(x: x, y: top + length / 2)
         }
-        if plan.amountsFit || selected == point.id {
-            Text(amount(point.cents, room: plan.amountsFit ? plan.slot - 4 : .infinity))
-                .pfFont(12, .semibold)
-                .foregroundStyle(Theme.blue)
+        if plan.amountsFit || chosen {
+            // The tapped bar's amount is written in full, kept inside the chart, on the page's colour so it reads over the
+            // bars and amounts beside it. Measured from the photo: digits 9 pt tall, their middle 11 pt over the line.
+            let text = amount(point.cents, room: chosen ? .infinity : plan.slot - 4)
+            let half = estimatedWidth(text) / 2
+            Text(text)
+                .pfFont(12.75, .semibold)
+                .foregroundStyle(Theme.blue.opacity(dimmed ? 0.35 : 1))
                 .fixedSize()
-                .position(x: x, y: point.cents >= 0 ? top - valueLift : top + length + valueLift)
+                .padding(.horizontal, chosen ? 3 : 0)
+                .background(chosen ? Color(.systemBackground) : Color.clear)
+                .position(x: chosen ? min(max(x, half), max(width - half, half)) : x,
+                          y: point.cents >= 0 ? top - valueLift : top + length + valueLift)
+                .zIndex(chosen ? 1 : 0)
         }
         if index % plan.every == 0 {
             Text(point.label)
@@ -105,6 +115,7 @@ struct SalesOverviewChart: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        Haptics.light()
                         withAnimation(.snappy) { selected = selected == point.id ? nil : point.id }
                     }
                     .accessibilityElement()
@@ -115,11 +126,18 @@ struct SalesOverviewChart: View {
         .frame(width: width, height: SalesOverviewChart.valueRoom + SalesOverviewChart.barRoom + SalesOverviewChart.namesBelow + 12)
     }
 
-    /// The website's way of writing a bar's amount ("$0", "$1,250"), shortened ("$12.5K") when it would not fit over its bar.
+    /// The website's way of writing a bar's amount ("$0", "$1,250"), shortened ("$12.5K", then "$13K") when it would not fit
+    /// over its bar.
     private func amount(_ cents: Int, room: CGFloat) -> String {
         let full = StatsFormat.chartMoney(cents)
-        let width = CGFloat(full.count) * 7.1 * (valueLift / 11)
-        return width > room ? StatsFormat.compactMoney(cents) : full
+        if estimatedWidth(full) <= room { return full }
+        let short = StatsFormat.compactMoney(cents)
+        return estimatedWidth(short) <= room ? short : StatsFormat.compactMoney(cents, whole: true)
+    }
+
+    /// About how wide an amount is drawn: 8 pt for a digit, a letter or the dollar sign and 3.6 pt for a point or a comma.
+    private func estimatedWidth(_ text: String) -> CGFloat {
+        text.reduce(CGFloat(0)) { $0 + ($1 == "." || $1 == "," ? 3.6 : 8) } * (valueLift / 11)
     }
 
     private func bar(up: Bool) -> UnevenRoundedRectangle {

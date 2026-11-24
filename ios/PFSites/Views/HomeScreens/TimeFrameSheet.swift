@@ -20,7 +20,8 @@ struct TimeFrameSheet: View {
 
     /// Measured from the photo: the title's line starts 20 pt under the top of the sheet and the rows 43 pt under it, so the
     /// empty bottom of the title's line (under its baseline) runs 0.9 pt into the first row, as there. Both grow with the title's
-    /// text size, so the title never reaches the rows at any size.
+    /// text size, so the title never reaches the rows at any size. The title, the rows' names and their dates are all drawn in
+    /// one weight there (strokes 0.17 of the capitals' height: semibold), the hours under the dates in regular.
     @ScaledMetric(relativeTo: .title3) private var titleTop: CGFloat = 20
     @ScaledMetric(relativeTo: .title3) private var titleBand: CGFloat = 43
     /// The Custom row's calendar: 13.4 pt square in the photo, 17 pt after "Custom".
@@ -31,7 +32,7 @@ struct TimeFrameSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Text("Time frame")
-                .pfFont(20, .medium, relativeTo: .title3)
+                .pfFont(20, .semibold, relativeTo: .title3)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .accessibilityAddTraits(.isHeader)
@@ -91,12 +92,13 @@ struct TimeFrameSheet: View {
         let on = chosen.range == range
         let span = StatsTimeFrame(range: range).days(today: today)
         return Button {
+            if !on { Haptics.light() }
             choose(StatsTimeFrame(range: range))
             dismiss()
         } label: {
             HStack(alignment: .center, spacing: 0) {
                 Text(range.label)
-                    .pfFont(15.5, .medium)
+                    .pfFont(15.5, .semibold)
                     .foregroundStyle(on ? Theme.blue : Color.primary)
                 Spacer(minLength: 12)
                 dates(from: span.from, to: span.to, on: on)
@@ -121,9 +123,9 @@ struct TimeFrameSheet: View {
             if customOpen { revealCustom += 1 }
         } label: {
             HStack(alignment: .center, spacing: 0) {
-                HStack(spacing: 17) {
+                HStack(spacing: 16) {
                     Text(StatsRange.custom.label)
-                        .pfFont(15.5, .medium)
+                        .pfFont(15.5, .semibold)
                         .foregroundStyle(on ? Theme.blue : Color.primary)
                     TimeFrameCalendarGlyph()
                         .stroke(Theme.blue, lineWidth: calendarSize * TimeFrameCalendarGlyph.lineWidth / TimeFrameCalendarGlyph.grid)
@@ -147,13 +149,15 @@ struct TimeFrameSheet: View {
     }
 
     /// The days on the right: the date (or first and last day) semibold, the hours under it; brand blue on the chosen row.
+    /// Measured from the photo: the hours' capitals 8.7 pt tall (12 pt text, as on Sales Overview) and their baseline 14 pt under
+    /// the date's, closer than two lines of text set by themselves.
     private func dates(from: String, to: String, on: Bool) -> some View {
-        VStack(alignment: .trailing, spacing: 2) {
+        VStack(alignment: .trailing, spacing: -0.8) {
             Text(StatsDays.title(from: from, to: to))
                 .pfFont(13, .semibold)
                 .foregroundStyle(on ? Theme.blue : Color.primary)
             Text(StatsDays.allDay)
-                .pfFont(12.5)
+                .pfFont(12)
                 .foregroundStyle(on ? Theme.blue : StatsLook.subtle)
         }
         .lineLimit(1)
@@ -194,12 +198,12 @@ struct TimeFrameSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             separator
             DatePicker("Start date", selection: $start, in: ...todayDate, displayedComponents: .date)
-                .pfFont(15.5, .medium)
+                .pfFont(15.5, .semibold)
                 .padding(.horizontal, 18)
                 .frame(minHeight: 60)
             separator
             DatePicker("End date", selection: $end, in: start...latestEnd, displayedComponents: .date)
-                .pfFont(15.5, .medium)
+                .pfFont(15.5, .semibold)
                 .padding(.horizontal, 18)
                 .frame(minHeight: 60)
             Button("Apply", action: apply)
@@ -229,6 +233,7 @@ struct TimeFrameSheet: View {
     private func apply() {
         let first = StatsDays.string(min(start, end))
         let last = StatsDays.string(max(start, min(end, latestEnd)))
+        Haptics.light()
         choose(StatsTimeFrame(range: .custom, from: first, to: last))
         dismiss()
     }

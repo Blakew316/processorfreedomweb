@@ -9,23 +9,28 @@ struct InvoiceNumberPage: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        TxPlainPage(title: "Invoice number", subtitle: (model.site?.name ?? "").uppercased(), margin: 17, top: 12) {
+        // From the photo: the first baseline 29 pt under the bar on 24 pt lines, in the photos' dark slate; the setting's name
+        // 40 pt under the last of them, its switch 14 pt from the edge.
+        TxPlainPage(title: "Invoice number", subtitle: (model.site?.name ?? "").uppercased(), margin: 17, top: 14) {
             Text("Processor Freedom numbers every invoice and estimate for you (INV-1001, EST-1002 and so on) and every order (#1001 and so on). The number appears on the invoice or order and on the customer's email.")
                 .pfFont(16)
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(SettingsA.value)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 12) {
                 Text("Enable invoice #")
                     .pfFont(16, .medium)
                     .foregroundStyle(SettingsLook.greyed)
+                    .accessibilityHidden(true)
                 Spacer(minLength: 8)
                 Toggle("Enable invoice #", isOn: .constant(false))
                     .labelsHidden()
                     .tint(Theme.blue)
                     .disabled(true)
+                    .padding(.trailing, -3)
             }
-            .padding(.top, 16)
+            .frame(minHeight: 31)
+            .padding(.top, 15)
             .accessibilityElement(children: .combine)
             .accessibilityValue("Off, not available yet")
             Text("Not available yet")
@@ -42,18 +47,19 @@ struct InvoiceNumberPage: View {
 /// to change.
 struct ManualCardEntryPage: View {
     var body: some View {
-        // The 18 pt description runs on 18 pt lines, as in the photo; the top leaves room for its first line's tops.
-        TxPlainPage(title: "Manual card entry", margin: 24, top: 38.5) {
+        // The 18 pt description runs on 18 pt lines, as in the photo (such a line ends on its baseline): its first baseline is
+        // 60 pt under the bar, and "HOW TO EDIT" 47 pt under its last.
+        TxPlainPage(title: "Manual card entry", margin: 24, top: 41.67) {
             Text("This permission lets staff key in a card on the Virtual Terminal.")
                 .pfFont(18)
-                .foregroundStyle(SettingsLook.muted)
+                .foregroundStyle(SettingsListLook.quiet)
                 .txLineHeight(18)
                 .fixedSize(horizontal: false, vertical: true)
             Text("How to edit")
                 .textCase(.uppercase)
                 .pfFont(16, .semibold)
                 .foregroundStyle(Color.primary)
-                .padding(.top, 29)
+                .padding(.top, 32)
                 .accessibilityAddTraits(.isHeader)
             Text("Card payments and employee permissions are not available yet, so there is nothing to change.")
                 .pfFont(17)
@@ -167,20 +173,10 @@ private struct TemplateLibraryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Button { back() } label: {
-                    HStack(spacing: 18) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 20, weight: .regular))
-                        Text("Invoices and estimates")
-                            .pfFont(17, .medium)
-                    }
-                    .foregroundStyle(Color.primary)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Back to Invoices and estimates")
-                .padding(.top, 4)
+                SettingsBackLink(title: "Invoices and estimates", label: "Back to Invoices and estimates") { back() }
+                    .padding(.top, 4)
 
+                // The round button starts 70 pt under the bar, with the heading centred on it (the photo).
                 HStack(alignment: .center, spacing: 12) {
                     Text("Template Library")
                         .pfFont(24, .bold, relativeTo: .title)
@@ -202,7 +198,7 @@ private struct TemplateLibraryView: View {
                     .accessibilityLabel("More template options")
                     .accessibilityValue("Not available yet")
                 }
-                .padding(.top, 30)
+                .padding(.top, 26.67)
 
                 Text("Pick a template to get started.")
                     .pfFont(16)
@@ -232,10 +228,10 @@ private struct TemplateLibraryView: View {
                 .padding(.top, 28)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 24)
-            .padding(.bottom, 80)
+            .padding(.top, 19)
+            .padding(.bottom, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+            .modifier(SettingsPanel())
         }
         .background(Color(.systemBackground))
         .scrollEdgeEffectStyle(.hard, for: .top)
@@ -243,20 +239,7 @@ private struct TemplateLibraryView: View {
         .navigationTitle("Invoices and estimates")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { close() } label: {
-                    Image(systemName: "xmark")
-                }
-                .accessibilityLabel("Close")
-            }
-            ToolbarItem(placement: .principal) {
-                Text("Invoices and estimates")
-                    .pfFont(19, .bold, relativeTo: .headline)
-                    .lineLimit(1)
-                    .accessibilityAddTraits(.isHeader)
-            }
-        }
+        .toolbar { SettingsCloseBar(title: "Invoices and estimates") { close() } }
         .steadyNavigationBar()
         // Back from a new estimate or invoice comes straight here, not to the website's Estimates or Invoices list.
         .txWebPages($web, keepsBack: true)
@@ -264,12 +247,13 @@ private struct TemplateLibraryView: View {
 
     /// The round-ended search field of the photo: 48 pt, a 1 pt grey border, the magnifying glass and the placeholder.
     private var search: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 11) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 19, weight: .regular))
-                .foregroundStyle(Color.secondary)
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(SettingsListLook.quiet)
+                .frame(width: 18)
                 .accessibilityHidden(true)
-            TextField("Search template name or description", text: $query)
+            TextField("Search template name or description", text: $query, prompt: Text("Search template name or description").foregroundStyle(SettingsListLook.quiet))
                 .pfFont(16)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -278,14 +262,18 @@ private struct TemplateLibraryView: View {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Color.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
+                // A full-size place to tap, with the mark where it was.
+                .padding(.horizontal, -12)
             }
         }
         .padding(.leading, 18)
         .padding(.trailing, 16)
-        .frame(minHeight: 48)
+        .frame(height: 48)
         .background(Color(.systemBackground), in: Capsule())
         .overlay(Capsule().strokeBorder(Color(.systemGray), lineWidth: 1))
     }

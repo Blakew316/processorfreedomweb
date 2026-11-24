@@ -13,6 +13,9 @@ struct RootView: View {
                 ShellView()
                     .id(model.shellID)
                     .accessibilityHidden(model.phase != .ready)
+                    // Logging out, Switch User or Forgot passcode from the lock screen: the dashboard goes at once, never fading
+                    // into view as the lock screen comes off it.
+                    .transition(model.isLocked ? .identity : .opacity)
             }
             phaseContent
             if model.showLoading {

@@ -42,19 +42,7 @@ struct ItemsImportSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.primary)
-                        .frame(width: 34, height: 34)
-                        .overlay { Circle().strokeBorder(Theme.blue, lineWidth: 2) }
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .disabled(running != nil)
-                .accessibilityLabel("Close")
+                ItemsCloseButton(disabled: running != nil) { dismiss() }
             }
             .padding(.horizontal, 20)
             .padding(.top, 22)
@@ -79,13 +67,17 @@ struct ItemsImportSheet: View {
                     }
                     if missing > 0 {
                         ItemsField(label: missing == count ? "How many of each item do you have?" : "Starting quantity for the \(missing) item\(missing == 1 ? "" : "s") without one",
-                                   focused: quantityFocused) {
+                                   focused: quantityFocused,
+                                   tap: { quantityFocused = true }) {
                             TextField("", text: $quantity)
                                 .keyboardType(.numberPad)
                                 .focused($quantityFocused)
+                                .accessibilityLabel("Starting quantity")
                                 .onChange(of: quantity) { _, typed in
                                     let digits = typed.digits(limit: 6)
                                     if digits != typed { quantity = digits }
+                                    // Typing counts for the 15-minute rule, as everywhere in the app.
+                                    model.idle.touch()
                                 }
                         }
                         .frame(maxWidth: 220, alignment: .leading)
@@ -131,6 +123,13 @@ struct ItemsImportSheet: View {
         .background(Color(.systemBackground))
         .presentationDetents([.large])
         .interactiveDismissDisabled(running != nil)
+        .toolbar {
+            // The number pad has no return key: Done puts it away.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { quantityFocused = false }
+            }
+        }
         .alert(problem ?? "", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
         }
@@ -201,15 +200,18 @@ struct ItemsImportSheet: View {
         guard running == nil else { return }
         quantityFocused = false
         running = replace
+        model.idle.touch()
         let start = max(0, Int(quantity.trimmed) ?? 0)
         Task {
             let result = await items.importList(model, csv: plan.csv, replace: replace, startStock: start)
             running = nil
             switch result {
             case .success(let added):
+                Haptics.success()
                 items.showToast("\(added) item\(added == 1 ? "" : "s") added to your menu")
                 dismiss()
             case .failure(let error):
+                Haptics.error()
                 failed = replace
                 problem = error.message
             }
@@ -233,23 +235,14 @@ struct ItemsCategoryPicker: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
+                // Like the title of "Filter item results".
                 Text("Assign categories")
-                    .pfFont(18, .bold, relativeTo: .headline)
+                    .pfFont(18.5, .bold, relativeTo: .headline)
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
+                    .padding(.top, 2.1)
                 Spacer(minLength: 12)
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.primary)
-                        .frame(width: 34, height: 34)
-                        .overlay { Circle().strokeBorder(Theme.blue, lineWidth: 2) }
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
+                ItemsCloseButton { dismiss() }
             }
             .padding(.leading, 26)
             .padding(.trailing, 21)
@@ -278,13 +271,16 @@ struct ItemsCategoryPicker: View {
                         .accessibilityAddTraits(name == current ? [.isButton, .isSelected] : .isButton)
                         ItemsHairline()
                     }
-                    ItemsField(label: "Category name", focused: typing) {
+                    ItemsField(label: "Category name", focused: typing, tap: { typing = true }) {
                         TextField("", text: $newName)
                             .focused($typing)
                             .submitLabel(.done)
+                            .accessibilityLabel("Category name")
                             .onSubmit { addNew() }
                             .onChange(of: newName) { _, typed in
                                 if typed.count > 60 { newName = String(typed.prefix(60)) }
+                                // Typing counts for the 15-minute rule, as everywhere in the app.
+                                AppModel.shared.idle.touch()
                             }
                     }
                     .padding(.top, names.isEmpty ? 4 : 26)

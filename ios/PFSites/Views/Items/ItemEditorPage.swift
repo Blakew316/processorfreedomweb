@@ -24,6 +24,8 @@ struct ItemEditorPage: View {
     @State private var photoPick: PhotosPickerItem?
     @State private var loadingPhoto = false
     @State private var assigningCategory = false
+    /// Counts the saves that a field refused, so the page can bring that field into view each time.
+    @State private var refusals = 0
 
     init(items: ItemsModel, itemID: String?, close: @escaping () -> Void, openMenus: @escaping () -> Void) {
         self.items = items
@@ -39,16 +41,23 @@ struct ItemEditorPage: View {
         VStack(spacing: 0) {
             backBar
             ItemsHairline()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    headingRow
-                    cards
-                        .padding(.top, 32)
+            ScrollViewReader { reader in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        headingRow
+                        cards
+                            .padding(.top, 32)
+                    }
+                    .padding(.bottom, 65)
+                    .disabled(editor.saving || deleting)
                 }
-                .padding(.bottom, 65)
-                .disabled(editor.saving || deleting)
+                .scrollDismissesKeyboard(.interactively)
+                // Save is always in reach, the field it refused may be far up the page: it is brought into view.
+                .onChange(of: refusals) { _, _ in
+                    guard let field = editor.firstProblem else { return }
+                    withAnimation(.snappy) { reader.scrollTo(field, anchor: .center) }
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
             ItemsHairline()
             bottomBar
         }
@@ -56,6 +65,12 @@ struct ItemEditorPage: View {
         .background(ItemsLook.page, ignoresSafeAreaEdges: [])
         .background(Color(.systemBackground))
         .modifier(ItemsCoverBar(close: { leave(then: close) }, busy: editor.saving || deleting))
+        // Typing is not a touch on the screen: it counts for the 15-minute rule too, as on Create appointment.
+        .onChange(of: editor.draft) { _, _ in model.idle.touch() }
+        // The item settings came after a new item was opened: it starts where the website's Add item would put it.
+        .onChange(of: items.settingsAsked) { _, asked in
+            if asked { editor.startCategory(items.categoryNames.last ?? "Menu") }
+        }
         .toolbar {
             // Number pads have no return key: Done puts the keyboard away.
             ToolbarItemGroup(placement: .keyboard) {
@@ -102,14 +117,16 @@ struct ItemEditorPage: View {
         Button {
             leave(then: { dismiss() })
         } label: {
-            HStack(spacing: 13.7) {
+            // The arrow starts 25.7 pt from the edge and the words 13 pt after it, as in the photos (the symbol and the letters
+            // each carry a little air of their own).
+            HStack(spacing: 8.7) {
                 Image(systemName: "arrow.left")
                     .font(.system(size: 19, weight: .regular))
                 Text("Item list")
                     .pfFont(18.5, .bold)
             }
             .foregroundStyle(Color.primary)
-            .padding(.leading, 25.7)
+            .padding(.leading, 23.4)
             .padding(.trailing, 16)
             .frame(minHeight: 68)
             .contentShape(Rectangle())
@@ -124,12 +141,14 @@ struct ItemEditorPage: View {
     /// that exists.
     private var headingRow: some View {
         HStack(spacing: 0) {
+            // Its baseline 1 pt under where the row's middle would put it, as in the photos.
             Text(editor.heading)
                 .pfFont(25, .bold, relativeTo: .title)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .accessibilityAddTraits(.isHeader)
+                .padding(.top, 2)
             Spacer(minLength: 64)
             if !editor.isNew {
                 ItemsKebab(label: "Item actions") {
@@ -142,7 +161,7 @@ struct ItemEditorPage: View {
             }
         }
         .frame(minHeight: 48)
-        .padding(.leading, 21)
+        .padding(.leading, 20)
         .padding(.trailing, 13)
         .padding(.top, 24)
     }
@@ -172,7 +191,8 @@ struct ItemEditorPage: View {
         .padding(.leading, 20)
         .padding(.trailing, 28)
         .padding(.vertical, 16)
-        .background(ItemsLook.page)
+        // Not under the home indicator: that strip stays white, as in the photos.
+        .background(ItemsLook.page, ignoresSafeAreaEdges: [])
     }
 
     // MARK: Cards
@@ -226,6 +246,7 @@ struct ItemEditorPage: View {
     private func save() {
         focus = nil
         let wasNew = editor.isNew
+        model.idle.touch()
         Task {
             let result = await editor.save(model, items: items)
             if result.saved {
@@ -233,19 +254,31 @@ struct ItemEditorPage: View {
                 items.showToast(wasNew ? "Item added" : "Saved")
                 dismiss()
             } else if let text = result.message {
+                Haptics.error()
                 message = text
+            } else if editor.firstProblem != nil {
+                // A field says why: it comes into view.
+                Haptics.error()
+                refusals += 1
             }
         }
     }
 
     private func delete() {
+        let asked = Date()
         deleting = true
+        model.idle.touch()
         Task {
             let problem = await editor.delete(model, items: items)
-            deleting = false
             if let problem {
+                Haptics.error()
+                // Two alerts cannot be up at once: the server's words wait until the question has gone.
+                await ItemsAlerts.settled(since: asked)
+                deleting = false
                 message = problem
             } else {
+                deleting = false
+                Haptics.success()
                 items.showToast("Deleted")
                 dismiss()
             }
@@ -266,15 +299,21 @@ struct ItemEditorPage: View {
 
     /// A photo chosen in the library: read, then prepared and uploaded the way the website does.
     private func usePhoto(_ pick: PhotosPickerItem) {
+        let picked = Date()
         loadingPhoto = true
         Task {
             let data = try? await pick.loadTransferable(type: Data.self)
             loadingPhoto = false
-            guard let data else {
-                message = "Choose an image file."
-                return
+            var problem: String?
+            if let data {
+                problem = await editor.setPhoto(data, model: model)
+            } else {
+                problem = "Choose an image file."
             }
-            if let problem = await editor.setPhoto(data, model: model) {
+            if let problem {
+                Haptics.error()
+                // Nothing can come up while the photo picker is still closing.
+                await ItemsAlerts.settled(since: picked, wait: 0.6)
                 message = problem
             }
         }

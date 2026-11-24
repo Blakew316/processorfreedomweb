@@ -26,7 +26,7 @@ struct PaymentsSettingsPage: View {
                 trackReasons
             }
         }
-        .task { await settings.load(siteID: siteID) }
+        .settingsLoads { await settings.load(siteID: siteID) }
     }
 
     /// A card with its title and greyed pencil, then its settings 37 pt apart. `extraBottom` is room some photos leave under the last one.

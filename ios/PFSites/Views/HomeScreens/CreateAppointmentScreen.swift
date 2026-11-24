@@ -22,6 +22,7 @@ struct CreateAppointmentScreen: View {
 
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var form: CreateAppointmentModel
     @State private var problem: String? = nil
     /// A message to show once the sheet it came from has gone.
@@ -33,9 +34,21 @@ struct CreateAppointmentScreen: View {
     @State private var pickingTime = false
     /// Find availability is reading the booked times again before it chooses one.
     @State private var finding = false
+    /// A list that could not be read is being read again (Try again), one at a time.
+    @State private var retrying = false
     /// The screen has left the stack (Back while a save was on its way): the answer then neither closes nor alerts anything.
     @State private var closed = false
     @FocusState private var focus: CreateAppointmentFocus?
+
+    /// What the form is read for again: the app back in front and unlocked, and the business.
+    private struct LoadKey: Hashable {
+        let active: Bool
+        let ready: Bool
+        let site: String
+    }
+
+    /// The place the page scrolls to when the customer search is typed in.
+    private static let searchID = "customer-search"
 
     init(date: String? = nil, time: String? = nil, employee: String? = nil) {
         self.date = date
@@ -69,10 +82,16 @@ struct CreateAppointmentScreen: View {
         }
         .toolbarVisibility(.hidden, for: .tabBar)
         .steadyNavigationBar()
-        .onAppear { closed = false }
+        .onAppear {
+            closed = false
+            // Saved while this screen was out of sight (another tab came up over it): it is finished, so it closes now.
+            if form.saved { dismiss() }
+        }
         .onDisappear { closed = true }
-        .task(id: model.site?.id ?? "") {
-            guard let business = model.site else { return }
+        // Reads the business's services, team, customers, bookings and items as the screen opens, and again each time the app
+        // comes back to the front or is unlocked; what was typed stays.
+        .task(id: LoadKey(active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
+            guard scenePhase == .active, model.phase == .ready, let business = model.site else { return }
             await form.load(siteID: business.id)
         }
         .onChange(of: form.typing) { _, _ in
@@ -92,40 +111,48 @@ struct CreateAppointmentScreen: View {
     @ViewBuilder
     private var page: some View {
         if form.siteLoaded {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Create appointment")
-                        .pfFont(24, .bold, relativeTo: .title)
-                        .foregroundStyle(Color.primary)
-                        .accessibilityAddTraits(.isHeader)
-                        .padding(.top, 12.5)
-                    VStack(spacing: 16) {
-                        customerCard
-                        detailsCard
-                        paymentCard
-                        notesCard
-                        historyCard
+            ScrollViewReader { reader in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Create appointment")
+                            .pfFont(24, .bold, relativeTo: .title)
+                            .foregroundStyle(Color.primary)
+                            .accessibilityAddTraits(.isHeader)
+                            .padding(.top, 12.33)
+                        VStack(spacing: 16) {
+                            customerCard
+                            detailsCard
+                            paymentCard
+                            notesCard
+                            historyCard
+                        }
+                        .padding(.top, 20.67)
                     }
-                    .padding(.top, 20.5)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // The grey page under the bar, its top-left corner rounded like Clover's (14 pt: the photo's corner, fitted
+                    // pixel by pixel).
+                    .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 14, style: .continuous))
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // The grey page under the bar, its top-left corner rounded like Clover's (14 pt: the photo's corner, fitted pixel
-                // by pixel).
-                .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 14, style: .continuous))
-            }
-            .scrollDismissesKeyboard(.interactively)
-            // Pulling reads the business's services, team, customers, bookings and items again; what was typed stays.
-            .refreshable { await pullToRefresh() }
-            .scrollEdgeEffectStyle(.hard, for: .top)
-            // White behind the bar and the rounded corner, grey below a short page.
-            .background {
-                VStack(spacing: 0) {
-                    Color(.systemBackground)
-                    SettingsLook.page
+                .scrollDismissesKeyboard(.interactively)
+                // Pulling reads the business's services, team, customers, bookings and items again; what was typed stays.
+                .refreshable { await pullToRefresh() }
+                .scrollEdgeEffectStyle(.hard, for: .top)
+                // White behind the bar and the rounded corner, grey below a short page.
+                .background {
+                    VStack(spacing: 0) {
+                        Color(.systemBackground)
+                        SettingsLook.page
+                    }
+                    .ignoresSafeArea()
                 }
-                .ignoresSafeArea()
+                // The customers found come up under the search, so the search goes to the top of the page while it is typed
+                // in: there the keyboard leaves room for them.
+                .onChange(of: focus) { _, field in
+                    guard field == .search else { return }
+                    withAnimation(.snappy(duration: 0.25)) { reader.scrollTo(Self.searchID, anchor: .top) }
+                }
             }
         } else if form.loadError.isEmpty {
             ProgressView()
@@ -157,6 +184,16 @@ struct CreateAppointmentScreen: View {
         await form.load(siteID: business.id)
     }
 
+    /// Reads one of the business's lists again after it could not be read; a second tap waits for the first one's answer.
+    private func retry(_ read: @escaping (String) async -> Void) {
+        guard let business = model.site, !retrying else { return }
+        retrying = true
+        Task {
+            await read(business.id)
+            retrying = false
+        }
+    }
+
     private func toggle(_ section: CreateAppointmentSection) {
         focus = nil
         withAnimation(.snappy(duration: 0.25)) { form.toggle(section) }
@@ -165,13 +202,16 @@ struct CreateAppointmentScreen: View {
     // MARK: Customer information
 
     private var customerCard: some View {
-        CreateAppointmentCard(title: "Customer information", open: form.isOpen(.customer), gap: 40.3, bottom: 16, toggle: { toggle(.customer) }) {
+        CreateAppointmentCard(title: "Customer information", open: form.isOpen(.customer), gap: 40, bottom: 17, toggle: { toggle(.customer) }) {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                // At least 12 pt between the two, so the longer link ("Select an existing customer") stays on one line beside
+                // "* Required:" on a 375 pt iPhone.
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("* Required:")
                         .pfFont(16, .bold)
                         .foregroundStyle(Color.primary)
-                    Spacer(minLength: 8)
+                        .layoutPriority(1)
+                    Spacer(minLength: 12)
                     // The photo's link sits 2 pt lower than "* Required:".
                     CreateAppointmentLink(title: form.newCustomer ? "Select an existing customer" : "+ Add new customer") {
                         focus = nil
@@ -181,15 +221,18 @@ struct CreateAppointmentScreen: View {
                 }
                 if let picked = form.customer {
                     pickedCustomer(picked)
-                        .padding(.top, 26.8)
+                        .padding(.top, 26.67)
                 } else if form.newCustomer {
                     newCustomerFields
-                        .padding(.top, 26.8)
+                        .padding(.top, 26.67)
                 } else {
+                    // 12 pt of the space above the name scrolls with it when the search goes to the top of the page.
                     CreateAppointmentLabel(text: "Select customer*")
-                        .padding(.top, 26.8)
+                        .padding(.top, 12)
+                        .id(Self.searchID)
+                        .padding(.top, 14.67)
                     searchField
-                        .padding(.top, 6.5)
+                        .padding(.top, CreateAppointmentLook.labelGap)
                     searchResults
                 }
             }
@@ -213,15 +256,18 @@ struct CreateAppointmentScreen: View {
                 .focused($focus, equals: .search)
                 .accessibilityLabel("Select customer")
             if !form.query.isEmpty {
+                // The cross is 32 pt; its tap area is 44 pt, without moving anything.
                 Button {
                     form.query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
+                        .padding(6)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(-6)
                 .accessibilityLabel("Clear search")
             }
         }
@@ -231,11 +277,12 @@ struct CreateAppointmentScreen: View {
         .background(Capsule().fill(SettingsLook.card))
         .overlay {
             Capsule()
-                .strokeBorder(focus == .search ? Theme.blue : CreateAppointmentLook.field, lineWidth: focus == .search ? 2 : 1)
+                .strokeBorder(focus == .search ? CreateAppointmentLook.focus : CreateAppointmentLook.field, lineWidth: focus == .search ? 2 : 1)
         }
     }
 
-    /// Up to six customers whose name, email or phone holds what was typed; the server's words when the list could not be read.
+    /// Up to six customers whose name, email or phone holds what was typed; the server's words when the list could not be read,
+    /// with a way to read it again.
     @ViewBuilder
     private var searchResults: some View {
         let found = form.matches
@@ -243,7 +290,7 @@ struct CreateAppointmentScreen: View {
             VStack(spacing: 0) {
                 ForEach(found) { person in
                     Button {
-                        form.pick(person)
+                        withAnimation(.snappy(duration: 0.25)) { form.pick(person) }
                         focus = nil
                     } label: {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -267,11 +314,18 @@ struct CreateAppointmentScreen: View {
             }
             .padding(.top, 8)
         } else if !form.query.isEmpty && !form.customersError.isEmpty {
-            Text(form.customersError)
-                .pfFont(14)
-                .foregroundStyle(SettingsLook.muted)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 10)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(form.customersError)
+                    .pfFont(14)
+                    .foregroundStyle(SettingsLook.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if form.customersRetry {
+                    CreateAppointmentLink(title: "Try again", underlined: false) {
+                        retry { await form.loadCustomers($0) }
+                    }
+                }
+            }
+            .padding(.top, 10)
         }
     }
 
@@ -325,7 +379,7 @@ struct CreateAppointmentScreen: View {
     }
 
     private func typedField(_ label: String, text: Binding<String>, field: CreateAppointmentFocus, kind: UITextContentType, keyboard: UIKeyboardType, capitals: TextInputAutocapitalization) -> some View {
-        VStack(alignment: .leading, spacing: 6.5) {
+        VStack(alignment: .leading, spacing: CreateAppointmentLook.labelGap) {
             CreateAppointmentLabel(text: label)
             TextField("", text: text)
                 .pfFont(16)
@@ -336,7 +390,7 @@ struct CreateAppointmentScreen: View {
                 .autocorrectionDisabled()
                 .focused($focus, equals: field)
                 .accessibilityLabel(label)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, CreateAppointmentFieldBox.inset)
                 .modifier(CreateAppointmentFieldBox(focused: focus == field))
         }
     }
@@ -344,7 +398,7 @@ struct CreateAppointmentScreen: View {
     // MARK: Appointment details
 
     private var detailsCard: some View {
-        CreateAppointmentCard(title: "Appointment details", open: form.isOpen(.details), gap: 39.86, bottom: 15, toggle: { toggle(.details) }) {
+        CreateAppointmentCard(title: "Appointment details", open: form.isOpen(.details), gap: 39.67, bottom: 15, toggle: { toggle(.details) }) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("*Required")
                     .pfFont(14)
@@ -352,7 +406,7 @@ struct CreateAppointmentScreen: View {
                 Text("Services*")
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
-                    .padding(.top, 20)
+                    .padding(.top, 19.33)
                 ForEach(form.services) { service in
                     serviceCard(serviceBinding(service.id))
                         .padding(.top, service.id == form.services.first?.id ? 26 : 16)
@@ -376,7 +430,7 @@ struct CreateAppointmentScreen: View {
                 CreateAppointmentRule()
                     .padding(.top, 34.33)
                 totals
-                    .padding(.top, 34.7)
+                    .padding(.top, 34.67)
             }
         }
     }
@@ -395,9 +449,9 @@ struct CreateAppointmentScreen: View {
                     .submitLabel(.done)
                     .focused($focus, equals: .service(current.id))
                     .accessibilityLabel("What for")
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, CreateAppointmentFieldBox.inset)
                     .modifier(CreateAppointmentFieldBox(focused: focus == .service(current.id)))
-                    .padding(.top, 6.5)
+                    .padding(.top, CreateAppointmentLook.labelGap)
             } else {
                 CreateAppointmentLabel(text: "Service")
                 Menu {
@@ -417,7 +471,7 @@ struct CreateAppointmentScreen: View {
                 }
                 .accessibilityLabel("Service")
                 .accessibilityValue(current.name.isEmpty ? "Choose a service" : serviceTitle(current))
-                .padding(.top, 6.5)
+                .padding(.top, CreateAppointmentLook.labelGap)
             }
 
             CreateAppointmentLabel(text: "Price")
@@ -434,9 +488,9 @@ struct CreateAppointmentScreen: View {
                     .focused($focus, equals: .price(current.id))
                     .accessibilityLabel("Price in dollars")
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, CreateAppointmentFieldBox.inset)
             .modifier(CreateAppointmentFieldBox(focused: focus == .price(current.id)))
-            .padding(.top, 6.5)
+            .padding(.top, CreateAppointmentLook.labelGap)
 
             CreateAppointmentLabel(text: "Employee")
                 .padding(.top, 24.67)
@@ -452,9 +506,10 @@ struct CreateAppointmentScreen: View {
             }
             .accessibilityLabel("Employee")
             .accessibilityValue(current.employee.isEmpty ? CreateAppointmentModel.anyAvailable : current.employee)
-            .padding(.top, 6.5)
+            .padding(.top, CreateAppointmentLook.labelGap)
 
             if form.services.count > 1 {
+                // The words are 19 pt high; their tap area is 44 pt, without moving anything.
                 Button {
                     focus = nil
                     withAnimation(.snappy(duration: 0.25)) { form.removeService(current.id) }
@@ -462,11 +517,11 @@ struct CreateAppointmentScreen: View {
                     Text("Remove service")
                         .pfFont(16, .semibold)
                         .foregroundStyle(CreateAppointmentLook.red)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12.33)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.vertical, -10)
+                .padding(.vertical, -12.33)
                 .padding(.top, 20)
             }
         }
@@ -500,21 +555,22 @@ struct CreateAppointmentScreen: View {
     /// Date and time*, Find availability, and the date and time on the business's clock, chosen with the iPhone's own pickers.
     private var dateAndTime: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Date and time*")
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
-                Spacer(minLength: 8)
+                    .layoutPriority(1)
+                Spacer(minLength: 12)
                 CreateAppointmentLink(title: "Find availability", underlined: false) {
                     focus = nil
                     findAvailability()
                 }
                 .disabled(finding)
             }
-            .padding(.top, 36)
+            .padding(.top, 35.67)
 
             CreateAppointmentLabel(text: "Date* (mm/dd/yyyy)")
-                .padding(.top, 23.8)
+                .padding(.top, 23.67)
             Button {
                 focus = nil
                 pickingDate = true
@@ -527,13 +583,13 @@ struct CreateAppointmentScreen: View {
                     Spacer(minLength: 8)
                     // The photo's #F9F9F9 box: 48 x 46 pt with 12 pt corners, filling the field from border to border.
                     CreateAppointmentCalendarGlyph()
-                        .stroke(CreateAppointmentLook.icon, style: StrokeStyle(lineWidth: 1.67, lineCap: .round, lineJoin: .round))
-                        .frame(width: 20, height: 20)
+                        .stroke(CreateAppointmentLook.icon, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                        .frame(width: 19.33, height: 19.33)
                         .frame(width: 48, height: 46)
                         .background(CreateAppointmentLook.iconBox, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .padding(.trailing, 1)
                 }
-                .padding(.leading, 14)
+                .padding(.leading, CreateAppointmentFieldBox.inset)
                 .modifier(CreateAppointmentFieldBox(focused: pickingDate))
                 .contentShape(Rectangle())
             }
@@ -544,7 +600,7 @@ struct CreateAppointmentScreen: View {
             .accessibilityLabel("Date")
             .accessibilityValue(CreateAppointmentClock.longDay(form.date))
             .accessibilityHint("Choose the day")
-            .padding(.top, 6.5)
+            .padding(.top, CreateAppointmentLook.labelGap)
 
             CreateAppointmentLabel(text: "Time* HH:MM AM/PM")
                 .padding(.top, 24.67)
@@ -559,11 +615,11 @@ struct CreateAppointmentScreen: View {
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     CreateAppointmentClockGlyph()
-                        .stroke(CreateAppointmentLook.icon, style: StrokeStyle(lineWidth: 1.67, lineCap: .round, lineJoin: .round))
+                        .stroke(CreateAppointmentLook.icon, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
                         .frame(width: 19, height: 19)
-                        .padding(.trailing, 16.67)
+                        .padding(.trailing, 16.33)
                 }
-                .padding(.leading, 14)
+                .padding(.leading, CreateAppointmentFieldBox.inset)
                 .modifier(CreateAppointmentFieldBox(focused: pickingTime))
                 .contentShape(Rectangle())
             }
@@ -574,7 +630,7 @@ struct CreateAppointmentScreen: View {
             .accessibilityLabel("Time")
             .accessibilityValue(CreateAppointmentClock.clock(form.time))
             .accessibilityHint("Choose the time")
-            .padding(.top, 6.5)
+            .padding(.top, CreateAppointmentLook.labelGap)
         }
     }
 
@@ -629,7 +685,7 @@ struct CreateAppointmentScreen: View {
     /// read first, and when they still cannot be read the server's words show instead of a time that may already be booked.
     private func findAvailability() {
         if form.appointmentsLoaded {
-            if !form.findAvailability() { problem = CreateAppointmentModel.noOpenTimes }
+            found(form.findAvailability())
             return
         }
         guard let business = model.site, !finding else { return }
@@ -637,11 +693,32 @@ struct CreateAppointmentScreen: View {
         Task {
             await form.loadAppointments(business.id)
             finding = false
-            if !form.appointmentsLoaded {
-                if !form.appointmentsError.isEmpty && !closed { problem = form.appointmentsError }
-            } else if !form.findAvailability() && !closed {
-                problem = CreateAppointmentModel.noOpenTimes
+            guard !closed else { return }
+            if form.appointmentsLoaded {
+                found(form.findAvailability())
+            } else if !form.appointmentsError.isEmpty {
+                Haptics.error()
+                say(form.appointmentsError)
             }
+        }
+    }
+
+    /// A light tap for a time found (the fields may already have been showing it); the website's words when there is none.
+    private func found(_ time: Bool) {
+        if time {
+            Haptics.light()
+        } else {
+            Haptics.error()
+            say(CreateAppointmentModel.noOpenTimes)
+        }
+    }
+
+    /// Shows a message now, or once the open sheet has gone (two presentations cannot overlap).
+    private func say(_ message: String) {
+        if sheet != nil {
+            pendingProblem = message
+        } else {
+            problem = message
         }
     }
 
@@ -652,15 +729,15 @@ struct CreateAppointmentScreen: View {
             Text("Extra time (optional)")
                 .pfFont(16, .bold)
                 .foregroundStyle(Color.primary)
-                .padding(.top, 34.64)
+                .padding(.top, 34.67)
             Text("Add additional time to the end of an appointment.")
                 .pfFont(14)
                 .foregroundStyle(Color.primary)
                 .lineSpacing(3.3)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 12.6)
+                .padding(.top, 12.33)
             CreateAppointmentLabel(text: "Hours")
-                .padding(.top, 21.63)
+                .padding(.top, 21.33)
             Menu {
                 Picker("Hours", selection: $draft.extraHour) {
                     ForEach(CreateAppointmentModel.extraHourChoices, id: \.self) { value in
@@ -672,7 +749,7 @@ struct CreateAppointmentScreen: View {
             }
             .accessibilityLabel("Extra hours")
             .accessibilityValue(form.extraHour)
-            .padding(.top, 6.5)
+            .padding(.top, CreateAppointmentLook.labelGap)
             CreateAppointmentLabel(text: "Minutes")
                 .padding(.top, 20.67)
             Menu {
@@ -686,7 +763,7 @@ struct CreateAppointmentScreen: View {
             }
             .accessibilityLabel("Extra minutes")
             .accessibilityValue(form.extraMinute)
-            .padding(.top, 6.5)
+            .padding(.top, CreateAppointmentLook.labelGap)
         }
     }
 
@@ -729,7 +806,8 @@ struct CreateAppointmentScreen: View {
         }
     }
 
-    /// One item: its name, one less and one more around the quantity, the amount, and a cross to take it away.
+    /// One item: its name, one less and one more around the quantity, the amount, and a cross to take it away. The quantity and
+    /// the amount keep their room (two digits, and amounts under $100), so one more or one less does not move the buttons.
     private func lineRow(_ line: CreateAppointmentLine) -> some View {
         HStack(alignment: .center, spacing: 8) {
             Text(line.name)
@@ -737,20 +815,22 @@ struct CreateAppointmentScreen: View {
                 .foregroundStyle(Color.primary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            stepButton("minus", label: "One less \(line.name)") { form.step(line.id, by: -1) }
+            stepButton("minus", label: "One less \(line.name)") { step(line.id, by: -1) }
             Text(String(line.qty))
                 .monospacedDigit()
                 .pfFont(16)
                 .foregroundStyle(Color.primary)
-                .frame(minWidth: 18)
+                .frame(minWidth: 22)
                 .accessibilityLabel("Quantity \(line.qty)")
-            stepButton("plus", label: "One more \(line.name)") { form.step(line.id, by: 1) }
+            stepButton("plus", label: "One more \(line.name)") { step(line.id, by: 1) }
             Text(Money.format(line.price * line.qty))
                 .monospacedDigit()
                 .pfFont(16)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .fixedSize()
+                .frame(minWidth: 54, alignment: .trailing)
+            // The cross is 32 pt; its tap area is 44 pt, without moving anything.
             Button {
                 withAnimation(.snappy(duration: 0.25)) { form.removeLine(line.id) }
             } label: {
@@ -758,13 +838,21 @@ struct CreateAppointmentScreen: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.primary)
                     .frame(width: 32, height: 32)
+                    .padding(6)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(-6)
             .accessibilityLabel("Remove \(line.name)")
         }
     }
 
+    /// One more or one less; the last one going takes the line away, as the cross does.
+    private func step(_ id: UUID, by change: Int) {
+        withAnimation(.snappy(duration: 0.25)) { form.step(id, by: change) }
+    }
+
+    /// A 30 pt grey circle with a 44 pt tap area, without moving anything.
     private func stepButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -772,15 +860,18 @@ struct CreateAppointmentScreen: View {
                 .foregroundStyle(Color.primary)
                 .frame(width: 30, height: 30)
                 .background(CreateAppointmentLook.pill, in: Circle())
-                .contentShape(Circle())
+                .padding(7)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(-7)
         .accessibilityLabel(label)
     }
 
-    /// Subtotal, Order discount, Service charge, and Taxes and fees at the business's tax rate.
+    /// Subtotal, Order discount, Service charge, and Taxes and fees at the business's tax rate. The photo's lines are 33, 34 and
+    /// 33 pt apart.
     private var totals: some View {
-        VStack(alignment: .leading, spacing: 14.24) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text("Subtotal")
                     .pfFont(15)
@@ -802,6 +893,7 @@ struct CreateAppointmentScreen: View {
                     .foregroundStyle(CreateAppointmentLook.red)
                     .accessibilityLabel("Discount \(Money.format(form.discount))")
             }
+            .padding(.top, 13.67)
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 CreateAppointmentLink(title: "Service charge") {
                     focus = nil
@@ -811,7 +903,9 @@ struct CreateAppointmentScreen: View {
                 Text(Money.format(form.charge))
                     .pfFont(16)
                     .foregroundStyle(Color.primary)
+                    .accessibilityLabel("Service charge \(Money.format(form.charge))")
             }
+            .padding(.top, 14.67)
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text("Taxes and fees")
                     .pfFont(15)
@@ -822,6 +916,7 @@ struct CreateAppointmentScreen: View {
                     .foregroundStyle(Color.primary)
             }
             .accessibilityElement(children: .combine)
+            .padding(.top, 13.67)
         }
     }
 
@@ -829,7 +924,7 @@ struct CreateAppointmentScreen: View {
 
     /// The website's words: the payment is recorded from the appointment when the customer pays, which needs a customer first.
     private var paymentCard: some View {
-        CreateAppointmentCard(title: "Payment information", open: form.isOpen(.payment), gap: 41.4, bottom: 15.4, toggle: { toggle(.payment) }) {
+        CreateAppointmentCard(title: "Payment information", open: form.isOpen(.payment), gap: 41, bottom: 15.33, toggle: { toggle(.payment) }) {
             Text(form.hasCustomer ? "Record the payment from the appointment when the customer pays." : "Select an existing customer or add a new customer to add payment information.")
                 .pfFont(15)
                 .foregroundStyle(form.hasCustomer ? SettingsLook.greyed : Color.primary)
@@ -841,10 +936,11 @@ struct CreateAppointmentScreen: View {
 
     private var notesCard: some View {
         @Bindable var draft = form
-        return CreateAppointmentCard(title: "Notes", open: form.isOpen(.notes), gap: 42, bottom: 14, toggle: { toggle(.notes) }) {
+        return CreateAppointmentCard(title: "Notes", open: form.isOpen(.notes), gap: 42, bottom: 13.67, toggle: { toggle(.notes) }) {
             VStack(alignment: .leading, spacing: 0) {
                 CreateAppointmentLabel(text: "Notes")
-                TextField("", text: $draft.notes, prompt: Text("Add information about the customer or appointment.").foregroundStyle(CreateAppointmentLook.placeholder), axis: .vertical)
+                // "or appointment." keeps together, so the words wrap where the photo's do ("…the customer", "or appointment.").
+                TextField("", text: $draft.notes, prompt: Text("Add information about the customer or\u{00A0}appointment.").foregroundStyle(CreateAppointmentLook.placeholder), axis: .vertical)
                     .pfFont(16)
                     .foregroundStyle(Color.primary)
                     .lineSpacing(4.9)
@@ -852,8 +948,8 @@ struct CreateAppointmentScreen: View {
                     .textInputAutocapitalization(.sentences)
                     .focused($focus, equals: .notes)
                     .accessibilityLabel("Notes")
-                    .padding(.horizontal, 14)
-                    .padding(.top, 15.5)
+                    .padding(.horizontal, CreateAppointmentFieldBox.inset)
+                    .padding(.top, 15.67)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
                     // The whole box takes a tap, not only the lines typed so far.
@@ -864,22 +960,23 @@ struct CreateAppointmentScreen: View {
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(focus == .notes ? Theme.blue : CreateAppointmentLook.field, lineWidth: focus == .notes ? 2 : 1)
+                            .strokeBorder(focus == .notes ? CreateAppointmentLook.focus : CreateAppointmentLook.field, lineWidth: focus == .notes ? 2 : 1)
                             .allowsHitTesting(false)
                     }
-                    .padding(.top, 6.5)
+                    .padding(.top, CreateAppointmentLook.labelGap)
                 Text("\(form.notes.utf16.count)/\(CreateAppointmentModel.notesLimit) characters")
                     .pfFont(14)
                     .foregroundStyle(CreateAppointmentLook.placeholder)
-                    .padding(.top, 8.34)
+                    .padding(.top, 8.33)
             }
         }
     }
 
     /// The chosen customer's appointments with the website's status words, or the photo's line when there are none. While the
-    /// business's appointments have not been read, a chosen customer's history is unknown: the wait for them, or the server's words.
+    /// business's appointments have not been read, a chosen customer's history is unknown: the wait for them, or the server's
+    /// words with a way to read them again.
     private var historyCard: some View {
-        CreateAppointmentCard(title: "Appointment History", open: form.isOpen(.history), gap: 41.6, bottom: 15.4, toggle: { toggle(.history) }) {
+        CreateAppointmentCard(title: "Appointment History", open: form.isOpen(.history), gap: 41, bottom: 15.33, toggle: { toggle(.history) }) {
             let past = form.history
             if past.isEmpty && form.customer != nil && !form.appointmentsLoaded {
                 if form.appointmentsError.isEmpty {
@@ -887,11 +984,16 @@ struct CreateAppointmentScreen: View {
                         .tint(Theme.blue)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(form.appointmentsError)
-                        .pfFont(15)
-                        .foregroundStyle(SettingsLook.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(form.appointmentsError)
+                            .pfFont(15)
+                            .foregroundStyle(SettingsLook.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        CreateAppointmentLink(title: "Try again", underlined: false) {
+                            retry { await form.loadAppointments($0) }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else if past.isEmpty {
                 Text("There is no appointment history.")
@@ -939,7 +1041,7 @@ struct CreateAppointmentScreen: View {
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .padding(.top, 12.7)
+                    .padding(.top, 13)
                 // A save on its way cannot be called back, so Cancel waits for its answer.
                 Button("Cancel") {
                     focus = nil
@@ -947,11 +1049,24 @@ struct CreateAppointmentScreen: View {
                 }
                 .buttonStyle(CreateAppointmentPillStyle(kind: .soft))
                 .disabled(form.saving)
-                .padding(.top, 3.4)
-                Button("Save") { save() }
-                    .buttonStyle(CreateAppointmentPillStyle(kind: .primary))
-                    .disabled(!form.ready || form.saving)
-                    .padding(.top, 16)
+                .padding(.top, 3)
+                // While the appointment is on its way Save keeps its colour with a spinner on it, and pressing it again does
+                // nothing.
+                Button {
+                    save()
+                } label: {
+                    if form.saving {
+                        ProgressView()
+                            .tint(Color.white)
+                    } else {
+                        Text("Save")
+                    }
+                }
+                .buttonStyle(CreateAppointmentPillStyle(kind: .primary))
+                .disabled(!form.ready || form.saved)
+                .accessibilityLabel("Save")
+                .accessibilityValue(form.saving ? "In progress" : "")
+                .padding(.top, 16)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 7)
@@ -960,7 +1075,7 @@ struct CreateAppointmentScreen: View {
     }
 
     private func save() {
-        guard let business = model.site, form.ready, !form.saving else { return }
+        guard let business = model.site, form.ready, !form.saving, !form.saved else { return }
         focus = nil
         model.idle.touch()
         Task {
@@ -986,12 +1101,14 @@ struct CreateAppointmentScreen: View {
     private func sheetContent(_ item: CreateAppointmentSheet) -> some View {
         switch item {
         case .inventory:
-            CreateAppointmentInventorySheet(items: form.items, loaded: form.itemsLoaded, problem: form.itemsError) { picked in
+            CreateAppointmentInventorySheet(items: form.items, loaded: form.itemsLoaded, problem: form.itemsError, retry: {
+                retry { await form.reloadItems($0) }
+            }) { picked in
                 if picked.variable {
                     // Priced at the time of sale: its price is asked for once this list has gone.
                     nextSheet = .amount(.itemPrice(picked))
                 } else {
-                    form.addItem(picked)
+                    add { form.addItem(picked) }
                 }
                 sheet = nil
             }
@@ -999,11 +1116,11 @@ struct CreateAppointmentScreen: View {
             switch kind {
             case .itemPrice(let picked):
                 CreateAppointmentAmountSheet(title: picked.name, question: "Price") { cents, _ in
-                    form.addItem(picked, price: cents)
+                    add { form.addItem(picked, price: cents) }
                 }
             case .customItem:
                 CreateAppointmentAmountSheet(title: "Add custom item", question: "Price", asksName: true) { cents, name in
-                    form.addCustom(name: name, price: cents)
+                    add { form.addCustom(name: name, price: cents) }
                 }
             case .discount:
                 CreateAppointmentAmountSheet(title: "Order discount", question: "Amount off", allowsZero: true, start: form.discount) { cents, _ in
@@ -1015,6 +1132,12 @@ struct CreateAppointmentScreen: View {
                 }
             }
         }
+    }
+
+    /// An item joins the appointment with the light tap the Sale screen gives an item added to an order.
+    private func add(_ line: () -> Void) {
+        withAnimation(.snappy(duration: 0.25)) { line() }
+        Haptics.light()
     }
 
     /// Two presentations cannot overlap: what comes next waits for the sheet to finish closing.

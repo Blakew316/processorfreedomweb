@@ -41,6 +41,22 @@ struct DropCaret: Shape {
     }
 }
 
+/// The circled plus before "Custom item", drawn as in the owner's photo on an 18 pt grid: a ring and a 10 pt plus, both 2 pt
+/// thick (stroke it 2 pt wide with round ends).
+struct PlusRing: Shape {
+    func path(in rect: CGRect) -> Path {
+        let unit = min(rect.width, rect.height) / 18
+        let middle = CGPoint(x: rect.midX, y: rect.midY)
+        var path = Path()
+        path.addEllipse(in: CGRect(x: middle.x - 8 * unit, y: middle.y - 8 * unit, width: 16 * unit, height: 16 * unit))
+        path.move(to: CGPoint(x: middle.x - 4 * unit, y: middle.y))
+        path.addLine(to: CGPoint(x: middle.x + 4 * unit, y: middle.y))
+        path.move(to: CGPoint(x: middle.x, y: middle.y - 4 * unit))
+        path.addLine(to: CGPoint(x: middle.x, y: middle.y + 4 * unit))
+        return path
+    }
+}
+
 /// Select category (photo 5): All items and each category with its item count; choosing one closes the sheet and filters the list.
 struct CategorySheet: View {
     let order: SaleModel
@@ -90,8 +106,9 @@ struct CategorySheet: View {
             choose()
             dismiss()
         } label: {
+            // The size of the Sale screen's "All items" link: in the photos both are 65 pt wide.
             Text(title)
-                .pfFont(17.5, selected ? .semibold : .medium)
+                .pfFont(16.25, selected ? .semibold : .medium)
                 .foregroundStyle(selected ? Theme.blue : Color.primary)
                 .frame(maxWidth: .infinity, minHeight: 56.5, alignment: .leading)
                 .padding(.horizontal, 21)
@@ -124,24 +141,34 @@ struct OrderSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
+                        // Each circle is 44 pt to press; the room is taken back outside it, so the row keeps its layout.
                         HStack(spacing: 4) {
                             Button {
-                                order.change(line, by: -1)
+                                Haptics.light()
+                                withAnimation(.snappy) { order.change(line, by: -1) }
                             } label: {
                                 Image(systemName: "minus.circle")
                                     .font(.system(size: 24))
+                                    .padding(8)
+                                    .contentShape(Rectangle())
                             }
+                            .padding(-8)
                             .accessibilityLabel("One less \(line.name)")
                             Text("\(line.qty)")
                                 .pfFont(17, .semibold)
+                                .monospacedDigit()
                                 .frame(minWidth: 28)
                                 .accessibilityLabel("\(line.qty)")
                             Button {
+                                Haptics.light()
                                 order.change(line, by: 1)
                             } label: {
                                 Image(systemName: "plus.circle")
                                     .font(.system(size: 24))
+                                    .padding(8)
+                                    .contentShape(Rectangle())
                             }
+                            .padding(-8)
                             .accessibilityLabel("One more \(line.name)")
                         }
                         .buttonStyle(.borderless)
@@ -187,6 +214,8 @@ struct PriceKeypadSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var cents = 0
     @State private var name = ""
+    /// Done was pressed: the item is in the order and the sheet is closing, so a second press adds nothing.
+    @State private var finished = false
     @FocusState private var nameFocused: Bool
 
     private let keys: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["0", "00", "delete"]]
@@ -341,7 +370,8 @@ struct PriceKeypadSheet: View {
     }
 
     private func done() {
-        guard canAdd else { return }
+        guard canAdd, !finished else { return }
+        finished = true
         let added: String
         switch target {
         case .item(let item):

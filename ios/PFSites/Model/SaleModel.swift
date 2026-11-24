@@ -69,6 +69,9 @@ final class SaleModel {
     var items: [MenuItem] = []
     var loading = false
     var loadError = ""
+    /// The first look at this business's items and Sale settings has finished, well or not. Until then the screen shows its spinner:
+    /// never "No items yet" before anything was asked, and never a list drawn before it is known whether item photos are shown.
+    var settled = false
     var search = ""
     var category: String? = nil    // nil shows all items
     var lines: [OrderLine] = []
@@ -124,9 +127,7 @@ final class SaleModel {
     /// The Sale screen came into view: the Sale settings are read again every time (they are the business's, changed on the website
     /// or another phone), and the items when the last load is more than 30 seconds old.
     func appeared(siteID: String) async {
-        async let settings: Void = loadSettings(siteID: siteID)
-        async let menu: Void = refreshIfNeeded(siteID: siteID)
-        _ = await (settings, menu)
+        await look(siteID: siteID, fresh: false)
     }
 
     /// Loads the items when they are more than 30 seconds old, so items changed on the website or another phone show up.
@@ -137,9 +138,26 @@ final class SaleModel {
 
     /// Pull to refresh and Try again: the items and the Sale settings.
     func load(siteID: String) async {
+        await look(siteID: siteID, fresh: true)
+    }
+
+    /// The Sale settings and the items, asked for together. The first time, the list also waits for the settings (they say whether
+    /// item photos show, so the list is not drawn one way and then the other), but only a moment on a slow connection.
+    private func look(siteID: String, fresh: Bool) async {
         async let settings: Void = loadSettings(siteID: siteID)
-        async let menu: Void = loadItems(siteID: siteID)
-        _ = await (settings, menu)
+        if fresh { await loadItems(siteID: siteID) } else { await refreshIfNeeded(siteID: siteID) }
+        let patience: Task<Void, Never>? = settled ? nil : Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if !Task.isCancelled { self?.settle() }
+        }
+        await settings
+        patience?.cancel()
+        settle()
+    }
+
+    /// The first answers are in (or failed). A look that was cut short, because the screen went away, is finished by the next one.
+    private func settle() {
+        if !settled, !Task.isCancelled { settled = true }
     }
 
     /// Something changed the items on the server (an order was cancelled and its stock returned): the next look loads them again.
@@ -253,6 +271,8 @@ final class SaleModel {
         guard !key.isEmpty else { return .notFound(shownCode) }
         if loadedSite != siteID || loadedAt.map({ Date().timeIntervalSince($0) >= 30 }) ?? true {
             await loadItems(siteID: siteID)
+            // The scanner was closed while the items were on their way: nothing is added behind the person's back.
+            if Task.isCancelled { return .failed("") }
         }
         if items.isEmpty && !loadError.isEmpty { return .failed(loadError) }
         guard let id = codeIndex[key], let item = items.first(where: { $0.id == id }) else { return .notFound(shownCode) }
@@ -264,24 +284,26 @@ final class SaleModel {
 
     // MARK: Check out
 
-    /// "2 × Coffee, 1 × Bagel", the note the Virtual Terminal keeps with the payment. PF.sale refuses a note longer than 200
-    /// characters as JavaScript counts them (UTF-16 units), so a longer order keeps its first whole lines and ends with ", …".
+    /// "2 × Coffee, 1 × Bagel", the note the Virtual Terminal keeps with the payment. Its note box holds 500 characters as
+    /// JavaScript counts them (UTF-16 units; PF.sale cuts anything longer there), so a longer order keeps its first whole lines and
+    /// ends with ", …".
     var note: String {
+        let most = 500
         let parts = lines.map { "\($0.qty) × \($0.name.trimmed)" }
         let all = parts.joined(separator: ", ")
-        if all.utf16.count <= 200 { return all }
+        if all.utf16.count <= most { return all }
         var kept = ""
         for part in parts {
             let next = kept.isEmpty ? part : kept + ", " + part
             // Room is left for ", …" (3 units).
-            guard next.utf16.count <= 197 else { break }
+            guard next.utf16.count <= most - 3 else { break }
             kept = next
         }
         if !kept.isEmpty { return kept + ", …" }
         // The first line alone is longer than that: as much of it as fits, then "…".
         var cut = ""
         for character in parts[0] {
-            guard cut.utf16.count + character.utf16.count <= 199 else { break }
+            guard cut.utf16.count + character.utf16.count <= most - 1 else { break }
             cut.append(character)
         }
         return cut.trimmed + "…"

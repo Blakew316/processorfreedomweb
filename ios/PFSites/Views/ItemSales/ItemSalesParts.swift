@@ -43,13 +43,14 @@ struct ItemSalesGrid {
 }
 
 /// The date field's calendar (20 x 20 pt): a page with two rings and a header line. Its dots are `ItemSalesCalendarDots`.
+/// The page's corners are as tight as the photo's (1.5 pt along the middle of the line).
 struct ItemSalesCalendarShape: Shape {
     func path(in rect: CGRect) -> Path {
         let grid = ItemSalesGrid(rect: rect, width: 20, height: 20)
         var path = Path()
         let corner = grid.point(1, 3.2)
         path.addRoundedRect(in: CGRect(x: corner.x, y: corner.y, width: 18 * grid.scale, height: 15.6 * grid.scale),
-                            cornerSize: CGSize(width: 3 * grid.scale, height: 3 * grid.scale), style: .continuous)
+                            cornerSize: CGSize(width: 1.5 * grid.scale, height: 1.5 * grid.scale), style: .circular)
         path.move(to: grid.point(1, 7.9))
         path.addLine(to: grid.point(19, 7.9))
         path.move(to: grid.point(5.8, 0.8))
@@ -65,8 +66,8 @@ struct ItemSalesCalendarDots: Shape {
         let grid = ItemSalesGrid(rect: rect, width: 20, height: 20)
         var path = Path()
         for y in [11.9, 15.3] as [CGFloat] {
-            for x in [4.9, 10, 15.1] as [CGFloat] {
-                path.addEllipse(in: grid.circle(x, y, 0.95))
+            for x in [5, 10, 15] as [CGFloat] {
+                path.addEllipse(in: grid.circle(x, y, 0.7))
             }
         }
         return path
@@ -86,21 +87,23 @@ struct ItemSalesCalendarIcon: View {
     }
 }
 
-/// The Filters button's two sliders (17.3 x 19.3 pt), the left knob low and the right knob high, as in the photo.
+/// The Filters button's two sliders (17.5 x 19.5 pt with their 1.5 pt line), the left knob low and the right knob high, as in
+/// the photo: the left line stops 1.5 pt above its knob and goes on from under it; the right line runs onto its knob and starts
+/// again 1.5 pt under it.
 struct ItemSalesSlidersShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let grid = ItemSalesGrid(rect: rect, width: 17.3, height: 19.3)
+        let grid = ItemSalesGrid(rect: rect, width: 17.5, height: 19.5)
         var path = Path()
-        path.move(to: grid.point(3.6, 0.8))
-        path.addLine(to: grid.point(3.6, 9.8))
-        path.addEllipse(in: grid.circle(3.6, 12.6, 2.8))
-        path.move(to: grid.point(3.6, 15.4))
-        path.addLine(to: grid.point(3.6, 18.5))
-        path.move(to: grid.point(13.7, 0.8))
-        path.addLine(to: grid.point(13.7, 3.9))
-        path.addEllipse(in: grid.circle(13.7, 6.7, 2.8))
-        path.move(to: grid.point(13.7, 9.5))
-        path.addLine(to: grid.point(13.7, 18.5))
+        path.move(to: grid.point(3.75, 0.75))
+        path.addLine(to: grid.point(3.75, 6.75))
+        path.addEllipse(in: grid.circle(3.75, 12.75, 3))
+        path.move(to: grid.point(3.75, 15.75))
+        path.addLine(to: grid.point(3.75, 18.75))
+        path.move(to: grid.point(13.75, 0.75))
+        path.addLine(to: grid.point(13.75, 3.75))
+        path.addEllipse(in: grid.circle(13.75, 6.75, 3))
+        path.move(to: grid.point(13.75, 12.75))
+        path.addLine(to: grid.point(13.75, 18.75))
         return path
     }
 }
@@ -169,7 +172,8 @@ struct ItemSalesCheckShape: Shape {
     }
 }
 
-/// The ⋮ menu's line icons (20 x 20 pt): Print, Export, Accounting sync and Learn about this report.
+/// The ⋮ menu's line icons (20 x 20 pt with their 1.5 pt line): Print, Export, Accounting sync and Learn about this report,
+/// each drawn on the measures of photo 63e1e3b0.
 enum ItemSalesMenuIcon {
     case print, export, sync, info
 }
@@ -184,61 +188,63 @@ struct ItemSalesMenuIconShape: Shape {
         switch icon {
         case .print:
             // The paper going in, the body (its bottom edge hidden behind the paper coming out), the paper out and a light.
-            path.move(to: grid.point(5.5, 6))
-            path.addLine(to: grid.point(5.5, 3.3))
-            path.addQuadCurve(to: grid.point(6.7, 2), control: grid.point(5.5, 2))
-            path.addLine(to: grid.point(13.3, 2))
-            path.addQuadCurve(to: grid.point(14.5, 3.3), control: grid.point(14.5, 2))
-            path.addLine(to: grid.point(14.5, 6))
-            path.move(to: grid.point(5.5, 14.5))
-            path.addLine(to: grid.point(3.5, 14.5))
-            path.addQuadCurve(to: grid.point(1.5, 12.5), control: grid.point(1.5, 14.5))
-            path.addLine(to: grid.point(1.5, 8))
-            path.addQuadCurve(to: grid.point(3.5, 6), control: grid.point(1.5, 6))
-            path.addLine(to: grid.point(16.5, 6))
-            path.addQuadCurve(to: grid.point(18.5, 8), control: grid.point(18.5, 6))
-            path.addLine(to: grid.point(18.5, 12.5))
-            path.addQuadCurve(to: grid.point(16.5, 14.5), control: grid.point(18.5, 14.5))
-            path.addLine(to: grid.point(14.5, 14.5))
-            let paper = grid.point(5.5, 10.8)
-            path.addRoundedRect(in: CGRect(x: paper.x, y: paper.y, width: 9 * s, height: 7.7 * s),
-                                cornerSize: CGSize(width: 0.8 * s, height: 0.8 * s), style: .circular)
-            path.move(to: grid.point(4.2, 9))
-            path.addLine(to: grid.point(5.2, 9))
+            path.move(to: grid.point(4.6, 5.8))
+            path.addLine(to: grid.point(4.6, 2.3))
+            path.addQuadCurve(to: grid.point(5.9, 1), control: grid.point(4.6, 1))
+            path.addLine(to: grid.point(14.1, 1))
+            path.addQuadCurve(to: grid.point(15.4, 2.3), control: grid.point(15.4, 1))
+            path.addLine(to: grid.point(15.4, 5.8))
+            path.move(to: grid.point(4.6, 14.2))
+            path.addLine(to: grid.point(2.5, 14.2))
+            path.addQuadCurve(to: grid.point(1, 12.7), control: grid.point(1, 14.2))
+            path.addLine(to: grid.point(1, 7.3))
+            path.addQuadCurve(to: grid.point(2.5, 5.8), control: grid.point(1, 5.8))
+            path.addLine(to: grid.point(17.5, 5.8))
+            path.addQuadCurve(to: grid.point(19, 7.3), control: grid.point(19, 5.8))
+            path.addLine(to: grid.point(19, 12.7))
+            path.addQuadCurve(to: grid.point(17.5, 14.2), control: grid.point(19, 14.2))
+            path.addLine(to: grid.point(15.4, 14.2))
+            let paper = grid.point(4.6, 10.6)
+            path.addRoundedRect(in: CGRect(x: paper.x, y: paper.y, width: 10.8 * s, height: 8.4 * s),
+                                cornerSize: CGSize(width: 0.3 * s, height: 0.3 * s), style: .circular)
+            path.move(to: grid.point(3.4, 8.2))
+            path.addLine(to: grid.point(4.55, 8.2))
         case .export:
-            // An arrow down into a shallow tray, 19.4 x 14.7 pt with the line, as in the photo: the arrow's tip level with the tops
-            // of the tray's sides, and the whole of it a little above the middle of the row, as there.
-            path.move(to: grid.point(10, 2.7))
-            path.addLine(to: grid.point(10, 12.2))
-            path.move(to: grid.point(6.5, 8.8))
-            path.addLine(to: grid.point(10, 12.2))
-            path.addLine(to: grid.point(13.5, 8.8))
-            path.move(to: grid.point(1.1, 12.3))
-            path.addLine(to: grid.point(1.1, 13.35))
-            path.addQuadCurve(to: grid.point(3.6, 15.85), control: grid.point(1.1, 15.85))
-            path.addLine(to: grid.point(16.4, 15.85))
-            path.addQuadCurve(to: grid.point(18.9, 13.35), control: grid.point(18.9, 15.85))
-            path.addLine(to: grid.point(18.9, 12.3))
+            // An arrow down into a shallow tray, the whole of it a little above the middle of the row, as in the photo.
+            path.move(to: grid.point(10, 3))
+            path.addLine(to: grid.point(10, 12.6))
+            path.move(to: grid.point(6.4, 9))
+            path.addLine(to: grid.point(10, 12.6))
+            path.addLine(to: grid.point(13.6, 9))
+            path.move(to: grid.point(1, 12.6))
+            path.addLine(to: grid.point(1, 13.7))
+            path.addQuadCurve(to: grid.point(3.5, 16.2), control: grid.point(1, 16.2))
+            path.addLine(to: grid.point(16.5, 16.2))
+            path.addQuadCurve(to: grid.point(19, 13.7), control: grid.point(19, 16.2))
+            path.addLine(to: grid.point(19, 12.6))
         case .sync:
             // Two arrows: back along the top, forward along the bottom.
-            path.move(to: grid.point(17.5, 6))
-            path.addLine(to: grid.point(2.5, 6))
-            path.move(to: grid.point(6, 2.5))
-            path.addLine(to: grid.point(2.5, 6))
-            path.addLine(to: grid.point(6, 9.5))
-            path.move(to: grid.point(2.5, 14))
-            path.addLine(to: grid.point(17.5, 14))
-            path.move(to: grid.point(14, 10.5))
-            path.addLine(to: grid.point(17.5, 14))
-            path.addLine(to: grid.point(14, 17.5))
+            path.move(to: grid.point(17.95, 5.1))
+            path.addLine(to: grid.point(2.05, 5.1))
+            path.move(to: grid.point(5.05, 2.1))
+            path.addLine(to: grid.point(2.05, 5.1))
+            path.addLine(to: grid.point(5.05, 8.1))
+            path.move(to: grid.point(2.05, 15))
+            path.addLine(to: grid.point(17.95, 15))
+            path.move(to: grid.point(14.95, 12))
+            path.addLine(to: grid.point(17.95, 15))
+            path.addLine(to: grid.point(14.95, 18))
         case .info:
-            // A circle with an "i": its dot, and a stem with a small foot to the right.
-            path.addEllipse(in: grid.circle(10, 10, 8.6))
-            path.move(to: grid.point(8.9, 9.2))
-            path.addLine(to: grid.point(10, 9.2))
-            path.addLine(to: grid.point(10, 13.2))
-            path.addQuadCurve(to: grid.point(11.3, 14.4), control: grid.point(10, 14.4))
-            path.addEllipse(in: grid.circle(10, 6.1, 0.35))
+            // A circle with an "i": a stem with a small serif at its top and a foot to the right, and its dot. The dot is a line
+            // too short to see, which the round line ends make a full dot (a stroked circle that small draws as a ring).
+            path.addEllipse(in: grid.circle(10, 10, 9))
+            path.move(to: grid.point(8.8, 8.8))
+            path.addLine(to: grid.point(10, 8.8))
+            path.addLine(to: grid.point(10, 12.5))
+            path.addQuadCurve(to: grid.point(11.1, 13.6), control: grid.point(10, 13.6))
+            path.addLine(to: grid.point(11.75, 13.6))
+            path.move(to: grid.point(9.69, 6.4))
+            path.addLine(to: grid.point(9.71, 6.4))
         }
         return path
     }
@@ -373,12 +379,14 @@ struct ItemSalesTabs: View {
     private func tab(_ title: String, chosen: Bool) -> some View {
         Button {} label: {
             VStack(spacing: 8) {
-                // The photo's 16.5 pt (11.7 pt capitals). Both tabs still fit the page's width; larger text scrolls sideways.
+                // The photo's 16.5 pt (11.7 pt capitals). The words are a little wider than the photo's, so 17 pt either side of
+                // them (the photo's 18.3 pt would make the two tabs 2.6 pt wider than a 375 pt page, and the row would slide
+                // sideways under a finger). Larger text scrolls sideways.
                 Text(title)
                     .pfFont(16.5, .semibold)
                     .foregroundStyle(chosen ? Theme.ink : SettingsLook.greyed)
                     .lineLimit(1)
-                    .padding(.horizontal, 18.3)
+                    .padding(.horizontal, 17)
                     .frame(minHeight: 34)
                     .background(chosen ? Theme.lightBlue : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 Rectangle()
@@ -394,8 +402,9 @@ struct ItemSalesTabs: View {
 }
 
 /// No items in the period: the website's drawing and words (cEmpty with 'look' and NORES in public/js/editor.js), at the photo's
-/// sizes and gaps: the drawing in the middle of the photo's 226 pt drawing area (which starts 24 pt under the tabs), the title 33 pt
-/// under that area and the sentence 27 pt under the title.
+/// sizes and places: the drawing in the middle of the photo's 226 pt drawing area (which starts 24 pt under the tabs); the title
+/// with the photo's 15 pt capitals (21.6 pt, smaller than the page's heading), its baseline 54 pt under that area; the
+/// sentence's first baseline 50.3 pt under the title's, on 24 pt lines.
 struct ItemSalesEmptyState: View {
     /// The height of the photo's drawing area.
     static let artHeight: CGFloat = 226
@@ -406,15 +415,15 @@ struct ItemSalesEmptyState: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.artHeight)
             Text("No results found")
-                .pfFont(24.5, .bold, relativeTo: .title)
+                .pfFont(21.6, .bold, relativeTo: .title)
                 .foregroundStyle(Color.primary)
-                .padding(.top, 33)
+                .padding(.top, 33.4)
             Text(ItemSalesModel.noResults)
                 .pfFont(16.5)
                 .foregroundStyle(Color.primary)
-                .lineSpacing(4)
+                .lineSpacing(4.3)
                 .frame(maxWidth: 300)
-                .padding(.top, 27)
+                .padding(.top, 29.2)
         }
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
@@ -575,7 +584,7 @@ struct ItemSalesRangeList: View {
             Spacer(minLength: 8)
             if period == chosen {
                 ItemSalesCheckShape()
-                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                     .frame(width: 15, height: 15)
                     .accessibilityHidden(true)
             }
@@ -598,9 +607,10 @@ struct ItemSalesMenuRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            // The photo's places: the icon 18.7 pt in from the card's edge and the words 10 pt after it.
+            HStack(spacing: 10) {
                 ItemSalesMenuIconShape(icon: icon)
-                    .stroke(enabled ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                    .stroke(enabled ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                     .frame(width: 20, height: 20)
                     .accessibilityHidden(true)
                 Text(title)
@@ -610,7 +620,7 @@ struct ItemSalesMenuRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .padding(.leading, 19)
+            .padding(.leading, 18.7)
             .padding(.trailing, 18)
             .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
             .contentShape(Rectangle())

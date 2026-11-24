@@ -173,6 +173,8 @@ final class ItemsModel {
     private(set) var items: [CatalogItem] = []
     private(set) var settings = ItemsSettings()
     private(set) var loaded = false
+    /// The item settings have been asked for (they arrive just after the list): a new item can start in the right category.
+    private(set) var settingsAsked = false
     private(set) var loading = false
     private(set) var problem = ""
 
@@ -185,6 +187,8 @@ final class ItemsModel {
     private(set) var toast: String?
 
     @ObservationIgnored private var round = 0
+    /// Counts the lists that changes brought back, so a load that began before one never puts its older list over it.
+    @ObservationIgnored private var changes = 0
     @ObservationIgnored private var toastHide: Task<Void, Never>?
 
     func item(_ id: String) -> CatalogItem? { items.first { $0.id == id } }
@@ -241,13 +245,15 @@ final class ItemsModel {
         guard let business = model.site else { return }
         round += 1
         let mine = round
+        let before = changes
         loading = true
         async let menuAnswer = API.get("/api/sites/\(business.id)/menu")
         async let siteAnswer = API.get("/api/sites/\(business.id)")
         do {
             let menu = try await menuAnswer
             guard mine == round else { return }
-            take(menu)
+            // A change made while this was on its way has already brought back a newer list than this one.
+            if before == changes { show(menu) }
             loaded = true
             problem = ""
         } catch let error as APIError {
@@ -258,14 +264,24 @@ final class ItemsModel {
         } catch {
             // Cancelled: the screen went away.
         }
-        if let site = try? await siteAnswer, mine == round, site["site"].isObject {
+        let site = try? await siteAnswer
+        guard mine == round else { return }
+        if let site, site["site"].isObject {
             settings = ItemsSettings(site: site["site"])
         }
-        if mine == round { loading = false }
+        // Asked and answered, even with no: without them the editor still works, with the items' own categories.
+        if !Task.isCancelled { settingsAsked = true }
+        loading = false
     }
 
     /// The server answers every change with the whole list; it replaces the one shown.
     func take(_ answer: JSON) {
+        guard answer["items"].raw is [Any] else { return }
+        changes += 1
+        show(answer)
+    }
+
+    private func show(_ answer: JSON) {
         guard answer["items"].raw is [Any] else { return }
         items = answer["items"].array.compactMap { CatalogItem($0) }
         let ids = Set(items.map(\.id))
@@ -304,7 +320,8 @@ final class ItemsModel {
             if error.status == 401 { model.sessionEnded() }
             return error.message
         } catch {
-            return nil
+            // Never said to have worked when no answer came.
+            return APIError.unreachableMessage
         }
     }
 

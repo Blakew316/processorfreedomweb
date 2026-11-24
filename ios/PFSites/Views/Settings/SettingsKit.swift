@@ -64,15 +64,20 @@ struct SettingsPageHost: View {
     }
 }
 
-/// The full-screen Settings page from the photos: an X at the top left and the page name bold in the middle of the bar,
+/// The full-screen Settings page from the photos: a bare X at the top left and the page name bold in the middle of the bar,
 /// then a light grey panel (only its top-left corner rounded, like Clover's) holding white cards.
 /// Pages under Transactions also start with a "← Settings" link (it closes the page, like the X) and a large heading.
 /// It has its own navigation stack, so a page can push a back-office web page inside it.
+/// Measured from the photos, from the bar's lower edge: the link's middle 33 pt down; a heading's baseline 42 pt down (96 when
+/// the link is above it); a description's first baseline 28 pt under the heading's, on 24 pt lines; and the first card 26 pt
+/// under the last baseline before it.
 struct SettingsPage<Content: View>: View {
     let title: String
     var backLink = false
     var heading: String? = nil
     var intro: [SettingsTextPart] = []
+    /// The description's size: 16 pt, or 17.5 pt for the business name under Business information's heading.
+    var introSize: CGFloat = 16
     var refresh: (() async -> Void)? = nil
     @ViewBuilder let content: () -> Content
 
@@ -83,64 +88,139 @@ struct SettingsPage<Content: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     if backLink {
-                        Button { dismiss() } label: {
-                            HStack(spacing: 18) {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 20, weight: .regular))
-                                Text("Settings")
-                                    .pfFont(17, .medium)
-                            }
-                            .foregroundStyle(Color.primary)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Back to Settings")
-                        .padding(.top, 4)
+                        SettingsBackLink(title: "Settings", label: "Back to Settings") { dismiss() }
+                            .padding(.top, 4)
                     }
                     if heading != nil || !intro.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 7) {
                             if let heading {
                                 Text(heading)
                                     .pfFont(24, .bold, relativeTo: .title)
                                     .foregroundStyle(Color.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityAddTraits(.isHeader)
                             }
                             if !intro.isEmpty {
-                                SettingsLinkedText(parts: intro)
+                                SettingsLinkedText(parts: intro, size: introSize)
                             }
                         }
-                        .padding(.top, backLink ? 14 : 0)
-                        .padding(.bottom, 6)
+                        .padding(.top, backLink ? 7.5 : 0)
+                        .padding(.bottom, intro.isEmpty ? -1.5 : 0)
                     }
                     content()
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 24)
-                .padding(.bottom, 80)
+                .padding(.top, 19)
+                .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+                .modifier(SettingsPanel())
             }
             .background(Color(.systemBackground))
             .scrollEdgeEffectStyle(.hard, for: .top)
             .modifier(SettingsRefresh(action: refresh))
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Close")
-                }
-                ToolbarItem(placement: .principal) {
-                    Text(title)
-                        .pfFont(19, .bold, relativeTo: .headline)
-                        .lineLimit(1)
-                        .accessibilityAddTraits(.isHeader)
-                }
-            }
+            .toolbar { SettingsCloseBar(title: title) { dismiss() } }
             .steadyNavigationBar()
         }
+    }
+}
+
+/// The bar of a full-screen Settings page, as on the app's other full-screen pages (Closeout, Insights, Items): the photos' bare
+/// X, its centre 28 pt from the edge with no glass circle behind it, and the page name bold in the middle.
+struct SettingsCloseBar: ToolbarContent {
+    let title: String
+    let close: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: close) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(Color.primary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .offset(x: -10)
+            .accessibilityLabel("Close")
+        }
+        .sharedBackgroundVisibility(.hidden)
+        ToolbarItem(placement: .principal) {
+            Text(title)
+                .pfFont(19, .bold, relativeTo: .headline)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+}
+
+/// The grey panel behind a full-screen page's cards: only its top-left corner is rounded, and on a short page it still reaches
+/// down to 60 pt above the home indicator's strip, as in the photos (white below it).
+struct SettingsPanel: ViewModifier {
+    func body(content: Content) -> some View {
+        ZStack(alignment: .top) {
+            Color.clear
+                .containerRelativeFrame(.vertical) { length, _ in max(0, length - 60) }
+            content
+        }
+        .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+    }
+}
+
+/// The "← Settings" link at the top of a page: the arrow 24.7 pt from the screen's edge and the words 53.7 pt, as in the photos.
+/// The place to tap is taller than the words, without moving anything.
+struct SettingsBackLink: View {
+    let title: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 20, weight: .regular))
+                    .frame(width: 20)
+                Text(title)
+                    .pfFont(17, .medium)
+            }
+            .foregroundStyle(Color.primary)
+            .padding(.leading, 8)
+            .padding(.trailing, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, -12)
+        .accessibilityLabel(label)
+    }
+}
+
+/// Loads a page's values when it appears, and again each time the app comes back to the front or is unlocked, so a change made
+/// on the website or on another phone meanwhile shows here too (one synced system). Nothing loads while the app is locked or away.
+struct SettingsLoads: ViewModifier {
+    let action: () async -> Void
+    @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
+
+    private struct Key: Hashable {
+        let active: Bool
+        let ready: Bool
+        let site: String
+    }
+
+    func body(content: Content) -> some View {
+        content.task(id: Key(active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
+            guard scenePhase == .active, model.phase == .ready else { return }
+            await action()
+        }
+    }
+}
+
+extension View {
+    /// Runs `action` when the page appears and whenever the app returns to the front or is unlocked.
+    func settingsLoads(_ action: @escaping () async -> Void) -> some View {
+        modifier(SettingsLoads(action: action))
     }
 }
 
@@ -169,9 +249,15 @@ enum SettingsPencil {
         if case .none = self { return false }
         return true
     }
+
+    var isCircle: Bool {
+        if case .circle = self { return true }
+        return false
+    }
 }
 
 /// A white card with a 1 pt border and 20 pt corners. The title is 20 pt bold; the pencil sits at the top right.
+/// Beside the pencil in its grey circle the title is centred on the circle, which starts 13 pt into the card (the photos).
 struct SettingsCard<Content: View>: View {
     var title: String? = nil
     var pencil: SettingsPencil = .none
@@ -188,6 +274,7 @@ struct SettingsCard<Content: View>: View {
                             .foregroundStyle(Color.primary)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isHeader)
+                            .padding(.top, pencil.isCircle ? 6 : 0)
                     }
                     Spacer(minLength: 8)
                     pencilButton
@@ -237,7 +324,7 @@ struct SettingsCard<Content: View>: View {
             .buttonStyle(.plain)
             .disabled(action == nil)
             .opacity(action == nil ? 0.4 : 1)
-            .padding(.top, -12)
+            .padding(.top, -7)
             .accessibilityLabel(title.map { "Edit \($0)" } ?? "Edit")
             .accessibilityValue(action == nil ? "Not available yet" : "")
         }
@@ -311,18 +398,20 @@ enum SettingsTextPart {
     case link(String, () -> Void)
 }
 
-/// A muted paragraph with links in it, like "… in the Order Receipts page." in the photos.
+/// A muted paragraph with links in it, like "… in the Order Receipts page." in the photos: 16 pt on 24 pt lines.
 struct SettingsLinkedText: View {
     let parts: [SettingsTextPart]
     var size: CGFloat = 16
     var color: Color = SettingsLook.muted
+    /// Added to the font's own 19 pt line: 5 makes the photos' 24 pt lines.
+    var lineSpacing: CGFloat = 5
 
     var body: some View {
         Text(attributed)
             .pfFont(size)
             .foregroundStyle(color)
             .tint(Theme.blue)
-            .lineSpacing(4)
+            .lineSpacing(lineSpacing)
             .fixedSize(horizontal: false, vertical: true)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "pfsettings", let index = Int(url.host() ?? ""), parts.indices.contains(index),

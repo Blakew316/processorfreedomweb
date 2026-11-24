@@ -142,12 +142,17 @@ struct OrderDetailView: View {
                     .pfFont(18, .bold)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            // Each link is 44 pt tall and the card's width to press, without moving anything: the room is taken back outside it.
             if let phone = phoneURL(order.phone) {
                 Link(destination: phone) {
                     Label(order.phone, systemImage: "phone")
                         .pfFont(16)
                         .foregroundStyle(Theme.blue)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                 }
+                .padding(.vertical, -12)
             }
             if let mail = mailURL(order.email) {
                 Link(destination: mail) {
@@ -156,7 +161,11 @@ struct OrderDetailView: View {
                         .foregroundStyle(Theme.blue)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                 }
+                .padding(.vertical, -12)
             }
             if !order.address.trimmed.isEmpty {
                 SettingsValueRow(label: "Deliver to", value: order.address, labelSize: 16)
@@ -267,20 +276,29 @@ struct OrderDetailView: View {
                     .disabled(working)
             }
             if order.canCancel {
-                Button("Cancel order") { confirmCancel = true }
-                    .pfFont(17, .semibold)
-                    .foregroundStyle(Theme.error)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .disabled(working)
+                Button {
+                    confirmCancel = true
+                } label: {
+                    // The whole 44 pt row is the button, not only its words.
+                    Text("Cancel order")
+                        .pfFont(17, .semibold)
+                        .foregroundStyle(Theme.error)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .disabled(working)
             }
             Button {
-                // A page of the tab's own stack, so going back to the list (a notification, a tab tap) closes it too.
+                // A page of the tab's own stack, so going back to the list (a notification, a tab tap) closes it too. Only while
+                // this order is the page in front: a second tap as the website opens does not open it twice.
+                guard model.shell.orders.last == .order(orderID) else { return }
                 model.shell.push(.page("orders"))
             } label: {
                 Label("More on the website", systemImage: "arrow.up.forward.square")
                     .pfFont(17, .semibold)
                     .foregroundStyle(Theme.blue)
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
             }
         }
         .padding(.top, 4)

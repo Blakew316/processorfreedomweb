@@ -18,6 +18,9 @@ enum OrdersLook {
     static let chevron = Color(light: UIColor(hex: 0x7E7E7E), dark: .systemGray)
     /// #253338: a row's total, order number and payment line.
     static let rowText = Color(light: UIColor(hex: 0x253338), dark: .label)
+    /// The grey of a "Not paid" pill. In dark mode it is a step lighter than the rows and cards it sits on, where the light
+    /// mode's grey would be their own colour and the pill would vanish.
+    static let quietPill = Color(light: .systemGray6, dark: .systemGray5)
 }
 
 /// The pill at the right of an order: Paid (light blue), Not paid (grey), Cancelled and Refunded (light red).
@@ -37,7 +40,7 @@ struct OrderPillView: View {
     private var fill: Color {
         switch pill {
         case .paid: return SettingsLook.onFill
-        case .notPaid: return Color(.systemGray6)
+        case .notPaid: return OrdersLook.quietPill
         case .cancelled, .refunded: return Theme.error.opacity(0.14)
         }
     }
@@ -55,6 +58,31 @@ struct OrderPillView: View {
 struct OrdersHairline: View {
     var body: some View {
         OrdersLook.hairline.frame(height: 1)
+    }
+}
+
+/// The filter button's two sliders, drawn as in the owner's photo on an 18 x 20 pt grid: the left knob low, the right knob high,
+/// each line 1.67 pt thick with round ends. (The other screens' filter buttons are drawn the same way from their photos.)
+struct OrdersSliders: Shape {
+    func path(in rect: CGRect) -> Path {
+        let unit = min(rect.width / 18, rect.height / 20)
+        let left = rect.midX - 5 * unit, right = rect.midX + 5 * unit
+        let point = { (x: CGFloat, y: CGFloat) in CGPoint(x: x, y: rect.midY + y * unit) }
+        let knob = { (x: CGFloat, y: CGFloat) in
+            CGRect(x: x - 2.92 * unit, y: rect.midY + (y - 2.92) * unit, width: 5.84 * unit, height: 5.84 * unit)
+        }
+        var path = Path()
+        path.move(to: point(left, -8.83))
+        path.addLine(to: point(left, -3.17))
+        path.addEllipse(in: knob(left, 3))
+        path.move(to: point(left, 5.92))
+        path.addLine(to: point(left, 8.83))
+        path.move(to: point(right, -8.83))
+        path.addLine(to: point(right, -5.92))
+        path.addEllipse(in: knob(right, -3))
+        path.move(to: point(right, 3.17))
+        path.addLine(to: point(right, 8.83))
+        return path
     }
 }
 
@@ -175,13 +203,24 @@ struct OrderFiltersSheet: View {
         }
     }
 
+    /// A radio row like the ones on the other screens' filter sheets (the owner's photos): a 16 pt ring with a 6 pt dot, the
+    /// chosen one navy (Clover's dark green), white in dark mode.
     private func choice(_ title: String, on: Bool, pick: @escaping () -> Void) -> some View {
-        Button(action: pick) {
-            HStack(spacing: 14) {
-                Image(systemName: on ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(on ? Theme.blue : Color(.systemGray2))
-                    .accessibilityHidden(true)
+        Button {
+            withAnimation(.snappy(duration: 0.2)) { pick() }
+        } label: {
+            HStack(spacing: 13) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(on ? Theme.ink : SettingsLook.muted, lineWidth: 1)
+                    if on {
+                        Circle()
+                            .fill(Theme.ink)
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                .frame(width: 16, height: 16)
+                .accessibilityHidden(true)
                 Text(title)
                     .pfFont(17)
                     .foregroundStyle(.primary)

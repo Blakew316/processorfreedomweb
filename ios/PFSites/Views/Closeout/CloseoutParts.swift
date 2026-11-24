@@ -26,10 +26,11 @@ enum CloseoutLook {
     static let openSentence = "Funds are deposited within 1-3 business days after each closeout event"
 
     /// A moment the way the website's Closeout page writes it (toLocaleString with a short weekday and month, the day, the year,
-    /// the hour and the minutes, on the phone's own clock and in its own language): "Mon, Nov 23, 2026, 6:35 PM".
-    static func when(_ date: Date) -> String {
-        let day = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().year())
-        let time = date.formatted(.dateTime.hour().minute())
+    /// the hour and the minutes, in the phone's own language): "Mon, Nov 23, 2026, 6:35 PM". It is written on the business's
+    /// clock (ordering.timezone), like the times of the Orders tab, so a batch reads the same wherever the phone is.
+    static func when(_ date: Date, in zone: TimeZone) -> String {
+        let day = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated).month(.abbreviated).day().year())
+        let time = date.formatted(Date.FormatStyle(timeZone: zone).hour().minute())
         return "\(day), \(time)"
     }
 }
@@ -40,8 +41,9 @@ enum CloseoutRoute: Hashable {
     case closed(CloseoutBatch)
 }
 
-/// The status pill of a batch row (the photos): "Open" in yellow; "Closed" in light blue #E8F1FC with brand-blue words (Clover's
-/// green, rebranded). Greyed for the L3 row, which Processor Freedom does not have.
+/// The status pill of a batch row (the photos): "Open" in yellow; "Closed" in light blue #E8F1FC with navy words (Clover's light
+/// green with dark green words, rebranded like the app's other light blue pills). Greyed for the L3 row, which Processor Freedom
+/// does not have.
 struct CloseoutPill: View {
     let open: Bool
     var greyed = false
@@ -63,12 +65,13 @@ struct CloseoutPill: View {
 
     private var text: Color {
         if greyed { return SettingsLook.greyed }
-        return open ? CloseoutLook.openText : Theme.blue
+        return open ? CloseoutLook.openText : SettingsLook.onText
     }
 }
 
 /// A row of the batch history (the photos): the batch's name or the time it was closed (16 pt), its pill, then its lines in grey
-/// (14 pt, 24 pt apart), and a chevron centred at the right. 168 pt tall, 192 pt with the ID line, as in the photos.
+/// (14 pt, 24 pt apart), and a chevron centred at the right. 168 pt tall, 192 pt with the ID line, as in the photos: the
+/// paddings and the lines' own heights (19.33 pt for the name, 17 pt for a grey line) add up to exactly that.
 struct CloseoutBatchRow: View {
     let title: String
     let open: Bool
@@ -87,7 +90,7 @@ struct CloseoutBatchRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                 CloseoutPill(open: open, greyed: greyed)
                     .padding(.top, 5.8)
-                VStack(alignment: .leading, spacing: 7.3) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text(kind)
                     Text("Count: \(String(count))")
                     Text("Batch Total: \(Money.format(total))")
@@ -102,14 +105,14 @@ struct CloseoutBatchRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.right")
-                .font(.system(size: 17, weight: .regular))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
                 .accessibilityHidden(true)
         }
         .padding(.leading, 18)
-        .padding(.trailing, 26)
+        .padding(.trailing, 25.3)
         .padding(.top, 21)
-        .padding(.bottom, 19)
+        .padding(.bottom, 18.57)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }

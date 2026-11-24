@@ -154,7 +154,8 @@ struct TxCardHeading<Accessory: View>: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
+            // The note's first baseline is 28 pt under the title's, as in the photos.
+            VStack(alignment: .leading, spacing: 7.67) {
                 Text(title)
                     .pfFont(20, .bold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
@@ -167,8 +168,9 @@ struct TxCardHeading<Accessory: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             accessory()
         }
-        // In the photos the heading sits on a 48 pt button row that starts 13 pt into the card (the card's padding is 20).
-        .padding(.top, Accessory.self == EmptyView.self ? 0 : -5)
+        // In the photos the heading sits on a 48 pt button row that starts 13 pt into the card (the card's padding is 20); a
+        // heading with nothing beside it has its baseline 35 pt into the card.
+        .padding(.top, Accessory.self == EmptyView.self ? -4 : -5)
     }
 }
 
@@ -464,6 +466,9 @@ struct TxPlainPage<Content: View, Bottom: View>: View {
     var subtitle: String? = nil
     var margin: CGFloat = 17
     var top: CGFloat = 12
+    /// Under the Save button, down to the tab bar: 19 pt puts the button where the photos have it (44 pt tall, ending 102 pt
+    /// above the bottom of the screen).
+    var barBottom: CGFloat = 19
     @ViewBuilder let content: () -> Content
     @ViewBuilder let bottom: () -> Bottom
 
@@ -479,7 +484,7 @@ struct TxPlainPage<Content: View, Bottom: View>: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Color(.systemBackground))
-        .modifier(TxBottomBar(show: Bottom.self != EmptyView.self, margin: margin, bar: bottom))
+        .modifier(TxBottomBar(show: Bottom.self != EmptyView.self, margin: margin, below: barBottom, bar: bottom))
         .modifier(TxTitles(title: title, subtitle: subtitle))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -521,6 +526,7 @@ private struct TxTitles: ViewModifier {
 private struct TxBottomBar<Bar: View>: ViewModifier {
     let show: Bool
     let margin: CGFloat
+    let below: CGFloat
     let bar: () -> Bar
 
     @ViewBuilder
@@ -530,7 +536,7 @@ private struct TxBottomBar<Bar: View>: ViewModifier {
                 bar()
                     .padding(.horizontal, margin)
                     .padding(.top, 8)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, below)
             }
         } else {
             content
@@ -539,10 +545,12 @@ private struct TxBottomBar<Bar: View>: ViewModifier {
 }
 
 /// The full-width Save button of the pushed pages: grey (#C7C7C7 with white text) while there is nothing to save, blue when there is.
+/// 44 pt tall with 6 pt corners; the photos letter it at 18 pt on Invoice number, 15 pt on Payment note and 13.5 pt elsewhere.
 struct TxSaveButton: View {
     var title = "Save"
     let enabled: Bool
     var busy = false
+    var size: CGFloat = 18
     let action: () -> Void
 
     var body: some View {
@@ -553,8 +561,9 @@ struct TxSaveButton: View {
                 Text(title)
             }
         }
-        .buttonStyle(SolidButtonStyle(fill: enabled ? Theme.blue : Color(.systemGray3), text: .white, radius: 8, height: 44, size: 18))
+        .buttonStyle(SolidButtonStyle(fill: enabled || busy ? Theme.blue : Color(.systemGray3), text: .white, radius: 6, height: 44, size: size))
         .disabled(!enabled || busy)
-        .accessibilityValue(enabled ? "" : "Nothing to save")
+        .accessibilityLabel(title)
+        .accessibilityValue(busy ? "Saving" : (enabled ? "" : "Nothing to save"))
     }
 }

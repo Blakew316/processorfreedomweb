@@ -248,6 +248,8 @@ final class CreateAppointmentModel {
     var people: [String] = []
     var customers: [CreateAppointmentCustomer] = []
     var customersError = ""
+    /// Reading the customers again may work (the phone was offline, the server was busy); false when this login may not read them.
+    var customersRetry = false
     var appointments: [Appointment] = []
     /// The business's appointments have been read at least once (an empty list is then true: nothing is booked).
     var appointmentsLoaded = false
@@ -278,6 +280,8 @@ final class CreateAppointmentModel {
     var notes = ""
     var open: Set<CreateAppointmentSection> = [.customer, .details, .payment]
     var saving = false
+    /// The appointment is on the server: this form is finished, and nothing can send it a second time.
+    var saved = false
 
     /// A date or time that came with the screen, was picked, or was found stays; otherwise they follow the business's clock.
     @ObservationIgnored private var dateChosen = false
@@ -369,7 +373,8 @@ final class CreateAppointmentModel {
         if names != people { people = names }
     }
 
-    private func loadCustomers(_ siteID: String) async {
+    /// The customers to search. Also what Try again under the search runs.
+    func loadCustomers(_ siteID: String) async {
         do {
             let answer = try await API.get("/api/sites/\(siteID)/customers")
             let list = answer["customers"].array.enumerated().map { index, entry in
@@ -380,7 +385,11 @@ final class CreateAppointmentModel {
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
             // The website treats a list it cannot read as no customers; the server's words show under the search.
-            if customers.isEmpty { customersError = error.message }
+            if customers.isEmpty {
+                customersError = error.message
+                // A 403 is this login's answer, and the same every time.
+                customersRetry = !error.forbidden
+            }
         } catch {
             // Cancelled.
         }
@@ -401,6 +410,15 @@ final class CreateAppointmentModel {
         } catch {
             // Cancelled: the screen went away.
         }
+    }
+
+    /// Try again in Add inventory item, after the items could not be read: the wait shows until the answer comes.
+    func reloadItems(_ siteID: String) async {
+        if itemsLoaded { itemsLoaded = false }
+        if !itemsError.isEmpty { itemsError = "" }
+        await loadItems(siteID)
+        // Given up before any answer (the screen went away): no wait is left turning.
+        if !itemsLoaded { itemsLoaded = true }
     }
 
     private func loadItems(_ siteID: String) async {
@@ -623,9 +641,10 @@ final class CreateAppointmentModel {
     }
 
     /// Saves the appointment as the website does: a new customer is added first, then the appointment. True once it is saved;
-    /// the server's message is thrown otherwise, and everything typed stays.
+    /// the server's message is thrown otherwise, and everything typed stays. It is sent once: not while one is on its way, and
+    /// not again after it has been saved.
     func save(siteID: String) async throws -> Bool {
-        guard ready, !saving else { return false }
+        guard ready, !saving, !saved else { return false }
         saving = true
         defer { saving = false }
         let name: String, mail: String, tel: String
@@ -661,6 +680,7 @@ final class CreateAppointmentModel {
                 try await API.post("/api/sites/\(siteID)/contacts", ["name": name, "email": mail, "phone": tel])
             }
             try await API.post("/api/sites/\(siteID)/appointments", body)
+            saved = true
             return true
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }

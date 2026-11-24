@@ -119,6 +119,16 @@ final class ItemEditorModel {
         return name
     }
 
+    /// The first field, from the top of the page, that says why the last save was refused.
+    var firstProblem: ItemEditorField? {
+        if !nameProblem.isEmpty { return .name }
+        if !priceProblem.isEmpty { return .price }
+        if !costProblem.isEmpty { return .cost }
+        if !codeProblem.isEmpty { return .code }
+        if !stockProblem.isEmpty { return .stock }
+        return nil
+    }
+
     /// What customers pay while a sale is on, in the website's words (or how to have no sale).
     var saleLine: String {
         guard draft.sale > 0, let price = ItemsMoney.parse(draft.priceText) else { return "Leave empty for no sale." }
@@ -142,6 +152,14 @@ final class ItemEditorModel {
 
     /// An item has exactly one category: the one chosen replaces the one it had.
     func chooseCategory(_ name: String) {
+        draft.category = name
+    }
+
+    /// The item settings (the saved order of the categories) arrived after a new item was opened: it starts in the category
+    /// the website's Add item would put it in, unless the person has already chosen another.
+    func startCategory(_ name: String) {
+        guard isNew, draft.category == start.category, name != start.category else { return }
+        start.category = name
         draft.category = name
     }
 

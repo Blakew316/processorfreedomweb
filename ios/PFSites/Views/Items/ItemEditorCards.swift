@@ -63,7 +63,7 @@ struct ItemDetailsCard: View {
     let choosePhoto: () -> Void
 
     var body: some View {
-        ItemsCard(title: "Details", note: "Enter basic item details for both POS and online.", bottom: 26, ruleGap: 15.5) {
+        ItemsCard(title: "Details", note: "Enter basic item details for both POS and online.", bottom: 26, ruleGap: 14.9) {
             VStack(alignment: .leading, spacing: 0) {
                 typeSection
                 deviceSection
@@ -77,27 +77,29 @@ struct ItemDetailsCard: View {
     /// "*Required", then the type: always an item here (services are the bookable services of Online booking).
     private var typeSection: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Each line where the photo has it, counted from the card's top edge: "*Required" at 153 pt, the heading at 201 pt,
+            // the paragraph's first line at 240 pt, "Change type" at 342 pt, the radio buttons at 369 pt and 471 pt.
             required
-                .padding(.top, 28)
+                .padding(.top, 27.8)
             Text("Service or item type*")
                 .pfFont(15, .bold)
                 .foregroundStyle(ItemsLook.grey)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 30)
+                .padding(.top, 29.3)
             Text("This is set as an item, which is best for physical goods or products that don't need to be offered as appointments.")
                 .pfFont(16)
                 .foregroundStyle(ItemsLook.grey)
-                .lineSpacing(7)
+                .lineSpacing(6.9)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 20.4)
+                .padding(.top, 20)
             Text("Change type")
                 .pfFont(16)
                 .foregroundStyle(ItemsLook.grey)
-                .padding(.top, 31.9)
+                .padding(.top, 30.8)
             ItemsRadioRow(label: "Service", note: "Best for anything you want to be bookable on your appointment calendar or online by customers.", on: false, greyed: true)
-                .padding(.top, 21.5)
+                .padding(.top, 21.7)
             ItemsRadioRow(label: "Item", note: "Best for physical goods or products that don't need to be offered as appointments.", on: true)
-                .padding(.top, 20.3)
+                .padding(.top, 19.8)
         }
     }
 
@@ -107,17 +109,19 @@ struct ItemDetailsCard: View {
         @Bindable var e = editor
         return VStack(alignment: .leading, spacing: 0) {
             ItemsHeading(text: "On device")
-                .padding(.top, 38.9)
-            ItemsSwitchRow(label: "Show on POS", on: .constant(false), greyed: true, dotted: true)
-                .padding(.top, 39.6)
-            ItemsField(label: "Name*", problem: editor.nameProblem, focused: focus.wrappedValue == .name) {
+                .padding(.top, 38.1)
+            ItemsSwitchRow(label: "Show on POS", on: .constant(false), greyed: true, dotted: true, inset: 2)
+                .padding(.top, 39.4)
+            ItemsField(label: "Name*", problem: editor.nameProblem, focused: focus.wrappedValue == .name, tap: { focus.wrappedValue = .name }) {
                 TextField("", text: $e.draft.name)
                     .focused(focus, equals: .name)
                     .submitLabel(.done)
+                    .accessibilityLabel("Name")
                     .modifier(ItemsLimit(text: $e.draft.name, most: 120))
                     .onChange(of: editor.draft.name) { _, _ in editor.nameProblem = "" }
             }
-            .padding(.top, 33)
+            .id(ItemEditorField.name)
+            .padding(.top, 33.1)
         }
     }
 
@@ -125,7 +129,8 @@ struct ItemDetailsCard: View {
     private var priceSection: some View {
         @Bindable var e = editor
         return VStack(alignment: .leading, spacing: 0) {
-            ItemsField(label: "Price*", problem: editor.priceProblem, greyed: editor.draft.variable, focused: focus.wrappedValue == .price) {
+            ItemsField(label: "Price*", problem: editor.priceProblem, greyed: editor.draft.variable, focused: focus.wrappedValue == .price,
+                       tap: { focus.wrappedValue = .price }) {
                 if editor.draft.variable {
                     Text("$0.00")
                         .foregroundStyle(ItemsLook.greyedFaint)
@@ -142,7 +147,8 @@ struct ItemDetailsCard: View {
                     }
                 }
             }
-            .padding(.top, 33.9)
+            .id(ItemEditorField.price)
+            .padding(.top, 33.7)
             ItemsDropdown(label: "Price type", value: editor.draft.variable ? "Variable" : "Fixed") {
                 Button {
                     editor.setVariable(false)
@@ -158,7 +164,7 @@ struct ItemDetailsCard: View {
                 Button("Per unit") {}
                     .disabled(true)
             }
-            .padding(.top, 33.9)
+            .padding(.top, 33.7)
         }
     }
 
@@ -175,9 +181,9 @@ struct ItemDetailsCard: View {
                         .accessibilityHidden(true)
                 }
             }
-            .padding(.top, 33)
+            .padding(.top, 33.7)
             ItemsCheckRow(label: "This is an age-restricted item", note: "This item requires additional confirmation or approval during the item fulfillment process. For example, alcoholic beverages.", on: false, greyed: true)
-                .padding(.top, 31)
+                .padding(.top, 30.7)
         }
     }
 
@@ -216,15 +222,16 @@ struct ItemDetailsCard: View {
         @Bindable var e = editor
         return VStack(alignment: .leading, spacing: 0) {
             ItemsHeading(text: "Online ordering", color: Color.primary, dotted: true)
-                .padding(.top, 30.6)
+                .padding(.top, 29.1)
             ItemPhotoBox(image: editor.draft.image, busy: photoBusy || editor.uploading, choose: choosePhoto) {
                 editor.draft.image = ""
             }
             .padding(.top, 41.3)
-            ItemsField(label: "Description", focused: focus.wrappedValue == .desc) {
+            ItemsField(label: "Description", focused: focus.wrappedValue == .desc, tap: { focus.wrappedValue = .desc }) {
                 TextField("", text: $e.draft.desc, axis: .vertical)
                     .lineLimit(2...8)
                     .focused(focus, equals: .desc)
+                    .accessibilityLabel("Description")
                     .modifier(ItemsLimit(text: $e.draft.desc, most: 500))
             }
             .padding(.top, 34)
@@ -340,7 +347,8 @@ struct ItemSaleCard: View {
             ItemsField(label: "Sale, percent off",
                        note: editor.draft.variable ? "The price is entered at the time of sale." : editor.saleLine,
                        greyed: editor.draft.variable,
-                       focused: focus.wrappedValue == .sale) {
+                       focused: focus.wrappedValue == .sale,
+                       tap: { focus.wrappedValue = .sale }) {
                 if editor.draft.variable {
                     Text("0")
                         .foregroundStyle(ItemsLook.greyedFaint)
@@ -350,11 +358,11 @@ struct ItemSaleCard: View {
                             .keyboardType(.numberPad)
                             .focused(focus, equals: .sale)
                             .fixedSize(horizontal: true, vertical: false)
+                            .accessibilityLabel("Sale, percent off")
                             .modifier(ItemsDigits(text: $e.draft.saleText, limit: 2))
                         Text("%")
                             .accessibilityHidden(true)
                     }
-                    .accessibilityElement(children: .combine)
                 }
             }
             .padding(.top, 34)
@@ -431,7 +439,7 @@ struct ItemModsCard: View {
         return Button {
             editor.toggleMod(group.id)
         } label: {
-            HStack(alignment: .top, spacing: 12.7) {
+            HStack(alignment: .top, spacing: 12) {
                 ItemsCheckbox(on: on, border: ItemsLook.soft)
                     .padding(.top, 1.3)
                 VStack(alignment: .leading, spacing: 4) {
@@ -445,10 +453,13 @@ struct ItemModsCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.leading, 3.3)
+            .padding(.leading, 4)
+            // A taller place to tap than the two lines themselves, without moving anything.
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -6)
         .accessibilityElement(children: .combine)
         .accessibilityValue(on ? "Checked" : "Not checked")
     }
@@ -500,9 +511,11 @@ struct ItemOptionBox: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .bottom, spacing: 10) {
-                ItemsField(label: "Option name", focused: focus.wrappedValue == .optionName(option.id)) {
+                ItemsField(label: "Option name", focused: focus.wrappedValue == .optionName(option.id),
+                           tap: { focus.wrappedValue = .optionName(option.id) }) {
                     TextField("", text: $option.name, prompt: Text("e.g. Size").foregroundStyle(ItemsLook.placeholder))
                         .focused(focus, equals: .optionName(option.id))
+                        .accessibilityLabel("Option name")
                         .modifier(ItemsLimit(text: $option.name, most: 60))
                 }
                 Button(action: remove) {
@@ -516,10 +529,12 @@ struct ItemOptionBox: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Remove option")
             }
-            ItemsField(label: "Choices, one per line", focused: focus.wrappedValue == .optionChoices(option.id)) {
+            ItemsField(label: "Choices, one per line", focused: focus.wrappedValue == .optionChoices(option.id),
+                       tap: { focus.wrappedValue = .optionChoices(option.id) }) {
                 TextField("", text: $option.choicesText, prompt: Text("Small\nLarge +1.50").foregroundStyle(ItemsLook.placeholder), axis: .vertical)
                     .lineLimit(3...12)
                     .focused(focus, equals: .optionChoices(option.id))
+                    .accessibilityLabel("Choices, one per line")
                     .modifier(ItemsLimit(text: $option.choicesText, most: 4000))
             }
             .padding(.top, 20)
@@ -552,7 +567,7 @@ struct ItemCategoriesCard: View {
     var body: some View {
         let name = editor.draft.category
         ItemsCard(title: "Categories", note: "Use categories to make finding items easier for your staff and enhance your sales reports.",
-                  bottom: name.isEmpty ? 44 : 12) {
+                  bottom: name.isEmpty ? 44 : 13) {
             VStack(alignment: .leading, spacing: 0) {
                 toolRow(has: !name.isEmpty)
                     .padding(.top, 32)
@@ -564,6 +579,8 @@ struct ItemCategoriesCard: View {
                 }
             }
         }
+        // The card grows and shrinks between its table and its empty state, never jumps.
+        .animation(.snappy(duration: 0.25), value: name.isEmpty)
         .onChange(of: name) { _, now in
             if now.isEmpty {
                 selecting = false
@@ -587,20 +604,20 @@ struct ItemCategoriesCard: View {
                     }
                 }
                 Button("Cancel") {
-                    selecting = false
-                    checked = false
+                    withAnimation(.snappy(duration: 0.25)) {
+                        selecting = false
+                        checked = false
+                    }
                 }
                 .buttonStyle(ItemsPillStyle(kind: .darkGrey, width: 100))
             } else {
                 Button(action: assign) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 19, weight: .light))
-                        .foregroundStyle(ItemsLook.onBrand)
+                    ItemsPlus()
                 }
                 .buttonStyle(ItemsCapsuleStyle(fill: Theme.blue))
                 .accessibilityLabel("Assign categories")
                 Button("Select") {
-                    selecting = true
+                    withAnimation(.snappy(duration: 0.25)) { selecting = true }
                 }
                 .buttonStyle(ItemsPillStyle(kind: .grey, width: 100))
                 .disabled(!has)
@@ -633,7 +650,7 @@ struct ItemCategoriesCard: View {
     /// The item's category in the table the Menus card uses, with a checkbox on each row while selecting.
     private func table(_ name: String) -> some View {
         VStack(spacing: 0) {
-            HStack(spacing: 17.7) {
+            HStack(spacing: 16.3) {
                 if selecting { checkbox }
                 Text("Category name")
                     .pfFont(16, .bold)
@@ -645,7 +662,7 @@ struct ItemCategoriesCard: View {
             .padding(.trailing, 13)
             .frame(minHeight: 71)
             ItemsHairline(color: ItemsLook.control)
-            HStack(spacing: 17.7) {
+            HStack(spacing: 16.3) {
                 if selecting { checkbox }
                 Text(name)
                     .pfFont(16)
@@ -700,9 +717,11 @@ struct ItemCostCard: View {
         @Bindable var e = editor
         let current = editor.draft.revclass
         let choices = classes + (current.isEmpty || classes.contains(current) ? [] : [current])
-        ItemsCard(title: "Cost", note: "Enter the cost of this item to enable gross profit margin in reports.", kind: .ruled, bottom: 16.7) {
+        ItemsCard(title: "Cost", note: "Enter the cost of this item to enable gross profit margin in reports.", kind: .ruled, bottom: 17.7) {
             VStack(alignment: .leading, spacing: 0) {
-                ItemsField(label: "Item cost", problem: editor.costProblem, focused: focus.wrappedValue == .cost) {
+                // From the photo, under the description's last line: "Item cost" 50 pt, the heading 50 pt under the box, its
+                // drop-down's label 55 pt under the heading.
+                ItemsField(label: "Item cost", problem: editor.costProblem, focused: focus.wrappedValue == .cost, tap: { focus.wrappedValue = .cost }) {
                     HStack(spacing: 0) {
                         Text("$")
                             .accessibilityHidden(true)
@@ -713,7 +732,8 @@ struct ItemCostCard: View {
                             .onChange(of: editor.draft.costText) { _, _ in editor.costProblem = "" }
                     }
                 }
-                .padding(.top, 34)
+                .id(ItemEditorField.cost)
+                .padding(.top, 32.6)
                 ItemsHeading(text: "Revenue class", color: Color.primary, dotted: true)
                     .padding(.top, 32)
                 ItemsDropdown(label: "Revenue class", value: current.isEmpty ? "None" : current) {
@@ -730,8 +750,8 @@ struct ItemCostCard: View {
                         }
                     }
                 }
-                .padding(.top, 29.5)
-                ItemsCheckRow(label: "This is a non-revenue item", on: false, greyed: true, bold: false, dotted: true, gap: 28.7)
+                .padding(.top, 31)
+                ItemsCheckRow(label: "This is a non-revenue item", on: false, greyed: true, bold: false, dotted: true, gap: 28.3)
                     .padding(.top, 31)
             }
         }
@@ -749,7 +769,7 @@ struct ItemMenusCard: View {
     let openMenus: () -> Void
 
     var body: some View {
-        ItemsCard(title: "Menus", note: "Use menus to sell items on different platforms for different prices.", kind: .side, bottom: 12) {
+        ItemsCard(title: "Menus", note: "Use menus to sell items on different platforms for different prices.", kind: .side, bottom: 13) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Spacer(minLength: 0)
@@ -758,9 +778,10 @@ struct ItemMenusCard: View {
                         .disabled(true)
                         .accessibilityValue("Not available yet")
                 }
-                .padding(.top, 27.5)
+                // The pill 29.7 pt under the description's last line, and the table 24 pt under the pill, as in the photo.
+                .padding(.top, 25.6)
                 table
-                    .padding(.top, 24.3)
+                    .padding(.top, 24)
             }
         }
     }
@@ -769,16 +790,18 @@ struct ItemMenusCard: View {
     /// lines, the price starting at its left edge and kept whole on one line.
     private var table: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 17.7) {
+            HStack(spacing: 16.3) {
                 ItemsCheckbox(on: false, greyed: true)
                 Text("Menu name")
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                // Its two lines 24 pt apart, as in the photo.
                 Text("Menu price")
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
                     .multilineTextAlignment(.center)
+                    .lineSpacing(4.9)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(width: 54, alignment: .center)
             }
@@ -790,18 +813,21 @@ struct ItemMenusCard: View {
             .accessibilityAddTraits(.isHeader)
             ForEach(menus) { menu in
                 ItemsHairline(color: ItemsLook.control)
-                HStack(spacing: 17.7) {
+                HStack(spacing: 16.3) {
                     ItemsCheckbox(on: false, greyed: true)
                     Button(action: openMenus) {
+                        // A taller place to tap than the name itself, without moving anything.
                         Text(menu.name)
                             .pfFont(16)
                             .foregroundStyle(Theme.blue)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 12)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .padding(.vertical, -12)
                     .accessibilityHint("Opens Menus")
                     Text(price)
                         .pfFont(16)
@@ -836,7 +862,7 @@ struct ItemTrackingCard: View {
     let scan: () -> Void
 
     var body: some View {
-        ItemsCard(title: "Item tracking", note: "Select how you want to manage item stock and availability.", bottom: 20.3) {
+        ItemsCard(title: "Item tracking", note: "Select how you want to manage item stock and availability.", bottom: 21) {
             VStack(alignment: .leading, spacing: 0) {
                 codeSection
                 stockSection
@@ -845,21 +871,40 @@ struct ItemTrackingCard: View {
         }
     }
 
+    private static let codePrompt = "Scan or type the barcode number or SKU"
+
     /// The product code, with Scan inside the field as on the website, and the SKU box Processor Freedom does not have.
     private var codeSection: some View {
         @Bindable var e = editor
         return VStack(alignment: .leading, spacing: 0) {
             ItemsField(label: "Product code", problem: editor.codeProblem,
                        note: "Scanning this code on the PF Sites app’s Sale screen finds this item.",
-                       focused: focus.wrappedValue == .code) {
-                TextField("", text: $e.draft.code, prompt: Text("Scan or type the barcode number or SKU").foregroundStyle(ItemsLook.placeholder))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused(focus, equals: .code)
-                    .modifier(ItemsLimit(text: $e.draft.code, most: 64))
-                    .onChange(of: editor.draft.code) { _, _ in editor.codeProblem = "" }
+                       focused: focus.wrappedValue == .code,
+                       tap: { focus.wrappedValue = .code }) {
+                ZStack(alignment: .leading) {
+                    // The website's words are longer than the room beside Scan: shown whole on two lines instead of cut short.
+                    // (The field keeps them as its own unseen prompt, which is what VoiceOver reads.)
+                    if editor.draft.code.isEmpty {
+                        Text(Self.codePrompt)
+                            .pfFont(14)
+                            .foregroundStyle(ItemsLook.placeholder)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                    TextField("", text: $e.draft.code, prompt: Text(Self.codePrompt).foregroundStyle(Color.clear))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused(focus, equals: .code)
+                        .accessibilityLabel("Product code")
+                        .modifier(ItemsLimit(text: $e.draft.code, most: 64))
+                        .onChange(of: editor.draft.code) { _, _ in editor.codeProblem = "" }
+                }
             } trailing: {
                 Button(action: scan) {
+                    // 36 pt tall so the box stays 48 pt like the others; taps count on 44 pt.
                     HStack(spacing: 5) {
                         Image(systemName: "barcode.viewfinder")
                             .font(.system(size: 17, weight: .regular))
@@ -868,13 +913,16 @@ struct ItemTrackingCard: View {
                     }
                     .foregroundStyle(Theme.blue)
                     .padding(.horizontal, 6)
-                    .frame(minHeight: 40)
+                    .frame(minHeight: 36)
+                    .padding(.vertical, 4)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.vertical, -4)
                 .accessibilityLabel("Scan")
             }
-            .padding(.top, 37.9)
+            .id(ItemEditorField.code)
+            .padding(.top, 37.7)
             ItemsField(label: "SKU", greyed: true) {
                 Text("")
             }
@@ -888,22 +936,25 @@ struct ItemTrackingCard: View {
     /// "Stock": counted automatically, with the quantity in stock and the morning refill under the chosen way.
     private var stockSection: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // From the photos: "Stock" 59 pt under the SKU box, the first radio button 45 pt under it, the second 48 pt
+            // under the first.
             ItemsHeading(text: "Stock")
-                .padding(.top, 41.6)
+                .padding(.top, 41)
             ItemsRadioRow(label: "Manually manage availability", on: false, greyed: true)
-                .padding(.top, 38.7)
+                .padding(.top, 38.8)
             ItemsRadioRow(label: "Automatically manage availability", on: true, extra: { stockFields })
-                .padding(.top, 32.3)
+                .padding(.top, 28.7)
         }
     }
 
     private var stockFields: some View {
         @Bindable var e = editor
         return VStack(alignment: .leading, spacing: 0) {
-            ItemsField(label: "In stock", problem: editor.stockProblem, focused: focus.wrappedValue == .stock) {
+            ItemsField(label: "In stock", problem: editor.stockProblem, focused: focus.wrappedValue == .stock, tap: { focus.wrappedValue = .stock }) {
                 TextField("", text: $e.draft.stockText, prompt: Text("0").foregroundStyle(ItemsLook.placeholder))
                     .keyboardType(.numberPad)
                     .focused(focus, equals: .stock)
+                    .accessibilityLabel("In stock")
                     .modifier(ItemsDigits(text: $e.draft.stockText, limit: 6))
                     .onChange(of: editor.draft.stockText) { _, _ in editor.stockProblem = "" }
             } trailing: {
@@ -912,13 +963,16 @@ struct ItemTrackingCard: View {
                     step("plus", by: 1, label: "One more")
                 }
             }
+            .id(ItemEditorField.stock)
             .padding(.top, 24)
             ItemsField(label: "Refill every morning to",
                        note: "For things you make fresh each day. The quantity goes back to this number every morning. Leave empty to keep counting down.",
-                       focused: focus.wrappedValue == .restock) {
+                       focused: focus.wrappedValue == .restock,
+                       tap: { focus.wrappedValue = .restock }) {
                 TextField("", text: $e.draft.restockText, prompt: Text("Off").foregroundStyle(ItemsLook.placeholder))
                     .keyboardType(.numberPad)
                     .focused(focus, equals: .restock)
+                    .accessibilityLabel("Refill every morning to")
                     .modifier(ItemsDigits(text: $e.draft.restockText, limit: 6))
             }
             .padding(.top, 24)
@@ -929,26 +983,33 @@ struct ItemTrackingCard: View {
     private var availabilitySection: some View {
         @Bindable var e = editor
         return VStack(alignment: .leading, spacing: 0) {
+            // The switch 12 pt in from the card's text and 33 pt under the heading, as in the photo.
             ItemsHeading(text: "Availability")
                 .padding(.top, 30.6)
-            ItemsSwitchRow(label: "Available", on: $e.draft.available)
-                .padding(.leading, 11.3)
-                .padding(.top, 28.7)
+            ItemsSwitchRow(label: "Available", on: $e.draft.available, inset: 0.6)
+                .padding(.leading, 11.4)
+                .padding(.top, 28.1)
         }
     }
 
     private func step(_ symbol: String, by: Int, label: String) -> some View {
         Button {
+            Haptics.light()
             editor.bumpStock(by)
         } label: {
+            // A 34 pt circle that takes taps on 40 x 44 pt, without moving anything.
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.primary)
                 .frame(width: 34, height: 34)
                 .background(ItemsLook.control, in: Circle())
-                .contentShape(Circle())
+                .padding(.horizontal, 3)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, -3)
+        .padding(.vertical, -5)
         .accessibilityLabel(label)
     }
 }

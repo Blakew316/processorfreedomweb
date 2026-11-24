@@ -21,9 +21,10 @@ struct SaleView: View {
         let order = model.shell.order
         @Bindable var sale = order
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
+            // The photo: the glass 10 pt inside the field, the words 40.7 pt inside it and a point above its middle.
+            HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18))
+                    .font(.system(size: 17.3))
                     .foregroundStyle(.primary)
                     .accessibilityHidden(true)
                 TextField(text: $sale.search, prompt: Text("Search all items").foregroundStyle(SaleLook.muted)) {
@@ -33,13 +34,19 @@ struct SaleView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .padding(.bottom, 2)
                 .onChange(of: sale.search) { _, _ in model.idle.touch() }
                 if !sale.search.isEmpty {
                     Button {
                         sale.search = ""
                     } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        // As much room to press as fits beside the barcode button; the cross itself stays where it was.
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 36, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .padding(.horizontal, -8)
                     .accessibilityLabel("Clear search")
                 }
                 Button {
@@ -56,7 +63,7 @@ struct SaleView: View {
                 .padding(.leading, -8)
                 .accessibilityLabel("Scan a barcode")
             }
-            .padding(.leading, 10)
+            .padding(.leading, 8)
             .padding(.trailing, 13)
             .frame(minHeight: 50)
             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(SaleLook.field))
@@ -64,18 +71,21 @@ struct SaleView: View {
             .padding(.vertical, 12)
             SaleHairline()
 
+            // The photo's two links are the same size (its "All items" is 65 pt wide), the triangle 11.3 pt after the words and
+            // level with the small letters, the ring 6 pt before "Custom item".
             HStack {
                 Button {
                     showCategories = true
                 } label: {
-                    HStack(spacing: 13) {
+                    HStack(spacing: 10.5) {
                         Text(order.category ?? "All items")
                             .lineLimit(1)
                         DropCaret()
                             .frame(width: 10, height: 5.5)
+                            .offset(y: 1)
                             .accessibilityHidden(true)
                     }
-                    .pfFont(17.5, .semibold)
+                    .pfFont(16.25, .semibold)
                     .foregroundStyle(Theme.blue)
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
@@ -86,12 +96,13 @@ struct SaleView: View {
                 Button {
                     keypadItem = .custom
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 19, weight: .medium))
+                    HStack(spacing: 5) {
+                        PlusRing()
+                            .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                            .frame(width: 18, height: 18)
                             .accessibilityHidden(true)
                         Text("Custom item")
-                            .pfFont(17, .semibold)
+                            .pfFont(16.25, .semibold)
                     }
                     .foregroundStyle(Theme.blue)
                     .frame(minHeight: 44)
@@ -139,7 +150,9 @@ struct SaleView: View {
 
     @ViewBuilder
     private func itemList(_ order: SaleModel) -> some View {
-        if order.loading && order.items.isEmpty {
+        // The spinner until the first answers are in ("No items yet" is only said once the server has said so), and while Try again
+        // is asking. A later look at a business with no items keeps "No items yet" up instead of flashing the spinner.
+        if !order.settled || (order.loading && order.items.isEmpty && !order.loadError.isEmpty) {
             Spacer()
             ProgressView().controlSize(.large).tint(Theme.blue)
             Spacer()
@@ -157,9 +170,12 @@ struct SaleView: View {
             .padding(.horizontal, 32)
             Spacer()
         } else if order.items.isEmpty {
-            Spacer()
-            ContentUnavailableView("No items yet", systemImage: "tag")
-            Spacer()
+            // Pulling down asks again, so items just added on the website show without leaving the screen.
+            ScrollView {
+                ContentUnavailableView("No items yet", systemImage: "tag")
+                    .containerRelativeFrame(.vertical)
+            }
+            .refreshable { await refreshItems() }
         } else {
             ScrollView {
                 LazyVStack(spacing: 16) {
@@ -168,6 +184,7 @@ struct SaleView: View {
                         Text("No items match \u{201C}\(order.search.trimmed)\u{201D}.")
                             .pfFont(17)
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                             .padding(.top, 24)
                     }
                     ForEach(shown) { item in
@@ -195,11 +212,13 @@ struct SaleView: View {
                 Haptics.light()
             }
         } label: {
+            // The photo's card: 80 pt tall, its words 16 pt in (a long name runs to the same 16 pt from the other side), the name's
+            // baseline 33 pt down and the price's 24 pt under it.
             HStack(alignment: .center, spacing: 12) {
                 if order.showImages {
                     SaleItemPhoto(path: item.image)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3.67) {
                     Text(item.name)
                         .pfFont(17)
                         .foregroundStyle(.primary)
@@ -208,16 +227,22 @@ struct SaleView: View {
                     Text(item.soldOut ? "Sold out" : item.variable ? "Variable price" : Money.format(item.price))
                         .pfFont(17)
                         .foregroundStyle(SaleLook.muted)
+                        .lineLimit(1)
                 }
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if count > 0 {
+                    // Said by the card's value ("2 in the order"), so VoiceOver does not also read "times 2".
                     Text("×\(count)")
                         .pfFont(17, .semibold)
+                        .monospacedDigit()
                         .foregroundStyle(Theme.blue)
+                        .contentTransition(.numericText())
+                        .accessibilityHidden(true)
                 }
             }
-            .padding(.horizontal, 17)
-            .padding(.top, 17)
+            .animation(.snappy(duration: 0.2), value: count)
+            .padding(.horizontal, 16)
+            .padding(.top, 16.67)
             .padding(.bottom, 19)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color(.systemBackground)))
@@ -234,42 +259,62 @@ struct SaleView: View {
 
     private func orderPanel(_ order: SaleModel) -> some View {
         let empty = order.isEmpty
+        // The photo, from the line at the top of the panel: "Total" and the amount on a baseline 43 pt down with 12.3 pt between
+        // them, "View order" 3.3 pt higher, the buttons 68 pt down.
         return VStack(spacing: 20) {
             HStack(alignment: .firstTextBaseline) {
-                Button("View order") { showOrder = true }
-                    .pfFont(17)
-                    .foregroundStyle(empty ? SaleLook.disabled : Theme.blue)
-                    .disabled(empty)
-                    .padding(.leading, 12)
+                Button {
+                    showOrder = true
+                } label: {
+                    // 44 pt tall to press; the room is taken back outside it, so the words stay where they are.
+                    Text("View order")
+                        .pfFont(17)
+                        .foregroundStyle(empty ? SaleLook.disabled : Theme.blue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                }
+                .disabled(empty)
+                .padding(.trailing, -12)
+                .padding(.vertical, -12)
+                .alignmentGuide(.firstTextBaseline) { size in size[.firstTextBaseline] + 3.33 }
                 Spacer()
-                Text("Total")
-                    .pfFont(20, .bold)
-                Text(Money.format(order.total))
-                    .pfFont(20, .bold)
-                    .padding(.leading, 8)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text("Total")
+                        .pfFont(20, .bold)
+                    Text(Money.format(order.total))
+                        .pfFont(20, .bold)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                // The amount rolls to its new value, and "Total" glides aside with it, when the order changes.
+                .animation(.snappy(duration: 0.2), value: order.total)
+                .accessibilityElement(children: .combine)
             }
-            .accessibilityElement(children: .contain)
             HStack(spacing: 8) {
                 // 46 pt inside the 48 pt options box, as in the photo.
                 Button("Check out") { checkOut(order) }
-                    .buttonStyle(SolidButtonStyle(fill: empty ? SaleLook.disabled : Theme.blue, text: .white, radius: 4, height: 46, size: 20))
+                    .buttonStyle(SolidButtonStyle(fill: empty ? SaleLook.disabled : Theme.blue, text: .white, radius: 4, height: 46, size: 18.5))
                     .disabled(empty)
                 Menu {
                     Button("Clear order", role: .destructive) { order.clear() }
                         .disabled(empty)
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .rotationEffect(.degrees(90))
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(SaleLook.dots)
-                        .frame(width: 48, height: 48)
-                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(SaleLook.disabled, lineWidth: 1))
+                    // The photo's three dots: 4 pt each, 6 pt apart.
+                    VStack(spacing: 2) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            Circle().fill(SaleLook.dots).frame(width: 4, height: 4)
+                        }
+                    }
+                    .frame(width: 48, height: 48)
+                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(SaleLook.disabled, lineWidth: 1))
+                    .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Order options")
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 23)
+        .padding(.top, 23.5)
         .padding(.bottom, 15)
         .background(SaleLook.panel)
         .overlay(alignment: .top) { SaleHairline() }
@@ -277,7 +322,8 @@ struct SaleView: View {
 
     /// Hands the order to the website's Virtual Terminal (its real checkout) with the total and a note of what was sold.
     private func checkOut(_ order: SaleModel) {
-        guard !order.isEmpty else { return }
+        // Only from the Sale screen itself: a second tap while the terminal is already opening does not open it twice.
+        guard !order.isEmpty, model.shell.sale.isEmpty else { return }
         model.shell.sale.append(.checkout(sub: Money.decimal(order.total), note: order.note))
     }
 
@@ -335,11 +381,13 @@ private struct SaleItemPhoto: View {
             if path.isEmpty {
                 placeholder
             } else {
-                AsyncImage(url: Config.url(path)) { phase in
+                // The photo fades in over the grey square when it arrives, rather than popping in.
+                AsyncImage(url: Config.url(path), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
                     if let image = phase.image {
                         image
                             .resizable()
                             .scaledToFill()
+                            .transition(.opacity)
                     } else {
                         placeholder
                     }

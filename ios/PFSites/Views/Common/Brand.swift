@@ -117,7 +117,8 @@ struct AuthFooter: View {
     }
 }
 
-/// A blue underlined link-style button (Apply now, Forgot passcode?, Switch User, Resend verification code).
+/// A blue underlined link-style button (Apply now, Forgot passcode?, Switch User, Resend verification code). The words keep
+/// their own size in the layout; the tap area reaches 12 pt further up and down, so a line of words is a finger-sized target.
 struct LinkButton: View {
     let title: String
     var size: CGFloat = 18
@@ -131,7 +132,10 @@ struct LinkButton: View {
                 .pfFont(size)
                 .foregroundStyle(Theme.blue)
                 .multilineTextAlignment(.leading)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -12)
     }
 }

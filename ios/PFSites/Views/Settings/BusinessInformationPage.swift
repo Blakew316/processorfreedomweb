@@ -11,8 +11,10 @@ struct BusinessInformationPage: View {
 
     var body: some View {
         let info = loader.site.map { Info($0, fallbackName: model.site?.name ?? "") }
+        // The name under the heading is the one the app already knows until the page has loaded, so nothing moves when it does.
+        let name = (info?.name ?? model.site?.name ?? "").trimmed
         SettingsPage(title: "Business information", heading: "Business information",
-                     intro: info.map { [SettingsTextPart.text($0.name.uppercased())] } ?? [],
+                     intro: name.isEmpty ? [] : [SettingsTextPart.text(name.uppercased())], introSize: 17.5,
                      refresh: { await loader.load(model) }) {
             VStack(alignment: .leading, spacing: 24) {
                 if let info {
@@ -27,12 +29,13 @@ struct BusinessInformationPage: View {
                     }
                 }
             }
-            .padding(.top, 14)
+            // The first card starts 50 pt under the name's baseline, as it does under the photo's last line there.
+            .padding(.top, 24)
             .modifier(SettingsA.WebPages(tab: $openTab) {
                 Task { await loader.load(model) }
             })
         }
-        .task { await loader.load(model) }
+        .settingsLoads { await loader.load(model) }
     }
 
     // MARK: What the page shows
@@ -115,16 +118,20 @@ struct BusinessInformationPage: View {
 
     // MARK: Cards
 
+    /// Measured from the photos, from the card's top edge: the title's baseline 35 pt down; the description 36 pt under it on
+    /// 24 pt lines; "DBA name" 77 pt under its last line; a value 30 pt under its name (43 pt beside a pencil), the next name
+    /// 48 pt under a value (40 pt under the address's last line), and the card ends 38 pt under the last line.
     private func customerFacing(_ info: Info) -> some View {
         SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Customer-facing information")
+                .padding(.top, Self.titleLift)
             SettingsA.Note(parts: [
                 .text("This information appears on "),
                 .link("payment receipts", { model.shell.cover = .settingsPage(.paymentReceipts) }),
                 .text(" and your website. It may or may not be the same as your billing and tax-related business information."),
             ])
                 .padding(.top, 16)
-            VStack(alignment: .leading, spacing: 26) {
+            VStack(alignment: .leading, spacing: 27) {
                 row("DBA name", edit: ("Edit DBA name", { openTab = "bizinfo" })) {
                     valueText(info.name.uppercased())
                 }
@@ -137,14 +144,18 @@ struct BusinessInformationPage: View {
                 row("Business address") {
                     valueText(info.address.isEmpty ? "None" : info.address.joined(separator: "\n"))
                 }
+                .padding(.bottom, info.address.count > 1 ? -8 : 0)
                 row("Website (optional)") {
                     valueText(info.website.isEmpty ? "None" : info.website)
                 }
             }
-            .padding(.top, 40)
+            .padding(.top, 45)
             .padding(.bottom, 14)
         }
     }
+
+    /// The photos put a card title's baseline 35 pt into its card: 4 pt higher than the card's own padding puts it.
+    private static let titleLift: CGFloat = -4
 
     /// The account's own email is changed on Profile, by the person it belongs to: the link is the owner's to follow.
     private var emailNote: [SettingsTextPart] {
@@ -160,6 +171,7 @@ struct BusinessInformationPage: View {
         let has = info.logo != nil
         return SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Logo")
+                .padding(.top, Self.titleLift)
             SettingsA.WithButton(button: SettingsA.EditButton(symbol: has ? "pencil" : "plus", size: has ? 25 : 20, label: has ? "Change the logo" : "Add a logo", action: open), trailing: 8) {
                 SettingsA.Note(parts: [.text("Your logo appears on your website and order pages.")])
             }
@@ -221,6 +233,7 @@ struct BusinessInformationPage: View {
         let on = info.privacy != .none
         return SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Privacy policy")
+                .padding(.top, Self.titleLift)
             SettingsA.WithButton(button: SettingsA.EditButton(symbol: on ? "pencil" : "plus", size: on ? 25 : 20, label: on ? "Edit privacy policy" : "Add a privacy policy", action: { openTab = "policies" }), trailing: 8) {
                 SettingsA.Note(parts: [
                     .text("Learn how to stay compliant with the "),
@@ -228,7 +241,8 @@ struct BusinessInformationPage: View {
                     .text(" and include your own privacy policy on your website."),
                 ])
             }
-            .padding(.top, 24)
+            // The description's first baseline is 79 pt into this card (44 pt under the title's).
+            .padding(.top, 28)
             valueText(info.privacy.label)
                 .padding(.top, 59)
                 .padding(.bottom, 14)
@@ -240,7 +254,8 @@ struct BusinessInformationPage: View {
     private func localeCard(_ info: Info) -> some View {
         SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Locale and currency")
-            VStack(alignment: .leading, spacing: 26) {
+                .padding(.top, Self.titleLift)
+            VStack(alignment: .leading, spacing: 27) {
                 row("Locale") { valueText(info.locale) }
                 row("Currency") { valueText("USD") }
             }
@@ -263,11 +278,12 @@ struct BusinessInformationPage: View {
                 labelText(label)
             }
             if !note.isEmpty {
-                SettingsA.Note(parts: note)
+                // This note runs on 26 pt lines in the photo.
+                SettingsA.Note(parts: note, lineSpacing: 7)
                     .padding(.top, 13)
             }
             value()
-                .padding(.top, note.isEmpty ? 10 : 13)
+                .padding(.top, note.isEmpty ? (edit == nil ? 10 : 12) : 13)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -283,7 +299,7 @@ struct BusinessInformationPage: View {
         Text(text)
             .pfFont(16)
             .foregroundStyle(SettingsA.value)
-            .lineSpacing(4)
+            .lineSpacing(5)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

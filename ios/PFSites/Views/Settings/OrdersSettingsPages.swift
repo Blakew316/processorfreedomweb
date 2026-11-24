@@ -18,16 +18,17 @@ struct OrdersOptionsPage: View {
             .link("Order Receipts", { model.shell.cover = .settingsPage(.orderReceipts) }),
             .text(" page."),
         ], refresh: { await settings.load(siteID: siteID) }) {
-            // 32 pt from the heading row to the settings, as in the photo.
-            SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil), spacing: 32) {
+            // As in the photo: the first name's baseline 103 pt into the card, and the card ends 16 pt under the last pill.
+            SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil), spacing: 27) {
                 if settings.loaded {
                     grid
+                        .padding(.bottom, -3.5)
                 } else {
                     TxLoading(problem: settings.problem) { Task { await settings.load(siteID: siteID) } }
                 }
             }
         }
-        .task { await settings.load(siteID: siteID) }
+        .settingsLoads { await settings.load(siteID: siteID) }
         .sheet(isPresented: $editing) {
             CustomizeOrdersSheet(siteID: siteID, settings: settings) { group, stay in
                 // The Sale screen of this business follows straight away; other phones pick it up when they next load.
@@ -189,7 +190,7 @@ private struct CustomizeOrdersSheet: View {
 struct OrderReceiptsPage: View {
     var body: some View {
         SettingsPage(title: "Order receipts", backLink: true, heading: "Order receipts") {
-            SettingsCard(title: "Customize order receipts", pencil: .circle(action: nil), spacing: 32) {
+            SettingsCard(title: "Customize order receipts", pencil: .circle(action: nil), spacing: 27) {
                 TxSettingRow(label: "Order numbers", value: "Automatic", muted: true, style: .orders)
             }
         }
@@ -218,11 +219,14 @@ struct OrderTypesPage: View {
             // The ways of ordering are turned on or off on the Online ordering web page: load them again on the way back.
             .txWebPages($web) { Task { await settings.load(siteID: siteID) } }
         }
-        .task { await settings.load(siteID: siteID) }
+        .settingsLoads { await settings.load(siteID: siteID) }
     }
 
     private var customTypes: some View {
-        SettingsCard(title: "Custom order types", spacing: 28) {
+        // As in the photo: the title's baseline 35 pt into the card, the round buttons 69 pt in, the grey panel 28 pt under
+        // them, and the card ending 17 pt under the panel.
+        SettingsCard(spacing: 28) {
+            TxCardHeading(title: "Custom order types")
             // Search and add, greyed: custom order types are not available yet. They stop 18 pt short of the edge, as in the photo.
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
@@ -230,7 +234,8 @@ struct OrderTypesPage: View {
                 TxCircleButton(symbol: "plus", fill: Theme.blue, tint: .white, size: 22, label: "Add a custom order type")
             }
             .padding(.trailing, 18)
-            VStack(spacing: 16) {
+            // 40 pt from the bold line's baseline to the next line's, as in the photo.
+            VStack(spacing: 20.67) {
                 Text("No custom order types found.")
                     .pfFont(16, .bold)
                 Text("Custom order types aren't available yet.")
@@ -244,17 +249,20 @@ struct OrderTypesPage: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 19)
             .background(SettingsLook.page)
+            .padding(.bottom, -3)
         }
     }
 
     private var autoAssigned: some View {
-        SettingsCard(spacing: 30) {
+        // As in the photo: "Order types" 48 pt under the description's last baseline, the tags 10 pt under it, and the card
+        // ending 17 pt under the tags.
+        SettingsCard(spacing: 29) {
             TxCardHeading(title: "Auto-assigned order types", note: [
                 .text("Processor Freedom assigns these automatically from how customers order online. Turn them on or off in "),
                 .link("Online ordering", { web = "ordering" }),
                 .text("."),
             ])
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 5.5) {
                 Text("Order types")
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
@@ -272,6 +280,7 @@ struct OrderTypesPage: View {
                     }
                 }
             }
+            .padding(.bottom, -3)
         }
     }
 }

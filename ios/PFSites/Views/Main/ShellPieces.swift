@@ -48,10 +48,13 @@ struct IdleWarningBanner: View {
         let time = "\(left / 60):\(String(format: "%02d", left % 60))"
         VStack {
             HStack(spacing: 12) {
+                // Digits of one width, so the words do not shuffle as the seconds count down.
                 Text("For your security, you'll be logged out in \(time)")
+                    .monospacedDigit()
                     .pfFont(15)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.updatesFrequently)
                 Spacer(minLength: 4)
                 Button {
                     model.idle.stayLoggedIn()
@@ -65,6 +68,10 @@ struct IdleWarningBanner: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
             .modifier(BannerBackground(reduceTransparency: reduceTransparency))
+            // The banner's window takes every touch that lands on the banner, so the whole banner keeps the person logged in,
+            // not only the two words (a touch anywhere else in the app does the same).
+            .contentShape(Capsule())
+            .onTapGesture { model.idle.stayLoggedIn() }
             .background {
                 GeometryReader { proxy in
                     let area = proxy.frame(in: .global)

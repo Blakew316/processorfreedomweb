@@ -246,9 +246,8 @@ extension AppModel {
     }
 
     /// After a right passcode or Face ID on the lock screen: cookies to the web views, the pages load again behind the
-    /// loading screen, and the dashboard comes back where it was.
+    /// loading screen, and the dashboard comes back where it was. (The passcode screen gave the tap for the right passcode.)
     func finishUnlock() async {
-        Haptics.light()
         showLoading = true
         let id = unlockedSiteID ?? Keychain.siteID ?? site?.id
         // The server's flags (Apple push, text codes) for the dashboard: a cold start opens locked without asking for them.
@@ -260,7 +259,13 @@ extension AppModel {
             // The new session already ended (signed out everywhere meanwhile): a fresh lock screen (the one showing has finished).
             unlockedSiteID = nil
             setPhase(.launching)
-            if let step = lockStep() { setPhase(.passcode(step)) } else { sessionEndedBeforeReady() }
+            if let step = lockStep() {
+                setPhase(.passcode(step))
+            } else {
+                // No key on this phone any more: the dashboard that was under the lock screen goes before Log in shows.
+                closeShell()
+                sessionEndedBeforeReady()
+            }
             return
         } catch {
             // After a cold start nothing is known yet about the businesses (a guess could open the wrong screen), so the
@@ -343,14 +348,17 @@ extension AppModel {
         endSessionInBackground()
     }
 
-    /// A web page found that the session ended (signed out everywhere, or the server dropped it): check, then lock.
+    /// A web page found that the session ended (signed out everywhere, or the server dropped it): check, then lock. On the
+    /// "create your business" page (left open longer than the server's 16 minutes) there is no dashboard to lock yet, so the
+    /// Log in screen says the session ended, as the other steps before the dashboard do.
     func sessionEnded() {
-        guard phase == .ready, !checkingSession else { return }
+        guard phase == .ready || phase == .creatingBusiness, !checkingSession else { return }
         checkingSession = true
         Task {
             let me = try? await API.get("/api/me")
             checkingSession = false
-            if let me, !me["user"].isObject, phase == .ready { lock() }
+            guard let me, !me["user"].isObject else { return }
+            if phase == .ready { lock() } else if phase == .creatingBusiness { sessionEndedBeforeReady() }
         }
     }
 

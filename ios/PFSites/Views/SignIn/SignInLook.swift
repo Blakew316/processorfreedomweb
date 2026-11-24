@@ -42,14 +42,18 @@ struct SignInRegionRow: View {
                     .foregroundStyle(SignInLook.legal)
             }
             .accessibilityElement(children: .combine)
+            // The words are small (12.3 pt), so the tap area reaches 15 pt beyond them each way without moving anything.
             Button {
                 UIPresenter.safari(Config.url("/contact"))
             } label: {
                 Text("Help Center")
                     .pfFont(12.3)
                     .foregroundStyle(Theme.blue)
+                    .padding(15)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(-15)
         }
         .frame(maxWidth: .infinity)
     }

@@ -6,6 +6,8 @@ import SwiftUI
 struct CloseoutCurrentBatchView: View {
     let closeout: CloseoutModel
     let onClosed: () -> Void
+    /// Shows a short message over the cover (why a pulled refresh did not work).
+    let say: (String) -> Void
 
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
@@ -39,7 +41,7 @@ struct CloseoutCurrentBatchView: View {
         }
         .background(CloseoutLook.page)
         .scrollEdgeEffectStyle(.hard, for: .top)
-        .refreshable { await reload() }
+        .refreshable { await pulled() }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -73,7 +75,7 @@ struct CloseoutCurrentBatchView: View {
                 .foregroundStyle(Color.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            Text(Self.sinceLine(open))
+            Text(Self.sinceLine(open, in: closeout.zone))
                 .pfFont(16)
                 .foregroundStyle(SettingsLook.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -106,9 +108,9 @@ struct CloseoutCurrentBatchView: View {
     }
 
     /// "Since Mon, Nov 23, 2026, 6:35 PM", or "Since you started" before the first closeout, as the website writes it.
-    private static func sinceLine(_ open: CloseoutOpenBatch) -> String {
+    private static func sinceLine(_ open: CloseoutOpenBatch, in zone: TimeZone) -> String {
         guard let since = open.since else { return "Since you started" }
-        return "Since \(CloseoutLook.when(since))"
+        return "Since \(CloseoutLook.when(since, in: zone))"
     }
 
     /// The question before closing out, named after the button: "Close out batch 12?" (the website closes out at once, without one).
@@ -176,6 +178,12 @@ struct CloseoutCurrentBatchView: View {
         await closeout.load(siteID: business.id)
     }
 
+    /// Pulled to refresh: when it does not work the batch stays, with the server's words (offline, for example) in a short message.
+    private func pulled() async {
+        guard let business = model.site else { return }
+        if let words = await closeout.load(siteID: business.id) { say(words) }
+    }
+
     /// Fresh now, then every 30 seconds while the open batch is on screen and the app is open and unlocked.
     private func poll() async {
         guard scenePhase == .active, model.phase == .ready, let business = model.site else { return }
@@ -192,6 +200,8 @@ struct CloseoutCurrentBatchView: View {
 struct CloseoutBatchView: View {
     let closeout: CloseoutModel
     let batch: CloseoutBatch
+    /// Shows a short message over the cover (why a pulled refresh did not work).
+    let say: (String) -> Void
 
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
@@ -218,7 +228,7 @@ struct CloseoutBatchView: View {
                     .foregroundStyle(Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
-                Text(Self.closedLine(info))
+                Text(Self.closedLine(info, in: closeout.zone))
                     .pfFont(16)
                     .foregroundStyle(SettingsLook.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -233,7 +243,7 @@ struct CloseoutBatchView: View {
         }
         .background(CloseoutLook.page)
         .scrollEdgeEffectStyle(.hard, for: .top)
-        .refreshable { await reload() }
+        .refreshable { await pulled() }
         .navigationTitle("Batch \(String(info.number))")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -248,8 +258,8 @@ struct CloseoutBatchView: View {
     }
 
     /// "Closed Mon, Nov 23, 2026, 6:35 PM by Blake", as the website writes it (without "by" for very old batches).
-    private static func closedLine(_ batch: CloseoutBatch) -> String {
-        "Closed \(CloseoutLook.when(batch.closedAt))" + (batch.by.isEmpty ? "" : " by \(batch.by)")
+    private static func closedLine(_ batch: CloseoutBatch, in zone: TimeZone) -> String {
+        "Closed \(CloseoutLook.when(batch.closedAt, in: zone))" + (batch.by.isEmpty ? "" : " by \(batch.by)")
     }
 
     /// Fresh each time the page shows while the app is open and unlocked.
@@ -261,6 +271,12 @@ struct CloseoutBatchView: View {
     private func reload() async {
         guard let business = model.site else { return }
         await closeout.load(siteID: business.id)
+    }
+
+    /// Pulled to refresh: when it does not work the batch stays, with the server's words (offline, for example) in a short message.
+    private func pulled() async {
+        guard let business = model.site else { return }
+        if let words = await closeout.load(siteID: business.id) { say(words) }
     }
 }
 

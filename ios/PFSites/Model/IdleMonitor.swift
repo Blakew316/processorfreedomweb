@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 /// The 15-minute rule, like the website: after 14 minutes without a touch or typing a banner warns, at 15 the app locks
 /// and the session ends. Time is measured with the phone's continuous clock, which keeps counting while the phone sleeps and
@@ -21,7 +22,17 @@ final class IdleMonitor {
     /// Whether the last activity was 15 minutes ago or more (the app may have been in the background, or the phone asleep, since).
     var expired: Bool { ContinuousClock.now - last >= Self.limit }
 
-    /// Every touch anywhere in the app and every keystroke in a web page lands here.
+    init() {
+        // Two kinds of activity never reach the app's window as touches: typing in the app's own fields (the keyboard is not
+        // in the window) and moving around with VoiceOver. Both count, as typing does on the website.
+        for name in [UITextField.textDidChangeNotification, UITextView.textDidChangeNotification, UIAccessibility.elementFocusedNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.touch() }
+            }
+        }
+    }
+
+    /// Every touch anywhere in the app and every keystroke (in the app's own fields and in a web page) lands here.
     func touch() {
         last = ContinuousClock.now
         if warning { setWarning(false) }

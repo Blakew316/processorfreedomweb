@@ -92,11 +92,15 @@ struct FilledSearchField: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
             if !text.isEmpty {
+                // The small grey X keeps its size; the tap area around it is finger-sized.
                 Button {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        .padding(12)
+                        .contentShape(Rectangle())
                 }
+                .padding(-12)
                 .accessibilityLabel("Clear search")
             }
         }
@@ -123,11 +127,15 @@ struct BorderedSearchField: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
             if !text.isEmpty {
+                // The small grey X keeps its size; the tap area around it is finger-sized.
                 Button {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        .padding(12)
+                        .contentShape(Rectangle())
                 }
+                .padding(-12)
                 .accessibilityLabel("Clear search")
             }
         }

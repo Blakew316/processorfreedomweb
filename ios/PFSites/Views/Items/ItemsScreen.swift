@@ -114,6 +114,8 @@ struct ItemsListPage: View {
     @State private var promptText = ""
     @State private var confirmingDelete = false
     @State private var message: String?
+    /// A change to the chosen items is on its way: no second one is sent before the server has answered the first.
+    @State private var working = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -146,12 +148,15 @@ struct ItemsListPage: View {
             guard scenePhase == .active, model.phase == .ready else { return }
             await items.load(model)
         }
+        // Typing is not a touch on the screen: it counts for the 15-minute rule too, as on the Sale screen.
+        .onChange(of: items.search) { _, _ in model.idle.touch() }
         .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText]) { result in
+            let picked = Date()
             switch result {
             case .success(let url):
-                read(url)
+                read(url, picked: picked)
             case .failure:
-                message = "We could not read that file."
+                say("We could not read that file.", after: picked, wait: 0.6)
             }
         }
         .sheet(item: $importPlan) { plan in
@@ -183,14 +188,16 @@ struct ItemsListPage: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
+                // The "I" starts 14 pt from the edge, and the capitals sit 1 pt under the middle of the round button, as in the photos.
                 Text("Items")
                     .pfFont(24, .bold, relativeTo: .title)
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
+                    .padding(.top, 1.7)
                 Spacer(minLength: 12)
                 moreMenu
             }
-            .padding(.leading, 14)
+            .padding(.leading, 12.7)
             .padding(.trailing, 20)
             .padding(.top, 16)
             toolRow
@@ -222,13 +229,15 @@ struct ItemsListPage: View {
             .disabled(!items.loaded)
             Button {
                 // The website keeps the item settings (the low stock warning) with its alerts.
-                path.append(.web("alerts"))
+                open(.web("alerts"))
             } label: {
                 Label("Item settings", systemImage: "gearshape")
             }
         }
     }
 
+    /// The row under the title: the round buttons, or the search field, or (while selecting) the ⋮ of the chosen items and
+    /// Cancel. The three fade into one another in place: all are 48 pt tall.
     @ViewBuilder
     private var toolRow: some View {
         if items.searching {
@@ -249,17 +258,21 @@ struct ItemsListPage: View {
             }
             .padding(.leading, 14)
             .padding(.trailing, 22)
+            .transition(.opacity)
         } else if items.selecting {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
                 bulkMenu
                 Button("Cancel") {
-                    items.selecting = false
-                    items.selection = []
+                    withAnimation(.snappy(duration: 0.25)) {
+                        items.selecting = false
+                        items.selection = []
+                    }
                 }
                 .buttonStyle(ItemsPillStyle(kind: .darkGrey, width: 100))
             }
             .padding(.trailing, 22)
+            .transition(.opacity)
         } else {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
@@ -287,32 +300,32 @@ struct ItemsListPage: View {
                 .accessibilityValue(items.filter.isEmpty ? "" : "On")
                 // Once the list is in, so a new item starts in the website's default category and the editor has the item settings.
                 Button {
-                    path.append(.add)
+                    open(.add)
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 19, weight: .light))
-                        .foregroundStyle(items.loaded ? ItemsLook.onBrand : ItemsLook.greyed)
+                    ItemsPlus(color: items.loaded ? ItemsLook.onBrand : ItemsLook.greyed)
                 }
                 .buttonStyle(ItemsCapsuleStyle(fill: Theme.blue))
                 .disabled(!items.loaded)
                 .accessibilityLabel("Add item")
                 Button("Select") {
-                    items.selecting = true
+                    withAnimation(.snappy(duration: 0.25)) { items.selecting = true }
                 }
                 .buttonStyle(ItemsPillStyle(kind: .grey, width: 100))
                 .disabled(!items.loaded || items.items.isEmpty)
             }
             .padding(.trailing, 22)
+            .transition(.opacity)
         }
     }
 
+    /// The search pill: the magnifier 17 pt in from its edge and "Search items" 12.7 pt after it, as in the photo.
     private var searchField: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10.3) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(ItemsLook.rowGrey)
                 .accessibilityHidden(true)
-            TextField("Search items", text: Bindable(items).search, prompt: Text("Search items").foregroundStyle(ItemsLook.rowGrey))
+            TextField("Search items", text: Bindable(items).search, prompt: Text("Search items").foregroundStyle(ItemsLook.searchHint))
                 .pfFont(17)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -324,23 +337,28 @@ struct ItemsListPage: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Color.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.horizontal, -12)
                 .accessibilityLabel("Clear search")
             }
         }
-        .padding(.leading, 17)
+        .padding(.leading, 15)
         .padding(.trailing, 14)
         .frame(minHeight: 48)
         .background(ItemsLook.card, in: Capsule())
         .overlay {
             Capsule().strokeBorder(ItemsLook.field, lineWidth: 1)
         }
+        .contentShape(Capsule())
+        .onTapGesture { searchFocused = true }
     }
 
     /// The website's bulk actions for the chosen items (itBulk in CL.items); greyed until something is chosen.
     private var bulkMenu: some View {
-        ItemsKebab(label: "Actions for the chosen items", disabled: items.selection.isEmpty) {
+        ItemsKebab(label: "Actions for the chosen items", disabled: items.selection.isEmpty || working) {
             Section("Sales tax") {
                 Button("On") { run(["set": ["taxable": true]], note: "Sales tax on for \(what)") }
                 Button("Off") { run(["set": ["taxable": false]], note: "Sales tax off for \(what)") }
@@ -369,23 +387,10 @@ struct ItemsListPage: View {
     @ViewBuilder
     private var content: some View {
         if !items.loaded {
-            VStack(spacing: 16) {
-                if !items.problem.isEmpty && !items.loading {
-                    Text(items.problem)
-                        .pfFont(17)
-                        .foregroundStyle(Color.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Try again") { Task { await items.load(model) } }
-                        .buttonStyle(ItemsPillStyle(kind: .brand, width: 160))
-                } else {
-                    ProgressView()
-                        .controlSize(.large)
-                        .tint(Theme.blue)
-                }
+            // Waiting, or what went wrong with Try again, as every other screen of the app shows them.
+            SettingsA.LoadState(loading: items.loading, problem: items.problem) {
+                Task { await items.load(model) }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 60)
-            .padding(.horizontal, 16)
             Spacer(minLength: 0)
         } else {
             let shown = items.shown
@@ -397,12 +402,12 @@ struct ItemsListPage: View {
                             .pfFont(15)
                             .foregroundStyle(Color.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 15)
+                            .padding(.horizontal, 14.2)
                             .padding(.vertical, 12)
                     }
                     if items.searching {
                         Text("All results")
-                            .pfFont(16, .bold)
+                            .pfFont(16.5, .bold)
                             .foregroundStyle(Color.primary)
                             .padding(.leading, 14)
                             .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
@@ -444,7 +449,7 @@ struct ItemsListPage: View {
                 if chosen { items.selection.remove(item.id) } else { items.selection.insert(item.id) }
             } else {
                 searchFocused = false
-                path.append(.edit(item.id))
+                open(.edit(item.id))
             }
         } label: {
             ItemsListRow(item: item, selecting: items.selecting, selected: chosen)
@@ -462,10 +467,10 @@ struct ItemsListPage: View {
                 for item in shown { items.selection.insert(item.id) }
             }
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: 13) {
                 ItemsCheckbox(on: all)
                 Text("Select all")
-                    .pfFont(16.5, .bold)
+                    .pfFont(17, .bold)
                     .foregroundStyle(Color.primary)
                 Spacer(minLength: 0)
             }
@@ -488,8 +493,14 @@ struct ItemsListPage: View {
     /// The first category of the items, offered by Category as the website does.
     private var firstItemCategory: String { items.items.first?.category ?? "" }
 
+    /// Opens a page of the cover once: a second tap on the same row before the page has slid in opens nothing more.
+    private func open(_ route: ItemsRoute) {
+        guard path.isEmpty else { return }
+        path.append(route)
+    }
+
     private func enterSearch() {
-        items.searching = true
+        withAnimation(.snappy(duration: 0.25)) { items.searching = true }
         Task {
             try? await Task.sleep(nanoseconds: 80_000_000)
             searchFocused = true
@@ -498,8 +509,10 @@ struct ItemsListPage: View {
 
     private func leaveSearch() {
         searchFocused = false
-        items.search = ""
-        items.searching = false
+        withAnimation(.snappy(duration: 0.25)) {
+            items.search = ""
+            items.searching = false
+        }
     }
 
     private func ask(_ question: ItemsPrompt, value: String) {
@@ -507,59 +520,80 @@ struct ItemsListPage: View {
         prompt = question
     }
 
-    private func run(_ body: [String: Any], note: String, after: (() -> Void)? = nil) {
+    /// Sends a change for the chosen items, one at a time. `asked` is when the alert that led here was answered: what the server
+    /// says about it waits until that alert has gone, since two alerts cannot be up at once.
+    private func run(_ body: [String: Any], note: String, asked: Date? = nil, after: (() -> Void)? = nil) {
         let ids = Array(items.selection)
-        guard !ids.isEmpty else { return }
+        guard !ids.isEmpty, !working else { return }
+        working = true
+        model.idle.touch()
         Task {
-            if let problem = await items.bulk(model, ids: ids, body: body) {
+            let problem = await items.bulk(model, ids: ids, body: body)
+            working = false
+            if let problem {
+                Haptics.error()
+                await ItemsAlerts.settled(since: asked)
                 message = problem
             } else {
+                Haptics.success()
                 items.showToast(note)
                 after?()
             }
         }
     }
 
+    /// A message in its own alert, once the alert or the picker that led to it has gone.
+    private func say(_ text: String, after asked: Date, wait: Double = 0.45) {
+        Haptics.error()
+        Task {
+            await ItemsAlerts.settled(since: asked, wait: wait)
+            message = text
+        }
+    }
+
     /// The answer to a prompt, checked the way the website checks it before anything is sent.
     private func answer(_ question: ItemsPrompt) {
+        let asked = Date()
         let value = promptText.trimmed
         let names = what
         switch question.kind {
         case .quantity:
             // The website's box takes numbers only: anything else sends nothing.
             guard let number = Double(value), number.isFinite else { return }
-            run(["set": ["stock": number]], note: "Quantity set for \(names)")
+            run(["set": ["stock": number]], note: "Quantity set for \(names)", asked: asked)
         case .refill:
             if value.isEmpty {
-                run(["set": ["restock": NSNull()]], note: "Daily refill updated for \(names)")
+                run(["set": ["restock": NSNull()]], note: "Daily refill updated for \(names)", asked: asked)
             } else if let number = Double(value), number.isFinite {
-                run(["set": ["restock": number]], note: "Daily refill updated for \(names)")
+                run(["set": ["restock": number]], note: "Daily refill updated for \(names)", asked: asked)
             }
         case .sale:
             guard !value.isEmpty else { return }
             // A value outside what can be stored is refused with a reason, never changed quietly.
-            guard let number = Double(value.replacingOccurrences(of: "%", with: "")), number.rounded() == number, number >= 0, number <= 90 else {
-                message = "Enter a whole percent from 0 to 90."
+            guard let number = Double(value.replacingOccurrences(of: "%", with: "").trimmed), number.rounded() == number, number >= 0, number <= 90 else {
+                say("Enter a whole percent from 0 to 90.", after: asked)
                 return
             }
-            run(["set": ["sale": Int(number)]], note: "Sale updated for \(names)")
+            run(["set": ["sale": Int(number)]], note: "Sale updated for \(names)", asked: asked)
         case .price:
             guard !value.isEmpty else { return }
-            guard let number = Double(value.replacingOccurrences(of: "%", with: "")), number.isFinite, number != 0, number >= -90, number <= 500 else {
-                message = "Enter a change from -90 to 500 percent."
+            guard let number = Double(value.replacingOccurrences(of: "%", with: "").trimmed), number.isFinite, number != 0, number >= -90, number <= 500 else {
+                say("Enter a change from -90 to 500 percent.", after: asked)
                 return
             }
-            run(["set": ["pricePercent": number]], note: "Prices updated for \(names)")
+            run(["set": ["pricePercent": number]], note: "Prices updated for \(names)", asked: asked)
         case .category:
             guard !value.isEmpty else { return }
-            run(["set": ["category": value]], note: "\(names) moved to \(value)")
+            run(["set": ["category": value]], note: "\(names) moved to \(value)", asked: asked)
         }
     }
 
     private func deleteChosen() {
-        run(["delete": true], note: "\(what) deleted") {
-            items.selection = []
-            items.selecting = false
+        run(["delete": true], note: "\(what) deleted", asked: Date()) {
+            withAnimation(.snappy(duration: 0.25)) {
+                items.selection = []
+                items.selecting = false
+            }
         }
     }
 
@@ -568,20 +602,26 @@ struct ItemsListPage: View {
             let file = try items.exportFile()
             UIPresenter.share(file)
         } catch {
+            Haptics.error()
             message = "The file could not be saved. Please try again."
         }
     }
 
-    /// An item list chosen in Files: read the way the server will read it, then the import sheet says what it found.
-    private func read(_ url: URL) {
+    /// An item list chosen in Files: read the way the server will read it, then the import sheet says what it found, once the
+    /// file picker has finished closing (a sheet cannot come up while another is still going away).
+    private func read(_ url: URL, picked: Date) {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         guard let data = try? Data(contentsOf: url) else {
-            message = "We could not read that file."
+            say("We could not read that file.", after: picked, wait: 0.6)
             return
         }
         let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252) ?? String(decoding: data, as: UTF8.self)
-        importPlan = ItemsImportPlan(fileName: url.lastPathComponent, csv: text, reading: ItemsCSV.read(text))
+        let plan = ItemsImportPlan(fileName: url.lastPathComponent, csv: text, reading: ItemsCSV.read(text))
+        Task {
+            await ItemsAlerts.settled(since: picked, wait: 0.6)
+            importPlan = plan
+        }
     }
 }
 
@@ -596,7 +636,7 @@ struct ItemsListRow: View {
         HStack(alignment: .center, spacing: 0) {
             if selecting {
                 ItemsCheckbox(on: selected)
-                    .padding(.trailing, 14)
+                    .padding(.trailing, 13)
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text(item.name)
@@ -625,9 +665,11 @@ struct ItemsListRow: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.leading, selecting ? 19 : 15)
+        .padding(.leading, selecting ? 19 : 14.2)
         .padding(.trailing, selecting ? 35 : 31)
-        .padding(.vertical, 20)
+        // A row with one-line names is 110 pt from rule to rule, as in the photos.
+        .padding(.top, 20)
+        .padding(.bottom, 18.7)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
@@ -650,23 +692,14 @@ struct ItemsFilterPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
+                // Its baseline 38 pt under the bar, as in the photo.
                 Text("Filter item results")
-                    .pfFont(18, .bold, relativeTo: .headline)
+                    .pfFont(18.5, .bold, relativeTo: .headline)
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
+                    .padding(.top, 2.1)
                 Spacer(minLength: 12)
-                Button(action: close) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.primary)
-                        .frame(width: 34, height: 34)
-                        .overlay {
-                            Circle().strokeBorder(Theme.blue, lineWidth: 2)
-                        }
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
+                ItemsCloseButton(action: close)
             }
             .padding(.leading, 26)
             .padding(.trailing, 21)
@@ -714,28 +747,37 @@ struct ItemsFilterPanel: View {
         .accessibilityAddTraits(.isModal)
     }
 
+    @ViewBuilder
     private func row(_ label: String, on: Bool, greyed: Bool = false, toggle: (() -> Void)? = nil) -> some View {
-        VStack(spacing: 0) {
-            ItemsHairline()
+        ItemsHairline()
+        if greyed {
+            // Drawn as it is, never as a button that cannot be pressed: that would fade it more than the greyed things around it.
+            rowLabel(label, on: on, greyed: true)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue("Not available yet")
+        } else {
             Button {
                 toggle?()
             } label: {
-                HStack(spacing: 13) {
-                    ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
-                    Text(label)
-                        .pfFont(16, .medium)
-                        .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                }
-                .padding(.leading, 68)
-                .padding(.vertical, 12)
-                .frame(minHeight: 72)
-                .contentShape(Rectangle())
+                rowLabel(label, on: on, greyed: false)
             }
             .buttonStyle(.plain)
-            .disabled(greyed)
-            .accessibilityValue(greyed ? "Not available yet" : (on ? "Checked" : "Not checked"))
+            .accessibilityValue(on ? "Checked" : "Not checked")
         }
+    }
+
+    private func rowLabel(_ label: String, on: Bool, greyed: Bool) -> some View {
+        HStack(spacing: 12) {
+            ItemsCheckbox(on: on, greyed: greyed, border: ItemsLook.soft)
+            Text(label)
+                .pfFont(16.5, .medium)
+                .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 68)
+        .padding(.vertical, 12)
+        .frame(minHeight: 72)
+        .contentShape(Rectangle())
     }
 }

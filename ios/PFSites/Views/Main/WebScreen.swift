@@ -90,6 +90,15 @@ struct PageStrip: View {
                     proxy.scrollTo(tab, anchor: .center)
                 }
             }
+            // A capsule that was tapped but whose page could not open (offline, say) does not stay chosen: the blue capsule goes
+            // back to the page that is really there.
+            .onChange(of: page.failure) { _, failure in
+                guard failure != nil, selected != page.tab else { return }
+                withAnimation(.smooth) {
+                    selected = page.tab
+                    proxy.scrollTo(page.tab, anchor: .center)
+                }
+            }
         }
     }
 

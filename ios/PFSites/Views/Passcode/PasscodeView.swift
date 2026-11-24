@@ -3,9 +3,10 @@ import UIKit
 
 /// The passcode screen (photo 5), for every reason it shows: typing the passcode after signing in or making one,
 /// the lock screen, the passcode for another business, and changing it. The keypad is the real iOS number pad.
-/// Sizes from the photo, from the top of the safe area: "Log out" 18.4 pt with its icon, centred 30 pt down; the 32 pt tile 77 pt
-/// down; "Hi, Blake" 17.5 pt; the title 26.5 pt bold; "Forgot passcode?" 14.2 pt; four 17 pt dots 50 pt apart, 82 pt lower; the
-/// 40 pt "Enable Face ID" box 51 pt under them; "Switch User" 15 pt, its baseline 38.8 pt under the box.
+/// Sizes from the photo, from the top of the safe area: "Log out" 18.4 pt semibold with its icon, centred 30 pt down; the 32 pt
+/// tile 77 pt down; "Hi, Blake" 17.5 pt semibold; the title 26.5 pt bold; "Forgot passcode?" 14.2 pt; four 17 pt dots with a 1 pt
+/// ring, 50 pt apart, 82 pt lower; the 40 pt "Enable Face ID" box 51 pt under them; "Switch User" 15 pt, its baseline 38.8 pt
+/// under the box. (Weights from the strokes in the photo: 2.3 pt for "Log out" and "Hi, Blake", 3.9 pt for the title.)
 struct PasscodeView: View {
     let step: PasscodeStep
     let onDone: (() -> Void)?
@@ -51,11 +52,14 @@ struct PasscodeView: View {
                     LogoTile(size: 32, radius: 7)
                         .padding(.top, 25)
                     Text(model.firstName.isEmpty ? "Hi there" : "Hi, \(model.firstName)")
-                        .pfFont(17.5, .medium)
+                        .pfFont(17.5, .semibold)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .padding(.top, 14)
+                        .padding(.horizontal, 24)
                     Text(title)
                         .pfFont(26.5, .bold, relativeTo: .largeTitle)
-                        .padding(.top, 9)
+                        .padding(.top, 8)
                         .accessibilityAddTraits(.isHeader)
                     subline
                         .padding(.top, 14)
@@ -92,6 +96,8 @@ struct PasscodeView: View {
                 .opacity(0.011)
                 .privacySensitive()
                 .accessibilityLabel("Passcode")
+                // How many digits are in, never the digits themselves.
+                .accessibilityValue("\(code.count) of 4 digits entered")
         }
         .contentShape(Rectangle())
         .onTapGesture { if !finished { focused = true } }
@@ -107,12 +113,13 @@ struct PasscodeView: View {
     private var topBar: some View {
         HStack {
             if let onCancel {
-                Button("Cancel") {
+                // Over the dashboard (another business's passcode, Change passcode) the step closes with the bare X every
+                // full-screen cover in the app has, in the same place: its centre 28 pt from the edge, 22 pt down.
+                PasscodeCloseButton {
                     focused = false
                     onCancel()
                 }
-                .pfFont(17)
-                .foregroundStyle(Theme.blue)
+                .padding(.leading, -15)
                 Spacer()
             } else {
                 Spacer()
@@ -123,7 +130,7 @@ struct PasscodeView: View {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                             .font(.system(size: 17))
                         Text("Log out")
-                            .pfFont(18.4)
+                            .pfFont(18.4, .semibold)
                     }
                     .foregroundStyle(.primary)
                     .frame(minHeight: 44)
@@ -134,7 +141,8 @@ struct PasscodeView: View {
         }
         .padding(.horizontal, 21)
         .frame(height: 44)
-        .padding(.top, 8)
+        .padding(.top, onCancel == nil ? 8 : 0)
+        .padding(.bottom, onCancel == nil ? 0 : 8)
     }
 
     private var title: String {
@@ -167,7 +175,7 @@ struct PasscodeView: View {
             ForEach(0..<4, id: \.self) { index in
                 Circle()
                     .fill(index < code.count || finished ? Theme.blue : Color.clear)
-                    .overlay(Circle().strokeBorder(Theme.blue, lineWidth: 1.3))
+                    .overlay(Circle().strokeBorder(Theme.blue, lineWidth: 1))
                     .frame(width: 17, height: 17)
             }
         }
@@ -179,7 +187,9 @@ struct PasscodeView: View {
 
     @ViewBuilder
     private var feedback: some View {
-        if busy {
+        // The spinner stays after a right passcode too, while what comes next is made ready (Face ID being set up, the
+        // dashboard's data): the screen never just sits there with its dots filled.
+        if busy || finished {
             ProgressView().tint(Theme.blue)
         } else if !problem.isEmpty {
             Text(problem)
@@ -194,7 +204,8 @@ struct PasscodeView: View {
         }
     }
 
-    /// "Enable Face ID": a 40 pt box with 10 pt corners and a 1 pt blue border, holding a 20 pt round tick box and the words.
+    /// "Enable Face ID": a 40 pt box with 10 pt corners and a 1 pt blue border, holding a 20 pt round tick box (a 1 pt ring in the
+    /// photo) and the words. Its tap area is 44 pt tall.
     private var faceIDControl: some View {
         Button {
             faceIDWanted.toggle()
@@ -205,7 +216,7 @@ struct PasscodeView: View {
                     Circle()
                         .fill(faceIDWanted ? Theme.blue : Color.clear)
                     Circle()
-                        .strokeBorder(Theme.blue, lineWidth: 1.5)
+                        .strokeBorder(Theme.blue, lineWidth: 1)
                     if faceIDWanted {
                         Image(systemName: "checkmark")
                             .font(.system(size: 10, weight: .bold))
@@ -213,6 +224,7 @@ struct PasscodeView: View {
                     }
                 }
                 .frame(width: 20, height: 20)
+                .animation(.snappy(duration: 0.2), value: faceIDWanted)
                 Text("Enable \(model.biometry.name)")
                     .pfFont(14.2)
                     .foregroundStyle(Theme.blue)
@@ -220,9 +232,11 @@ struct PasscodeView: View {
             .padding(.horizontal, 16)
             .frame(minHeight: 40)
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.blue, lineWidth: 1))
+            .padding(.vertical, 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -2)
         .accessibilityValue(faceIDWanted ? "On" : "Off")
         .accessibilityHint("Takes effect after your passcode.")
     }
@@ -318,6 +332,7 @@ struct PasscodeView: View {
                 handle(result)
             }
         case .create:
+            guard await settled(digits) else { return }
             // The same rules as the server, checked here first.
             if let rule = Passcode.problem(digits) {
                 refuse(rule)
@@ -325,6 +340,7 @@ struct PasscodeView: View {
                 move(to: .confirm(digits))
             }
         case .confirm(let first):
+            guard await settled(digits) else { return }
             guard digits == first else {
                 refuse("Those passcodes did not match. Try again.")
                 stage = .create
@@ -337,10 +353,20 @@ struct PasscodeView: View {
         }
     }
 
+    /// The fourth dot shows filled for a moment before the screen moves on (nothing is sent to the server at these steps, so
+    /// without the pause the dots would empty the instant the last digit is typed). False when the digits were changed meanwhile.
+    private func settled(_ digits: String) async -> Bool {
+        let was = stage
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        return code == digits && stage == was && !busy && !finished
+    }
+
     private func move(to next: Stage) {
         stage = next
         code = ""
         problem = ""
+        // VoiceOver says the new step ("Confirm passcode"): the title changes in place.
+        UIAccessibility.post(notification: .announcement, argument: title)
     }
 
     private func refuse(_ message: String) {
@@ -350,6 +376,8 @@ struct PasscodeView: View {
         if !reduceMotion {
             withAnimation(.linear(duration: 0.45)) { shakes += 1 }
         }
+        // VoiceOver reads the message out: it appears under the dots and would not be come across by itself.
+        UIAccessibility.post(notification: .announcement, argument: message)
     }
 
     private func handle(_ result: PasscodeResult) {
@@ -414,5 +442,23 @@ struct PasscodeView: View {
     private func switchUser() {
         focused = false
         model.switchUser()
+    }
+}
+
+/// The bare X that closes a passcode step shown over the dashboard, like every full-screen cover in the app: 18 pt, no glass
+/// circle, in a 44 pt tap area.
+struct PasscodeCloseButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(Color.primary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Cancel")
     }
 }

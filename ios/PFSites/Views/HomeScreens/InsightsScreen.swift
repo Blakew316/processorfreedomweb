@@ -29,10 +29,14 @@ struct InsightsScreen: View {
         let stats = self.stats
         NavigationStack {
             ScrollView {
-                // Measured from the photos: the grey panel starts under the bar with its top-left corner rounded; the heading's
-                // line starts 18.7 pt down, the card 16.6 pt under the heading, and the panel ends 16 pt under the card.
+                // Measured from the photos: the grey panel starts under the bar with its top-left corner rounded like the
+                // card's (a 24 pt circle); the heading's line starts 18.7 pt down, the card 16.6 pt under the heading, and the
+                // panel ends 16 pt under the card.
                 VStack(alignment: .leading, spacing: 0) {
                     heading(stats)
+                    // A refresh that did not work (offline, say): the numbers from before stay, and one quiet line says so.
+                    SettingsA.ReloadProblem(problem: stats.refreshProblem)
+                        .padding(.top, 10)
                     card(stats)
                         .padding(.top, 16.6)
                 }
@@ -40,7 +44,8 @@ struct InsightsScreen: View {
                 .padding(.top, 18.7)
                 .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, minHeight: visibleHeight, alignment: .topLeading)
-                .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+                .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 24, style: .circular))
+                .animation(.snappy, value: stats.refreshProblem)
             }
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
@@ -84,7 +89,7 @@ struct InsightsScreen: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 60_000_000_000)
                 if Task.isCancelled { return }
-                if stats.refreshesEveryMinute { await load(stats) }
+                if stats.refreshesEveryMinute { await load(stats, full: false) }
             }
         }
         .sheet(isPresented: $choosingFrame) {
@@ -109,15 +114,16 @@ struct InsightsScreen: View {
             Button {
                 choosingFrame = true
             } label: {
-                Text(label)
-                    .underline()
-                    .pfFont(15)
-                    .foregroundStyle(Theme.blue)
-                    .lineLimit(1)
+                StatsTimeFrameLink(label: label)
                     .minimumScaleFactor(0.8)
+                    // A wider and taller place to tap than the words themselves (44 pt), without moving anything.
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 13)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, -12)
+            .padding(.vertical, -13)
             .accessibilityLabel("Time frame, \(label)")
             .accessibilityHint("Opens the time frames")
         }
@@ -136,7 +142,8 @@ struct InsightsScreen: View {
 
     // MARK: Your business snapshot
 
-    /// The white card of the photo: 1 pt #E3E3E3 border, 24 pt corners, the title 20 pt bold.
+    /// The white card of the photo: 1 pt #E3E3E3 border, 24 pt corners, the title 20 pt bold; "Ask a question" ends 16 pt over
+    /// the border at the bottom.
     private func card(_ stats: StatsModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Your business snapshot")
@@ -148,7 +155,7 @@ struct InsightsScreen: View {
         }
         .padding(.horizontal, 17.5)
         .padding(.top, 15.8)
-        .padding(.bottom, 16)
+        .padding(.bottom, 17)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 24, style: .circular))
         .overlay {
@@ -161,14 +168,18 @@ struct InsightsScreen: View {
     private func snapshot(_ stats: StatsModel) -> some View {
         if let report = stats.current {
             let totals = report.totals
+            // Measured from the photos: the paragraph's capitals 11 pt tall (15.5 pt text; its first line is as wide there as
+            // at this size here) on lines 24 pt apart, the first baseline 83 pt under the card's top; "Net sales" 15.3 pt under
+            // the last baseline; the three figures 98 pt apart; the chart's legend 45 pt under the last figure's arrow, and "Ask
+            // a question" 85.5 pt under the chart's bottom line.
             VStack(alignment: .leading, spacing: 0) {
                 Text(report.snapshot())
-                    .pfFont(15)
-                    .lineSpacing(6)
+                    .pfFont(15.5)
+                    .lineSpacing(5.5)
                     .foregroundStyle(Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 28.7)
-                VStack(alignment: .leading, spacing: 24.5) {
+                    .padding(.top, 28.4)
+                VStack(alignment: .leading, spacing: 24.9) {
                     InsightsFigure(label: "Net sales", value: Money.format(totals.net),
                                    change: StatsChange.of(totals.net, report.previous.net, decimals: 2))
                     InsightsFigure(label: "Net sold", value: String(totals.orders),
@@ -177,9 +188,9 @@ struct InsightsScreen: View {
                                    change: StatsChange.of(totals.average, report.previousAverage, decimals: 2))
                 }
                 .padding(.leading, 3)
-                .padding(.top, 9)
+                .padding(.top, 7.6)
                 InsightsChart(points: report.points())
-                    .padding(.top, 28)
+                    .padding(.top, 29)
                 askButton
                     .padding(.top, 41)
             }
@@ -206,7 +217,7 @@ struct InsightsScreen: View {
                 .pfFont(16, .medium)
                 .foregroundStyle(SettingsLook.greyed)
                 .lineLimit(1)
-                .padding(.horizontal, 17)
+                .padding(.horizontal, 19)
                 .frame(minHeight: 48)
                 .background(Color(.systemGray5), in: Capsule())
         }
@@ -214,9 +225,9 @@ struct InsightsScreen: View {
         .disabled(true)
     }
 
-    private func load(_ stats: StatsModel) async {
+    private func load(_ stats: StatsModel, full: Bool = true) async {
         guard model.phase == .ready, let business = model.site else { return }
-        await stats.load(siteID: business.id)
+        await stats.load(siteID: business.id, full: full)
     }
 }
 
@@ -239,7 +250,7 @@ struct InsightsFigure: View {
                 .padding(.top, 7)
             StatsChangeLine(change: change, words: "vs previous period", style: .arrow)
                 .padding(.leading, 2)
-                .padding(.top, 5.4)
+                .padding(.top, 4.4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

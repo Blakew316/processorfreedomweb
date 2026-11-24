@@ -239,9 +239,18 @@ final class OrdersModel {
     /// Days whose band was tapped closed.
     var collapsed: Set<String> = []
 
+    /// The business's day ("2026-11-23") at the last look. The period, the bands and "Today" are worked out from the clock when the
+    /// screen is drawn, so reading this draws it again when the day turns over at the business.
+    private(set) var today = ""
+
     /// Once the person picks a tab it stays; until then the first load opens Open when there is something to do.
     @ObservationIgnored var tabChosen = false
     @ObservationIgnored private var siteLoadedAt: Date?
+    /// Counts the lists asked for, the last one shown and the orders changed on this phone, so a list that left the server before a
+    /// newer one, or before a change made here, never replaces what is newer.
+    @ObservationIgnored private var asked = 0
+    @ObservationIgnored private var shown = 0
+    @ObservationIgnored private var edits = 0
 
     var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -254,8 +263,19 @@ final class OrdersModel {
     // MARK: Loading
 
     func load(siteID: String) async {
+        markDay()
+        asked += 1
+        let ticket = asked
         do {
-            let answer = try await API.get("/api/sites/\(siteID)/orders")
+            var answer: JSON
+            var before: Int
+            repeat {
+                before = edits
+                answer = try await API.get("/api/sites/\(siteID)/orders")
+                // An order was changed here while the list was on its way: it may have left the server first, so it is asked for again.
+            } while before != edits
+            guard ticket > shown else { return }
+            shown = ticket
             let list = answer["orders"].array.compactMap { CustomerOrder($0) }
             if list != orders { orders = list }
             if !loaded { loaded = true }
@@ -268,10 +288,16 @@ final class OrdersModel {
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
             // A failed refresh keeps the list it had; the message shows when there is nothing to show, or when this login may not see it.
-            if !loaded || error.status == 403 { loadError = error.message }
+            if ticket > shown, !loaded || error.status == 403 { loadError = error.message }
         } catch {
             // Cancelled: the screen went away.
         }
+    }
+
+    /// Notes the business's day, so the screen is drawn again when it changes (midnight there, or its time zone arriving).
+    private func markDay() {
+        let key = dayKey(Date(), calendar: calendar)
+        if key != today { today = key }
     }
 
     /// The business's time zone (ordering.timezone), so "Today" is the business's today. Read again at most once a minute.
@@ -284,6 +310,7 @@ final class OrdersModel {
     }
 
     func replace(_ fresh: CustomerOrder) {
+        edits += 1
         if let index = orders.firstIndex(where: { $0.id == fresh.id }) {
             orders[index] = fresh
         } else {
@@ -318,6 +345,8 @@ final class OrdersModel {
 
     /// The chosen period: its first moment and the moment after its last day, on the business's calendar.
     func span(now: Date = Date()) -> (start: Date, end: Date) {
+        // Read so that whatever is drawn from the period is drawn again when the business's day changes.
+        _ = self.today
         let calendar = calendar
         let today = calendar.startOfDay(for: now)
         let day = { (offset: Int) -> Date in calendar.date(byAdding: .day, value: offset, to: today) ?? today }
@@ -399,6 +428,9 @@ final class OrdersModel {
         return date.formatted(Date.FormatStyle(timeZone: timeZone).weekday(.abbreviated).month(.abbreviated).day())
     }
 
+    /// The dash between two dates or times, with the thin spaces iOS itself puts around it (the photo's "12:00 AM – 11:59 PM").
+    private static let dash = "\u{2009}–\u{2009}"
+
     /// "Nov 23, 2026", or "Nov 17 – Nov 23, 2026" for a longer period.
     var rangeTitle: String {
         let period = span()
@@ -407,7 +439,7 @@ final class OrdersModel {
         if calendar.isDate(period.start, inSameDayAs: last) { return period.start.formatted(full) }
         let sameYear = calendar.component(.year, from: period.start) == calendar.component(.year, from: last)
         let first = sameYear ? period.start.formatted(Date.FormatStyle(timeZone: timeZone).month(.abbreviated).day()) : period.start.formatted(full)
-        return "\(first) – \(last.formatted(full))"
+        return first + Self.dash + last.formatted(full)
     }
 
     /// "12:00 AM – 11:59 PM", in the phone's way of writing times.
@@ -415,7 +447,7 @@ final class OrdersModel {
         let start = span().start
         let late = calendar.date(bySettingHour: 23, minute: 59, second: 0, of: start) ?? start.addingTimeInterval(86_340)
         let style = Date.FormatStyle(date: .omitted, time: .shortened, timeZone: timeZone)
-        return "\(start.formatted(style)) – \(late.formatted(style))"
+        return start.formatted(style) + Self.dash + late.formatted(style)
     }
 
     func time(_ date: Date) -> String {

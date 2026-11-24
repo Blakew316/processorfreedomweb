@@ -128,7 +128,7 @@ struct CreateAppointmentAmountSheet: View {
                 .padding(.top, asksName ? 24 : 44)
             Text(Money.format(cents))
                 .pfFont(48, .light, relativeTo: .largeTitle)
-                .foregroundStyle(cents == 0 ? CreateAppointmentLook.placeholder : Color.primary)
+                .foregroundStyle(cents == 0 ? CreateAppointmentLook.zeroAmount : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .padding(.horizontal, 24)
@@ -228,11 +228,13 @@ private struct CreateAppointmentDoneStyle: ButtonStyle {
 }
 
 /// Add inventory item: the business's items (the website's list of its menu), found by name. An item with its own price is added
-/// at once; a variable-price item has its price asked for next.
+/// at once; a variable-price item has its price asked for next. When the items could not be read, the server's words show with
+/// Try again.
 struct CreateAppointmentInventorySheet: View {
     let items: [CreateAppointmentItem]
     let loaded: Bool
     let problem: String
+    let retry: () -> Void
     let pick: (CreateAppointmentItem) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -289,12 +291,17 @@ struct CreateAppointmentInventorySheet: View {
                 .tint(Theme.blue)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if items.isEmpty && !problem.isEmpty {
-            Text(problem)
-                .pfFont(16)
-                .foregroundStyle(SettingsLook.muted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 14) {
+                Text(problem)
+                    .pfFont(16)
+                    .foregroundStyle(SettingsLook.muted)
+                    .multilineTextAlignment(.center)
+                Button("Try again") { retry() }
+                    .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 17))
+                    .frame(maxWidth: 200)
+            }
+            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {

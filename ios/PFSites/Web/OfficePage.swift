@@ -5,13 +5,15 @@ import WebKit
 
 /// Why a page could not be shown.
 enum WebFailure: Equatable {
-    case offline
+    case offline       // the phone has no connection
+    case unreachable   // the phone is online, but the server did not answer (a timeout, or it could not be found or reached)
     case restarting
     case server
 
     var title: String {
         switch self {
         case .offline: return "You're offline"
+        case .unreachable: return "We could not reach the server"
         case .restarting: return "PF Sites is restarting"
         case .server: return "Something went wrong"
         }
@@ -20,6 +22,7 @@ enum WebFailure: Equatable {
     var message: String {
         switch self {
         case .offline: return "Check your connection. This page comes back by itself when you're online again."
+        case .unreachable: return "Check your connection and try again."
         case .restarting: return "It will be back in a moment. We'll keep trying."
         case .server: return "This page could not be loaded. Please try again."
         }
@@ -28,6 +31,7 @@ enum WebFailure: Equatable {
     var symbol: String {
         switch self {
         case .offline: return "wifi.slash"
+        case .unreachable: return "wifi.exclamationmark"
         case .restarting: return "arrow.triangle.2.circlepath"
         case .server: return "exclamationmark.triangle"
         }
@@ -169,7 +173,7 @@ final class OfficePage: NSObject {
     }
 
     func networkCameBack() {
-        if failure == .offline { retry() }
+        if failure == .offline || failure == .unreachable { retry() }
     }
 
     // MARK: Moving around the page (the page strip, the back button)

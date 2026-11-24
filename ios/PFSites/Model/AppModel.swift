@@ -151,12 +151,16 @@ final class AppModel {
 
     func setPhase(_ next: Phase) {
         let wasLocked = isLocked
+        // A cold start: nothing but the loading screen is in the app's window yet, so the lock screen may fade in over it.
+        let coldStart = phase == .launching && !shellAlive
+        // Once the sign-in screens are left, the typed password is not kept any longer than it was needed.
+        if phase == .welcome, next != .welcome, !auth.password.isEmpty { auth.password = "" }
         phase = next
         if isLocked && !wasLocked {
             lockEvent += 1
-            OverlayWindows.shared.showLock()
+            OverlayWindows.shared.showLock(fadeIn: coldStart)
         } else if !isLocked && wasLocked {
-            OverlayWindows.shared.hideLock(animated: next == .ready)
+            OverlayWindows.shared.hideLock(grow: next == .ready)
         }
         switch next {
         case .ready, .launching: break
@@ -338,6 +342,8 @@ final class AppModel {
         guard phase == .ready, let business = site, !business.isKitchen else { return }
         do {
             let list = try await loadSites()
+            // The business on screen now: an answer that comes back after a change of business must not set the old one's count.
+            guard site?.id == business.id else { return }
             if let fresh = list.first(where: { $0.id == business.id }) { setOrdersBadge(fresh.newOrders) }
         } catch let error as APIError where error.sessionEnded {
             // Signed out everywhere, or the server ended the session: check, then lock.
@@ -351,6 +357,8 @@ final class AppModel {
 
     func refreshNotesDot() async {
         guard let business = site, let answer = try? await API.get("/api/sites/\(business.id)/notifications") else { return }
+        // Another business was opened while this was on its way: its own check sets the dot.
+        guard site?.id == business.id else { return }
         let seen = UserDefaults.standard.double(forKey: Keys.notesSeen(business.id))
         let fresh = answer["notifications"].array.contains { Double($0["at"].int) > seen }
         if notesDot != fresh { notesDot = fresh }

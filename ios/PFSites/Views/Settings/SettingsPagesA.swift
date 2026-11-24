@@ -164,9 +164,11 @@ extension SettingsA {
     struct Note: View {
         let parts: [SettingsTextPart]
         var greyed = false
+        /// Added to the font's own 19 pt line: 5 makes the usual 24 pt lines.
+        var lineSpacing: CGFloat = 5
 
         var body: some View {
-            SettingsLinkedText(parts: parts, color: greyed ? SettingsLook.greyed : SettingsLook.muted)
+            SettingsLinkedText(parts: parts, color: greyed ? SettingsLook.greyed : SettingsLook.muted, lineSpacing: lineSpacing)
         }
     }
 }

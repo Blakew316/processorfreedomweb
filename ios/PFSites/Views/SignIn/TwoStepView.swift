@@ -1,9 +1,12 @@
 import SwiftUI
+import UIKit
 
 /// Two-step sign-in (photo 3): the code we texted, or the one from the authenticator app, or a recovery code.
 /// Sizes from the photo, measured from the line under the bar: 24 pt in from each side, the brand row 23 pt below the line,
-/// the title 26.4 pt bold, the words 16.1 pt, the light blue panel of six 45 x 56 pt boxes, the 16 pt checkbox, the two 48 pt
-/// pills, "Having trouble?" 17.5 pt bold and its links 16 pt (the first link's baseline 36.7 pt under its baseline).
+/// the title 26.4 pt, the words 16.1 pt, the light blue panel of six 45 x 56 pt boxes, the 16 pt checkbox, the two 48 pt
+/// pills, "Having trouble?" 17.5 pt and its links 16 pt (the first link's baseline 36.7 pt under its baseline). The title, the
+/// phone number's last digits and "Having trouble?" are semibold: their strokes in the photo are 3.1 pt, 2.1 pt and 2.1 pt thick,
+/// lighter than the bold "Log in" of the screen before.
 struct TwoStepView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -15,6 +18,7 @@ struct TwoStepView: View {
     @State private var error = ""
     @State private var info = ""
     @State private var busy = false
+    @State private var resending = false
     @FocusState private var codeFocused: Bool
     @FocusState private var recoveryFocused: Bool
 
@@ -40,7 +44,7 @@ struct TwoStepView: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text(title)
-                            .pfFont(26.4, .bold, relativeTo: .largeTitle)
+                            .pfFont(26.4, .semibold, relativeTo: .largeTitle)
                             .foregroundStyle(SignInLook.title)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isHeader)
@@ -97,7 +101,7 @@ struct TwoStepView: View {
                         }
                         .buttonStyle(SignInPillStyle(fill: ready || busy ? Theme.blue : SignInLook.waitingFill, text: ready || busy ? .white : SignInLook.waitingText))
                         .disabled(!ready)
-                        .padding(.top, 30)
+                        .padding(.top, 29)
 
                         Button("Cancel") {
                             dismiss()
@@ -106,7 +110,7 @@ struct TwoStepView: View {
                         .padding(.top, 12)
 
                         Text("Having trouble?")
-                            .pfFont(17.5, .bold)
+                            .pfFont(17.5, .semibold)
                             .padding(.top, 65)
                             .accessibilityAddTraits(.isHeader)
                         VStack(alignment: .leading, spacing: 14) {
@@ -137,8 +141,14 @@ struct TwoStepView: View {
         }
         .onChange(of: code) { _, newValue in
             let digits = newValue.digits(limit: 6)
-            if digits != newValue { code = digits }
+            if digits != newValue {
+                code = digits
+                return
+            }
             if !digits.isEmpty && !error.isEmpty { error = "" }
+            // With all six digits in (typed, or filled in from Messages) the number pad goes away, so the tick box and the Log in
+            // button it was covering are in view; tapping the boxes brings it back.
+            if digits.count == 6 { codeFocused = false }
         }
     }
 
@@ -158,7 +168,7 @@ struct TwoStepView: View {
         if mode == .text {
             let last = auth.lastFour
             if last.isEmpty { return Text("Enter the verification code we've sent to your phone.") }
-            return Text("Enter the verification code we've sent to the phone number ending in \(Text(last).bold())")
+            return Text("Enter the verification code we've sent to the phone number ending in \(Text(last).fontWeight(.semibold))")
         }
         return Text("Enter the 6-digit code from your authenticator app.")
     }
@@ -223,25 +233,34 @@ struct TwoStepView: View {
                 break
             case .needsCode(let problem):
                 auth.took(problem)
-                error = problem.message
                 code = ""
                 recovery = ""
-                Haptics.error()
+                refuse(problem.message)
                 focusEntry()
             case .failed(let message):
-                error = message
-                Haptics.error()
+                refuse(message)
             }
         }
     }
 
-    /// Texts a code (again): the same email and password with sendText and no code.
+    /// What went wrong, under the entry: shown, felt, and read out by VoiceOver (it would not be come across by itself).
+    private func refuse(_ message: String) {
+        error = message
+        Haptics.error()
+        UIAccessibility.post(notification: .announcement, argument: message)
+    }
+
+    /// Texts a code (again): the same email and password with sendText and no code. One at a time, and never while a code is
+    /// being checked, so a second tap cannot ask for a second text (the server would refuse it and its refusal would show).
     private func resend() {
+        guard !busy, !resending else { return }
         let auth = model.auth
+        resending = true
         error = ""
         info = ""
         Task {
             let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.password, sendText: true)
+            resending = false
             switch outcome {
             case .success:
                 break
@@ -251,19 +270,21 @@ struct TwoStepView: View {
                     lastCodeMode = .text
                     mode = .text
                     code = ""
+                    Haptics.success()
                     showInfo("We sent a new code.")
                     focusEntry()
                 } else {
-                    error = answer.message
+                    refuse(answer.message)
                 }
             case .failed(let message):
-                error = message
+                refuse(message)
             }
         }
     }
 
     private func showInfo(_ text: String) {
         info = text
+        UIAccessibility.post(notification: .announcement, argument: text)
         Task {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             if info == text { info = "" }
@@ -326,8 +347,9 @@ struct CodeBoxes: View {
     }
 }
 
-/// The photo's checkbox row: a 16 pt square with 2.5 pt corners and a 1 pt grey border (filled blue with a white tick when on),
-/// 17.6 pt before the words, which are 16.1 pt and set a little apart, as in the photo. The whole row toggles it.
+/// The photo's checkbox row: a 16 pt square with 2.5 pt corners and a 1 pt grey border (filled navy with a white tick when on,
+/// like every ticked box in the app), 17.6 pt before the words, which are 16.1 pt and set a little apart, as in the photo.
+/// The whole row toggles it, and its tap area reaches 12 pt above and below the words.
 struct CheckRowSmall: View {
     @Binding var on: Bool
     let label: String
@@ -335,13 +357,14 @@ struct CheckRowSmall: View {
     var body: some View {
         Button {
             on.toggle()
+            Haptics.light()
         } label: {
             HStack(spacing: 17.6) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(on ? Theme.blue : Color.clear)
+                        .fill(on ? SignInLook.navyButton : Color.clear)
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .strokeBorder(on ? Theme.blue : SignInLook.boxBorder, lineWidth: 1)
+                        .strokeBorder(on ? SignInLook.navyButton : SignInLook.boxBorder, lineWidth: 1)
                     if on {
                         Image(systemName: "checkmark")
                             .font(.system(size: 10, weight: .bold))
@@ -349,6 +372,7 @@ struct CheckRowSmall: View {
                     }
                 }
                 .frame(width: 16, height: 16)
+                .animation(.snappy(duration: 0.2), value: on)
                 Text(label)
                     .pfFont(16.1)
                     .tracking(0.4)
@@ -356,9 +380,12 @@ struct CheckRowSmall: View {
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -12)
         .accessibilityValue(on ? "Checked" : "Not checked")
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }

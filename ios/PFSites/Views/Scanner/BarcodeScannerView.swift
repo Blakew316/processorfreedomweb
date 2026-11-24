@@ -49,12 +49,15 @@ struct ScannerSurface: View {
         .sheet(isPresented: $showRefused, onDismiss: onClose) {
             CameraRefusedSheet()
         }
-        .onDisappear {
-            if torchOn {
-                Torch.set(false)
-                torchOn = false
-            }
-        }
+        .onDisappear { lightOff() }
+        // iOS puts the light out when the camera stops (the app left, a call came in): the button must not go on saying it is on.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in lightOff() }
+    }
+
+    private func lightOff() {
+        guard torchOn else { return }
+        Torch.set(false)
+        torchOn = false
     }
 
     // MARK: The frame
@@ -142,12 +145,19 @@ struct ScannerSurface: View {
         showRefused = true
     }
 
-    /// One sighting of one or more codes. New reads go on, unless paused; every sighting keeps a code from being read twice.
+    /// One sighting of one or more codes. New reads go on, unless paused; every sighting keeps a code from being read twice. A
+    /// code that comes into view while paused (the next item held up while a message is still showing) is not lost: it is read at
+    /// its first sighting once the scanner is free, instead of waiting to be taken away and shown again.
     private func take(_ codes: [String], fresh: Bool) {
         let now = Date()
         for code in codes {
+            if paused {
+                gate.sawWhileBusy(code, at: now)
+                continue
+            }
+            let held = gate.wasHeld(code)
             let isNew = gate.pass(code, at: now)
-            if fresh && isNew && !paused { onRead(code) }
+            if isNew && (fresh || held) { onRead(code) }
         }
     }
 }
@@ -192,10 +202,16 @@ struct CameraRefusedSheet: View {
                 dismiss()
             }
             .buttonStyle(SolidButtonStyle(radius: 8, height: 48, size: 17))
-            Button("Close") { dismiss() }
-                .pfFont(17, .semibold)
-                .foregroundStyle(Theme.blue)
-                .frame(maxWidth: .infinity, minHeight: 44)
+            Button {
+                dismiss()
+            } label: {
+                // The whole 44 pt row is the button, not only its word.
+                Text("Close")
+                    .pfFont(17, .semibold)
+                    .foregroundStyle(Theme.blue)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 16)
@@ -220,6 +236,8 @@ struct SaleScannerView: View {
     @State private var missing: String?
     @State private var toast: String?
     @State private var toastHide: Task<Void, Never>?
+    /// The read being looked up; stopped when the scanner closes, so nothing is added after the person has left it.
+    @State private var lookup: Task<Void, Never>?
 
     var body: some View {
         ScannerSurface(paused: busy || keypad != nil || missing != nil, toast: toast, onRead: read, onClose: { dismiss() })
@@ -240,16 +258,20 @@ struct SaleScannerView: View {
             .onChange(of: model.isLocked) { _, locked in
                 if locked { dismiss() }
             }
-            .onDisappear { toastHide?.cancel() }
+            .onDisappear {
+                toastHide?.cancel()
+                lookup?.cancel()
+            }
     }
 
     private func read(_ code: String) {
         guard !busy else { return }
         busy = true
         model.idle.touch()
-        Task {
+        lookup = Task {
             let result = await order.scanned(code, siteID: siteID)
             busy = false
+            guard !Task.isCancelled else { return }
             switch result {
             case .added(let name):
                 Haptics.success()

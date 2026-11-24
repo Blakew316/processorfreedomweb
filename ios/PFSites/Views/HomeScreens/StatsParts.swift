@@ -4,8 +4,9 @@ import UIKit
 /// The look of Sales Overview, Insights and the Time frame sheet, measured from the owner's Clover photos (1125 x 2436 px of a
 /// 375 x 812 pt phone, so 3 px = 1 pt), with Clover's green rebranded to Processor Freedom's blue and navy.
 enum StatsLook {
-    /// #E5E5E5: the hairlines around the time frame row, and the 12 pt bands between Sales Overview's sections.
-    static let hairline = Color(light: UIColor(hex: 0xE5E5E5), dark: .systemGray4)
+    /// The hairlines around the time frame row: the app's one hairline colour (#E3E3E3; #E5E5E5 in the photo).
+    static let hairline = SettingsLook.border
+    /// #E5E5E5: the 12 pt bands between Sales Overview's sections.
     static let band = Color(light: UIColor(hex: 0xE5E5E5), dark: .systemGray6)
     /// #727272: "0 Transactions", the cards' second lines and the sheet's times.
     static let subtle = Color(light: UIColor(hex: 0x727272), dark: .secondaryLabel)
@@ -63,14 +64,14 @@ struct StatsTimeFrameRow: View {
         let span = days
         HStack(alignment: .center, spacing: 12) {
             Button(action: choose) {
-                Text(label)
-                    .underline()
-                    .pfFont(15)
-                    .foregroundStyle(Theme.blue)
+                StatsTimeFrameLink(label: label)
+                    // A wider and taller place to tap than the word itself, without moving anything.
+                    .padding(.horizontal, 12)
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, -12)
             .accessibilityLabel("Time frame, \(label)")
             .accessibilityHint("Opens the time frames")
             Spacer(minLength: 8)
@@ -94,6 +95,20 @@ struct StatsTimeFrameRow: View {
     private var days: (from: String, to: String) {
         if let report = stats.current, !report.from.isEmpty, !report.to.isEmpty { return (report.from, report.to) }
         return stats.frame.days(today: stats.businessToday)
+    }
+}
+
+/// The underlined time frame that opens the Time frame sheet, on Sales Overview and on Insights. Measured from the Sales Overview
+/// photo: letters 10.7 pt tall with 1.8 pt strokes (semibold), in Clover's link colour, here brand blue.
+struct StatsTimeFrameLink: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .underline()
+            .pfFont(15, .semibold)
+            .foregroundStyle(Theme.blue)
+            .lineLimit(1)
     }
 }
 

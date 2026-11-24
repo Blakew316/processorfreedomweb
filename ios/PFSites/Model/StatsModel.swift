@@ -419,9 +419,10 @@ struct StatsReport {
         promos.filter { !$0.item }.reduce(0) { $0 + $1.uses } + totals.itemDiscountLines
     }
 
-    /// The previous period's average order, worked out like the server's (its total over its orders).
+    /// The previous period's average order, worked out like the server's (its total over its orders, a half cent rounded up as
+    /// JavaScript's Math.round does, also when refunds made the total negative).
     var previousAverage: Int {
-        previous.orders > 0 ? Int((Double(previous.total) / Double(previous.orders)).rounded()) : 0
+        previous.orders > 0 ? Int((Double(previous.total) / Double(previous.orders) + 0.5).rounded(.down)) : 0
     }
 
     /// The words after the change in net sales on Sales Overview: what the server compared the period with (the same number of
@@ -594,13 +595,19 @@ enum StatsFormat {
         return text.hasSuffix(".00") ? String(text.dropLast(3)) : text
     }
 
-    /// "$12.5K", "$1.2M": a chart's amount when the whole one would not fit over its bar.
-    static func compactMoney(_ cents: Int) -> String {
+    /// "$12.5K", "$1.2M": a chart's amount when the whole one would not fit over its bar ("$13K" with `whole`, shorter still).
+    /// Written like Money.format, with a point, and an amount that rounds up to the next unit moves to it ("$1K", never "$1000").
+    static func compactMoney(_ cents: Int, whole: Bool = false) -> String {
         let dollars = Double(abs(cents)) / 100
         let sign = cents < 0 ? "−" : ""
-        let short = { (value: Double) in value.formatted(.number.precision(.fractionLength(0...1))) }
-        if dollars >= 1_000_000 { return "\(sign)$\(short(dollars / 1_000_000))M" }
-        if dollars >= 1_000 { return "\(sign)$\(short(dollars / 1_000))K" }
+        let scale: Double = whole ? 1 : 10
+        let rounded = { (value: Double) in (value * scale).rounded() / scale }
+        let short = { (value: Double) -> String in
+            let number = rounded(value)
+            return number == number.rounded() ? String(Int(number)) : String(format: "%.1f", number)
+        }
+        if rounded(dollars / 1_000) >= 1_000 { return "\(sign)$\(short(dollars / 1_000_000))M" }
+        if dollars.rounded() >= 1_000 { return "\(sign)$\(short(dollars / 1_000))K" }
         return "\(sign)$\(Int(dollars.rounded()))"
     }
 }
@@ -627,6 +634,9 @@ final class StatsModel {
     private(set) var problemKey = ""
     /// The problem shown is this login not being allowed to see sales (403): trying again would not help.
     private(set) var problemIsFinal = false
+    /// Why the last refresh of `staleKey`'s numbers did not work, while the numbers from before still show.
+    private(set) var staleProblem = ""
+    private(set) var staleKey = ""
     /// The business's time zone (site.ordering.timezone), so "Today" and "Last 90 days" are the business's days.
     private(set) var zone: TimeZone?
 
@@ -646,6 +656,12 @@ final class StatsModel {
     var currentProblem: String? {
         guard problemKey == frame.key, !problem.isEmpty else { return nil }
         return problem
+    }
+
+    /// Why the numbers shown could not be read again just now (offline, or the server could not be reached), so the screens can
+    /// say that they are from before; empty when the last read worked.
+    var refreshProblem: String {
+        staleKey == frame.key && current != nil ? staleProblem : ""
     }
 
     /// The Refunds card's count and amount from the ledger, when they were loaded for the time frame shown.
@@ -670,11 +686,19 @@ final class StatsModel {
         return span.from == today && span.to == today
     }
 
-    /// Loads the chosen time frame's numbers. A failed refresh keeps numbers already shown for the same time frame; the message
-    /// shows when there is nothing to show, or when this login may not see them (403: a message, never a sign-out).
-    /// `full` is false for the once-a-minute refresh: it reads the ledger again only when the refunds changed.
+    /// Loads the chosen time frame's numbers. A failed refresh keeps numbers already shown for the same time frame and says why
+    /// they could not be read again (`refreshProblem`); the message takes their place when there is nothing to show, or when this
+    /// login may not see them (403: a message, never a sign-out).
+    /// `full` is false for the once-a-minute refresh: it reads the ledger again only when the refunds changed, and it leaves a
+    /// message that is showing where it is instead of putting the spinner back every minute.
     func load(siteID: String, full: Bool = true) async {
         let asked = frame
+        // Trying again shows the spinner in the message's place until the answer comes, so the tap is seen to do something. A
+        // login that may not see sales keeps its message: the answer would be the same.
+        if full, report?.key != asked.key, problemKey == asked.key, !problemIsFinal {
+            problem = ""
+            problemKey = ""
+        }
         // These periods' days are worked out here from the business's today, so its time zone comes first.
         if (asked.range == .last90 || asked.range == .pastWeek) && zone == nil { await loadZone(siteID: siteID) }
         let today = businessToday
@@ -694,6 +718,8 @@ final class StatsModel {
                 problem = ""
                 problemKey = ""
                 problemIsFinal = false
+                staleProblem = ""
+                staleKey = ""
             }
         } catch let error as APIError {
             guard asked == frame else { return }
@@ -704,6 +730,10 @@ final class StatsModel {
                 problem = error.message
                 problemKey = asked.key
                 problemIsFinal = error.status == 403
+            } else if error.status != 401 {
+                // The numbers from before stay, and the screens say why they could not be read again.
+                staleProblem = error.message
+                staleKey = asked.key
             }
             return
         } catch {

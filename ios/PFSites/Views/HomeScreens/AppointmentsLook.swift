@@ -5,9 +5,10 @@ import UIKit
 /// of a 375 x 812 pt iPhone, so 3 px = 1 pt; font sizes from cap heights, SF Pro's being about 0.705 of the size), with Clover's
 /// green rebranded to Processor Freedom's blue and its dark green to navy.
 enum AppointmentDayLook {
-    /// #E3E3E3: the round buttons, the hairlines and the Cancel pill.
+    /// #E3E3E3: the round buttons and the Cancel pill.
     static let grey = Color(light: UIColor(hex: 0xE3E3E3), dark: .systemGray5)
-    static let hairline = Color(light: UIColor(hex: 0xE3E3E3), dark: .systemGray4)
+    /// #E3E3E3: the hairlines, the app's own line colour.
+    static let hairline = SettingsLook.border
     /// #F9F9F9: the grey bands of Appointment attributes.
     static let band = Color(light: UIColor(hex: 0xF9F9F9), dark: .secondarySystemBackground)
     /// Show results before the choice has changed: #F9F9F9 with #C4C4C4 words.
@@ -24,6 +25,7 @@ enum AppointmentDayLook {
 }
 
 /// The line drawings of the day view, traced from the photos in their own boxes (in points) and scaled to the frame they get.
+/// The numbers are the ones that put a 1.25 pt pen (1.5 pt for the chevron, the tick and the X) on the photos' own pixels.
 struct AppointmentDayGlyph: Shape {
     enum Kind {
         case calendar, people, sliders, plus, chevronDown, tick, cross
@@ -49,24 +51,24 @@ struct AppointmentDayGlyph: Shape {
         switch kind {
         case .calendar:
             // A rounded box with a line under its top, and two rings standing above it.
-            path.addRoundedRect(in: CGRect(x: 0.6, y: 2.6, width: 15.47, height: 13.47), cornerSize: CGSize(width: 1.6, height: 1.6))
-            Self.line(&path, 0.6, 6.67, 16.07, 6.67)
-            Self.line(&path, 4.67, 0.6, 4.67, 4.4)
-            Self.line(&path, 12.0, 0.6, 12.0, 4.4)
+            path.addRoundedRect(in: CGRect(x: 0.8, y: 2.8, width: 15.07, height: 13.07), cornerSize: CGSize(width: 1.2, height: 1.2), style: .circular)
+            Self.line(&path, 0.8, 6.82, 15.87, 6.82)
+            Self.line(&path, 4.82, 0.85, 4.82, 4.3)
+            Self.line(&path, 11.85, 0.85, 11.85, 4.3)
         case .people:
             // The person in front, whole; the one behind on the right, only where the front one does not hide it.
-            path.addEllipse(in: CGRect(x: 2.42, y: 0.58, width: 5.5, height: 5.5))
-            Self.arc(&path, center: CGPoint(x: 5.17, y: 12.07), radius: 4.5, from: 180, delta: 180)
-            Self.arc(&path, center: CGPoint(x: 11.84, y: 3.33), radius: 2.75, from: 209, delta: 302)
-            Self.arc(&path, center: CGPoint(x: 11.17, y: 12.07), radius: 4.5, from: 250, delta: 110)
+            path.addEllipse(in: CGRect(x: 2.59, y: 0.83, width: 5.5, height: 5.5))
+            Self.arc(&path, center: CGPoint(x: 5.34, y: 11.82), radius: 4.5, from: 180, delta: 180)
+            Self.arc(&path, center: CGPoint(x: 11.32, y: 3.58), radius: 2.75, from: 237, delta: 245.5)
+            Self.arc(&path, center: CGPoint(x: 11.32, y: 11.82), radius: 4.5, from: 257.7, delta: 102.1)
         case .sliders:
-            // Two sliders: the left knob low, the right one high.
-            Self.line(&path, 3.1, 0.6, 3.1, 5.8)
-            path.addEllipse(in: CGRect(x: 3.1 - 2.73, y: 10.9 - 2.73, width: 5.46, height: 5.46))
-            Self.line(&path, 3.1, 13.63, 3.1, 16.07)
-            Self.line(&path, 11.45, 0.6, 11.45, 2.71)
-            path.addEllipse(in: CGRect(x: 11.45 - 2.73, y: 5.44 - 2.73, width: 5.46, height: 5.46))
-            Self.line(&path, 11.45, 10.6, 11.45, 16.07)
+            // Two sliders: the left knob low, the right one high (5 pt rings, each touching the longer part of its line).
+            Self.line(&path, 3.17, 0.85, 3.17, 5.8)
+            path.addEllipse(in: CGRect(x: 3.17 - 2.5, y: 10.83 - 2.5, width: 5, height: 5))
+            Self.line(&path, 3.17, 13.33, 3.17, 15.82)
+            Self.line(&path, 11.5, 0.85, 11.5, 3.01)
+            path.addEllipse(in: CGRect(x: 11.5 - 2.5, y: 5.84 - 2.5, width: 5, height: 5))
+            Self.line(&path, 11.5, 10.85, 11.5, 15.82)
         case .plus:
             Self.line(&path, 5.67, 0.67, 5.67, 10.67)
             Self.line(&path, 0.67, 5.67, 10.67, 5.67)
@@ -76,9 +78,9 @@ struct AppointmentDayGlyph: Shape {
             path.addLine(to: CGPoint(x: 12.53, y: 0.8))
         case .tick:
             // The checkbox's tick, traced from the photos' 16 pt box.
-            path.move(to: CGPoint(x: 3.9, y: 9.0))
-            path.addLine(to: CGPoint(x: 6.2, y: 11.6))
-            path.addLine(to: CGPoint(x: 12.0, y: 4.8))
+            path.move(to: CGPoint(x: 3.95, y: 9.3))
+            path.addLine(to: CGPoint(x: 6.3, y: 12.1))
+            path.addLine(to: CGPoint(x: 12.0, y: 5.1))
         case .cross:
             Self.line(&path, 0.6, 0.6, 10.4, 10.4)
             Self.line(&path, 10.4, 0.6, 0.6, 10.4)
@@ -126,16 +128,15 @@ struct AppointmentDayStatusIcon: View {
     var body: some View {
         let scale = size / 24
         ZStack {
-            // The photo's ring and marks are 1.5 pt; the exclamation mark's stem tapers from about 2.1 to 1.5 pt.
+            // The photo's ring and marks are 1.5 pt lines; its exclamation mark is a solid shape.
             Circle()
                 .strokeBorder(color, lineWidth: 1.5 * scale)
-            AppointmentDayStatusMarks(kind: kind)
-                .stroke(color, style: StrokeStyle(lineWidth: (kind == .noShow ? 1.85 : 1.5) * scale, lineCap: .round, lineJoin: .round))
             if kind == .noShow {
-                Circle()
+                AppointmentDayStatusMarks(kind: kind)
                     .fill(color)
-                    .frame(width: 2.7 * scale, height: 2.7 * scale)
-                    .offset(y: 5.6 * scale)
+            } else {
+                AppointmentDayStatusMarks(kind: kind)
+                    .stroke(color, style: StrokeStyle(lineWidth: 1.5 * scale, lineCap: .round, lineJoin: .round))
             }
         }
         .frame(width: size, height: size)
@@ -152,7 +153,8 @@ struct AppointmentDayStatusIcon: View {
     }
 }
 
-/// What is drawn inside each status ring, in a 24 pt box (the ring itself is 24 pt across).
+/// What is drawn inside each status ring, in a 24 pt box (the ring itself is 24 pt across), traced from the photo's own pixels.
+/// All are lines for a 1.5 pt pen, except the No show mark, which is filled.
 struct AppointmentDayStatusMarks: Shape {
     let kind: AppointmentDayStatusIcon.Kind
 
@@ -160,24 +162,31 @@ struct AppointmentDayStatusMarks: Shape {
         var path = Path()
         switch kind {
         case .pending:
-            path.move(to: CGPoint(x: 12, y: 7.4))
+            path.move(to: CGPoint(x: 12, y: 7.5))
             path.addLine(to: CGPoint(x: 12, y: 12))
-            path.addLine(to: CGPoint(x: 18.1, y: 16.3))
+            path.addLine(to: CGPoint(x: 18.0, y: 16.5))
         case .confirmed:
-            path.move(to: CGPoint(x: 6.0, y: 12.9))
-            path.addLine(to: CGPoint(x: 9.0, y: 16.0))
-            path.addLine(to: CGPoint(x: 17.6, y: 7.5))
+            // The photo's check turns its corner in a small curve.
+            path.move(to: CGPoint(x: 6.0, y: 13.1))
+            path.addArc(tangent1End: CGPoint(x: 9.3, y: 17.05), tangent2End: CGPoint(x: 18.0, y: 7.5), radius: 1.05)
+            path.addLine(to: CGPoint(x: 18.0, y: 7.5))
         case .completed:
             // The check behind shows only where the one in front leaves room.
-            AppointmentDayGlyph.line(&path, 6.0, 12.5, 8.0, 15.3)
-            AppointmentDayGlyph.line(&path, 11.9, 11.8, 14.6, 8.5)
-            path.move(to: CGPoint(x: 8.9, y: 12.5))
-            path.addLine(to: CGPoint(x: 12.0, y: 16.0))
-            path.addLine(to: CGPoint(x: 17.7, y: 8.9))
+            AppointmentDayGlyph.line(&path, 6.05, 12.8, 8.2, 15.7)
+            AppointmentDayGlyph.line(&path, 12.0, 12.0, 14.95, 8.3)
+            path.move(to: CGPoint(x: 9.0, y: 12.75))
+            path.addLine(to: CGPoint(x: 12.0, y: 16.55))
+            path.addLine(to: CGPoint(x: 18.0, y: 9.0))
         case .canceled:
             AppointmentDayGlyph.line(&path, 4.0, 20.0, 20.0, 4.0)
         case .noShow:
-            AppointmentDayGlyph.line(&path, 12, 5.7, 12, 14.0)
+            // A flat-ended stem that narrows from 2.1 pt to 1.5 pt, over a 2.9 pt dot.
+            path.move(to: CGPoint(x: 10.95, y: 4.5))
+            path.addLine(to: CGPoint(x: 13.05, y: 4.5))
+            path.addLine(to: CGPoint(x: 12.74, y: 15.15))
+            path.addLine(to: CGPoint(x: 11.26, y: 15.15))
+            path.closeSubpath()
+            path.addEllipse(in: CGRect(x: 12 - 1.45, y: 18.0 - 1.45, width: 2.9, height: 2.9))
         case .open:
             // The website's hourglass, sized to this ring.
             AppointmentDayGlyph.line(&path, 8.22, 5.7, 15.78, 5.7)
@@ -197,7 +206,7 @@ struct AppointmentDayStatusMarks: Shape {
     }
 }
 
-/// Clover's square checkbox from the photos: 16 pt with 2.67 pt corners, navy with a white tick when checked.
+/// Clover's square checkbox from the photos: 16 pt with 3 pt round corners, navy with a white tick when checked.
 struct AppointmentDayCheckbox: View {
     let on: Bool
     var greyed = false
@@ -205,12 +214,12 @@ struct AppointmentDayCheckbox: View {
     var body: some View {
         ZStack {
             if on {
-                RoundedRectangle(cornerRadius: 2.67, style: .continuous)
+                RoundedRectangle(cornerRadius: 3, style: .circular)
                     .fill(greyed ? SettingsLook.greyed : AppointmentDayLook.navy)
                 AppointmentDayGlyph(kind: .tick)
                     .stroke(Color.white, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             } else {
-                RoundedRectangle(cornerRadius: 2.67, style: .continuous)
+                RoundedRectangle(cornerRadius: 3, style: .circular)
                     .strokeBorder(greyed ? SettingsLook.greyed : AppointmentDayLook.boxBorder, lineWidth: 1)
             }
         }
@@ -231,7 +240,7 @@ struct AppointmentDayCloseButton: View {
                     .strokeBorder(Theme.ink, lineWidth: 2)
                 Circle()
                     .strokeBorder(Theme.ink, lineWidth: 1)
-                    .padding(4.17)
+                    .padding(4)
                 AppointmentDayGlyph(kind: .cross)
                     .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
                     .frame(width: 11, height: 11)

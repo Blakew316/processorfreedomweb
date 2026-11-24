@@ -11,8 +11,10 @@ struct CloseoutSettingsPage: View {
             .text("Closeouts total a day of sales and tenders so the books can be squared and the drawer counted. "),
             .link("Open Closeout", { openTab = "close" }),
         ]) {
+            // As in the photo: the title's baseline 35 pt into the card and "Closeout method" 49 pt under it.
             SettingsCard(spacing: 27) {
                 SettingsA.CardTitle(text: "Method and time")
+                    .padding(.top, -4)
                 setting("Closeout method", value: "Manual closeout",
                         note: "You close out from the Closeout page whenever you are ready. Everything recorded since the last closeout stays in the open batch until then.")
                 setting("Closeout time", value: "None", note: "There is no automatic closeout.")
@@ -35,7 +37,7 @@ struct CloseoutSettingsPage: View {
             Text(note)
                 .pfFont(16)
                 .foregroundStyle(SettingsLook.muted)
-                .lineSpacing(4)
+                .lineSpacing(5)
                 .padding(.top, 9)
         }
         .fixedSize(horizontal: false, vertical: true)

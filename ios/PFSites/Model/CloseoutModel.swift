@@ -102,15 +102,29 @@ final class CloseoutModel {
     /// What went wrong, in the server's words: shown in place of the batches until a load works, and in one quiet line above them
     /// when this login may not see them (a 403 is a message, never a sign-out).
     private(set) var loadError = ""
+    /// The business's time zone (ordering.timezone): the batches' times are written on the business's clock, as the Orders tab
+    /// writes its times. The phone's own until the business's is known.
+    private(set) var zone: TimeZone = .current
     @ObservationIgnored private var round = 0
+    @ObservationIgnored private var zoneLoadedAt: Date?
+    @ObservationIgnored private var zoneLoading = false
 
-    func load(siteID: String) async {
+    /// A refresh that does not work while batches are showing keeps them, and gives back the server's words (offline, for
+    /// example) for a short message when the person asked for the refresh; the timer's own refreshes stay quiet.
+    @discardableResult
+    func load(siteID: String) async -> String? {
         round += 1
         let mine = round
         loading = true
+        var words: String?
+        // The business's clock is asked for beside the batches. The first batches wait for it, so their times never change under
+        // the reader; after that it is only checked again, at most once a minute, and holds nothing back.
+        let clockKnown = zoneLoadedAt != nil
+        let clock = Task { await loadZone(siteID: siteID) }
         do {
             let answer = try await API.get("/api/sites/\(siteID)/closeouts")
-            guard mine == round else { return }
+            if !clockKnown { await clock.value }
+            guard mine == round else { return nil }
             if answer["open"].isObject {
                 let fresh = CloseoutOpenBatch(answer["open"])
                 let list = answer["history"].array.compactMap { CloseoutBatch($0) }
@@ -122,15 +136,31 @@ final class CloseoutModel {
                 loadError = "Something went wrong. Please try again."
             }
         } catch let error as APIError {
-            guard mine == round else { return }
+            guard mine == round else { return nil }
             // Signed out everywhere, or the server ended the session: the app checks, then locks. Anything else is a message;
             // a failed refresh keeps the batches it had.
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            if !loaded || error.forbidden { loadError = error.message }
+            if !loaded || error.forbidden {
+                loadError = error.message
+            } else if error.status != 401 {
+                words = error.message
+            }
         } catch {
             // Cancelled: the page went away.
         }
         if mine == round { loading = false }
+        return words
+    }
+
+    /// The business's time zone (GET /api/sites/<id>), read again at most once a minute.
+    private func loadZone(siteID: String) async {
+        if zoneLoading { return }
+        if let at = zoneLoadedAt, Date().timeIntervalSince(at) < 60 { return }
+        zoneLoading = true
+        defer { zoneLoading = false }
+        guard let answer = try? await API.get("/api/sites/\(siteID)") else { return }
+        zoneLoadedAt = Date()
+        if let found = TimeZone(identifier: answer["site"]["ordering"]["timezone"].string), found.identifier != zone.identifier { zone = found }
     }
 
     /// Closes out the open batch the person was asked about (`POST /api/sites/<id>/closeouts`): the server files its totals under the

@@ -28,11 +28,20 @@ struct CloseoutScreen: View {
                 .navigationDestination(for: CloseoutRoute.self) { route in
                     switch route {
                     case .current:
-                        CloseoutCurrentBatchView(closeout: closeout, onClosed: closedOut)
+                        CloseoutCurrentBatchView(closeout: closeout, onClosed: closedOut, say: show)
                     case .closed(let batch):
-                        CloseoutBatchView(closeout: closeout, batch: batch)
+                        CloseoutBatchView(closeout: closeout, batch: batch, say: show)
                     }
                 }
+        }
+        // Over whichever page of the cover is on top: "Batch closed", or why a pulled refresh did not work.
+        .overlay(alignment: .bottom) {
+            if let toast {
+                GlassToast(text: toast)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
     }
 
@@ -48,27 +57,21 @@ struct CloseoutScreen: View {
                     .pfFont(24, .bold, relativeTo: .title)
                     .foregroundStyle(Color.primary)
                     .accessibilityAddTraits(.isHeader)
-                    .padding(.top, 9)
+                    .padding(.top, 8.3)
                 CloseoutDescription(text: CloseoutLook.description)
                     .padding(.top, 7.3)
                 batches
-                    .padding(.top, 26)
+                    .padding(.top, 26.3)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 19)
+            .padding(.top, 19.7)
             .padding(.bottom, 40)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(CloseoutLook.page)
-        .refreshable { await reload() }
-        .overlay(alignment: .bottom) {
-            if let toast {
-                GlassToast(text: toast)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 20)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
+        // The photo's bar stays plain white over what scrolls under it, like the cover's other pages.
+        .scrollEdgeEffectStyle(.hard, for: .top)
+        .refreshable { await pulled() }
         .navigationTitle("Closeout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -137,11 +140,11 @@ struct CloseoutScreen: View {
                 Button {
                     showCurrent()
                 } label: {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 7) {
                         Text("Open batch")
                             .pfFont(16, .semibold)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 17, weight: .regular))
+                            .font(.system(size: 16, weight: .regular))
                             .accessibilityHidden(true)
                     }
                     .foregroundStyle(SettingsLook.muted)
@@ -152,7 +155,7 @@ struct CloseoutScreen: View {
                 .buttonStyle(.plain)
                 .padding(.vertical, -10)
                 .accessibilityHint("Shows the open batch")
-                .padding(.top, 33)
+                .padding(.top, 32.7)
                 Text(Money.format(open.totals.net))
                     .pfFont(32, .light, relativeTo: .largeTitle)
                     .foregroundStyle(Color.primary)
@@ -162,9 +165,9 @@ struct CloseoutScreen: View {
                 Text(CloseoutLook.openSentence)
                     .pfFont(14)
                     .foregroundStyle(CloseoutLook.note)
-                    .lineSpacing(7.3)
+                    .lineSpacing(7)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 20.7)
+                    .padding(.top, 20.3)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -190,10 +193,9 @@ struct CloseoutScreen: View {
             CloseoutRule()
             ForEach(closeout.history) { batch in
                 Button {
-                    model.idle.touch()
-                    path.append(.closed(batch))
+                    showClosed(batch)
                 } label: {
-                    CloseoutBatchRow(title: CloseoutLook.when(batch.closedAt), open: false, kind: "Standard transactions",
+                    CloseoutBatchRow(title: CloseoutLook.when(batch.closedAt, in: closeout.zone), open: false, kind: "Standard transactions",
                                      count: batch.totals.count, total: batch.totals.net, code: batch.code)
                 }
                 .buttonStyle(CloseoutRowStyle())
@@ -205,9 +207,17 @@ struct CloseoutScreen: View {
 
     // MARK: Actions
 
+    /// A page opens only from the list itself: a second tap landing before the first page has slid in opens nothing more.
     private func showCurrent() {
         model.idle.touch()
+        guard path.isEmpty else { return }
         path.append(.current)
+    }
+
+    private func showClosed(_ batch: CloseoutBatch) {
+        model.idle.touch()
+        guard path.isEmpty else { return }
+        path.append(.closed(batch))
     }
 
     /// The open batch was closed out from its details: back to the list (already loaded again) with "Batch closed", as the website.
@@ -229,6 +239,12 @@ struct CloseoutScreen: View {
     private func reload() async {
         guard let business = model.site else { return }
         await closeout.load(siteID: business.id)
+    }
+
+    /// Pulled to refresh: when it does not work the batches stay, with the server's words (offline, for example) in a short message.
+    private func pulled() async {
+        guard let business = model.site else { return }
+        if let words = await closeout.load(siteID: business.id) { show(words) }
     }
 
     /// Fresh now, then every 30 seconds while this page is on screen and the app is open and unlocked: the open batch grows with

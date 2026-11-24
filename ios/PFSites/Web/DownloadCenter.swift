@@ -55,6 +55,7 @@ final class DownloadCenter: NSObject, WKDownloadDelegate {
 final class BrowserController: UIViewController, WKNavigationDelegate {
     private let url: URL
     private let webView: WKWebView
+    private let spinner = UIActivityIndicatorView(style: .large)
 
     init(url: URL) {
         self.url = url
@@ -78,12 +79,50 @@ final class BrowserController: UIViewController, WKNavigationDelegate {
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         webView.navigationDelegate = self
         view.addSubview(webView)
+        // A spinner until the page is up, so the sheet is never just blank while it loads.
+        spinner.color = UIColor(named: "BrandBlue")
+        spinner.hidesWhenStopped = true
+        spinner.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+        spinner.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+        view.addSubview(spinner)
+        spinner.startAnimating()
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(done))
         webView.load(URLRequest(url: url))
     }
 
     @objc private func done() {
         dismiss(animated: true)
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        spinner.stopAnimating()
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        failed(error)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        failed(error)
+    }
+
+    /// The page could not be loaded: said in an alert whose Try again loads it once more (a navigation the browser itself
+    /// replaced or handed to Safari is not a failure).
+    private func failed(_ error: Error) {
+        let ns = error as NSError
+        if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled { return }
+        if (ns.domain == "WebKitErrorDomain" || ns.domain == WKErrorDomain) && (ns.code == 102 || ns.code == 204) { return }
+        spinner.stopAnimating()
+        guard presentedViewController == nil, webView.url == nil || webView.url?.absoluteString == "about:blank" else { return }
+        let offline = ns.domain == NSURLErrorDomain && [NSURLErrorNotConnectedToInternet, NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff].contains(ns.code)
+        let alert = UIAlertController(title: nil, message: offline ? APIError.offlineMessage : APIError.unreachableMessage, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Close", style: .cancel) { [weak self] _ in self?.dismiss(animated: true) })
+        alert.addAction(UIAlertAction(title: "Try again", style: .default) { [weak self] _ in
+            guard let self else { return }
+            self.spinner.startAnimating()
+            self.webView.load(URLRequest(url: self.url))
+        })
+        present(alert, animated: true)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {

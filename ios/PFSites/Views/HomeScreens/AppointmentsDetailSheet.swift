@@ -2,10 +2,13 @@ import SwiftUI
 
 /// Tapping an appointment (the website's apptSheet): the customer's name, the day and time, its details, and the website's
 /// actions with its words: Confirm or Complete (or Done), Record payment with the tenders, No show, Void payment, Cancel. Each one
-/// goes to the server; the sheet closes after it, and the day shows the server's answer.
+/// goes to the server; the sheet closes after it, and the day shows the server's answer. The sheet opens as tall as what it
+/// shows, so every action is in sight, and it stays up while a step is on its way to the server.
 struct AppointmentDaySheet: View {
     let list: AppointmentsModel
     let appointmentID: String
+    /// The height of the day view under the bar: the tallest the sheet opens by itself (more than that scrolls).
+    let room: CGFloat
     /// Closes the sheet, with a short message for the day view ("Paid by cash"), or nil.
     let finish: (String?) -> Void
 
@@ -15,10 +18,13 @@ struct AppointmentDaySheet: View {
     @State private var problem: String? = nil
     @State private var question: Question? = nil
     @State private var choosingTender = false
+    /// How tall everything in the sheet is, once it has been laid out.
+    @State private var contentHeight: CGFloat = 0
 
-    init(list: AppointmentsModel, appointmentID: String, finish: @escaping (String?) -> Void) {
+    init(list: AppointmentsModel, appointmentID: String, room: CGFloat, finish: @escaping (String?) -> Void) {
         self.list = list
         self.appointmentID = appointmentID
+        self.room = room
         self.finish = finish
     }
 
@@ -50,8 +56,10 @@ struct AppointmentDaySheet: View {
             }
         }
         .background(SettingsLook.page)
-        .presentationDetents([.medium, .large])
+        .presentationDetents(detents)
         .presentationDragIndicator(.visible)
+        // A step on its way to the server keeps the sheet up until its answer is shown (the X waits too).
+        .interactiveDismissDisabled(working != nil)
         .onAppear {
             if snapshot == nil { snapshot = list.appointment(appointmentID) }
         }
@@ -77,28 +85,40 @@ struct AppointmentDaySheet: View {
         }
     }
 
+    /// The sheet's heights: as tall as what it shows once that is known, and the system's half height until then. One taller
+    /// than the day view opens at the day view's height, scrolls, and can be pulled up to the top.
+    private var detents: Set<PresentationDetent> {
+        guard contentHeight > 0 else { return [.medium, .large] }
+        guard room > 0, contentHeight > room else { return [.height(contentHeight)] }
+        return [.height(room), .large]
+    }
+
     // MARK: What it shows
 
     private func details(_ appointment: Appointment) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(appointment.name)
-                            .pfFont(20, .bold, relativeTo: .title3)
-                            .foregroundStyle(Color.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityAddTraits(.isHeader)
-                        Text(AppointmentDayCalendar.when(appointment))
-                            .pfFont(16)
-                            .foregroundStyle(SettingsLook.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(appointment.name)
+                        .pfFont(20, .bold, relativeTo: .title3)
+                        .foregroundStyle(Color.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: 8)
+                    // The 34 pt X is centred on the name's first line; its 44 pt tap area reaches 5 pt further out all round and
+                    // takes no room of its own below the name.
                     AppointmentDayCloseButton { finish(nil) }
-                        .padding(.top, -5)
+                        .disabled(working != nil)
+                        .opacity(working != nil ? 0.4 : 1)
+                        .padding(.vertical, -10)
                         .padding(.trailing, -5)
                 }
+                // Under the name and the X, so the day, the time and the length have the whole width and stay on one line.
+                Text(AppointmentDayCalendar.when(appointment))
+                    .pfFont(16)
+                    .foregroundStyle(SettingsLook.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 6)
                 if let status = AppointmentStatus(rawValue: appointment.status) {
                     HStack(spacing: 10) {
                         AppointmentDayStatusIcon(kind: AppointmentDayStatusIcon.Kind(status))
@@ -118,8 +138,16 @@ struct AppointmentDaySheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 24)
-            .padding(.bottom, 32)
+            .padding(.bottom, 16)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                let whole = height.rounded(.up)
+                if whole != contentHeight { contentHeight = whole }
+            }
         }
+        // Nothing to scroll while it all fits.
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     /// The website's lines, in its order: Service, Employee, Total, Payment, Phone, Email, Notes.
@@ -170,6 +198,8 @@ struct AppointmentDaySheet: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// A phone number or an email address as a link. Its tap area reaches half-way to the lines above and below without moving
+    /// anything, and VoiceOver reads the line as one ("Phone, (312) 555-0144, link").
     @ViewBuilder
     private func linkLine(_ label: String, _ value: String, url: URL?) -> some View {
         if let url {
@@ -177,6 +207,7 @@ struct AppointmentDaySheet: View {
                 Text(label)
                     .pfFont(16)
                     .foregroundStyle(SettingsLook.muted)
+                    .accessibilityHidden(true)
                 Spacer(minLength: 8)
                 Link(destination: url) {
                     Text(value)
@@ -185,7 +216,13 @@ struct AppointmentDaySheet: View {
                         .multilineTextAlignment(.trailing)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .padding(.vertical, 8)
+                        .padding(.leading, 12)
+                        .contentShape(Rectangle())
                 }
+                .padding(.vertical, -8)
+                .padding(.leading, -12)
+                .accessibilityLabel("\(label), \(value)")
             }
         } else {
             line(label, value)

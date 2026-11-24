@@ -201,8 +201,21 @@ extension OfficePage: WKNavigationDelegate, WKUIDelegate {
         if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled { return }
         if (ns.domain == "WebKitErrorDomain" || ns.domain == WKErrorDomain) && (ns.code == 102 || ns.code == 204) { return }
         if failure != nil { return }
-        let offline: Set<Int> = [NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost, NSURLErrorTimedOut, NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed, NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff]
-        fail(ns.domain == NSURLErrorDomain && offline.contains(ns.code) ? .offline : .server)
+        guard ns.domain == NSURLErrorDomain else {
+            fail(.server)
+            return
+        }
+        // "You're offline" is only said when the phone has no connection. A connection that dropped part-way, a timeout or a
+        // server that could not be found or reached while the phone is online is said as that.
+        let offline: Set<Int> = [NSURLErrorNotConnectedToInternet, NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff]
+        let unreachable: Set<Int> = [NSURLErrorNetworkConnectionLost, NSURLErrorTimedOut, NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed]
+        if offline.contains(ns.code) || (unreachable.contains(ns.code) && NetworkMonitor.shared.online == false) {
+            fail(.offline)
+        } else if unreachable.contains(ns.code) {
+            fail(.unreachable)
+        } else {
+            fail(.server)
+        }
     }
 }
 

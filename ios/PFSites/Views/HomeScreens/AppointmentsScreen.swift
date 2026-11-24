@@ -9,6 +9,7 @@ import SwiftUI
 struct AppointmentsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var started = false
     @State private var panel: AppointmentDayPanel? = nil
     @State private var pickingFromTitle = false
@@ -20,6 +21,8 @@ struct AppointmentsScreen: View {
     @State private var pickerZone = TimeZone.current
     @State private var opened: Opened? = nil
     @State private var toast: String? = nil
+    /// The height of the day view under the bar: an appointment's sheet opens no taller than this by itself.
+    @State private var roomHeight: CGFloat = 0
     /// VoiceOver goes back to the round button whose panel has just closed.
     @AccessibilityFocusState private var returnFocus: AppointmentDayPanel?
 
@@ -46,12 +49,18 @@ struct AppointmentsScreen: View {
             }
             .accessibilityHidden(panel != nil)
             if let panel {
+                // Sliding up from the foot of the screen; fading in for someone who has asked iOS for less motion.
                 panelView(panel)
-                    .transition(.move(edge: .bottom))
+                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition.move(edge: .bottom))
                     .zIndex(1)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            if height != roomHeight { roomHeight = height }
+        }
         .animation(.snappy(duration: 0.3), value: panel)
         .background(Color(.systemBackground))
         .navigationTitle("Appointments")
@@ -87,7 +96,7 @@ struct AppointmentsScreen: View {
             pickingFromButton = false
         }
         .sheet(item: $opened, onDismiss: { Task { await refresh() } }) { item in
-            AppointmentDaySheet(list: list, appointmentID: item.id) { message in
+            AppointmentDaySheet(list: list, appointmentID: item.id, room: roomHeight) { message in
                 opened = nil
                 if let message { show(message) }
             }
@@ -112,7 +121,9 @@ struct AppointmentsScreen: View {
                 openCalendar()
                 pickingFromTitle = true
             } label: {
-                HStack(spacing: 21) {
+                // The photo's day begins 32.3 pt from the edge (31 pt, then the letter's own side space) and its chevron 21.3 pt
+                // after the last figure.
+                HStack(spacing: 20.67) {
                     Text(AppointmentDayCalendar.title(shown.day, today: shown.today))
                         .pfFont(16, .bold)
                         .foregroundStyle(Color.primary)
@@ -122,7 +133,7 @@ struct AppointmentsScreen: View {
                         .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                         .frame(width: 13.33, height: 7.33)
                 }
-                .padding(.leading, 16)
+                .padding(.leading, 15)
                 .frame(minHeight: 48)
                 .contentShape(Rectangle())
             }
@@ -146,6 +157,8 @@ struct AppointmentsScreen: View {
                 .padding(.leading, 8)
             Button {
                 model.idle.touch()
+                // A second tap before the form has slid in would open it twice.
+                if case .createAppointment = model.shell.home.last { return }
                 model.shell.push(.createAppointment(date: nil, time: nil, employee: nil))
             } label: {
                 // The photo's "+" sits 1.67 pt below the middle of its circle.
@@ -163,6 +176,9 @@ struct AppointmentsScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 28)
+        // Room under the buttons, so that cards scrolling up are cut off a little below them, not against them (the day at
+        // rest starts where it did: the list has 8 pt less above it).
+        .padding(.bottom, 8)
     }
 
     /// A 48 pt grey circle with a brand-blue drawing; a count in a blue dot when its filter leaves something out, as the website's
@@ -234,7 +250,8 @@ struct AppointmentsScreen: View {
                     .pfFont(17)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button("Try again") { Task { await refresh() } }
+                // The spinner takes the message's place while it tries again.
+                Button("Try again") { Task { await retry() } }
                     .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 17))
                     .frame(maxWidth: 200)
             }
@@ -253,9 +270,16 @@ struct AppointmentsScreen: View {
                     ForEach(shown.dayList) { appointment in
                         card(appointment)
                     }
+                    if shown.dayList.isEmpty && shown.loadError.isEmpty {
+                        // A day with nothing to show is plain empty space, as in the photo; VoiceOver is told why.
+                        Color.clear
+                            .frame(height: 1)
+                            .accessibilityElement()
+                            .accessibilityLabel(shown.dayIsFilteredAway ? "No appointments match the filters" : "No appointments")
+                    }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 24)
+                .padding(.top, 16)
                 .padding(.bottom, 32)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -359,6 +383,11 @@ struct AppointmentsScreen: View {
     private func refresh() async {
         guard let business = model.site else { return }
         await list.load(siteID: business.id)
+    }
+
+    private func retry() async {
+        guard let business = model.site else { return }
+        await list.retry(siteID: business.id)
     }
 
     private func show(_ text: String) {

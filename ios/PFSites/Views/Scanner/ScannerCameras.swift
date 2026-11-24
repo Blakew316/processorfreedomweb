@@ -14,6 +14,8 @@ enum ScanSymbologies {
 /// counting as seen (the fallback camera reports it many times a second). A class, so marking a code seen redraws nothing.
 final class ScanGate {
     private var seen: [String: Date] = [:]
+    /// Codes that came into view while the scanner was busy with something else, still to be read.
+    private var held: Set<String> = []
 
     /// Whether this sighting is a new read. Every sighting counts as seen.
     func pass(_ code: String, at now: Date = Date()) -> Bool {
@@ -22,6 +24,23 @@ final class ScanGate {
         if seen.count > 64 { seen = seen.filter { now.timeIntervalSince($0.value) < 10 } }
         guard let last else { return true }
         return now.timeIntervalSince(last) >= 2
+    }
+
+    /// A sighting while the scanner is busy (a price being keyed in, a message up, a read being looked up). A code that was just
+    /// read stays read for as long as it is in view; one that turns up meanwhile is not used up: it is kept, and read once the
+    /// scanner is free (see `wasHeld`).
+    func sawWhileBusy(_ code: String, at now: Date = Date()) {
+        if let last = seen[code], now.timeIntervalSince(last) < 2 {
+            seen[code] = now
+        } else {
+            if held.count > 64 { held.removeAll() }
+            held.insert(code)
+        }
+    }
+
+    /// Whether this code turned up while the scanner was busy and has not been read yet. Asking forgets it.
+    func wasHeld(_ code: String) -> Bool {
+        held.remove(code) != nil
     }
 }
 
