@@ -24,9 +24,9 @@ struct ItemSalesCustomRangeSheet: View {
     private var tooLong: Bool { abs(fromDay.days(to: toDay)) > ItemSalesModel.longestRange }
 
     private var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = zone
-        return calendar
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = zone
+        return gregorian
     }
 
     var body: some View {
@@ -74,7 +74,8 @@ struct ItemSalesSyncSheet: View {
     @State private var busy = false
     @State private var problem = ""
 
-    private let steps = [
+    /// The website's three steps, word for word.
+    static let steps: [String] = [
         "Choose the dates at the top of this page, then download below.",
         "In QuickBooks Online, go to Transactions › Bank transactions › Link account › Upload from file.",
         "Pick the downloaded file and the account to put it in. QuickBooks matches the Date, Description and Amount columns for you.",
@@ -84,7 +85,7 @@ struct ItemSalesSyncSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    ForEach(Array(Self.steps.enumerated()), id: \.offset) { index, step in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text(String(index + 1) + ".")
                                 .pfFont(16, .semibold)

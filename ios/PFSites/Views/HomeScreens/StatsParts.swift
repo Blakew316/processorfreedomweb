@@ -110,11 +110,12 @@ struct StatsLoadingView: View {
     }
 }
 
-/// When the numbers could not be loaded: the server's words and Try again (the Orders tab's style; never a red banner).
+/// When the numbers could not be loaded: the server's words, and Try again unless trying again cannot help (the Orders tab's
+/// style; never a red banner).
 struct StatsProblemView: View {
     let message: String
     var fill = true
-    let retry: () -> Void
+    var retry: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 14) {
@@ -123,9 +124,11 @@ struct StatsProblemView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Try again", action: retry)
-                .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 17))
-                .frame(maxWidth: 200)
+            if let retry {
+                Button("Try again", action: retry)
+                    .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 17))
+                    .frame(maxWidth: 200)
+            }
         }
         .padding(.horizontal, fill ? 32 : 8)
         .padding(.vertical, fill ? 0 : 24)

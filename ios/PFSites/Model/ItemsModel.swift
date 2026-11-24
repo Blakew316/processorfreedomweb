@@ -207,7 +207,8 @@ final class ItemsModel {
         let wanted = String(name.trimmed.prefix(60)).trimmed
         guard !wanted.isEmpty else { return "" }
         let known = items.map(\.category) + settings.cats
-        return known.first { $0 == wanted } ?? known.first { $0.lowercased() == wanted.lowercased() } ?? wanted
+        if let same = known.first(where: { $0 == wanted }) { return same }
+        return known.first(where: { $0.lowercased() == wanted.lowercased() }) ?? wanted
     }
 
     /// The items the list shows: the search words (name and category, or the product code, as the website searches) and the filters.
@@ -371,7 +372,7 @@ enum ItemColors {
     /// "None", the colour's name, or the colour itself when it is not one of the list (set some other way).
     static func name(_ hex: String) -> String {
         guard !hex.isEmpty else { return "None" }
-        return all.first { $0.hex == hex.lowercased() }?.name ?? hex.uppercased()
+        return all.first(where: { $0.hex == hex.lowercased() })?.name ?? hex.uppercased()
     }
 
     /// The colour of "#rrggbb", or nil for none or anything else.

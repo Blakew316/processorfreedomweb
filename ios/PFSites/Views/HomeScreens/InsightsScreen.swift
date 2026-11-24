@@ -156,8 +156,14 @@ struct InsightsScreen: View {
                     .padding(.top, 41)
             }
         } else if let problem = stats.currentProblem {
-            StatsProblemView(message: problem, fill: false) {
-                Task { await load(stats) }
+            Group {
+                if stats.problemIsFinal {
+                    StatsProblemView(message: problem, fill: false)
+                } else {
+                    StatsProblemView(message: problem, fill: false) {
+                        Task { await load(stats) }
+                    }
+                }
             }
             .padding(.top, 12)
         } else {

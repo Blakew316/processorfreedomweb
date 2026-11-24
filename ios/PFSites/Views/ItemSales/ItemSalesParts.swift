@@ -366,8 +366,9 @@ struct ItemSalesTabs: View {
     private func tab(_ title: String, chosen: Bool) -> some View {
         Button {} label: {
             VStack(spacing: 8) {
+                // 16 pt keeps both tabs inside the photo's width (Clover's letters are a little narrower than the iPhone's).
                 Text(title)
-                    .pfFont(16.5, .semibold)
+                    .pfFont(16, .semibold)
                     .foregroundStyle(chosen ? Theme.blue : SettingsLook.greyed)
                     .lineLimit(1)
                     .padding(.horizontal, 18.3)
@@ -381,7 +382,7 @@ struct ItemSalesTabs: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(chosen ? [.isSelected] : [])
+        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }
 
@@ -458,8 +459,8 @@ struct ItemSalesRowView: View {
                     .lineLimit(2)
                 Spacer(minLength: 0)
                 Text(Money.format(row.sales))
-                    .pfFont(16.5, .bold)
                     .monospacedDigit()
+                    .pfFont(16.5, .bold)
                     .foregroundStyle(Color.primary)
                     .layoutPriority(1)
             }
@@ -539,7 +540,7 @@ struct ItemSalesRangeList: View {
                         }
                         .buttonStyle(.plain)
                         .id(period)
-                        .accessibilityAddTraits(period == chosen ? [.isSelected] : [])
+                        .accessibilityAddTraits(period == chosen ? .isSelected : [])
                     }
                 }
                 .padding(.vertical, 6)

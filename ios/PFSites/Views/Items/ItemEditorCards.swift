@@ -15,11 +15,11 @@ enum ItemEditorField: Hashable {
 /// Keeps typed text within what the server keeps, as the website's maxlength does.
 struct ItemsLimit: ViewModifier {
     @Binding var text: String
-    let max: Int
+    let most: Int
 
     func body(content: Content) -> some View {
         content.onChange(of: text) { _, typed in
-            if typed.count > max { text = String(typed.prefix(max)) }
+            if typed.count > most { text = String(typed.prefix(most)) }
         }
     }
 }
@@ -114,7 +114,7 @@ struct ItemDetailsCard: View {
                 TextField("", text: $e.draft.name)
                     .focused(focus, equals: .name)
                     .submitLabel(.done)
-                    .modifier(ItemsLimit(text: $e.draft.name, max: 120))
+                    .modifier(ItemsLimit(text: $e.draft.name, most: 120))
                     .onChange(of: editor.draft.name) { _, _ in editor.nameProblem = "" }
             }
             .padding(.top, 33)
@@ -225,7 +225,7 @@ struct ItemDetailsCard: View {
                 TextField("", text: $e.draft.desc, axis: .vertical)
                     .lineLimit(2...8)
                     .focused(focus, equals: .desc)
-                    .modifier(ItemsLimit(text: $e.draft.desc, max: 500))
+                    .modifier(ItemsLimit(text: $e.draft.desc, most: 500))
             }
             .padding(.top, 34)
         }
@@ -235,8 +235,8 @@ struct ItemDetailsCard: View {
     private var required: some View {
         HStack(alignment: .firstTextBaseline, spacing: 1.5) {
             Text("*")
-                .pfFont(11)
                 .baselineOffset(-1.5)
+                .pfFont(11)
             Text("Required")
                 .pfFont(16)
         }
@@ -483,7 +483,7 @@ struct ItemOptionsCard: View {
     /// The option with this id, looked up each time, so removing one never leaves a field holding a stale place in the list.
     private func binding(_ id: UUID) -> Binding<ItemOptionDraft> {
         Binding(
-            get: { editor.draft.options.first { $0.id == id } ?? ItemOptionDraft(name: "", required: false, multi: false) },
+            get: { editor.draft.options.first(where: { $0.id == id }) ?? ItemOptionDraft(name: "", required: false, multi: false) },
             set: { changed in
                 if let index = editor.draft.options.firstIndex(where: { $0.id == id }) { editor.draft.options[index] = changed }
             }
@@ -503,7 +503,7 @@ struct ItemOptionBox: View {
                 ItemsField(label: "Option name", focused: focus.wrappedValue == .optionName(option.id)) {
                     TextField("", text: $option.name, prompt: Text("e.g. Size").foregroundStyle(ItemsLook.placeholder))
                         .focused(focus, equals: .optionName(option.id))
-                        .modifier(ItemsLimit(text: $option.name, max: 60))
+                        .modifier(ItemsLimit(text: $option.name, most: 60))
                 }
                 Button(action: remove) {
                     Image(systemName: "trash")
@@ -520,7 +520,7 @@ struct ItemOptionBox: View {
                 TextField("", text: $option.choicesText, prompt: Text("Small\nLarge +1.50").foregroundStyle(ItemsLook.placeholder), axis: .vertical)
                     .lineLimit(3...12)
                     .focused(focus, equals: .optionChoices(option.id))
-                    .modifier(ItemsLimit(text: $option.choicesText, max: 4000))
+                    .modifier(ItemsLimit(text: $option.choicesText, most: 4000))
             }
             .padding(.top, 20)
             ItemsSwitchRow(label: "Must choose", on: $option.required)
@@ -833,79 +833,104 @@ struct ItemTrackingCard: View {
     let scan: () -> Void
 
     var body: some View {
-        @Bindable var e = editor
         ItemsCard(title: "Item tracking", note: "Select how you want to manage item stock and availability.", bottom: 20.3) {
             VStack(alignment: .leading, spacing: 0) {
-                ItemsField(label: "Product code", problem: editor.codeProblem,
-                           note: "Scanning this code on the PF Sites app’s Sale screen finds this item.",
-                           focused: focus.wrappedValue == .code) {
-                    TextField("", text: $e.draft.code, prompt: Text("Scan or type the barcode number or SKU").foregroundStyle(ItemsLook.placeholder))
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused(focus, equals: .code)
-                        .modifier(ItemsLimit(text: $e.draft.code, max: 64))
-                        .onChange(of: editor.draft.code) { _, _ in editor.codeProblem = "" }
-                } trailing: {
-                    Button(action: scan) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "barcode.viewfinder")
-                                .font(.system(size: 17, weight: .regular))
-                            Text("Scan")
-                                .pfFont(15, .medium)
-                        }
-                        .foregroundStyle(Theme.blue)
-                        .padding(.horizontal, 6)
-                        .frame(minHeight: 40)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Scan")
-                }
-                .padding(.top, 37.9)
-                ItemsField(label: "SKU", greyed: true) {
-                    Text("")
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("SKU")
-                .accessibilityValue("Not available yet")
-                .padding(.top, 33.9)
-                ItemsHeading(text: "Stock")
-                    .padding(.top, 41.6)
-                ItemsRadioRow(label: "Manually manage availability", on: false, greyed: true)
-                    .padding(.top, 38.7)
-                ItemsRadioRow(label: "Automatically manage availability", on: true, extra: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ItemsField(label: "In stock", problem: editor.stockProblem, focused: focus.wrappedValue == .stock) {
-                            TextField("", text: $e.draft.stockText, prompt: Text("0").foregroundStyle(ItemsLook.placeholder))
-                                .keyboardType(.numberPad)
-                                .focused(focus, equals: .stock)
-                                .modifier(ItemsDigits(text: $e.draft.stockText, limit: 6))
-                                .onChange(of: editor.draft.stockText) { _, _ in editor.stockProblem = "" }
-                        } trailing: {
-                            HStack(spacing: 6) {
-                                step("minus", by: -1, label: "One fewer")
-                                step("plus", by: 1, label: "One more")
-                            }
-                        }
-                        .padding(.top, 24)
-                        ItemsField(label: "Refill every morning to",
-                                   note: "For things you make fresh each day. The quantity goes back to this number every morning. Leave empty to keep counting down.",
-                                   focused: focus.wrappedValue == .restock) {
-                            TextField("", text: $e.draft.restockText, prompt: Text("Off").foregroundStyle(ItemsLook.placeholder))
-                                .keyboardType(.numberPad)
-                                .focused(focus, equals: .restock)
-                                .modifier(ItemsDigits(text: $e.draft.restockText, limit: 6))
-                        }
-                        .padding(.top, 24)
-                    }
-                })
-                .padding(.top, 32.3)
-                ItemsHeading(text: "Availability")
-                    .padding(.top, 30.6)
-                ItemsSwitchRow(label: "Available", on: $e.draft.available)
-                    .padding(.leading, 11.3)
-                    .padding(.top, 28.7)
+                codeSection
+                stockSection
+                availabilitySection
             }
+        }
+    }
+
+    /// The product code, with Scan inside the field as on the website, and the SKU box Processor Freedom does not have.
+    private var codeSection: some View {
+        @Bindable var e = editor
+        return VStack(alignment: .leading, spacing: 0) {
+            ItemsField(label: "Product code", problem: editor.codeProblem,
+                       note: "Scanning this code on the PF Sites app’s Sale screen finds this item.",
+                       focused: focus.wrappedValue == .code) {
+                TextField("", text: $e.draft.code, prompt: Text("Scan or type the barcode number or SKU").foregroundStyle(ItemsLook.placeholder))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused(focus, equals: .code)
+                    .modifier(ItemsLimit(text: $e.draft.code, most: 64))
+                    .onChange(of: editor.draft.code) { _, _ in editor.codeProblem = "" }
+            } trailing: {
+                Button(action: scan) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "barcode.viewfinder")
+                            .font(.system(size: 17, weight: .regular))
+                        Text("Scan")
+                            .pfFont(15, .medium)
+                    }
+                    .foregroundStyle(Theme.blue)
+                    .padding(.horizontal, 6)
+                    .frame(minHeight: 40)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Scan")
+            }
+            .padding(.top, 37.9)
+            ItemsField(label: "SKU", greyed: true) {
+                Text("")
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("SKU")
+            .accessibilityValue("Not available yet")
+            .padding(.top, 33.9)
+        }
+    }
+
+    /// "Stock": counted automatically, with the quantity in stock and the morning refill under the chosen way.
+    private var stockSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ItemsHeading(text: "Stock")
+                .padding(.top, 41.6)
+            ItemsRadioRow(label: "Manually manage availability", on: false, greyed: true)
+                .padding(.top, 38.7)
+            ItemsRadioRow(label: "Automatically manage availability", on: true, extra: { stockFields })
+                .padding(.top, 32.3)
+        }
+    }
+
+    private var stockFields: some View {
+        @Bindable var e = editor
+        return VStack(alignment: .leading, spacing: 0) {
+            ItemsField(label: "In stock", problem: editor.stockProblem, focused: focus.wrappedValue == .stock) {
+                TextField("", text: $e.draft.stockText, prompt: Text("0").foregroundStyle(ItemsLook.placeholder))
+                    .keyboardType(.numberPad)
+                    .focused(focus, equals: .stock)
+                    .modifier(ItemsDigits(text: $e.draft.stockText, limit: 6))
+                    .onChange(of: editor.draft.stockText) { _, _ in editor.stockProblem = "" }
+            } trailing: {
+                HStack(spacing: 6) {
+                    step("minus", by: -1, label: "One fewer")
+                    step("plus", by: 1, label: "One more")
+                }
+            }
+            .padding(.top, 24)
+            ItemsField(label: "Refill every morning to",
+                       note: "For things you make fresh each day. The quantity goes back to this number every morning. Leave empty to keep counting down.",
+                       focused: focus.wrappedValue == .restock) {
+                TextField("", text: $e.draft.restockText, prompt: Text("Off").foregroundStyle(ItemsLook.placeholder))
+                    .keyboardType(.numberPad)
+                    .focused(focus, equals: .restock)
+                    .modifier(ItemsDigits(text: $e.draft.restockText, limit: 6))
+            }
+            .padding(.top, 24)
+        }
+    }
+
+    /// "Availability": the website's "Available to order".
+    private var availabilitySection: some View {
+        @Bindable var e = editor
+        return VStack(alignment: .leading, spacing: 0) {
+            ItemsHeading(text: "Availability")
+                .padding(.top, 30.6)
+            ItemsSwitchRow(label: "Available", on: $e.draft.available)
+                .padding(.leading, 11.3)
+                .padding(.top, 28.7)
         }
     }
 

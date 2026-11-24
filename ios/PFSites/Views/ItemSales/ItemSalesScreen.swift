@@ -127,7 +127,7 @@ struct ItemSalesScreen: View {
                 controls
                     .padding(.top, 28)
                 dateLine
-                    .padding(.top, 20)
+                    .padding(.top, 19)
                 ItemSalesTabs()
                     .padding(.top, 30)
                 results
@@ -221,44 +221,47 @@ struct ItemSalesScreen: View {
                     .accessibilityHidden(true)
             }
             .accessibilityLabel("Filters")
-            .accessibilityValue(report.filtersOn == 0 ? "None on" : "\(report.filtersOn) on")
+            .accessibilityValue(filtersValue)
         }
         .padding(.leading, 2)
+    }
+
+    private var filtersValue: String {
+        report.filtersOn == 0 ? "None on" : String(report.filtersOn) + " on"
     }
 
     /// "Tue, Nov 24, 2026 at 12:00 AM - 11:59 PM", then ‹ and ›, which move the period by its own length (› greyed once it ends today).
     private var dateLine: some View {
         HStack(spacing: 0) {
             Text(report.rangeLine)
-                .pfFont(14.5, .semibold)
+                .pfFont(14, .semibold)
                 .foregroundStyle(ItemSalesLook.dateText)
                 .fixedSize(horizontal: false, vertical: true)
-            Button {
-                report.step(-1)
-            } label: {
-                ItemSalesStepShape()
-                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                    .frame(width: 7.3, height: 14)
-                    .frame(width: 34, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Earlier")
-            .padding(.leading, 1.7)
-            Button {
-                report.step(1)
-            } label: {
-                ItemSalesStepShape(later: true)
-                    .stroke(report.canStepLater ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                    .frame(width: 7.3, height: 14)
-                    .frame(width: 34, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!report.canStepLater)
-            .accessibilityLabel("Later")
+            // The photo's spacing: ‹ starts 15 pt after the dates and › sits 33.7 pt after ‹. The places to tap are 30 pt wide; the
+            // right part of ›'s reaches into the margin instead of pushing the dates onto two lines.
+            stepButton(later: false)
+                .padding(.leading, 3.6)
+            stepButton(later: true)
+                .padding(.leading, 3.7)
+                .padding(.trailing, -11.3)
             Spacer(minLength: 0)
         }
+    }
+
+    private func stepButton(later: Bool) -> some View {
+        let enabled = !later || report.canStepLater
+        return Button {
+            report.step(later ? 1 : -1)
+        } label: {
+            ItemSalesStepShape(later: later)
+                .stroke(enabled ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                .frame(width: 7.3, height: 14)
+                .frame(width: 30, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(later ? "Later" : "Earlier")
     }
 
     /// The period's items, or the website's empty state once the report for these choices has come; until then a spinner, or what
@@ -402,7 +405,8 @@ struct ItemSalesScreen: View {
             }
             fileToOffer = made.file
             syncOpen = false
-            show("\(made.count) transaction\(made.count == 1 ? "" : "s") ready for QuickBooks")
+            let plural = made.count == 1 ? "" : "s"
+            show(String(made.count) + " transaction" + plural + " ready for QuickBooks")
             return nil
         } catch let error as APIError {
             // Signed out everywhere, or the server ended the session: the app checks, then locks. A 403 is only a message.

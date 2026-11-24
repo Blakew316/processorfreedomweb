@@ -378,6 +378,15 @@ struct ItemsListPage: View {
             let shown = items.shown
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    if !items.problem.isEmpty {
+                        // The last refresh did not work: the list stays as it was, with the server's words above it.
+                        Text(items.problem)
+                            .pfFont(15)
+                            .foregroundStyle(Color.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 15)
+                            .padding(.vertical, 12)
+                    }
                     if items.searching {
                         Text("All results")
                             .pfFont(16, .bold)
@@ -504,10 +513,15 @@ struct ItemsListPage: View {
         let names = what
         switch question.kind {
         case .quantity:
-            guard !value.isEmpty else { return }
-            run(["set": ["stock": value]], note: "Quantity set for \(names)")
+            // The website's box takes numbers only: anything else sends nothing.
+            guard let number = Double(value), number.isFinite else { return }
+            run(["set": ["stock": number]], note: "Quantity set for \(names)")
         case .refill:
-            run(["set": ["restock": value.isEmpty ? NSNull() as Any : value as Any]], note: "Daily refill updated for \(names)")
+            if value.isEmpty {
+                run(["set": ["restock": NSNull()]], note: "Daily refill updated for \(names)")
+            } else if let number = Double(value), number.isFinite {
+                run(["set": ["restock": number]], note: "Daily refill updated for \(names)")
+            }
         case .sale:
             guard !value.isEmpty else { return }
             // A value outside what can be stored is refused with a reason, never changed quietly.

@@ -127,17 +127,15 @@ enum StatsDays {
         return (calendar.dateComponents([.day], from: first, to: last).day ?? 0) + 1
     }
 
-    private static func style(_ base: Date.FormatStyle) -> Date.FormatStyle {
-        var style = base
-        style.timeZone = utc
-        style.calendar = calendar
-        return style
+    /// A format on the UTC calendar the days are kept on.
+    private static func style(date: Date.FormatStyle.DateStyle? = nil, time: Date.FormatStyle.TimeStyle? = nil) -> Date.FormatStyle {
+        Date.FormatStyle(date: date, time: time, calendar: calendar, timeZone: utc)
     }
 
     /// "Nov 24, 2026", or "Nov 22 – 24, 2026" and "Oct 26 – Nov 24, 2026" for longer periods, as in the Time frame photo.
     static func title(from: String, to: String) -> String {
         guard let first = date(from), let last = date(to) else { return "" }
-        if from == to { return first.formatted(style(Date.FormatStyle(date: .abbreviated, time: .omitted))) }
+        if from == to { return first.formatted(style(date: .abbreviated, time: .omitted)) }
         let formatter = DateIntervalFormatter()
         formatter.calendar = calendar
         formatter.timeZone = utc
@@ -149,33 +147,33 @@ enum StatsDays {
     /// "12:00 AM – 11:59 PM", in the phone's way of writing times: every period covers whole days.
     static var allDay: String {
         let start = date("2000-01-01") ?? Date(timeIntervalSince1970: 946_684_800)
-        let times = style(Date.FormatStyle(date: .omitted, time: .shortened))
+        let times = style(date: .omitted, time: .shortened)
         return "\(start.formatted(times))\u{2009}–\u{2009}\(start.addingTimeInterval(86_340).formatted(times))"
     }
 
     /// "November 17, 2026".
     static func long(_ day: String) -> String {
-        date(day)?.formatted(style(Date.FormatStyle(date: .long, time: .omitted))) ?? day
+        date(day)?.formatted(style(date: .long, time: .omitted)) ?? day
     }
 
     /// "November 17".
     static func monthDay(_ day: String) -> String {
-        date(day)?.formatted(style(Date.FormatStyle().month(.wide).day())) ?? day
+        date(day)?.formatted(style().month(.wide).day()) ?? day
     }
 
     /// "Tue", under a chart of a week or less.
     static func weekdayShort(_ day: String) -> String {
-        date(day)?.formatted(style(Date.FormatStyle().weekday(.abbreviated))) ?? day
+        date(day)?.formatted(style().weekday(.abbreviated)) ?? day
     }
 
     /// "Nov 18", under a chart of a longer period.
     static func shortDay(_ day: String) -> String {
-        date(day)?.formatted(style(Date.FormatStyle().month(.abbreviated).day())) ?? day
+        date(day)?.formatted(style().month(.abbreviated).day()) ?? day
     }
 
     /// "Tuesday, November 17", for VoiceOver.
     static func spokenDay(_ day: String) -> String {
-        date(day)?.formatted(style(Date.FormatStyle().weekday(.wide).month(.wide).day())) ?? day
+        date(day)?.formatted(style().weekday(.wide).month(.wide).day()) ?? day
     }
 
     /// "12am", "1pm": the hour names under the charts, as in the Sales Overview photo.
@@ -186,7 +184,7 @@ enum StatsDays {
     /// "2 PM", in the phone's way of writing an hour.
     static func hourSpoken(_ hour: Int) -> String {
         let start = date("2000-01-01") ?? Date(timeIntervalSince1970: 946_684_800)
-        return start.addingTimeInterval(Double(hour) * 3600).formatted(style(Date.FormatStyle().hour()))
+        return start.addingTimeInterval(Double(hour) * 3600).formatted(style().hour())
     }
 }
 
@@ -461,7 +459,7 @@ struct StatsReport {
             }
         } else {
             said.append("\(when) your business generated total net sales of \(Money.format(t.net)) across "
-                        + "\(StatsFormat.count(t.orders, "order", "orders")), resulting in an average order value of \(Money.format(t.average)).")
+                        + "\(StatsFormat.count(t.orders, "order", "orders")), with an average order value of \(Money.format(t.average)).")
             said.append(refundsAndDiscounts)
             if let busiest { said.append(busiest) }
             if let bestSeller { said.append(bestSeller) }
@@ -616,6 +614,8 @@ final class StatsModel {
     private(set) var ledgerKey = ""
     private(set) var problem = ""
     private(set) var problemKey = ""
+    /// The problem shown is this login not being allowed to see sales (403): trying again would not help.
+    private(set) var problemIsFinal = false
     /// The business's time zone (site.ordering.timezone), so "Today" and "Last 90 days" are the business's days.
     private(set) var zone: TimeZone?
 
@@ -677,6 +677,7 @@ final class StatsModel {
             report = fresh
             problem = ""
             problemKey = ""
+            problemIsFinal = false
         } catch let error as APIError {
             guard asked == frame else { return }
             // Signed out everywhere, or the session ended: the app checks, then locks.
@@ -685,6 +686,7 @@ final class StatsModel {
             if current == nil {
                 problem = error.message
                 problemKey = asked.key
+                problemIsFinal = error.status == 403
             }
         } catch {
             // Cancelled: the screen went away, or another time frame was chosen.

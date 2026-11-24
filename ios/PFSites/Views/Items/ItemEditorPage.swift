@@ -53,6 +53,13 @@ struct ItemEditorPage: View {
         .background(ItemsLook.page, ignoresSafeAreaEdges: [])
         .background(Color(.systemBackground))
         .modifier(ItemsCoverBar(close: { leave(then: close) }))
+        .toolbar {
+            // Number pads have no return key: Done puts the keyboard away.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focus = nil }
+            }
+        }
         .photosPicker(isPresented: $choosingPhoto, selection: $photoPick, matching: .images)
         .onChange(of: photoPick) { _, pick in
             guard let pick else { return }

@@ -291,7 +291,7 @@ struct ItemSalesRadioRow: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
-        .accessibilityAddTraits(chosen ? [.isSelected] : [])
+        .accessibilityAddTraits(chosen ? .isSelected : [])
         .accessibilityValue(enabled ? "" : "Not available yet")
     }
 

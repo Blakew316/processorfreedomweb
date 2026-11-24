@@ -83,8 +83,12 @@ struct SalesOverviewScreen: View {
             }
             .refreshable { await load(stats) }
         } else if let problem = stats.currentProblem {
-            StatsProblemView(message: problem) {
-                Task { await load(stats) }
+            if stats.problemIsFinal {
+                StatsProblemView(message: problem)
+            } else {
+                StatsProblemView(message: problem) {
+                    Task { await load(stats) }
+                }
             }
         } else {
             StatsLoadingView()

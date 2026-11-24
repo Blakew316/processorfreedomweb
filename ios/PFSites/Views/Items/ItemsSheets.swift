@@ -298,7 +298,7 @@ struct ItemsCategoryPicker: View {
             HStack(spacing: 16) {
                 Button("Cancel") { dismiss() }
                     .buttonStyle(ItemsPillStyle(kind: .grey, height: 45, size: 16, weight: .medium))
-                Button("Add category") { addNew() }
+                Button("Assign") { addNew() }
                     .buttonStyle(ItemsPillStyle(kind: .brand, height: 45, size: 16, weight: .medium))
                     .disabled(newName.trimmed.isEmpty)
             }
