@@ -5842,6 +5842,49 @@ html:not([data-theme=dark]) .iv-form:not(.iv-proj)>.iv-card:first-of-type .iv-hr
 .iv-by{padding-left:10px;gap:9px}
 .iv-byic svg{width:26px;height:26px}
 
+/* ---------- An item's price type and product code (the item window) ---------- */
+/* Fixed or variable, the same height as the boxes beside it. */
+.isheet .it-ptype{padding:3px;border-radius:11px}
+.isheet .it-ptype button{padding:8px 10px;font-size:14px;border-radius:8px}
+/* "Variable" in an item list's price column stays one word in a narrow column. */
+.it-var{white-space:nowrap}
+/* A barcode number in the Product code column: even figures, a size that fits a whole 13-digit code. */
+.it-codec{font-size:15px;font-variant-numeric:tabular-nums}
+/* Where the price box was, for an item priced at the time of sale. */
+.field>span.it-varnote{display:flex;align-items:center;min-height:40px;font-size:14px;font-weight:400;line-height:1.35;color:var(--muted)}
+/* The Scan button sits inside the product code box, at its end (only inside the iPhone app). */
+.it-code{position:relative}
+.isheet .it-code.scan input{padding-right:96px}
+.it-scan{position:absolute;top:50%;right:5px;transform:translateY(-50%);display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 10px;border:0;border-radius:8px;background:var(--card);color:var(--blue);font:inherit;font-size:14px;font-weight:600;box-shadow:0 0 0 1px var(--line2);cursor:pointer}
+.it-scan:active{background:var(--bg3)}
+.it-scanic{display:inline-flex}
+.it-code input{text-overflow:ellipsis}
+/* On a phone the button is its barcode alone (still named Scan), so the box keeps room for what it asks for. */
+@media (max-width:480px){.isheet .it-code.scan input{padding-right:52px}.it-scan{padding:0 9px}.it-scant{display:none}}
+.field small.it-codeerr{color:var(--red);font-weight:500}
+
+/* ---------- Setup tasks and Notifications as pages (the iPhone app opens these) ---------- */
+/* A narrow column, like the Virtual Terminal's, so each step's button stays close to its words. On a computer the back office's own
+   1280px column rule would win over a plain max-width, so this one carries the same weight. */
+.cl.pf-tasks,.cl.pf-notes{max-width:760px}
+@media (min-width:901px){.ed-body[data-mode=office] .panel>.cl.pf-tasks,.ed-body[data-mode=office] .panel>.cl.pf-notes{max-width:760px!important;margin-left:0!important;margin-right:auto!important}}
+.pf-tasks .scard{padding:0;overflow:hidden}
+/* The count goes under the heading when the two do not fit side by side. */
+.pf-tasks .ss-task{flex-wrap:wrap;row-gap:12px}
+.pf-steps{list-style:none;margin:0;padding:0 18px 4px}
+.pf-step{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px 14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line)}
+.pf-step:last-child{border-bottom:0}
+.pf-step>i{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line2);display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:700;color:#fff}
+.pf-step.done>i{background:#1d4f9e;border-color:#1d4f9e}
+.pf-stept b{display:block;font-size:16px;font-weight:600}
+.pf-stept small{display:block;margin-top:2px;font-size:14px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
+.pf-stepa{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+/* On a phone the buttons go under the words, so neither is squeezed. */
+@media (max-width:640px){.pf-step{grid-template-columns:24px minmax(0,1fr);align-items:start}.pf-step>i{margin-top:1px}.pf-stepa{grid-column:2;justify-content:flex-start}}
+.pf-notes .scard{padding:8px}
+/* The bell's pop-up cuts long lines short; a page has the room to show them whole. */
+.pf-notes .tb-note small{white-space:normal}
+
 /* ===== Inside the PF Sites iPhone app =====
    The app marks the page with html.pf-app before it loads. The app draws its own top bar, page strip and tab bar, so the web's own
    navigation is hidden here: the top bar, the sidebar, the section strip, the phone tab bar and the breadcrumbs. The page itself scrolls,

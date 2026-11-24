@@ -1,6 +1,6 @@
-import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, visibleMenu, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods, isOpenNow, steadyId, hoursText as coreHoursText } from '/shared/core.js';
+import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, visibleMenu, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods, isOpenNow, steadyId, hoursText as coreHoursText, normalizeCode } from '/shared/core.js';
 import { renderPage, anchorFor } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, saveSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme, inApp, toApp, busy, printInApp } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, saveSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme, inApp, toApp, askApp, busy, printInApp } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
@@ -17,6 +17,7 @@ const TABS = [
   ['ordering', 'Online ordering', 'sliders', 'office'], ['hours', 'Business hours', 'clock', 'office'], ['alerts', 'Alerts and emails', 'bell', 'office'],
   ['online', 'Online ordering', 'bag', 'office'], ['outreach', 'Customer outreach', 'person', 'office'],
   ['obook', 'Online booking', 'clock', 'office'], ['boutreach', 'Customer outreach', 'person', 'office'],
+  ['tasks', 'Setup tasks', 'check', 'office'], ['notes', 'Notifications', 'bell', 'office'],
   ['design', 'Look and feel', 'brush', 'site'], ['sections', 'Home page', 'layers', 'site'], ['business', 'Business info', 'store', 'site'],
   ['domain', 'Web address', 'globe', 'site'], ['policies', 'Policies', 'lock', 'site'], ['seo', 'Search', 'search', 'site'], ['history', 'History', 'clock', 'site'],
 ];
@@ -55,6 +56,9 @@ const NAV = {
 // Pages opened from a list (a menu, a modifier group, a printer label) keep their list lit in the sidebar.
 const PARENT = { 'mod-new': 'mods', 'mod-edit': 'mods', 'menu-view': 'menus', 'label-view': 'labels', 'cat-view': 'menu', 'inv-edit': 'invoices', 'est-edit': 'est', 'proj-edit': 'projects' };
 const navOf = (k) => PARENT[k] || k;
+// Pages the PF Sites iPhone app opens from its Home screen and its bell. On the website the same lists are under the gear and the bell,
+// so these two are left out of the sidebar and Quick find; they still work at their own addresses.
+const APP_PAGES = new Set(['tasks', 'notes']);
 // What each back-office screen is for, shown as its heading.
 const HEAD = {
   orders: ['Orders', 'New orders appear here on their own. Confirm each one, then mark it ready.'],
@@ -184,6 +188,9 @@ export async function editor(id, mount, title, startTab = '') {
   // What the iPhone app was last told: where the page is (nav) and how many new orders are waiting (badge). See tellApp.
   // bizClosed: this business has been closed (another one opened in its place), so answers still on their way are not shown or told to the app.
   let navSent = '', navLast = null, badgeSent = null, bizClosed = false;
+  // This visit to the Notifications page: when it began (what was new then stays marked new while the page is open), and whether the
+  // list has loaded. A new visit starts each time the page is opened, as each press of the bell loads it fresh.
+  let notesVisit = null;
   let notify = null;         // set while building a form whose changes are not part of the site draft
 
   /* ---------- saving and preview ---------- */
@@ -942,7 +949,9 @@ export async function editor(id, mount, title, startTab = '') {
       d.card = { number: '', holder: '', exp: '', cvv: '', zip: '', street: '' };
       if (!customers && !saleCust) { saleCust = true; api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; if (tab === 'sale') paintPanel(); }).catch(() => {}).finally(() => { saleCust = false; }); }
       const rate = Number(ordering.taxRate) || 0;
-      const cents = (v) => { const c = parsePrice(String(v || '0')); return c == null ? 0 : c; };
+      // The amounts kept here are always plain dollars with two decimals ("1234.50", written by the boxes below or by PF.sale), so they
+      // are read back as they are, up to the terminal's own $999,999.99. parsePrice stops at $100,000, and the total showed $0.00 above it.
+      const cents = (v) => { const s = String(v ?? '').trim(); return /^\d{1,6}(\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : 0; };
       const TYPES = [['pay', 'Take payment'], ['preauth', 'Pre-authorization'], ['invoice', 'Invoice'], ['verify', 'Card verification']];
       const sums = () => { const sub = d.type === 'verify' ? 0 : cents(d.sub), tax = d.type === 'pay' && d.taxSel === 'tax' ? Math.round((sub * rate) / 100) : 0, tip = d.type === 'pay' ? cents(d.tip) : 0; return { sub, tax, tip, total: sub + tax + tip }; };
       const fl = (label, input, help, cls = '') => h('div', { class: `vt-f ${cls}` }, h('label', { class: 'vt-box' }, h('span', { class: 'vt-lab' }, label), input), help && h('small', { class: 'vt-help' }, help));
@@ -1318,7 +1327,8 @@ export async function editor(id, mount, title, startTab = '') {
         ['Orders, last 30 days', 'Every order with its totals, tax, tip, tender and who handled it.', async () => { const st = await api('GET', `/api/sites/${id}/stats?range=last30`); return [`${meta.slug}-orders`, [['Order', 'Date', 'Time', 'Type', 'Customer', 'Status', 'Item sales', 'Discount', 'Net sales', 'Tax', 'Delivery fee', 'Tip', 'Total', 'Paid by', 'Handled by'], ...st.orders.map((o) => [o.number, o.date, o.time, ORDER_METHODS[o.method]?.name || o.method, o.name, o.status === 'ready' ? readyLabel(o.method) : ORDER_STATUSES[o.status] || o.status, cash(o.subtotal), cash(o.discount), cash(o.subtotal - o.discount), cash(o.tax), cash(o.fee), cash(o.tip), cash(o.total), o.paid, o.by])]]; }],
         ['Item sales, last 30 days', 'Units sold and sales for each item.', async () => { const st = await api('GET', `/api/sites/${id}/stats?range=last30`); return [`${meta.slug}-item-sales`, [['Item', 'Category', 'Sold', 'Sales'], ...st.items.map((i) => [i.name, i.category, i.qty, cash(i.sales)])]]; }],
         ['Transactions, last 30 days', 'Recorded payments and refunds.', async () => { const d = await api('GET', `/api/sites/${id}/transactions?range=last30`); return [`${meta.slug}-transactions`, [['Date', 'Time', 'Type', 'For', 'Customer', 'Tender', 'Amount', 'Note'], ...d.payments.map((x) => [x.date, x.time, x.amount < 0 ? 'Void' : 'Payment', `${x.source} ${x.ref}`, x.customer, x.method, cash(x.amount), x.note || '']), ...d.refunds.map((x) => [x.date, x.time, 'Refund', `${x.source} ${x.ref}`, x.customer, x.method, `-${cash(x.amount)}`, x.note])]]; }],
-        ['Item list', 'Your whole inventory with prices and quantities.', async () => [`${meta.slug}-items`, [['Category', 'Item name', 'Price', 'Description', 'Stock', 'Taxable', 'Printer label', 'Revenue class'], ...menu.map((x) => [x.category, x.name, cash(x.price), x.desc, x.stock, x.taxable === false ? 'no' : 'yes', x.label, x.revclass])]]],
+        // Price type and Product code at the end, so the columns before stay where they were; uploaded back, the file keeps both.
+        ['Item list', 'Your whole inventory with prices and quantities.', async () => [`${meta.slug}-items`, [['Category', 'Item name', 'Price', 'Description', 'Stock', 'Taxable', 'Printer label', 'Revenue class', 'Price type', 'Product code'], ...menu.map((x) => [x.category, x.name, cash(x.price), x.desc, x.stock, x.taxable === false ? 'no' : 'yes', x.label, x.revclass, x.variable ? 'Variable' : 'Fixed', x.code || ''])]]],
         ['Customers', 'Everyone who has ordered or been invoiced.', async () => { const r = await api('GET', `/api/sites/${id}/customers`); return [`${meta.slug}-customers`, [['Name', 'Company', 'Email', 'Phone', 'Orders', 'Total spent', 'Last order'], ...r.customers.map((c) => [c.name, c.company || '', c.email, c.phone, c.orders, cash(c.spent), iso(c.last)])]]; }],
         ['Invoices and estimates', 'Every invoice and estimate with its status.', async () => { const r = await api('GET', `/api/sites/${id}/invoices`); const day = (ms) => (ms ? bizDay(ms) : ''); return [`${meta.slug}-invoices`, [['Number', 'Kind', 'Status', 'Customer', 'Company', 'Email', 'Project', 'Created', 'Sent', 'Due', 'Paid', 'Paid by', 'Subtotal', 'Discount', 'Tax', 'Total'], ...r.invoices.map((v) => [v.label, v.kind === 'estimate' ? 'Estimate' : 'Invoice', BILL_STATUS[v.kind === 'estimate' ? 'estimate' : 'invoice'][billState(v)], v.customer.name, v.customer.company || '', v.customer.email, v.project || '', day(v.createdAt), day(v.sentAt), v.due, day(v.paidAt), v.paidMethod || '', cash(v.subtotal), cash(v.discount), cash(v.tax), cash(v.total)])]]; }],
       ];
@@ -1526,17 +1536,26 @@ export async function editor(id, mount, title, startTab = '') {
     let seen = it.stock, qtyRef = null;
     const showStock = (n) => { it.stock = n; seen = n; if (qtyRef && document.activeElement !== qtyRef) qtyRef.value = n; };
     let availIn = null;
+    // Going to a fixed price from a variable one when the item never had a price of its own: the price box starts empty, and the price is
+    // left out of what is sent until one is typed. Sent as 0.00 it would make the item free; sent without one, the server asks for a price.
+    let noPrice = false;
+    // The last save failed. If it still has when the window closes, the list is drawn again from what the server kept.
+    let failed = false;
+    // Set once the window is drawn: shows by the field it was about why the server refused a save ('' clears it).
+    let refused = () => {};
     const save = debounce(async () => {
       status.className = 'status'; status.textContent = 'Saving…';
-      // A new item goes on sale the first time it has a real name and a price.
-      if (freshItems.has(it.id) && it.available === false && it.price > 0 && it.name.trim() && it.name.trim() !== 'New item') { it.available = true; freshItems.delete(it.id); if (availIn) availIn.checked = true; }
+      // A new item goes on sale the first time it has a real name and a price, or a price entered at the time of sale.
+      if (freshItems.has(it.id) && it.available === false && (it.price > 0 || it.variable) && it.name.trim() && it.name.trim() !== 'New item') { it.available = true; freshItems.delete(it.id); if (availIn) availIn.checked = true; }
       try {
-        const sent = it.stock, r = await api('PUT', `/api/sites/${id}/menu/${it.id}`, { ...it, stockWas: seen });
+        const body = { ...it, stockWas: seen };
+        if (noPrice) delete body.price;
+        const sent = it.stock, r = await api('PUT', `/api/sites/${id}/menu/${it.id}`, body);
         const fresh = r.items && r.items.find((x) => x.id === it.id);
         if (fresh && it.stock === sent) showStock(fresh.stock);
-        status.className = 'status ok'; status.textContent = 'Saved';
+        status.className = 'status ok'; status.textContent = 'Saved'; failed = false; refused('');
       } catch (e) {
-        status.className = 'status bad'; status.textContent = 'Not saved'; toast(e.message, true);
+        status.className = 'status bad'; status.textContent = 'Not saved'; toast(e.message, true); failed = true; refused(e.message);
         // Sold while the window was open: show the real count, and save the person's other changes without the old count.
         if (e.status === 409 && e.data && e.data.stock != null) { showStock(e.data.stock); save(); }
       }
@@ -1544,12 +1563,51 @@ export async function editor(id, mount, title, startTab = '') {
     let gone = false;
     sheet((close) => {
       notify = save;
-      const priceIn = h('input', { value: (it.price / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const c = parsePrice(priceIn.value); priceIn.style.borderColor = c === null ? 'var(--red)' : ''; if (c !== null) { it.price = c; save(); drawNow(); } } });
+      const priceIn = h('input', { value: (it.price / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const c = parsePrice(priceIn.value); priceIn.style.borderColor = c === null ? 'var(--red)' : ''; if (c !== null) { it.price = c; noPrice = false; save(); drawNow(); } } });
       const costIn = h('input', { value: it.cost == null ? '' : (it.cost / 100).toFixed(2), inputmode: 'decimal', oninput: () => { const v = costIn.value.trim(); const c = v ? parsePrice(v) : null; costIn.style.borderColor = v && c === null ? 'var(--red)' : ''; if (!v || c !== null) { it.cost = v ? c : null; save(); } } });
       const saleIn = h('input', { type: 'number', min: 0, max: 90, value: it.sale || '', placeholder: '0', oninput: () => { it.sale = Math.max(0, Math.min(90, Math.round(Number(saleIn.value)) || 0)); save(); drawNow(); } });
       const now = h('small', {});
       const drawNow = () => { now.textContent = it.sale > 0 ? `Customers pay ${money(itemPrice(it))} while the sale is on.` : 'Leave empty for no sale.'; };
       drawNow();
+      // Price type: a fixed price, or one entered each time the item is sold (on the PF Sites app's Sale screen). A variable price has no
+      // price box and no sale, since the price typed at the counter is the price.
+      const varNote = h('span', { class: 'it-varnote' }, 'The price is entered at the time of sale.');
+      const saleField = wrap('Sale, percent off', saleIn);
+      const typeBtns = [[false, 'Fixed price'], [true, 'Variable price']].map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String(!!it.variable === v), onclick: () => setType(v) }, l));
+      const drawType = () => {
+        const v = !!it.variable;
+        typeBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(v === (i === 1))));
+        for (const [el, show] of [[priceIn, !v], [varNote, v], [saleField, !v], [now, !v]]) el.style.display = show ? '' : 'none';
+      };
+      const setType = (v) => {
+        if (!!it.variable === v) return;
+        it.variable = v;
+        noPrice = !v && !(it.price > 0);
+        if (!v) { priceIn.value = noPrice ? '' : (it.price / 100).toFixed(2); priceIn.style.borderColor = ''; }
+        drawType();
+        // With no price yet nothing is sent: the next save, once a price is typed, carries both.
+        if (noPrice) priceIn.focus(); else save();
+      };
+      drawType();
+      // Product code: the number on the item's barcode, or the business's own SKU. Inside the iPhone app the camera can read it.
+      const codeErr = h('small', { class: 'it-codeerr', role: 'alert' });
+      const codeIn = h('input', { value: it.code || '', maxlength: 64, placeholder: 'Scan or type the barcode number or SKU', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', oninput: () => { it.code = codeIn.value; refused(''); save(); } });
+      const scan = inApp && h('button', { type: 'button', class: 'it-scan', onclick: async (e) => {
+        e.preventDefault();
+        let r;
+        try { r = await askApp({ cmd: 'scanBarcode' }); } catch { return toast('The scanner did not open. Type the code instead.', true); }
+        // A code goes in as it was read (the server tidies it); a scanner closed without reading one changes nothing.
+        const code = r && typeof r.code === 'string' ? r.code.trim().slice(0, 64) : '';
+        if (!code) return;
+        codeIn.value = code; it.code = code; refused(''); save();
+      }, 'aria-label': 'Scan' }, h('span', { class: 'it-scanic', html: BARCODE }), h('span', { class: 'it-scant' }, 'Scan'));
+      const codeField = h('label', { class: 'field' }, h('span', {}, 'Product code'), h('div', { class: `it-code${scan ? ' scan' : ''}` }, codeIn, scan), codeErr, h('small', {}, 'Scanning this code on the PF Sites app’s Sale screen finds this item.'));
+      refused = (msg) => {
+        const mine = /product code/i.test(msg);
+        codeErr.textContent = mine ? msg : ''; codeErr.style.display = mine ? '' : 'none'; codeIn.style.borderColor = mine ? 'var(--red)' : '';
+        if (msg && noPrice) priceIn.style.borderColor = 'var(--red)';
+      };
+      refused('');
       const qtyIn = qtyRef = h('input', { type: 'number', min: 0, max: 999999, value: it.stock, 'aria-label': 'Quantity in stock', oninput: () => { it.stock = Math.max(0, Math.round(Number(qtyIn.value)) || 0); save(); } });
       const bump = (by) => () => { it.stock = Math.max(0, (it.stock || 0) + by); qtyIn.value = it.stock; save(); };
       const optBox = h('div', { class: 'stack' });
@@ -1566,8 +1624,9 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'isheet-top' },
           image('Photo', it, 'image', { crop: ITEM_PHOTO }),
           h('div', { class: 'stack' }, text('Name', it, 'name', { maxlength: 120, autofocus: true }),
-            h('div', { class: 'pair' }, wrap('Price', priceIn), wrap('Cost', costIn)), wrap('Sale, percent off', saleIn), now,
-            text('Category', it, 'category', { list: listId, maxlength: 60 }), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))))),
+            h('div', { class: 'field' }, h('span', {}, 'Price type'), h('div', { class: 'seg it-ptype', role: 'group', 'aria-label': 'Price type' }, typeBtns)),
+            h('div', { class: 'pair' }, h('label', { class: 'field' }, h('span', {}, 'Price'), priceIn, varNote), wrap('Cost', costIn)), saleField, now,
+            text('Category', it, 'category', { list: listId, maxlength: 60 }), h('datalist', { id: listId }, cats.map((c) => h('option', { value: c }))), codeField)),
         area('Description', it, 'desc', { rows: 2, maxlength: 500 }),
         h('div', { class: 'isheet-row' },
           h('div', { class: 'field' }, h('span', {}, 'In stock'), h('div', { class: 'inv-qty' }, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One fewer', onclick: bump(-1) }, ic('minus', 16)), qtyIn, h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'One more', onclick: bump(1) }, ic('plus', 16)))),
@@ -1586,8 +1645,25 @@ export async function editor(id, mount, title, startTab = '') {
           h('button', { class: 'btn', onclick: close }, 'Done'))];
       notify = null;
       return out;
-    }, 'wide isheet', async () => { if (!gone) await save.flush(); paintPanel(); paint(true); });
+    }, 'wide isheet', async () => {
+      if (!gone) await save.flush();
+      // A change the server refused (a product code another item has, a fixed price with no price) is not kept on screen either.
+      if (failed && !gone) { try { menu = (await api('GET', `/api/sites/${id}/menu`)).items; } catch { /* offline: the list keeps what is on screen */ } }
+      paintPanel(); paint(true);
+    });
   }
+  // A barcode in a viewfinder, on the Scan button of an item's product code.
+  const BARCODE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M8 8.5v7M11 8.5v7M14 8.5v7M16.5 8.5v7"/></svg>';
+  // An item's price as the lists show it: one priced at the time of sale has none of its own.
+  const priceOf = (it) => (it.variable ? 'Variable' : money(it.price));
+  // The same in a table cell, where the word is kept whole rather than broken over two lines in a narrow column.
+  const priceCell = (it) => (it.variable ? h('span', { class: 'it-var' }, 'Variable') : money(it.price));
+  // Item searches also find an item by its product code, compared the way the server and the app's scanner compare codes (spaces and
+  // dashes left out, letters in capitals, a 13-digit EAN starting with 0 read as its 12-digit UPC-A), so a scanned or typed code finds it.
+  // The code is matched as it is kept too, tidied the same way but with its zeros: while 0012345678905 is being typed, "00123" has to
+  // find it, though in the compared form it has lost its first 0.
+  const tidyCode = (c) => str(c, 200).replace(/[\s\-\u2010-\u2015\u2212\p{Cc}\p{Cf}]+/gu, '').toUpperCase();
+  const codeHit = (it, q) => { const t = tidyCode(q); return !!t && !!it.code && (tidyCode(it.code).includes(t) || normalizeCode(it.code).includes(normalizeCode(q))); };
   const ask = ({ title, label, value = '', hint, action = 'Apply', type = 'text' }) => new Promise((done) => {
     let answered = false;
     sheet((close) => {
@@ -1628,7 +1704,7 @@ export async function editor(id, mount, title, startTab = '') {
       const qtyIn = h('input', { type: 'number', min: 0, max: 999999, value: DEFAULT_STOCK, style: 'max-width:120px' });
       return [h('h2', {}, p.items.length ? `${p.items.length} item${p.items.length === 1 ? '' : 's'} found` : 'We could not read that file'),
         h('p', { class: 'muted' }, p.items.length ? `From ${file.name}, in ${cats} categor${cats === 1 ? 'y' : 'ies'}.` : p.errors[0]?.reason || 'No items were found.'),
-        p.items.length > 0 && h('table', { class: 'ptable' }, h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', {}, 'Category'), h('th', {}, 'Price'))), h('tbody', {}, p.items.slice(0, 6).map((x) => h('tr', {}, h('td', {}, x.name), h('td', { class: 'muted' }, x.category), h('td', {}, money(x.price)))))),
+        p.items.length > 0 && h('table', { class: 'ptable' }, h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', {}, 'Category'), h('th', {}, 'Price'))), h('tbody', {}, p.items.slice(0, 6).map((x) => h('tr', {}, h('td', {}, x.name), h('td', { class: 'muted' }, x.category), h('td', {}, x.variable ? 'Variable' : money(x.price)))))),
         p.items.length > 6 && h('p', { class: 'small muted' }, `and ${p.items.length - 6} more`),
         p.items.length > 0 && p.errors.length > 0 && h('div', { class: 'note' }, h('b', {}, `${p.errors.length} row${p.errors.length === 1 ? '' : 's'} will be skipped. `), p.errors.slice(0, 3).map((e) => h('div', {}, `${e.row ? `Row ${e.row}: ` : ''}${e.reason}`))),
         missing > 0 && h('label', { class: 'field' }, h('span', {}, missing === p.items.length ? 'How many of each item do you have?' : `Starting quantity for the ${missing} item${missing === 1 ? '' : 's'} without one`), qtyIn, null),
@@ -1923,10 +1999,10 @@ export async function editor(id, mount, title, startTab = '') {
         const out = [];
         // The create pages open blank from here, never the last record that was open in them.
         const open2 = { 'inv-edit': () => openInvoice(null, null, 'invoice'), 'est-edit': () => openInvoice(null, null, 'estimate'), 'proj-edit': () => openProject(null) };
-        for (const [k, label, icon] of tabs) if (has(label)) out.push({ icon, label, kind: 'Screen', go: open2[k] || (() => goTab(k)) });
+        for (const [k, label, icon] of tabs) if (has(label) && !APP_PAGES.has(k)) out.push({ icon, label, kind: 'Screen', go: open2[k] || (() => goTab(k)) });
         if (q2) {
           for (const [label, k] of SETTINGS) if (has(label) && tabs.some(([t]) => t === k)) out.push({ icon: tabs.find(([t]) => t === k)[2], label, kind: tabs.find(([t]) => t === k)[1], go: () => goTab(k) });
-          for (const it of menu) if (has(`${it.name} ${it.category}`)) out.push({ icon: 'tag', label: it.name, kind: `Item · ${money(itemPrice(it))}`, go: () => { goTab('items'); openItem(it.id); } });
+          for (const it of menu) if (has(`${it.name} ${it.category}`) || codeHit(it, q2)) out.push({ icon: 'tag', label: it.name, kind: `Item · ${it.variable ? 'Variable price' : money(itemPrice(it))}`, go: () => { goTab('items'); openItem(it.id); } });
           for (const o of orders || []) if (has(`#${o.number} ${o.name} ${o.email} ${o.phone}`)) out.push({ icon: 'bag', label: `Order #${o.number} · ${o.name}`, kind: `${ORDER_STATUSES[o.status] || o.status} · ${money(o.total)}`, go: () => { orderFilter = 'all'; goTab('orders'); } });
         }
         hits = out.slice(0, 40); at = 0; draw();
@@ -1999,15 +2075,18 @@ export async function editor(id, mount, title, startTab = '') {
     try { const fresh = await api('GET', `/api/sites/${id}/${f[0]()}`); const same = JSON.stringify(fresh) === JSON.stringify(f[2]()); f[1](fresh); if (quiet && !same && tab === k && !document.querySelector('.scrim')) paintPanel(); }
     catch (e) { if (!quiet) toast(e.message, true); }
   }
-  const goTab = (k, fromHistory = false, replace = false) => { if (!known(k)) k = 'start'; if (k === 'online') forget('devices'); if (k === 'outreach') forget('customers'); if (k === 'inbox') forget('leads'); if (k === 'rewards') PANELS._rw = null; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history[replace ? 'replaceState' : 'pushState'](null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; pageScroller().scrollTop = 0; paintPanel(); };
+  const goTab = (k, fromHistory = false, replace = false) => { if (!known(k)) k = 'start'; if (k === 'online') forget('devices'); if (k === 'outreach') forget('customers'); if (k === 'inbox') forget('leads'); if (k === 'rewards') PANELS._rw = null; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history[replace ? 'replaceState' : 'pushState'](null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); if (k === 'notes') notesVisit = null; tab = k; sel = null; editItem = null; pageScroller().scrollTop = 0; paintPanel(); };
+  // Inside the iPhone app, Setup tasks and Notifications sit in the app's own sheet or page, so a page they lead to is opened by the app
+  // (it is told which), not drawn in their place. Everywhere else, and on every other page, this is goTab.
+  const openTab = (k) => { if (inApp && APP_PAGES.has(tab)) return toApp({ type: 'open', tab: known(k) ? k : 'start' }); goTab(k); };
   // What the merchant still has to do. Shown in Notifications, not on the dashboard.
   function setupTodos() {
     const b = draft.business;
     const steps = [
-      [menu.length > 0, 'Add your menu', menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'} on your menu.` : 'Upload an Excel or CSV file of item names and prices and we build the menu for you.', menu.length ? ['Edit menu', () => goTab('menu')] : ['Upload item list', importCsv], !menu.length && (state.config.scanEnabled ? ['Scan a paper menu', scanMenu] : ['Add items by hand', () => goTab('menu')])],
-      [!!draft.brand.logo, 'Add your logo and colour', 'Make the site look like your business.', ['Open look and feel', () => goTab('design')]],
-      [!!(str(b.phone).trim() && str(b.address1).trim()), 'Add your business details', 'Phone, address and opening hours, so customers can find you.', ['Open business info', () => goTab('business')]],
-      [ordering.enabled && openMethods(ordering).length > 0, 'Choose how customers order', ordering.enabled ? `${openMethods(ordering).map((m) => ORDER_METHODS[m].name).join(', ')} ${openMethods(ordering).length === 1 ? 'is' : 'are'} on. Add curbside, delivery, tax and tips here.` : 'Online ordering is off.', ['Open ordering', () => goTab('ordering')]],
+      [menu.length > 0, 'Add your menu', menu.length ? `${menu.length} item${menu.length === 1 ? '' : 's'} on your menu.` : 'Upload an Excel or CSV file of item names and prices and we build the menu for you.', menu.length ? ['Edit menu', () => openTab('menu')] : ['Upload item list', importCsv], !menu.length && (state.config.scanEnabled ? ['Scan a paper menu', scanMenu] : ['Add items by hand', () => openTab('menu')])],
+      [!!draft.brand.logo, 'Add your logo and colour', 'Make the site look like your business.', ['Open look and feel', () => openTab('design')]],
+      [!!(str(b.phone).trim() && str(b.address1).trim()), 'Add your business details', 'Phone, address and opening hours, so customers can find you.', ['Open business info', () => openTab('business')]],
+      [ordering.enabled && openMethods(ordering).length > 0, 'Choose how customers order', ordering.enabled ? `${openMethods(ordering).map((m) => ORDER_METHODS[m].name).join(', ')} ${openMethods(ordering).length === 1 ? 'is' : 'are'} on. Add curbside, delivery, tax and tips here.` : 'Online ordering is off.', ['Open ordering', () => openTab('ordering')]],
       [meta.live && !meta.dirty, meta.live ? 'Publish your changes' : 'Publish your site', meta.live ? (meta.dirty ? 'You have changes that are not live yet.' : `Live at ${meta.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}`) : 'Nothing is public until you publish. You can keep editing afterwards.', meta.live && !meta.dirty ? ['View live site', () => window.open(meta.url, '_blank', 'noopener')] : [meta.live ? 'Publish changes' : 'Publish', (e) => publish(e)]],
     ];
     if (ordering.enabled) steps.push([!!(orders && orders.length), 'Place a test order', meta.live ? 'Order from your own site to see exactly what customers see, then watch it arrive under Orders.' : 'Once you publish, order from your own site to see the whole flow.', ['Open my order page', () => (meta.live ? window.open(`${meta.url.replace(/\/$/, '')}/order`, '_blank', 'noopener') : toast('Publish your site first.', true))]]);
@@ -2721,7 +2800,13 @@ export async function editor(id, mount, title, startTab = '') {
       h('label', { class: 'field' }, h('span', {}, 'Employee'), h('select', { onchange: (e) => { s.employee = e.target.value; } }, h('option', { value: '' }, 'Any available'), people.map((p) => h('option', { value: p, selected: s.employee === p }, p)))),
       d.services.length > 1 && h('button', { type: 'button', class: 'btn text sm', style: 'color:var(--red);justify-self:start', onclick: () => { d.services.splice(i, 1); paintPanel(); } }, 'Remove service'));
     const findAvail = () => { const t0 = new Date(Date.parse(`${bizWall()}:00Z`)); for (let k = 0; k < 14 * 48; k++) { const dt = new Date(Math.ceil(t0.getTime() / 1800000) * 1800000 + k * 1800000); const ds = dt.toISOString().slice(0, 10), wd = dt.getUTCDay(), m = dt.getUTCHours() * 60 + dt.getUTCMinutes(), hm = (t) => { const [a2, b2] = String(t).split(':').map(Number); return a2 * 60 + (b2 || 0); }; const x = ordering.hours && ordering.hours[wd], pv = ordering.hours && ordering.hours[(wd + 6) % 7]; const today = x && !x.closed && (hm(x.close) > hm(x.open) ? m >= hm(x.open) && m < hm(x.close) : m >= hm(x.open)), late = pv && !pv.closed && hm(pv.close) <= hm(pv.open) && m < hm(pv.close); if (!today && !late) continue; if (!(apptData?.appointments || []).some((a) => a.at === `${ds}T${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`)) { d.date = ds; d.time = `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`; return paintPanel(); } } toast('No open times in the next two weeks. Set your business hours first.', true); };
-    const addInv = (btn) => popover(btn, (close) => { const list = h('div', { class: 'ns-hits' }); const draw = (q = '') => list.replaceChildren(...menu.filter((x) => !q || x.name.toLowerCase().includes(q)).slice(0, 12).map((x) => h('button', { type: 'button', onclick: () => { d.lines.push({ name: x.name, price: itemPrice(x), qty: 1, taxable: x.taxable !== false }); close(); paintPanel(); } }, h('span', {}, x.name), h('b', {}, money(itemPrice(x)))))); draw(); return h('div', { class: 'cl-menu' }, h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', oninput: (e) => draw(e.target.value.trim().toLowerCase()) })), list); }, 'left');
+    // An item priced at the time of sale has no price of its own, so its price is asked for, as for a custom item.
+    const addInv = (btn) => popover(btn, (close) => { const list = h('div', { class: 'ns-hits' }); const draw = (q = '') => list.replaceChildren(...menu.filter((x) => !q || x.name.toLowerCase().includes(q)).slice(0, 12).map((x) => h('button', { type: 'button', onclick: async () => {
+      if (!x.variable) { d.lines.push({ name: x.name, price: itemPrice(x), qty: 1, taxable: x.taxable !== false }); close(); paintPanel(); return; }
+      close(); const p = await ask({ title: x.name, label: 'Price', type: 'text', value: '' }); if (p === null) return;
+      const c = parsePrice(p); if (!c) return toast('Enter a price like 9.99.', true);
+      d.lines.push({ name: x.name, price: c, qty: 1, taxable: x.taxable !== false }); paintPanel();
+    } }, h('span', {}, x.name), h('b', {}, x.variable ? 'Variable' : money(itemPrice(x)))))); draw(); return h('div', { class: 'cl-menu' }, h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', oninput: (e) => draw(e.target.value.trim().toLowerCase()) })), list); }, 'left');
     const hist = d.customer ? (apptData?.appointments || []).filter((a) => (d.customer.email && a.email === d.customer.email) || a.name === d.customer.name) : [];
     save.onclick = async () => {
       if (!ready()) return; save.disabled = true;
@@ -3539,8 +3624,8 @@ export async function editor(id, mount, title, startTab = '') {
     const sel = new Set(chosen); let q = '';
     sheet((close) => {
       const list = h('div', { class: 'pick-list' });
-      const draw = () => list.replaceChildren(...menu.filter((it) => !q || `${it.name} ${it.category}`.toLowerCase().includes(q)).map((it) => h('label', { class: 'pick-row' },
-        h('input', { type: 'checkbox', checked: sel.has(it.id), onchange: (e) => { e.target.checked ? sel.add(it.id) : sel.delete(it.id); } }), itSwatch(it.image, it.color), h('span', { class: 'grow' }, h('b', {}, it.name), h('small', {}, it.category)), h('span', {}, money(it.price)))));
+      const draw = () => list.replaceChildren(...menu.filter((it) => !q || `${it.name} ${it.category}`.toLowerCase().includes(q) || codeHit(it, q)).map((it) => h('label', { class: 'pick-row' },
+        h('input', { type: 'checkbox', checked: sel.has(it.id), onchange: (e) => { e.target.checked ? sel.add(it.id) : sel.delete(it.id); } }), itSwatch(it.image, it.color), h('span', { class: 'grow' }, h('b', {}, it.name), h('small', {}, it.category)), h('span', {}, priceOf(it)))));
       draw();
       return [h('div', { class: 'swb-h' }, h('h2', {}, title), h('button', { type: 'button', class: 'ss-x', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         h('label', { class: 'tsearch' }, ic('search', 18), h('input', { type: 'search', placeholder: 'Search items', 'aria-label': 'Search items', oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } })), list,
@@ -3565,16 +3650,18 @@ export async function editor(id, mount, title, startTab = '') {
     const q = itQ('items'), cats = [...new Set(menu.map((x) => x.category))];
     const groupsOf = (it) => ordering.modGroups.filter((g) => (it.mods || []).includes(g.id)).map((g) => g.name);
     const stateOf = (it) => (it.available === false ? 'hidden' : it.stock === 0 ? 'out' : it.stock != null && it.stock <= (ordering.lowStockAt ?? 5) ? 'low' : 'ok');
-    const list = menu.filter((it) => (!q || `${it.name} ${it.category}`.toLowerCase().includes(q)) && (!f.cat || it.category === f.cat) && (f.show === 'all' || (f.show === 'sale' ? it.sale > 0 : stateOf(it) === f.show)));
-    const hid = clState.itcols ||= new Set();
-    const ALL = [['price', 'Price'], ['cost', 'Cost'], ['cats', 'Categories'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
-    const W = { name: '27.5%', price: '10.5%', cost: '9%', cats: '12.5%', mods: '15%', pos: '9.7%', stock: '10%' };
+    const list = menu.filter((it) => (!q || `${it.name} ${it.category}`.toLowerCase().includes(q) || codeHit(it, q)) && (!f.cat || it.category === f.cat) && (f.show === 'all' || (f.show === 'sale' ? it.sale > 0 : stateOf(it) === f.show)));
+    // Product code starts hidden: most lists have none, and the columns there before keep their room. Columns adds it.
+    const hid = clState.itcols ||= new Set(['code']);
+    const ALL = [['price', 'Price'], ['cost', 'Cost'], ['code', 'Product code'], ['cats', 'Categories'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
+    // With Product code shown, the name and modifier columns give it room for a whole barcode number.
+    const W = { name: hid.has('code') ? '27.5%' : '22%', price: '10.5%', cost: '9%', code: '19%', cats: '12.5%', mods: hid.has('code') ? '15%' : '12%', pos: '9.7%', stock: '10%' };
     const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: W.name }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, w: W[k], cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
     // In stock: off marks the item sold out; on puts back its daily refill amount, or the usual starting amount.
     const setStock = (it, on) => itemsBulk([it.id], { set: { stock: on ? (it.restock ?? DEFAULT_STOCK) : 0 } }, on ? `${it.name} is in stock` : `${it.name} is sold out`);
     const rows = list.map((it) => ({ id: it.id, label: it.name, it, cells: {
       name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))),
-      price: money(it.price), cost: it.cost == null ? '' : money(it.cost), cats: it.category,
+      price: priceCell(it), cost: it.cost == null ? '' : money(it.cost), code: it.code ? h('span', { class: 'it-codec' }, it.code) : '', cats: it.category,
       mods: h('span', { class: 'it-clip' }, groupsOf(it).join(', ')),
       pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }),
       stock: itSw(it.stock !== 0, (e) => setStock(it, e.target.checked), { label: `${it.name} in stock` }),
@@ -3587,7 +3674,7 @@ export async function editor(id, mount, title, startTab = '') {
     const pair = (label, onL, onFn, offL, offFn) => h('div', { class: 'bgroup' }, h('span', {}, label), h('div', { class: 'seg' }, h('button', { type: 'button', onclick: onFn }, onL), h('button', { type: 'button', onclick: offFn }, offL)));
     const b = (label, fn, danger) => h('button', { type: 'button', class: `btn soft sm${danger ? ' danger' : ''}`, onclick: fn }, label);
     const bulk = itemsBulk.bind(null);
-    return [h('div', { class: 'cl it' }, itHead('Items', itMore([['Upload item list (Excel or CSV)', importCsv], state.config.scanEnabled && ['Scan a paper menu', scanMenu], ['Download item list', () => csvDownload('items', [['Category', 'Item name', 'Price', 'Cost', 'Description', 'Stock', 'Taxable'], ...menu.map((x) => [x.category, x.name, (x.price / 100).toFixed(2), x.cost == null ? '' : (x.cost / 100).toFixed(2), x.desc || '', x.stock ?? '', x.taxable === false ? 'no' : 'yes'])])]])),
+    return [h('div', { class: 'cl it' }, itHead('Items', itMore([['Upload item list (Excel or CSV)', importCsv], state.config.scanEnabled && ['Scan a paper menu', scanMenu], ['Download item list', () => csvDownload('items', [['Category', 'Item name', 'Price', 'Cost', 'Description', 'Stock', 'Taxable', 'Price type', 'Product code'], ...menu.map((x) => [x.category, x.name, (x.price / 100).toFixed(2), x.cost == null ? '' : (x.cost / 100).toFixed(2), x.desc || '', x.stock ?? '', x.taxable === false ? 'no' : 'yes', x.variable ? 'Variable' : 'Fixed', x.code || ''])])]])),
       h('div', { class: 'it-bar' }, itSearch('Search items', 'items'), colsBtn2, filt, itBtn('Add item', { icon: II.plus, kind: 'fill', onclick: newItem })),
       itBulk('items', 'item', [
         pair('Sales tax', 'On', () => bulk(ids(), { set: { taxable: true } }, `Sales tax on for ${what()}`), 'Off', () => bulk(ids(), { set: { taxable: false } }, `Sales tax off for ${what()}`)),
@@ -3759,19 +3846,20 @@ export async function editor(id, mount, title, startTab = '') {
     const q = itQ('cv'), here = d.name.trim() || old;
     const assigned = menu.filter((x) => d.items.has(x.id));
     // Every item here is an item, none is a service.
-    const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q)) && (f.item || !f.service) && (!f.out || it.stock === 0));
+    const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q) || codeHit(it, q)) && (f.item || !f.service) && (!f.out || it.stock === 0));
     const COLS = [['image', 'Item image'], ['name', 'Item name'], ['iid', 'Item ID'], ['online', 'Online name'], ['price', 'Price'], ['cost', 'Cost'], ['cats', 'Categories'], ['type', 'Item type'], ['mods', 'Modifier groups'], ['pos', 'Show on POS'], ['stock', 'In stock']];
     const W = { name: '29%', price: '13.5%', cost: '13%', type: '13%', pos: '13.5%' }, plain = ['image', 'iid', 'cats', 'mods'].every((k) => hid.has(k));
     const cols = COLS.filter(([k]) => k !== 'online' && (k === 'name' || !hid.has(k))).map(([k, l]) => ({ k, l, w: plain ? W[k] : null, cls: k === 'name' ? 'it-wide' : k === 'pos' || k === 'stock' ? 'it-c' : '', ...(k === 'name' ? { sort: (r) => r.label.toLowerCase() } : {}), tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }));
     const rows = list.map((it) => ({ id: it.id, label: it.name, cells: {
       image: it.image ? h('img', { class: 'it-thumb', src: it.image, alt: '', loading: 'lazy' }) : '',
       name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))), iid: it.id,
-      price: money(it.price), cost: it.cost == null ? '' : money(it.cost), cats: here, type: 'Item',
+      price: priceCell(it), cost: it.cost == null ? '' : money(it.cost), cats: here, type: 'Item',
       mods: h('span', { class: 'it-clip' }, ordering.modGroups.filter((g) => (it.mods || []).includes(g.id)).map((g) => g.name).join(', ')),
       pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }),
       stock: itSw(it.stock !== 0, (e) => itemsBulk([it.id], { set: { stock: e.target.checked ? (it.restock ?? DEFAULT_STOCK) : 0 } }, e.target.checked ? `${it.name} is in stock` : `${it.name} is sold out`), { label: `${it.name} in stock` }),
     } }));
-    const listRows = () => assigned.map((x) => [x.name, (x.price / 100).toFixed(2), x.cost == null ? '' : (x.cost / 100).toFixed(2), 'Item', x.stock === 0 ? 'No' : 'Yes']);
+    // A variable-price item says so where its price would be, which an item list uploaded back also reads as a variable price.
+    const listRows = () => assigned.map((x) => [x.name, x.variable ? 'Variable' : (x.price / 100).toFixed(2), x.cost == null ? '' : (x.cost / 100).toFixed(2), 'Item', x.stock === 0 ? 'No' : 'Yes']);
     const kebab = itKebab([['Export', II.download, () => csvDownload(`${here}-items`, [['Item name', 'Price', 'Cost', 'Item type', 'In stock'], ...listRows()])], ['Print', II.print, () => printList(here, ['Item name', 'Price', 'Cost', 'Item type', 'In stock'], listRows())]], `Actions for items in ${here}`, { below: true });
     const fold = h('button', { type: 'button', class: 'it-fold', 'aria-expanded': String(d.open), 'aria-label': d.open ? 'Hide items' : 'Show items', html: d.open ? II.chevU : II.chevD, onclick: () => { d.open = !d.open; paintPanel(); } });
     const remove = () => { for (const x of itSel('cv')) d.items.delete(x); itClear('cv'); paintPanel(); };
@@ -4021,7 +4109,7 @@ export async function editor(id, mount, title, startTab = '') {
       const cats = m.cats.filter((c) => catNames().includes(c));
       body = [card('Categories and items', cats.length > 0 && itBtn('Edit', { icon: II.pencil, onclick: () => pickCats(m) }),
         cats.length ? h('div', { class: 'it-mcats' }, cats.map((c) => { const its = menu.filter((x) => x.category === c); return h('div', { class: 'it-mcat' }, h('div', { class: 'it-mcath' }, h('b', {}, c), h('span', {}, `${its.length} item${its.length === 1 ? '' : 's'}`)),
-          its.length > 0 && h('div', { class: 'it-mitems' }, its.map((it) => h('div', { class: 'it-mitem' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id)), h('span', {}, money(it.price)))))); }))
+          its.length > 0 && h('div', { class: 'it-mitems' }, its.map((it) => h('div', { class: 'it-mitem' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id)), h('span', {}, priceOf(it)))))); }))
           : h('div', { class: 'it-empty' }, h('b', {}, 'You do not have any categories in this menu'), h('div', {}, itBtn('Add categories', { icon: II.plus, kind: 'fill', onclick: () => pickCats(m) }))))];
     }
     return [h('div', { class: 'cl it it-detail' }, itBack('Menus', 'menus'),
@@ -4082,11 +4170,11 @@ export async function editor(id, mount, title, startTab = '') {
     const q = itQ('lv'), hid = clState.lvcols ||= new Set();
     const stateOf = (it) => (it.available === false ? 'hidden' : it.stock === 0 ? 'out' : 'ok');
     const assigned = menu.filter((x) => d.items.has(x.id));
-    const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q)) && (!f.cat || it.category === f.cat) && (f.show === 'all' || stateOf(it) === f.show));
+    const list = assigned.filter((it) => (!q || it.name.toLowerCase().includes(q) || codeHit(it, q)) && (!f.cat || it.category === f.cat) && (f.show === 'all' || stateOf(it) === f.show));
     const ALL = [['price', 'Price'], ['cost', 'Cost'], ['pos', 'Show on POS'], ['stock', 'In stock']];
     const W = { name: '27%', price: '15.5%', cost: '15%', pos: '15%' };
     const cols = [{ k: 'name', l: 'Item name', sort: (r) => r.label.toLowerCase(), cls: 'it-wide', w: W.name }, ...ALL.filter(([k]) => !hid.has(k)).map(([k, l]) => ({ k, l, w: W[k], cls: k === 'pos' || k === 'stock' ? 'it-c' : '', tip: k === 'pos' ? 'Point of sale devices are not available yet.' : null }))];
-    const rows = list.map((it) => ({ id: it.id, label: it.name, cells: { name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))), price: money(it.price), cost: it.cost == null ? '' : money(it.cost),
+    const rows = list.map((it) => ({ id: it.id, label: it.name, cells: { name: h('div', { class: 'it-name' }, itSwatch(it.image, it.color), itLink(it.name, () => openItem(it.id))), price: priceCell(it), cost: it.cost == null ? '' : money(it.cost),
       pos: itSw(false, null, { soon: true, label: `${it.name} on point of sale` }), stock: itSw(it.stock !== 0, (e) => itemsBulk([it.id], { set: { stock: e.target.checked ? (it.restock ?? DEFAULT_STOCK) : 0 } }, e.target.checked ? `${it.name} is in stock` : `${it.name} is sold out`), { label: `${it.name} in stock` }) } }));
     const colsB = h('button', { type: 'button', class: 'it-btn grey' }, h('span', { class: 'it-bic', html: II.columns }), 'Columns');
     colsB.onclick = () => popover(colsB, () => h('div', { class: 'cl-menu it-cols' }, h('p', { class: 'tb-k' }, 'Columns'), ALL.map(([k, l]) => h('label', { class: 'rp-opt' }, h('input', { type: 'checkbox', checked: !hid.has(k), onchange: (e) => { e.target.checked ? hid.delete(k) : hid.add(k); paintPanel(); } }), h('span', {}, l)))), 'right');
@@ -4666,7 +4754,9 @@ export async function editor(id, mount, title, startTab = '') {
     };
     const drawSale = () => {
       saleBody.replaceChildren(b.mode === 'quick' ? quickParts() : h('div', { class: 'iv-addrow' },
-        h('div', { class: 'iv-field iv-grow' }, h('span', { class: 'iv-lab' }, 'Add an item or service'), finder({ ph: 'Search for an item or service', open: true, none: menu.length ? 'No items match.' : 'No items yet.', search: (q) => menu.filter((x) => !q || x.name.toLowerCase().includes(q)), row: (x) => [h('b', {}, x.name), h('span', {}, money(itemPrice(x)))], pick: (x) => { v.items.push({ name: x.name, qty: 1, price: itemPrice(x), taxable: x.taxable !== false }); drawLines(); drawTotals(); sync(); } })),
+        h('div', { class: 'iv-field iv-grow' }, h('span', { class: 'iv-lab' }, 'Add an item or service'), finder({ ph: 'Search for an item or service', open: true, none: menu.length ? 'No items match.' : 'No items yet.', search: (q) => menu.filter((x) => !q || x.name.toLowerCase().includes(q)), row: (x) => [h('b', {}, x.name), h('span', {}, x.variable ? 'Variable' : money(itemPrice(x)))],
+          // An item priced at the time of sale comes in at no price, with its price box ready to type in.
+          pick: (x) => { v.items.push({ name: x.name, qty: 1, price: x.variable ? 0 : itemPrice(x), taxable: x.taxable !== false }); drawLines(); drawTotals(); sync(); if (x.variable) { const p = linesBox.querySelector('.iv-lrow:last-child input[aria-label="Price"]'); p?.focus(); p?.select(); } } })),
         itBtn('Add custom item', { icon: II.plus, onclick: () => { v.items.push({ name: '', qty: 1, price: 0, taxable: true }); drawLines(true); sync(); } })), ...(b.mode === 'quick' ? [] : [linesBox]));
       drawLines(); drawTotals();
     };
@@ -5092,7 +5182,17 @@ export async function editor(id, mount, title, startTab = '') {
   const todoKey = `pf-todo-seen-${id}`;
   const newTodos = () => { let seen = []; try { seen = JSON.parse(localStorage.getItem(todoKey) || '[]'); } catch { /* private mode */ } return setupTodos().some((x) => !seen.includes(x.name)); };
   const markTodos = () => { try { localStorage.setItem(todoKey, JSON.stringify(setupTodos().map((x) => x.name))); } catch { /* private mode */ } };
-  async function loadNotes() { try { notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications; const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !(unread() || newTodos()); } catch { /* shown as empty */ } }
+  // Everything in the bell has been seen: the notifications up to now and the setup steps still to do. The red dot goes.
+  const markSeen = () => { try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } markTodos(); const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = true; };
+  async function loadNotes() {
+    try {
+      const was = JSON.stringify(notes);
+      notes = (await api('GET', `/api/sites/${id}/notifications`)).notifications;
+      const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !(unread() || newTodos());
+      // On the Notifications page what arrives is seen there and then, and the page is drawn again when the list changed.
+      if (tab === 'notes' && notesVisit && notesVisit.loaded) { markSeen(); if (JSON.stringify(notes) !== was && !document.querySelector('.scrim')) paintPanel(); }
+    } catch { /* shown as empty */ }
+  }
   // A small panel that hangs from one of the top-right buttons and closes when you click away.
   function popover(anchor, build, side = 'right') {
     if (popEl) { const same = popEl._for === anchor; popEl._close(); if (same) return; }
@@ -5108,17 +5208,43 @@ export async function editor(id, mount, title, startTab = '') {
     setTimeout(() => { document.addEventListener('mousedown', away); document.addEventListener('keydown', esc); });
   }
   const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'Just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`; };
+  // What the bell holds: the setup steps still to do ("To do"), then the latest notifications ("Recent"), those since seenAt marked new.
+  // The bell's pop-up and the Notifications page draw the same list; leave runs first (the pop-up closes itself). A step is handed the
+  // press itself, so Publish can show on its button that it is working.
+  function notesBody(seenAt, leave = () => {}) {
+    const todos = setupTodos();
+    const todoBox = todos.length ? h('div', { class: 'tb-todo' }, h('small', { class: 'tb-sec' }, `To do · ${todos.length}`), todos.map((x) => h('button', { class: 'tb-note new', type: 'button', onclick: (e) => { leave(); x.act[1](e); } }, h('span', { class: 'todo-dot', 'aria-hidden': 'true' }), h('span', {}, h('b', {}, x.name)), h('em', {}, x.act[0])))) : null;
+    return [...(todoBox ? [todoBox, h('small', { class: 'tb-sec' }, 'Recent')] : []), ...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { leave(); openTab(x.tab); } }, navTile({ order: 'orders', message: 'feedback', booking: 'calendar', stock: 'menu' }[x.kind] || 'page', 32), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new.')])];
+  }
   function openNotes(btn) {
     popover(btn, (close) => {
       const list = h('div', { class: 'tb-notes' }, skel(3));
-      const todos = setupTodos();
-      const todoBox = todos.length ? h('div', { class: 'tb-todo' }, h('small', { class: 'tb-sec' }, `To do · ${todos.length}`), todos.map((x) => h('button', { class: 'tb-note new', type: 'button', onclick: () => { close(); x.act[1](); } }, h('span', { class: 'todo-dot', 'aria-hidden': 'true' }), h('span', {}, h('b', {}, x.name)), h('em', {}, x.act[0])))) : null;
-      const draw = () => list.replaceChildren(...(todoBox ? [todoBox, h('small', { class: 'tb-sec' }, 'Recent')] : []), ...(notes && notes.length ? notes.map((x) => h('button', { class: `tb-note${x.at > seenAt || (x.open && !x.at) ? ' new' : ''}`, type: 'button', onclick: () => { close(); goTab(x.tab); } }, navTile({ order: 'orders', message: 'feedback', booking: 'calendar', stock: 'menu' }[x.kind] || 'page', 32), h('span', {}, h('b', {}, x.title), h('small', {}, x.text)), h('em', {}, x.at ? ago(x.at) : 'Now'))) : [h('p', { class: 'tb-empty' }, 'Nothing new.')]));
       const seenAt = lastSeen();
-      loadNotes().then(() => { draw(); try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* private mode */ } markTodos(); const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = true; });
+      loadNotes().then(() => { list.replaceChildren(...notesBody(seenAt, close)); markSeen(); });
       return [h('div', { class: 'tb-pop-h' }, h('b', {}, 'Notifications'), h('button', { class: 'btn text sm', type: 'button', onclick: () => { close(); goTab('alerts'); } }, 'Alert settings')), list];
     });
   }
+  /* ---------- Setup tasks and Notifications, as pages ----------
+     The iPhone app shows these from its Home screen and its bell. In the app, what they lead to is opened by the app (see openTab);
+     in a browser they work like the lists under the gear and the bell. */
+  CL.tasks = () => {
+    const steps = setupSteps(), done = steps.filter(([ok]) => ok).length;
+    // Every step is on this page, so none counts as new for the bell any more.
+    markTodos(); const dot = document.querySelector('.tb-dot'); if (dot) dot.hidden = !unread();
+    return [h('div', { class: 'cl pf-tasks' }, cHead(null, 'Setup tasks'),
+      h('div', { class: 'scard' },
+        h('div', { class: 'ss-task' }, h('span', {}, h('b', {}, 'Get ready to take orders'), h('small', {}, 'Add items, set default taxes, and configure other important settings.')), h('em', {}, `${done} of ${steps.length} completed`)),
+        h('ul', { class: 'pf-steps' }, steps.map(([ok, name, text, main, extra]) => h('li', { class: `pf-step${ok ? ' done' : ''}` },
+          h('i', { role: 'img', 'aria-label': ok ? 'Done' : 'To do' }, ok ? '✓' : ''),
+          h('div', { class: 'pf-stept' }, h('b', {}, name), h('small', {}, text)),
+          !ok && h('div', { class: 'pf-stepa' }, extra && h('button', { type: 'button', class: 'btn soft sm', onclick: (e) => extra[1](e) }, extra[0]), h('button', { type: 'button', class: 'btn sm', onclick: (e) => main[1](e) }, main[0])))))))];
+  };
+  CL.notes = () => {
+    // Opening the page counts as opening the bell: the list is loaded fresh and then counts as seen.
+    if (!notesVisit) { const v = notesVisit = { seenAt: lastSeen(), loaded: false }; loadNotes().finally(() => { if (notesVisit !== v) return; v.loaded = true; markSeen(); if (tab === 'notes') paintPanel(); }); }
+    return [h('div', { class: 'cl pf-notes' }, cHead(null, 'Notifications', [h('button', { type: 'button', class: 'btn soft cl-btn', onclick: () => openTab('alerts') }, 'Alert settings')]),
+      h('div', { class: 'scard' }, notesVisit.loaded ? h('div', { class: 'tb-notes' }, notesBody(notesVisit.seenAt)) : skel(3)))];
+  };
   function openProfileMenu(btn) {
     popover(btn, (close) => [
       h('button', { class: 'tb-who', type: 'button', onclick: () => { close(); goTab('profile'); } }, tIcon('user', 22), h('span', {}, h('b', {}, state.user.name || state.user.email), h('small', {}, roleName))),
@@ -5153,7 +5279,8 @@ export async function editor(id, mount, title, startTab = '') {
       const allSteps = setupSteps();
       const tasks = h('div', {}, h('p', { class: 'ss-k' }, 'Setup tasks'),
         h('div', { class: 'ss-task' }, h('span', {}, h('b', {}, 'Get ready to take orders'), h('small', {}, 'Add items, set default taxes, and configure other important settings.')), h('em', {}, `${doneN} of ${total} completed`)),
-        h('div', { class: 'ss-check' }, allSteps.map(([ok, name, , act]) => h('button', { type: 'button', class: `ss-step${ok ? ' done' : ''}`, disabled: ok, onclick: () => { close(); act[1](); } }, h('i', { 'aria-hidden': 'true' }, ok ? '✓' : ''), h('span', {}, name), !ok && h('em', {}, act[0])))));
+        // The step is handed the press: Publish changes needs the button it was pressed on.
+        h('div', { class: 'ss-check' }, allSteps.map(([ok, name, , act]) => h('button', { type: 'button', class: `ss-step${ok ? ' done' : ''}`, disabled: ok, onclick: (e) => { close(); act[1](e); } }, h('i', { 'aria-hidden': 'true' }, ok ? '✓' : ''), h('span', {}, name), !ok && h('em', {}, act[0])))));
       const taskList = h('div', { hidden: true });
       const search = h('input', { type: 'search', placeholder: 'Search settings', 'aria-label': 'Search settings', oninput: () => { const q = search.value.trim().toLowerCase(); const hits = q ? SETTINGS_INDEX().filter(([t, , d]) => `${t} ${d}`.toLowerCase().includes(q)) : [];
         results.replaceChildren(...(q ? (hits.length ? hits.map(([t, k, d]) => h('button', { type: 'button', class: 'ss-row', onclick: go3(k) }, h('b', {}, t))) : [h('p', { class: 'ss-none' }, 'No settings match that.')]) : []));
@@ -5252,16 +5379,19 @@ export async function editor(id, mount, title, startTab = '') {
 
   /* ---------- publishing ---------- */
 
+  // The button pressed says it is working, and gets its own words back if publishing fails. A setup step's row (in the bell, on the
+  // Notifications page) keeps its name while it works: only the action at its end changes.
   async function doPublish(btn) {
-    btn.disabled = true; btn.textContent = 'Publishing…';
+    const label = btn.querySelector('em') || btn, was = [...label.childNodes];
+    btn.disabled = true; label.textContent = 'Publishing…';
     try {
       // Let any save still on its way finish first, so the copy published is made from the latest saved one.
       await flush();
       for (let i = 0; i < 80 && saveState === 'saving'; i++) await new Promise((r) => setTimeout(r, 100));
       await inTurn(async () => { const r = await api('POST', `/api/sites/${id}/publish`, { draft: JSON.parse(JSON.stringify(draft)), rev: draftRev }); meta = { ...meta, ...r.site }; draftRev = r.site.draftRev; });
-      saveState = 'saved'; versions = null; paintTop(); if (tab === 'start' || tab === 'history') paintPanel();
+      saveState = 'saved'; versions = null; paintTop(); if (['start', 'history', 'tasks', 'notes'].includes(tab)) paintPanel();
       return true;
-    } catch (e) { toast(e.message, true); if (e.status === 412) stale(); btn.disabled = false; btn.textContent = 'Publish'; return false; }
+    } catch (e) { toast(e.message, true); if (e.status === 412) stale(); btn.disabled = false; label.replaceChildren(...was); return false; }
   }
   function publish(e) {
     if (meta.live) return doPublish(e.currentTarget).then((ok) => ok && liveSheet(true));
@@ -5329,7 +5459,27 @@ export async function editor(id, mount, title, startTab = '') {
     busy: () => busy() || saveState !== 'saved',
     state: () => navLast,
     reload: () => location.reload(),
+    // The app's Sale screen checks out here: its order's total (sub, in dollars) and what was in it (note) start a new sale on the
+    // Virtual Terminal, which then opens. False, with nothing changed, when the amount is out of range.
+    sale: (o) => { const d = saleFrom(o); if (!d || !known('sale')) return false; saleDraft = d; body.dataset.view = 'edit'; goTab('sale'); paintTop(); return true; },
   };
+  // A sale handed over by the app: an amount from $0.01 to $999,999.99 (the most the Virtual Terminal takes), as a number or text
+  // such as "12.34", and a note. An amount out of range, or anything that is not an amount, is refused rather than guessed at. A long
+  // note (a big order) is cut to the 500 characters the terminal's note box holds, never refused: the app cuts it there too, but it
+  // counts an emoji as one where the box counts two, and a refusal would leave the person an empty terminal.
+  function saleFrom(o) {
+    if (!o || typeof o !== 'object') return null;
+    const { sub, note = '' } = o;
+    let cents = null;
+    if (typeof sub === 'number' && Number.isFinite(sub)) { const c = Math.round(sub * 100); if (Math.abs(sub * 100 - c) < 1e-6) cents = c; }
+    else if (typeof sub === 'string' && /^\s*\$?\d{1,3}(,?\d{3})*(\.\d{1,2})?\s*$/.test(sub)) cents = Math.round(Number(sub.replace(/[$,\s]/g, '')) * 100);
+    if (!(cents >= 1 && cents <= 99999999)) return null;
+    if (note != null && typeof note !== 'string') return null;
+    let text = (note || '').trim();
+    // Cut without leaving half of an emoji behind.
+    if (text.length > 500) text = text.slice(0, 500).replace(/[\uD800-\uDBFF]$/, '').trimEnd();
+    return { type: 'pay', tip: '', note: text, taxOn: true, tender: 'cash', customer: null, q: '', lines: [], sub: (cents / 100).toFixed(2) };
+  }
   if (bridge) window.PF = bridge;
 
   mount(h('div', { class: 'ed' }, top, body, tabbar));

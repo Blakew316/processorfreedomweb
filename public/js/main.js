@@ -587,6 +587,8 @@ if (inApp) {
     busy,
     state: () => null,
     reload: () => location.reload(),
+    // A sale can only be handed to the Virtual Terminal of an open business, which brings its own; here the answer is no.
+    sale: () => false,
   };
 }
 
