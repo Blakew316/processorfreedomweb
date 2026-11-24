@@ -166,6 +166,7 @@ struct HomeView: View {
                 case "insights": model.shell.cover = .insights
                 case "items": model.shell.cover = .items
                 case "close": model.shell.cover = .closeout
+                case "r-items": model.shell.cover = .itemSales
                 default: model.shell.home.append(.page(tile.tab))
                 }
             } label: {
