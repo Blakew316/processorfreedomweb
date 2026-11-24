@@ -164,6 +164,7 @@ struct HomeView: View {
                 case "sales": model.shell.home.append(.salesOverview)
                 case "calendar": model.shell.home.append(.appointments)
                 case "insights": model.shell.cover = .insights
+                case "items": model.shell.cover = .items
                 default: model.shell.home.append(.page(tile.tab))
                 }
             } label: {

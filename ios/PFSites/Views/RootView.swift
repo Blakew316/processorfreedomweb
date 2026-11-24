@@ -120,6 +120,9 @@ struct ShellView: View {
             case .insights:
                 InsightsScreen()
                     .environment(model)
+            case .items:
+                ItemsScreen()
+                    .environment(model)
             }
         }
     }
