@@ -117,6 +117,9 @@ struct ShellView: View {
             case .settingsPage(let page):
                 SettingsPageHost(id: page)
                     .environment(model)
+            case .insights:
+                InsightsScreen()
+                    .environment(model)
             }
         }
     }

@@ -62,6 +62,10 @@ struct RouteDestination: View {
             SettingsPageHost(id: page)
         case .order(let id):
             OrderDetailView(orders: model.shell.orderList, orderID: id)
+        case .salesOverview:
+            SalesOverviewScreen()
+        case .appointments:
+            AppointmentsScreen()
         }
     }
 }

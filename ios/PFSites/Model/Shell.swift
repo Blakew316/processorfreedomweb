@@ -15,6 +15,8 @@ enum Route: Hashable {
     case appSecurity
     case settingsPage(SettingsPageID)        // a native Settings page pushed onto the tab (Invoice number, Payment note, ...)
     case order(String)                       // one order of the Orders tab, by its id
+    case salesOverview                       // Home → Sales overview (native, the owner's Clover photos)
+    case appointments                        // Home → Calendar: the Appointments day view (native)
 }
 
 /// Sheets the main screens show over everything.
@@ -28,12 +30,14 @@ enum ShellCover: Identifiable {
     case switchTo(Site)      // the passcode step for another business
     case changePasscode
     case settingsPage(SettingsPageID)   // a native Settings page (Business information, Payments, ...)
+    case insights                       // Home → Insights, full screen with an X like the owner's photo
 
     var id: String {
         switch self {
         case .switchTo(let site): return "switch-\(site.id)"
         case .changePasscode: return "passcode"
         case .settingsPage(let page): return "settings-\(page.rawValue)"
+        case .insights: return "insights"
         }
     }
 }

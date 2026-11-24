@@ -159,7 +159,13 @@ struct HomeView: View {
     private func tile(_ tile: HomeTile) -> some View {
         if model.site?.isOwner == true || !OfficeCatalog.ownerOnly.contains(tile.tab) {
             Button {
-                model.shell.home.append(.page(tile.tab))
+                // The tiles with native screens (the owner's Clover photos) open them; the rest open the website's page.
+                switch tile.tab {
+                case "sales": model.shell.home.append(.salesOverview)
+                case "calendar": model.shell.home.append(.appointments)
+                case "insights": model.shell.cover = .insights
+                default: model.shell.home.append(.page(tile.tab))
+                }
             } label: {
                 VStack(spacing: 0) {
                     // Thin line drawings like the owner's Clover photo: navy lines (white in dark mode) with brand-blue accents.
