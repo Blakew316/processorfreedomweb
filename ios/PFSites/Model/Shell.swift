@@ -35,6 +35,7 @@ enum ShellCover: Identifiable {
     case items                          // Home → Items and services, full screen with an X like the owner's photos
     case closeout                       // Home → Closeout, full screen with an X like the owner's photos
     case itemSales                      // Home → Items sales report, full screen with an X like the owner's photos
+    case tasks                          // Home → Setup tasks: the Tasks screen, full screen with an X like the owner's photo
 
     var id: String {
         switch self {
@@ -45,6 +46,7 @@ enum ShellCover: Identifiable {
         case .items: return "items"
         case .closeout: return "closeout"
         case .itemSales: return "itemSales"
+        case .tasks: return "tasks"
         }
     }
 }

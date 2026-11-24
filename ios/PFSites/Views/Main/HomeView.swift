@@ -62,13 +62,26 @@ struct HomeView: View {
     // MARK: Date card
 
     private var dateCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let shell = model.shell
+        let showing = shell.salesAllowed && shell.salesShown
+        return VStack(alignment: .leading, spacing: 0) {
             TimelineView(.everyMinute) { context in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(context.date, format: .dateTime.weekday(.wide).month(.wide).day())
                         .pfFont(26, .bold, relativeTo: .title)
-                    Text(context.date, format: .dateTime.hour().minute())
-                        .pfFont(32, .light, relativeTo: .largeTitle)
+                    // Today's sales take the time's place while they are shown, in the same size, as in the photos.
+                    if showing, let sales {
+                        Text(Money.format(sales.net))
+                            .pfFont(32, .light, relativeTo: .largeTitle)
+                            .accessibilityLabel("Net sales today, \(Money.format(sales.net)), \(sales.orders) \(sales.orders == 1 ? "order" : "orders")")
+                    } else if showing && loadingSales {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(minHeight: 38, alignment: .leading)
+                    } else {
+                        Text(context.date, format: .dateTime.hour().minute())
+                            .pfFont(32, .light, relativeTo: .largeTitle)
+                    }
                 }
                 .foregroundStyle(.white)
             }
@@ -85,20 +98,8 @@ struct HomeView: View {
         let shell = model.shell
         if shell.salesAllowed {
             if shell.salesShown {
-                if let sales {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(Money.format(sales.net))
-                            .pfFont(28, .semibold)
-                            .foregroundStyle(.white)
-                        Text("Net sales today · \(sales.orders) \(sales.orders == 1 ? "order" : "orders")")
-                            .pfFont(15)
-                            .foregroundStyle(.white.opacity(0.8))
-                        cardButton("Hide today's sales") { shell.salesShown = false }
-                            .padding(.top, 10)
-                    }
-                    .accessibilityElement(children: .contain)
-                } else if loadingSales {
-                    ProgressView().tint(.white)
+                if sales != nil || loadingSales {
+                    cardButton("Hide today's sales") { shell.salesShown = false }
                 } else if !salesProblem.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(salesProblem)
@@ -167,6 +168,7 @@ struct HomeView: View {
                 case "items": model.shell.cover = .items
                 case "close": model.shell.cover = .closeout
                 case "r-items": model.shell.cover = .itemSales
+                case "tasks": model.shell.cover = .tasks
                 default: model.shell.home.append(.page(tile.tab))
                 }
             } label: {

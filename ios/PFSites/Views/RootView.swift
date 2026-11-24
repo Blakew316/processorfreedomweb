@@ -129,6 +129,9 @@ struct ShellView: View {
             case .itemSales:
                 ItemSalesScreen()
                     .environment(model)
+            case .tasks:
+                TasksScreen()
+                    .environment(model)
             }
         }
     }

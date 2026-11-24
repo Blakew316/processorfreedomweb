@@ -20,14 +20,19 @@ struct AppSecurityView: View {
 
     var body: some View {
         SettingsListScreen(title: "App security and privacy") {
-            SettingsListBand(title: "Global settings")
+            // The three settings of the owner's photo first, under Clover's "Clover Go settings" band; then the app's own.
+            SettingsListBand(title: "PF Sites settings")
+
+            if model.biometry != .none {
+                biometricRow
+            }
+
+            timeoutRow
+
+            analyticsRow
 
             SettingsRowView(title: "Change passcode", enabled: Keychain.device != nil) {
                 model.shell.cover = .changePasscode
-            }
-
-            if model.biometry != .none {
-                toggleRow(title: model.biometry.name, isOn: $faceIDWanted, busy: faceIDBusy)
             }
 
             notificationsRow
@@ -35,8 +40,6 @@ struct AppSecurityView: View {
             SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
                 model.shell.push(.page("profile"))
             }
-
-            infoRow(Self.lockTitle)
 
             if Self.offersChangeLocation(model) {
                 SettingsRowView(title: "Change location", enabled: true) {
@@ -126,16 +129,74 @@ struct AppSecurityView: View {
         }
     }
 
-    /// A fact about the app, with nothing to change.
-    private func infoRow(_ title: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .pfFont(17.5, .semibold)
-                .foregroundStyle(Color.primary)
-                .padding(.leading, 24)
-                .padding(.trailing, 20)
-                .padding(.vertical, 17)
-                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
+    /// Face ID (or Touch ID) as the photo shows it: the name in bold with the note under it, and the switch at the right.
+    private var biometricRow: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(model.biometry.name)
+                        .pfFont(17.5, .semibold)
+                        .foregroundStyle(Color.primary)
+                    Text("Access your account using your fingerprint or face ID, which helps keep your information secure.")
+                        .pfFont(16)
+                        .foregroundStyle(SettingsLook.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Toggle(model.biometry.name, isOn: $faceIDWanted)
+                    .labelsHidden()
+                    .tint(Theme.blue)
+                    .disabled(faceIDBusy)
+            }
+            .padding(.leading, 24)
+            .padding(.trailing, 20)
+            .padding(.vertical, 16)
+            SettingsListSeparator()
+        }
+    }
+
+    /// The app locks after 15 minutes without activity, a fixed rule, so the chevron is greyed.
+    private var timeoutRow: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Inactivity timeout")
+                        .pfFont(17.5, .semibold)
+                        .foregroundStyle(Color.primary)
+                    Text("15 minutes")
+                        .pfFont(17.5)
+                        .foregroundStyle(Color.primary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(SettingsLook.greyed)
+                    .padding(.top, 3)
+                    .accessibilityHidden(true)
+            }
+            .padding(.leading, 24)
+            .padding(.trailing, 24)
+            .padding(.vertical, 16)
+            .accessibilityElement(children: .combine)
+            SettingsListSeparator()
+        }
+    }
+
+    /// PF Sites collects no app analytics, so the switch is off and cannot be turned on.
+    private var analyticsRow: some View {
+        VStack(spacing: 0) {
+            Toggle(isOn: .constant(false)) {
+                Text("App analytics")
+                    .pfFont(17.5, .semibold)
+                    .foregroundStyle(SettingsLook.greyed)
+            }
+            .tint(Theme.blue)
+            .disabled(true)
+            .padding(.leading, 24)
+            .padding(.trailing, 20)
+            .padding(.vertical, 10)
+            .frame(minHeight: 55)
+            .accessibilityValue("Off")
             SettingsListSeparator()
         }
     }

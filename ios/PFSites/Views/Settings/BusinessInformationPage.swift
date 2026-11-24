@@ -118,7 +118,11 @@ struct BusinessInformationPage: View {
     private func customerFacing(_ info: Info) -> some View {
         SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Customer-facing information")
-            SettingsA.Note(parts: [.text("This information appears on your website, order pages and receipts. It may or may not be the same as your billing and tax-related business information.")])
+            SettingsA.Note(parts: [
+                .text("This information appears on "),
+                .link("payment receipts", { model.shell.cover = .settingsPage(.paymentReceipts) }),
+                .text(" and your website. It may or may not be the same as your billing and tax-related business information."),
+            ])
                 .padding(.top, 16)
             VStack(alignment: .leading, spacing: 26) {
                 row("DBA name", edit: ("Edit DBA name", { openTab = "bizinfo" })) {
