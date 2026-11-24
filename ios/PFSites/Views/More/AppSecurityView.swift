@@ -8,6 +8,7 @@ struct AppSecurityView: View {
     @State private var confirmLogOut = false
     @State private var faceIDWanted = false
     @State private var pushWanted = false
+    @State private var appearance = Appearance.choice
 
     static let lockTitle = "Lock after 15 minutes without activity"
 
@@ -30,6 +31,8 @@ struct AppSecurityView: View {
             timeoutRow
 
             analyticsRow
+
+            appearanceRow
 
             SettingsRowView(title: "Change passcode", enabled: Keychain.device != nil) {
                 model.shell.cover = .changePasscode
@@ -179,6 +182,49 @@ struct AppSecurityView: View {
             .padding(.vertical, 16)
             .accessibilityElement(children: .combine)
             SettingsListSeparator()
+        }
+    }
+
+    /// How the app looks on this iPhone: the iPhone's own light or dark setting, or always light, or always dark. Tapping the row
+    /// opens the three choices with the chosen one ticked; the whole app changes straight away.
+    private var appearanceRow: some View {
+        VStack(spacing: 0) {
+            Menu {
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(AppearanceChoice.allCases) { choice in
+                        Text(choice.title).tag(choice)
+                    }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Appearance")
+                            .pfFont(17.5, .semibold)
+                            .foregroundStyle(Color.primary)
+                        Text(appearance.title)
+                            .pfFont(17.5)
+                            .foregroundStyle(Color.primary)
+                    }
+                    .multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.leading, 24)
+                .padding(.trailing, 30)
+                .padding(.vertical, 17)
+                .frame(maxWidth: .infinity, minHeight: 55, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Appearance")
+            .accessibilityValue(appearance.title)
+            SettingsListSeparator()
+        }
+        .onChange(of: appearance) { _, choice in
+            Appearance.set(choice)
         }
     }
 

@@ -238,6 +238,7 @@ struct SettingsSearchResults: View {
         }
         out.append(Match(title: "Notifications", card: card, enabled: model.config.appPush) { shell.push(.appSecurity) })
         out.append(Match(title: "Two-step sign-in", card: card, enabled: true) { shell.push(.page("profile")) })
+        out.append(Match(title: "Appearance", card: card, enabled: true) { shell.push(.appSecurity) })
         out.append(Match(title: AppSecurityView.lockTitle, card: card, enabled: true) { shell.push(.appSecurity) })
         if AppSecurityView.offersChangeLocation(model) {
             out.append(Match(title: "Change location", card: card, enabled: true) { shell.sheet = .locations })

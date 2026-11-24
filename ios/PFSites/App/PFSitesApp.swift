@@ -11,6 +11,7 @@ struct PFSitesApp: App {
                 .environment(AppModel.shared)
                 .tint(Theme.blue)
                 .dynamicTypeSize(...DynamicTypeSize.large)
+                .onAppear { Appearance.applyToAllWindows() }
         }
     }
 }

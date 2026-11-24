@@ -26,6 +26,7 @@ final class OverlayWindows {
         guard lockWindow == nil, let scene else { return }
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
+        Appearance.apply(to: window)
         let host = UIHostingController(rootView: LockScreen().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large))
         host.view.backgroundColor = .systemBackground
         window.rootViewController = host
@@ -63,6 +64,7 @@ final class OverlayWindows {
         guard coverWindow == nil, let scene else { return }
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 2)
+        Appearance.apply(to: window)
         let host = UIHostingController(rootView: PrivacyCover().dynamicTypeSize(...DynamicTypeSize.large))
         host.view.backgroundColor = .systemBackground
         window.rootViewController = host
@@ -83,6 +85,7 @@ final class OverlayWindows {
         guard warningWindow == nil, let scene else { return }
         let window = BannerWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1)
+        Appearance.apply(to: window)
         let host = UIHostingController(rootView: IdleWarningBanner().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large))
         host.view.backgroundColor = .clear
         window.rootViewController = host
