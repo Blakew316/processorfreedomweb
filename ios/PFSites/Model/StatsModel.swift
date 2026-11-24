@@ -254,8 +254,8 @@ struct StatsPrevious {
     }
 }
 
-/// One hour ("00" to "23") of a one-day period, or one day ("2026-11-17") of a longer one: its orders (not cancelled), its net
-/// sales (less the refunds of orders made in it), and the money taken in it (every payment the ledger recorded then).
+/// One hour ("00" to "23") of a one-day period, or one day ("2026-11-17") of a longer one: its orders (not cancelled) and their net
+/// sales, less the refunds of orders made in it, and the money taken in it (every payment the ledger recorded then).
 struct StatsBucket {
     let key: String
     let orders: Int
@@ -515,9 +515,9 @@ struct StatsReport {
         }
         guard series.count > 1 else { return nil }
         var text = "\(dayName(best.key)) was your strongest day, bringing in \(Money.format(best.net))"
-        // Days with no orders, no refunds of their orders and no money taken. When the period had no refunds at all, nothing
-        // happened on them (the photo's words). Otherwise a refund the days do not show (of an invoice, or of a cancelled order)
-        // could fall on one, so they are only said to have had no sales.
+        // Days with no orders, no refunds of orders and no money taken. When the period had no refunds at all, nothing happened
+        // on them (the photo's words). Otherwise a refund the days do not show (of an invoice, or of a cancelled order) could fall
+        // on one, so they are only said to have had no sales.
         let idle = series.filter { $0.orders == 0 && $0.net == 0 && $0.collected == 0 }
         let quietWords = money.refunds == 0 ? "saw no transaction activity" : "had no sales"
         if idle.count == 1, let day = idle.first {

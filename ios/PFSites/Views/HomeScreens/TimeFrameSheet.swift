@@ -18,25 +18,32 @@ struct TimeFrameSheet: View {
     @State private var start = Date()
     @State private var end = Date()
 
+    /// Measured from the photo: the title's line starts 20 pt under the top of the sheet and the rows 43 pt under it, so the
+    /// empty bottom of the title's line (under its baseline) runs 0.9 pt into the first row, as there. Both grow with the title's
+    /// text size, so the title never reaches the rows at any size.
+    @ScaledMetric(relativeTo: .title3) private var titleTop: CGFloat = 20
+    @ScaledMetric(relativeTo: .title3) private var titleBand: CGFloat = 43
+    /// The Custom row's calendar: 13.4 pt square in the photo, 17 pt after "Custom".
+    @ScaledMetric(relativeTo: .body) private var calendarSize: CGFloat = 13.4
+
     private static let customID = "customDates"
 
     var body: some View {
         VStack(spacing: 0) {
-            // Measured from the photo: the title's line starts 20 pt under the top of the sheet; the rows start 42.7 pt under it.
             Text("Time frame")
                 .pfFont(20, .medium, relativeTo: .title3)
                 .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .accessibilityAddTraits(.isHeader)
-                .padding(.top, 19.8)
+                .padding(.top, titleTop)
                 .padding(.leading, 18)
                 .padding(.trailing, 64)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 42.7, alignment: .top)
+                .frame(height: titleBand, alignment: .top)
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(StatsRange.allCases.filter { $0 != .custom }) { range in
+                        ForEach(StatsRange.rows) { range in
                             presetRow(range)
                             separator
                         }
@@ -97,16 +104,17 @@ struct TimeFrameSheet: View {
             }
             .padding(.leading, 18)
             .padding(.trailing, 21)
-            .frame(maxWidth: .infinity, minHeight: 90)
+            .frame(maxWidth: .infinity, minHeight: rowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    /// Custom, with its calendar: it opens the start and end dates under it. When a custom period is chosen, its days show too.
+    /// Custom, with its calendar: it opens the start and end dates under it. When custom days are chosen (or Insights shows the
+    /// week before today), it is marked, with its days.
     private var customRow: some View {
-        let on = chosen.range == .custom
+        let on = chosen.range.isCustomDays
         let span = chosen.days(today: today)
         return Button {
             withAnimation(.snappy) { customOpen.toggle() }
@@ -117,9 +125,9 @@ struct TimeFrameSheet: View {
                     Text(StatsRange.custom.label)
                         .pfFont(15.5, .medium)
                         .foregroundStyle(on ? Theme.blue : Color.primary)
-                    Image(systemName: "calendar")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.blue)
+                    TimeFrameCalendarGlyph()
+                        .stroke(Theme.blue, lineWidth: calendarSize * TimeFrameCalendarGlyph.lineWidth / TimeFrameCalendarGlyph.grid)
+                        .frame(width: calendarSize, height: calendarSize)
                         .accessibilityHidden(true)
                 }
                 Spacer(minLength: 12)
@@ -130,7 +138,7 @@ struct TimeFrameSheet: View {
             }
             .padding(.leading, 18)
             .padding(.trailing, 21)
-            .frame(maxWidth: .infinity, minHeight: 90)
+            .frame(maxWidth: .infinity, minHeight: rowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -168,6 +176,9 @@ struct TimeFrameSheet: View {
             .frame(height: 1 / max(displayScale, 1))
             .padding(.leading, 16)
     }
+
+    /// A row and its one-pixel line under it take exactly 90 pt, as in the photo (a line every 270 px).
+    private var rowHeight: CGFloat { 90 - 1 / max(displayScale, 1) }
 
     // MARK: Custom dates
 
@@ -212,7 +223,7 @@ struct TimeFrameSheet: View {
         let last = StatsDays.date(span.to) ?? todayDate
         start = first
         end = max(first, min(last, todayDate))
-        customOpen = chosen.range == .custom
+        customOpen = chosen.range.isCustomDays
     }
 
     private func apply() {
@@ -220,5 +231,25 @@ struct TimeFrameSheet: View {
         let last = StatsDays.string(max(start, min(end, latestEnd)))
         choose(StatsTimeFrame(range: .custom, from: first, to: last))
         dismiss()
+    }
+}
+
+/// The Custom row's calendar, traced from the photo (40 x 40 px at 3 px a point): a box with a line under its top and two rings
+/// standing above it, on a 40-unit grid, to be stroked `lineWidth` units wide.
+struct TimeFrameCalendarGlyph: Shape {
+    static let grid: CGFloat = 40
+    static let lineWidth: CGFloat = 4.3
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addRoundedRect(in: CGRect(x: 2.1, y: 6, width: 35.9, height: 31.9), cornerSize: CGSize(width: 2.5, height: 2.5))
+        path.move(to: CGPoint(x: 2.1, y: 17.95))
+        path.addLine(to: CGPoint(x: 38, y: 17.95))
+        path.move(to: CGPoint(x: 10.05, y: 0))
+        path.addLine(to: CGPoint(x: 10.05, y: 12.2))
+        path.move(to: CGPoint(x: 30.05, y: 0))
+        path.addLine(to: CGPoint(x: 30.05, y: 12.2))
+        let scale = min(rect.width, rect.height) / TimeFrameCalendarGlyph.grid
+        return path.applying(CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: rect.minX, ty: rect.minY))
     }
 }

@@ -31,6 +31,10 @@ struct CreateAppointmentScreen: View {
     @State private var nextSheet: CreateAppointmentSheet? = nil
     @State private var pickingDate = false
     @State private var pickingTime = false
+    /// Find availability is reading the booked times again before it chooses one.
+    @State private var finding = false
+    /// The screen has left the stack (Back while a save was on its way): the answer then neither closes nor alerts anything.
+    @State private var closed = false
     @FocusState private var focus: CreateAppointmentFocus?
 
     init(date: String? = nil, time: String? = nil, employee: String? = nil) {
@@ -65,6 +69,8 @@ struct CreateAppointmentScreen: View {
         }
         .toolbarVisibility(.hidden, for: .tabBar)
         .steadyNavigationBar()
+        .onAppear { closed = false }
+        .onDisappear { closed = true }
         .task(id: model.site?.id ?? "") {
             guard let business = model.site else { return }
             await form.load(siteID: business.id)
@@ -105,10 +111,13 @@ struct CreateAppointmentScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // The grey page under the bar, its top-left corner rounded like Clover's.
-                .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+                // The grey page under the bar, its top-left corner rounded like Clover's (14 pt: the photo's corner, fitted pixel
+                // by pixel).
+                .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 14, style: .continuous))
             }
             .scrollDismissesKeyboard(.interactively)
+            // Pulling reads the business's services, team, customers, bookings and items again; what was typed stays.
+            .refreshable { await pullToRefresh() }
             .scrollEdgeEffectStyle(.hard, for: .top)
             // White behind the bar and the rounded corner, grey below a short page.
             .background {
@@ -141,6 +150,11 @@ struct CreateAppointmentScreen: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(SettingsLook.page)
         }
+    }
+
+    private func pullToRefresh() async {
+        guard let business = model.site else { return }
+        await form.load(siteID: business.id)
     }
 
     private func toggle(_ section: CreateAppointmentSection) {
@@ -293,7 +307,7 @@ struct CreateAppointmentScreen: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SettingsLook.page, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(SettingsLook.page, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     /// "+ Add new customer": First name, Last name, Email address and Phone number, as on the website.
@@ -330,8 +344,7 @@ struct CreateAppointmentScreen: View {
     // MARK: Appointment details
 
     private var detailsCard: some View {
-        @Bindable var draft = form
-        return CreateAppointmentCard(title: "Appointment details", open: form.isOpen(.details), gap: 39.86, bottom: 15, toggle: { toggle(.details) }) {
+        CreateAppointmentCard(title: "Appointment details", open: form.isOpen(.details), gap: 39.86, bottom: 15, toggle: { toggle(.details) }) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("*Required")
                     .pfFont(14)
@@ -340,8 +353,8 @@ struct CreateAppointmentScreen: View {
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
                     .padding(.top, 20)
-                ForEach($draft.services) { $service in
-                    serviceCard($service)
+                ForEach(form.services) { service in
+                    serviceCard(serviceBinding(service.id))
                         .padding(.top, service.id == form.services.first?.id ? 26 : 16)
                 }
                 Button("Add another service") {
@@ -467,6 +480,17 @@ struct CreateAppointmentScreen: View {
         }
     }
 
+    /// The service with this id, looked up on every read and write, so a card that is going away (Remove service while one of its
+    /// fields is still typing) can never read or write another card's place in the list.
+    private func serviceBinding(_ id: UUID) -> Binding<CreateAppointmentService> {
+        Binding(
+            get: { form.services.first(where: { $0.id == id }) ?? CreateAppointmentService() },
+            set: { changed in
+                if let index = form.services.firstIndex(where: { $0.id == id }) { form.services[index] = changed }
+            }
+        )
+    }
+
     /// The chosen service as the website's list writes it ("Haircut · 30 min"), or "Choose a service".
     private func serviceTitle(_ service: CreateAppointmentService) -> String {
         if service.name.isEmpty { return "Choose a service" }
@@ -483,8 +507,9 @@ struct CreateAppointmentScreen: View {
                 Spacer(minLength: 8)
                 CreateAppointmentLink(title: "Find availability", underlined: false) {
                     focus = nil
-                    if !form.findAvailability() { problem = CreateAppointmentModel.noOpenTimes }
+                    findAvailability()
                 }
+                .disabled(finding)
             }
             .padding(.top, 36)
 
@@ -500,11 +525,12 @@ struct CreateAppointmentScreen: View {
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
+                    // The photo's #F9F9F9 box: 48 x 46 pt with 12 pt corners, filling the field from border to border.
                     CreateAppointmentCalendarGlyph()
                         .stroke(CreateAppointmentLook.icon, style: StrokeStyle(lineWidth: 1.67, lineCap: .round, lineJoin: .round))
                         .frame(width: 20, height: 20)
-                        .frame(width: 48, height: 43.33)
-                        .background(CreateAppointmentLook.iconBox, in: UnevenRoundedRectangle(bottomTrailingRadius: 8.5, topTrailingRadius: 8.5, style: .continuous))
+                        .frame(width: 48, height: 46)
+                        .background(CreateAppointmentLook.iconBox, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .padding(.trailing, 1)
                 }
                 .padding(.leading, 14)
@@ -552,24 +578,27 @@ struct CreateAppointmentScreen: View {
         }
     }
 
-    /// The calendar, on the business's days; picking a day closes it.
+    /// The calendar, in the business's time zone, so the day it marks as today is the business's today (the form's first date);
+    /// picking a day closes it.
     private var datePicker: some View {
-        DatePicker("Date", selection: dateSelection, displayedComponents: .date)
+        let zone = form.zone
+        return DatePicker("Date", selection: dateSelection, displayedComponents: .date)
             .datePickerStyle(.graphical)
             .labelsHidden()
             .tint(Theme.blue)
-            .environment(\.timeZone, CreateAppointmentClock.utc)
-            .environment(\.calendar, CreateAppointmentClock.calendar)
+            .environment(\.timeZone, zone)
+            .environment(\.calendar, CreateAppointmentClock.calendar(in: zone))
             .frame(width: 320)
             .padding(12)
             .presentationCompactAdaptation(.popover)
     }
 
+    /// The chosen day as noon on the business's clock, and the business's day of whatever is picked.
     private var dateSelection: Binding<Date> {
         Binding(
-            get: { CreateAppointmentClock.date(form.date) ?? Date() },
+            get: { CreateAppointmentClock.noon(form.date, in: form.zone) ?? Date() },
             set: { picked in
-                let day = CreateAppointmentClock.day(picked)
+                let day = CreateAppointmentClock.day(picked, in: form.zone)
                 guard day != form.date else { return }
                 form.setDate(day)
                 pickingDate = false
@@ -594,6 +623,26 @@ struct CreateAppointmentScreen: View {
             get: { CreateAppointmentClock.timeDate(form.time) ?? Date(timeIntervalSince1970: 0) },
             set: { picked in form.setTime(CreateAppointmentClock.time(picked)) }
         )
+    }
+
+    /// The website's findAvail. A time is only chosen once the booked times are known: when they have not been read yet they are
+    /// read first, and when they still cannot be read the server's words show instead of a time that may already be booked.
+    private func findAvailability() {
+        if form.appointmentsLoaded {
+            if !form.findAvailability() { problem = CreateAppointmentModel.noOpenTimes }
+            return
+        }
+        guard let business = model.site, !finding else { return }
+        finding = true
+        Task {
+            await form.loadAppointments(business.id)
+            finding = false
+            if !form.appointmentsLoaded {
+                if !form.appointmentsError.isEmpty && !closed { problem = form.appointmentsError }
+            } else if !form.findAvailability() && !closed {
+                problem = CreateAppointmentModel.noOpenTimes
+            }
+        }
     }
 
     /// Extra time (optional): hours 00 to 08 and minutes 00, 15, 30 or 45 added to the end.
@@ -809,12 +858,12 @@ struct CreateAppointmentScreen: View {
                     .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
                     // The whole box takes a tap, not only the lines typed so far.
                     .background {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(SettingsLook.card)
                             .onTapGesture { focus = .notes }
                     }
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(focus == .notes ? Theme.blue : CreateAppointmentLook.field, lineWidth: focus == .notes ? 2 : 1)
                             .allowsHitTesting(false)
                     }
@@ -827,11 +876,24 @@ struct CreateAppointmentScreen: View {
         }
     }
 
-    /// The chosen customer's appointments with the website's status words, or the photo's line when there are none.
+    /// The chosen customer's appointments with the website's status words, or the photo's line when there are none. While the
+    /// business's appointments have not been read, a chosen customer's history is unknown: the wait for them, or the server's words.
     private var historyCard: some View {
         CreateAppointmentCard(title: "Appointment History", open: form.isOpen(.history), gap: 41.6, bottom: 15.4, toggle: { toggle(.history) }) {
             let past = form.history
-            if past.isEmpty {
+            if past.isEmpty && form.customer != nil && !form.appointmentsLoaded {
+                if form.appointmentsError.isEmpty {
+                    ProgressView()
+                        .tint(Theme.blue)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(form.appointmentsError)
+                        .pfFont(15)
+                        .foregroundStyle(SettingsLook.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else if past.isEmpty {
                 Text("There is no appointment history.")
                     .pfFont(15)
                     .foregroundStyle(Color.primary)
@@ -878,11 +940,13 @@ struct CreateAppointmentScreen: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.top, 12.7)
+                // A save on its way cannot be called back, so Cancel waits for its answer.
                 Button("Cancel") {
                     focus = nil
                     dismiss()
                 }
                 .buttonStyle(CreateAppointmentPillStyle(kind: .soft))
+                .disabled(form.saving)
                 .padding(.top, 3.4)
                 Button("Save") { save() }
                     .buttonStyle(CreateAppointmentPillStyle(kind: .primary))
@@ -901,11 +965,13 @@ struct CreateAppointmentScreen: View {
         model.idle.touch()
         Task {
             do {
-                if try await form.save(siteID: business.id) {
+                // Saved after the screen was left with Back: the appointment stands, and nothing else is closed.
+                if try await form.save(siteID: business.id), !closed {
                     Haptics.success()
                     dismiss()
                 }
             } catch let error as APIError {
+                guard !closed else { return }
                 Haptics.error()
                 problem = error.message
             } catch {

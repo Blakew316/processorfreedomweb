@@ -126,17 +126,22 @@ struct SalesOverviewScreen: View {
     // MARK: Cards
 
     /// Refunds and Discounts as in the photo, then the period's other money figures, each with its count where the server has one.
+    /// The refunds are the stats' own (the same ledger rows the transactions list counts); their count shows only while the
+    /// ledger's list adds up to that same amount, so the two lines never disagree after a refund.
     private func cards(_ report: StatsReport, ledger: (count: Int, total: Int)?) -> some View {
         let totals = report.totals
+        var refundsDetail: String?
+        if let ledger, ledger.total == report.money.refunds {
+            refundsDetail = StatsFormat.count(ledger.count, "transaction", "transactions")
+        }
         let list = [
-            SalesOverviewCardData(title: "Refunds", amount: Money.format(ledger?.total ?? report.money.refunds),
-                                  detail: ledger.map { StatsFormat.count($0.count, "transaction", "transactions") }),
+            SalesOverviewCardData(title: "Refunds", amount: Money.format(report.money.refunds), detail: refundsDetail),
             SalesOverviewCardData(title: "Discounts", amount: Money.format(report.discountTotal),
                                   detail: StatsFormat.count(report.discountCount, "discount", "discounts")),
             SalesOverviewCardData(title: "Tips", amount: Money.format(totals.tips),
                                   detail: report.tipOrders.map { StatsFormat.count($0, "tip", "tips") }),
-            SalesOverviewCardData(title: "Taxes", amount: Money.format(totals.tax),
-                                  detail: report.taxRate > 0 ? "At \(StatsFormat.rate(report.taxRate))" : "No tax rate set"),
+            // Each order's tax was charged at its own rate, so no one rate is named under the period's taxes.
+            SalesOverviewCardData(title: "Taxes", amount: Money.format(totals.tax), detail: nil),
             SalesOverviewCardData(title: "Gross sales", amount: Money.format(totals.gross),
                                   detail: StatsFormat.count(totals.units, "item sold", "items sold")),
             SalesOverviewCardData(title: "Amount collected", amount: Money.format(report.money.collected),
@@ -157,10 +162,11 @@ struct SalesOverviewScreen: View {
     // MARK: Top lists
 
     /// The people credited with the period's orders, by what their orders took in (the website's Sales by employee "Total
-    /// collected"), top five, as the website's top lists keep only amounts above zero.
+    /// collected"), top five, as the website's top lists keep only amounts above zero. Orders nobody took on are credited to "Not
+    /// recorded", which is not an employee (the website's Employees count leaves it out too).
     private func employeeRows(_ report: StatsReport) -> [SalesOverviewTopRow] {
         report.employees
-            .filter { $0.total > 0 }
+            .filter { $0.total > 0 && $0.name != "Not recorded" }
             .sorted { $0.total > $1.total }
             .prefix(5)
             .map { SalesOverviewTopRow(id: $0.name, name: $0.name, detail: StatsFormat.count($0.orders, "order", "orders"), cents: $0.total) }
@@ -175,9 +181,9 @@ struct SalesOverviewScreen: View {
             .map { SalesOverviewTopRow(id: $0.name, name: $0.name, detail: "\($0.qty) sold", cents: $0.sales) }
     }
 
-    private func load(_ stats: StatsModel) async {
+    private func load(_ stats: StatsModel, full: Bool = true) async {
         guard model.phase == .ready, let business = model.site else { return }
-        await stats.load(siteID: business.id)
+        await stats.load(siteID: business.id, full: full)
     }
 }
 
@@ -247,8 +253,9 @@ struct SalesOverviewTopList: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
+            // Measured from the photo: the drawing starts 27 pt under the grey band, in both sections.
             StatsArt(subject: art)
-                .padding(.top, 28)
+                .padding(.top, 27)
             VStack(alignment: .leading, spacing: 12) {
                 Text(title)
                     .pfFont(18, .bold, relativeTo: .title3)

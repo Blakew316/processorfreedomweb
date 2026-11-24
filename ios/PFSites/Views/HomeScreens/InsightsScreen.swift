@@ -4,13 +4,16 @@ import SwiftUI
 /// (it opens the Time frame sheet; the choice is kept while the business is open), then the "Your business snapshot" card: a
 /// paragraph written from the period's numbers, Net sales, Net sold (the orders counted in net sales) and Average order size
 /// against the previous period, the net sales chart, and "Ask a question", greyed and not tappable: Processor Freedom has no
-/// assistant to answer it yet. Everything is the server's numbers (GET /api/sites/<id>/stats), loaded when the screen appears, when
-/// the app comes back, when the time frame changes, on pull, and every minute while the period runs up to today.
+/// assistant to answer it yet. It opens on the seven whole days before today, as the photo does. Everything is the server's
+/// numbers (GET /api/sites/<id>/stats), loaded when the screen appears, when the app comes back, when the time frame changes, on
+/// pull, and every minute while it shows today.
 struct InsightsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFrame = false
+    /// The height the page shows, so the grey panel always reaches its bottom (while the numbers load, too), as in the photos.
+    @State private var visibleHeight: CGFloat = 0
 
     /// This screen's time frame and numbers, kept while the business is open.
     private var stats: StatsModel { StatsChoices.shared.model(.insights, shellID: model.shellID) }
@@ -27,7 +30,7 @@ struct InsightsScreen: View {
         NavigationStack {
             ScrollView {
                 // Measured from the photos: the grey panel starts under the bar with its top-left corner rounded; the heading's
-                // line starts 18.7 pt down, and the card 16.6 pt under the heading.
+                // line starts 18.7 pt down, the card 16.6 pt under the heading, and the panel ends 16 pt under the card.
                 VStack(alignment: .leading, spacing: 0) {
                     heading(stats)
                     card(stats)
@@ -35,9 +38,14 @@ struct InsightsScreen: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 18.7)
-                .padding(.bottom, 40)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, minHeight: visibleHeight, alignment: .topLeading)
                 .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+            }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                visibleHeight = height
             }
             .background(Color(.systemBackground))
             .scrollEdgeEffectStyle(.hard, for: .top)
@@ -65,11 +73,11 @@ struct InsightsScreen: View {
         .task(id: LoadKey(frame: stats.frame.key, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
             guard scenePhase == .active, model.phase == .ready else { return }
             await load(stats)
-            // A period that runs up to today is read again every minute while the screen shows.
+            // Today is read again every minute while the screen shows.
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 60_000_000_000)
                 if Task.isCancelled { return }
-                if stats.reachesToday { await load(stats) }
+                if stats.refreshesEveryMinute { await load(stats) }
             }
         }
         .sheet(isPresented: $choosingFrame) {
@@ -81,9 +89,10 @@ struct InsightsScreen: View {
 
     // MARK: Heading
 
-    /// "Insights", 24 pt bold, with the underlined time frame on its right.
+    /// "Insights", 24 pt bold, with the underlined time frame on its right: a preset's name, or the days themselves ("Nov 17 – 23,
+    /// 2026") for custom days and the week Insights opens on.
     private func heading(_ stats: StatsModel) -> some View {
-        let label = stats.frame.range.label
+        let label = frameLabel(stats)
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text("Insights")
                 .pfFont(24, .bold, relativeTo: .title)
@@ -98,12 +107,24 @@ struct InsightsScreen: View {
                     .pfFont(15)
                     .foregroundStyle(Theme.blue)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Time frame, \(label)")
             .accessibilityHint("Opens the time frames")
         }
+    }
+
+    /// The days of the numbers shown, or, while they load, the days the time frame covers.
+    private func frameLabel(_ stats: StatsModel) -> String {
+        let range = stats.frame.range
+        guard range.isCustomDays else { return range.label }
+        if let report = stats.current, !report.from.isEmpty, !report.to.isEmpty {
+            return StatsDays.title(from: report.from, to: report.to)
+        }
+        let span = stats.frame.days(today: stats.businessToday)
+        return StatsDays.title(from: span.from, to: span.to)
     }
 
     // MARK: Your business snapshot

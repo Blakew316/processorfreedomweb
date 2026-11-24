@@ -70,8 +70,10 @@ enum CreateAppointmentSection: Hashable {
 
 // MARK: - Days, times and prices the way the website reads them
 
-/// Days and times on the business's own clock. The form keeps them as the server takes them ("2026-11-24", "15:30"); the pickers
-/// show them through UTC dates, so what is picked is exactly the business's day and time, whatever the iPhone's own time zone.
+/// Days and times on the business's own clock. The form keeps them as the server takes them ("2026-11-24", "15:30"). The calendar
+/// for the date runs in the business's time zone, so the day it marks as today is the business's today; the time wheel, which
+/// marks nothing, shows the time through UTC. Either way what is picked is exactly the business's day and time, whatever the
+/// iPhone's own time zone.
 enum CreateAppointmentClock {
     static let utc = TimeZone(secondsFromGMT: 0) ?? .current
     /// The server's default when a business has not chosen one (defaultOrdering in shared/core.js).
@@ -82,6 +84,27 @@ enum CreateAppointmentClock {
         calendar.timeZone = utc
         return calendar
     }()
+
+    /// A gregorian calendar on a time zone's clock.
+    static func calendar(in zone: TimeZone) -> Calendar {
+        var zoned = Calendar(identifier: .gregorian)
+        zoned.timeZone = zone
+        return zoned
+    }
+
+    /// Noon of a "2026-11-24" day on a time zone's clock: what the date calendar holds (noon, so no clock change can move it to
+    /// another day).
+    static func noon(_ day: String, in zone: TimeZone) -> Date? {
+        let parts = day.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar(in: zone).date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
+    }
+
+    /// The "2026-11-24" day a moment falls on, on a time zone's clock.
+    static func day(_ date: Date, in zone: TimeZone) -> String {
+        let parts = calendar(in: zone).dateComponents([.year, .month, .day], from: date)
+        return "\(parts.year ?? 1970)-\(pad(parts.month ?? 1))-\(pad(parts.day ?? 1))"
+    }
 
     static func pad(_ value: Int) -> String { value < 10 ? "0\(value)" : String(value) }
 
@@ -111,11 +134,6 @@ enum CreateAppointmentClock {
         let parts = day.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
         return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
-    }
-
-    static func day(_ date: Date) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        return "\(parts.year ?? 1970)-\(pad(parts.month ?? 1))-\(pad(parts.day ?? 1))"
     }
 
     /// "15:30" as a moment on 1 January 1970, UTC, for the time wheel.
@@ -231,6 +249,10 @@ final class CreateAppointmentModel {
     var customers: [CreateAppointmentCustomer] = []
     var customersError = ""
     var appointments: [Appointment] = []
+    /// The business's appointments have been read at least once (an empty list is then true: nothing is booked).
+    var appointmentsLoaded = false
+    /// The server's words when the appointments could not be read yet: the customer's history and the booked times are unknown.
+    var appointmentsError = ""
     var items: [CreateAppointmentItem] = []
     var itemsLoaded = false
     var itemsError = ""
@@ -364,10 +386,21 @@ final class CreateAppointmentModel {
         }
     }
 
-    private func loadAppointments(_ siteID: String) async {
-        guard let answer = try? await API.get("/api/sites/\(siteID)/appointments") else { return }
-        let list = answer["appointments"].array.compactMap { Appointment($0) }
-        if list != appointments { appointments = list }
+    /// The business's appointments (from 30 days back), for Find availability and the customer's history. A list read before
+    /// stays when a later read fails; when none could be read yet, the server's words show instead of untrue empty answers.
+    func loadAppointments(_ siteID: String) async {
+        do {
+            let answer = try await API.get("/api/sites/\(siteID)/appointments")
+            let list = answer["appointments"].array.compactMap { Appointment($0) }
+            if list != appointments { appointments = list }
+            if !appointmentsLoaded { appointmentsLoaded = true }
+            if !appointmentsError.isEmpty { appointmentsError = "" }
+        } catch let error as APIError {
+            if error.status == 401 { AppModel.shared.sessionEnded() }
+            if !appointmentsLoaded { appointmentsError = error.message }
+        } catch {
+            // Cancelled: the screen went away.
+        }
     }
 
     private func loadItems(_ siteID: String) async {

@@ -168,16 +168,17 @@ struct CreateAppointmentRule: View {
     }
 }
 
-/// The 48 pt box of a field: white, 1 pt #868686 border and 10 pt corners; blue and thicker while typing in it.
+/// The 48 pt box of a field: white, 1 pt #868686 border and 12 pt corners (the photos' fields, traced to the pixel); blue and
+/// thicker while typing in it.
 struct CreateAppointmentFieldBox: ViewModifier {
     var focused = false
 
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-            .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(focused ? Theme.blue : CreateAppointmentLook.field, lineWidth: focused ? 2 : 1)
             }
     }
