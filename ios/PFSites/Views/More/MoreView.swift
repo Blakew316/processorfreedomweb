@@ -178,14 +178,14 @@ struct MoreView: View {
     private var footer: some View {
         VStack(alignment: .leading, spacing: 0) {
             Divider()
-            HStack(spacing: 18) {
-                footerLink("Terms") { UIPresenter.safari(Config.url("/terms")) }
-                footerLink("Privacy Policy") { UIPresenter.safari(Config.url("/privacy")) }
-                // There is no accessibility page for the platform yet.
-                Text("Accessibility")
-                    .pfFont(18, .semibold)
-                    .foregroundStyle(Color(.tertiaryLabel))
-                    .accessibilityValue("Not available yet")
+            // Terms, Privacy Policy and Accessibility always share one row: with a larger text size the row steps down
+            // to smaller type and gaps instead of wrapping, and as a last resort shrinks to fit.
+            ViewThatFits(in: .horizontal) {
+                footerRow(size: 18, spacing: 18)
+                footerRow(size: 16, spacing: 14)
+                footerRow(size: 14, spacing: 12)
+                footerRow(size: 13, spacing: 10)
+                    .minimumScaleFactor(0.5)
             }
             .padding(.top, 24)
             .padding(.horizontal, 25)
@@ -197,10 +197,23 @@ struct MoreView: View {
         }
     }
 
-    private func footerLink(_ title: String, action: @escaping () -> Void) -> some View {
+    private func footerRow(size: CGFloat, spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
+            footerLink("Terms", size: size) { UIPresenter.safari(Config.url("/terms")) }
+            footerLink("Privacy Policy", size: size) { UIPresenter.safari(Config.url("/privacy")) }
+            // There is no accessibility page for the platform yet.
+            Text("Accessibility")
+                .pfFont(size, .semibold)
+                .foregroundStyle(Color(.tertiaryLabel))
+                .accessibilityValue("Not available yet")
+        }
+        .lineLimit(1)
+    }
+
+    private func footerLink(_ title: String, size: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .pfFont(18, .semibold)
+                .pfFont(size, .semibold)
                 .foregroundStyle(Theme.blue)
         }
         .buttonStyle(.plain)
