@@ -110,7 +110,7 @@ struct SalesOverviewScreen: View {
                 .minimumScaleFactor(0.5)
                 .padding(.top, 6)
             Text(StatsFormat.count(totals.orders, "Transaction", "Transactions"))
-                .pfFont(13.5)
+                .pfFont(14)
                 .foregroundStyle(StatsLook.subtle)
                 .padding(.leading, 2)
             StatsChangeLine(change: StatsChange.of(totals.net, report.previous.net, decimals: 0), words: report.sinceWords, style: .triangle)
