@@ -196,6 +196,9 @@ struct SaleView: View {
             }
         } label: {
             HStack(alignment: .center, spacing: 12) {
+                if order.showImages {
+                    SaleItemPhoto(path: item.image)
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.name)
                         .pfFont(17)
@@ -318,6 +321,42 @@ enum KeypadTarget: Identifiable {
         switch self {
         case .item(let item): return "item-\(item.id)"
         case .custom: return "custom"
+        }
+    }
+}
+
+/// An item's photo on the Sale list, when the business turned on item images (Settings → Item images): the item's own photo, or a
+/// light grey square with a picture icon when it has none, so the names stay lined up.
+private struct SaleItemPhoto: View {
+    let path: String
+
+    var body: some View {
+        Group {
+            if path.isEmpty {
+                placeholder
+            } else {
+                AsyncImage(url: Config.url(path)) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        placeholder
+                    }
+                }
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .accessibilityHidden(true)
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            Color(.secondarySystemBackground)
+            Image(systemName: "photo")
+                .font(.system(size: 18))
+                .foregroundStyle(.tertiary)
         }
     }
 }

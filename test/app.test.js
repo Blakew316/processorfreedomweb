@@ -3466,24 +3466,24 @@ test('product codes from item lists and pastes: only a code column is read, a 0 
 
 test('the Sale screen settings are kept with the business, so every phone and the website see the same', async () => {
   const core = await import('../shared/core.js');
-  assert.deepEqual(core.defaultOrdering().sale, { groupItems: true, stayInCategory: false });
-  assert.deepEqual(core.normalizeOrdering({}).sale, { groupItems: true, stayInCategory: false }, 'settings saved before these existed');
-  assert.deepEqual(core.normalizeOrdering({ sale: { groupItems: 'no', stayInCategory: 1 } }).sale, { groupItems: true, stayInCategory: false }, 'only true and false count');
-  assert.deepEqual(core.normalizeOrdering({ sale: 'x' }).sale, { groupItems: true, stayInCategory: false });
+  assert.deepEqual(core.defaultOrdering().sale, { groupItems: true, stayInCategory: false, customName: false, images: false });
+  assert.deepEqual(core.normalizeOrdering({}).sale, { groupItems: true, stayInCategory: false, customName: false, images: false }, 'settings saved before these existed');
+  assert.deepEqual(core.normalizeOrdering({ sale: { groupItems: 'no', stayInCategory: 1, customName: 'yes', images: 1 } }).sale, { groupItems: true, stayInCategory: false, customName: false, images: false }, 'only true and false count');
+  assert.deepEqual(core.normalizeOrdering({ sale: 'x' }).sale, { groupItems: true, stayInCategory: false, customName: false, images: false });
   const s = await appServer();
   try {
     const me = client(), phone = client();
     await me('POST', '/api/auth/signup', { email: 'sale@app.test', password: 'long-enough-pw' }, newIp());
     const site = (await me('POST', '/api/sites', { name: 'Sale Cafe', template: 'order', kind: 'ordering' })).data.site;
-    assert.deepEqual(site.ordering.sale, { groupItems: true, stayInCategory: false });
-    let r = await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, sale: { groupItems: false, stayInCategory: true } }, rev: site.orderingRev });
-    assert.deepEqual([r.status, r.data.ordering.sale], [200, { groupItems: false, stayInCategory: true }]);
+    assert.deepEqual(site.ordering.sale, { groupItems: true, stayInCategory: false, customName: false, images: false });
+    let r = await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, sale: { groupItems: false, stayInCategory: true, customName: true, images: true } }, rev: site.orderingRev });
+    assert.deepEqual([r.status, r.data.ordering.sale], [200, { groupItems: false, stayInCategory: true, customName: true, images: true }]);
     // Seen from another sign-in, and kept by a later save of other settings that sends it back as it was.
     await phone('POST', '/api/auth/login', { email: 'sale@app.test', password: 'long-enough-pw' }, newIp());
     const seen = (await phone('GET', `/api/sites/${site.id}`)).data.site;
-    assert.deepEqual(seen.ordering.sale, { groupItems: false, stayInCategory: true });
+    assert.deepEqual(seen.ordering.sale, { groupItems: false, stayInCategory: true, customName: true, images: true });
     r = await phone('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...seen.ordering, allowNotes: false }, rev: seen.orderingRev });
-    assert.deepEqual([r.data.ordering.allowNotes, r.data.ordering.sale], [false, { groupItems: false, stayInCategory: true }]);
+    assert.deepEqual([r.data.ordering.allowNotes, r.data.ordering.sale], [false, { groupItems: false, stayInCategory: true, customName: true, images: true }]);
     // A save made from what an older copy showed is refused, as for every other setting.
     assert.equal((await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, sale: { groupItems: true, stayInCategory: true } }, rev: site.orderingRev })).status, 412);
   } finally { s.stop(); }

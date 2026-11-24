@@ -234,7 +234,7 @@ struct PriceKeypadSheet: View {
 
             if isCustom {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Name")
+                    Text(needsName ? "Name*" : "Name")
                         .pfFont(15, .medium)
                         .foregroundStyle(.secondary)
                     BoxField(focused: nameFocused) {
@@ -279,8 +279,8 @@ struct PriceKeypadSheet: View {
 
             Spacer(minLength: 16)
             Button("Done") { done() }
-                .buttonStyle(KeypadDoneStyle(on: cents > 0))
-                .disabled(cents == 0)
+                .buttonStyle(KeypadDoneStyle(on: canAdd))
+                .disabled(!canAdd)
                 .padding(.horizontal, 28)
                 .padding(.bottom, 15)
         }
@@ -290,6 +290,12 @@ struct PriceKeypadSheet: View {
         if case .custom = target { return true }
         return false
     }
+
+    /// The business asks for a name on every custom item (Settings → Custom item name).
+    private var needsName: Bool { isCustom && order.customNameRequired }
+
+    /// An amount, and a name when one is needed.
+    private var canAdd: Bool { cents > 0 && (!needsName || !name.trimmed.isEmpty) }
 
     private var title: String {
         switch target {
@@ -335,7 +341,7 @@ struct PriceKeypadSheet: View {
     }
 
     private func done() {
-        guard cents > 0 else { return }
+        guard canAdd else { return }
         let added: String
         switch target {
         case .item(let item):

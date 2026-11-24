@@ -742,7 +742,8 @@ export function defaultOrdering() {
     booking: { enabled: false, title: 'Book online', note: '', perSlot: 2, services: [] },
     // How the iPhone app's Sale screen builds an order, kept with the business so every phone and the website see the same choice:
     // tapping an item already in the order adds to its quantity, and the list goes back to all items after an item is added.
-    sale: { groupItems: true, stayInCategory: false },
+    // customName: a custom item needs a name before it can be added. images: the Sale list shows each item's photo.
+    sale: { groupItems: true, stayInCategory: false, customName: false, images: false },
   };
 }
 const ID_CHARS = 'ABCDEFGHJKMNPQRSTVWXYZ0123456789';
@@ -790,7 +791,7 @@ export function normalizeOrdering(input) {
     revClasses: [...new Set(arr(o.revClasses).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     discounts: arr(o.discounts).slice(0, 60).map((x, i) => ({ id: str(x?.id, 24) || `d${i}`, name: str(x?.name, 60).trim(), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_000_00, 0) : int(x?.value, 0, 100, 10) })).filter((x) => x.name),
     booking: { enabled: o.booking?.enabled === true, title: str(o.booking?.title ?? 'Book online', 60).trim() || 'Book online', note: str(o.booking?.note, 300), perSlot: int(o.booking?.perSlot, 1, 200, 2), services: arr(o.booking?.services).slice(0, 40).map((x, i2) => ({ id: str(x?.id, 24) || `s${i2}`, name: str(x?.name, 80).trim(), minutes: int(x?.minutes, 0, 600, 60), price: int(x?.price, 0, 1_000_000_00, 0) })).filter((x) => x.name) },
-    sale: { groupItems: o.sale?.groupItems !== false, stayInCategory: o.sale?.stayInCategory === true },
+    sale: { groupItems: o.sale?.groupItems !== false, stayInCategory: o.sale?.stayInCategory === true, customName: o.sale?.customName === true, images: o.sale?.images === true },
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods && Object.hasOwn(o.methods, k) && o.methods[k]);

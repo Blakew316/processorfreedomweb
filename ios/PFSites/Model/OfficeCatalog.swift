@@ -101,7 +101,14 @@ enum SettingsCatalog {
                 SettingsRow(title: "Merchants", target: .locations),
                 SettingsRow(title: "Closeout settings", target: .native(.closeoutSettings)),
             ])]),
-            SettingsGroup(id: "operations", title: "Business operations", bands: [SettingsBand(title: "Global settings", rows: operationsRows(owner: owner))]),
+            SettingsGroup(id: "operations", title: "Business operations", bands: [
+                SettingsBand(title: "Global settings", rows: operationsRows(owner: owner)),
+                // Clover's "Clover Go settings" (the owner's photo): how the Sale screen shows items and takes custom items.
+                SettingsBand(title: "PF Sites settings", rows: [
+                    SettingsRow(title: "Item images", target: .pushed(.itemImages)),
+                    SettingsRow(title: "Custom item name", target: .pushed(.customItemName)),
+                ]),
+            ]),
             SettingsGroup(id: "transactions", title: "Transactions", bands: [
                 SettingsBand(title: "Global settings", rows: [
                     SettingsRow(title: "Orders", target: .native(.ordersOptions)),
@@ -127,26 +134,22 @@ enum SettingsCatalog {
         ]
     }
 
-    /// The website's "Business operations" card. "Reporting" and "Accounting Sync" are panels on the website's Settings page itself.
+    /// Business operations, in the order of Clover Go's list in the owner's photo (Taxes and fees, Additional charges, Tips, Business
+    /// hours, Devices and printers, then Inventory). "Reporting" and "Accounting Sync" are panels on the website's Settings page.
     private static func operationsRows(owner: Bool) -> [SettingsRow] {
         var rows: [SettingsRow] = [
             SettingsRow(title: "Notification preferences", target: .page("alerts")),
             SettingsRow(title: "Online booking", target: .page("obook")),
             SettingsRow(title: "Customer communication preferences", target: .page("alerts")),
             SettingsRow(title: "Reporting", target: .page("settings")),
+            SettingsRow(title: "Accounting Sync", target: .page("settings")),
             SettingsRow(title: "Taxes and fees", target: .page("ordering")),
             SettingsRow(title: "Additional charges", target: .unavailable),
             SettingsRow(title: "Tips", target: .page("ordering")),
             SettingsRow(title: "Business hours", target: .page("hours")),
         ]
         if owner { rows.append(SettingsRow(title: "Devices and printers", target: .page("devices"))) }
-        rows.append(contentsOf: [
-            SettingsRow(title: "Accounting Sync", target: .page("settings")),
-            SettingsRow(title: "API tokens", target: .unavailable),
-            SettingsRow(title: "Cellular data", target: .unavailable),
-            SettingsRow(title: "Inventory", target: .page("items")),
-            SettingsRow(title: "Enterprise Wi-Fi", target: .unavailable),
-        ])
+        rows.append(SettingsRow(title: "Inventory", target: .native(.inventory)))
         return rows
     }
 }

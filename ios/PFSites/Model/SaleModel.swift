@@ -75,6 +75,10 @@ final class SaleModel {
     /// The business's Sale settings (ordering.sale on the server), so every device behaves the same.
     var groupItems = true
     var stayInCategory = false
+    /// ordering.sale.customName: a custom item needs a name before it can be added.
+    var customNameRequired = false
+    /// ordering.sale.images: the item list shows each item's photo.
+    var showImages = false
 
     @ObservationIgnored private var loadedAt: Date?
     @ObservationIgnored private var loadedSite = ""
@@ -200,6 +204,10 @@ final class SaleModel {
         let stay = sale["stayInCategory"].bool
         if groupItems != group { groupItems = group }
         if stayInCategory != stay { stayInCategory = stay }
+        let needName = sale["customName"].bool
+        let images = sale["images"].bool
+        if customNameRequired != needName { customNameRequired = needName }
+        if showImages != images { showImages = images }
     }
 
     // MARK: The order

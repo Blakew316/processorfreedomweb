@@ -30,6 +30,8 @@ enum SettingsPageID: String, Identifiable, CaseIterable {
     case ordersOptions, orderReceipts, orderTypes, payments, paymentReceipts, invoiceNumber, invoicesEstimates, manualCardEntry
     // Settings → Transactions → PF Sites settings
     case paymentNote, quickSale, carbonCopyReceipts, tapToPay
+    // Settings → Business operations → Inventory, and its PF Sites settings
+    case inventory, itemImages, customItemName
 
     var id: String { rawValue }
 }
@@ -55,6 +57,9 @@ struct SettingsPageHost: View {
         case .quickSale: QuickSalePage()
         case .carbonCopyReceipts: CarbonCopyReceiptsPage()
         case .tapToPay: TapToPayPage()
+        case .inventory: InventorySettingsPage()
+        case .itemImages: ItemImagesPage()
+        case .customItemName: CustomItemNamePage()
         }
     }
 }

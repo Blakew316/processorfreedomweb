@@ -92,6 +92,7 @@ struct MenuItem: Identifiable, Hashable {
     var available: Bool
     var stock: Int
     var variable: Bool    // priced at the counter: the amount is keyed in each time
+    var image: String     // the item's photo (a path on the site, or empty), shown when the business turns on item images
 
     init?(_ json: JSON) {
         let id = json["id"].string
@@ -105,6 +106,7 @@ struct MenuItem: Identifiable, Hashable {
         available = json["available"].exists ? json["available"].bool : true
         stock = json["stock"].exists ? json["stock"].int : 1
         variable = json["variable"].bool
+        image = json["image"].string.trimmed
     }
 
     var soldOut: Bool { !available || stock <= 0 }
