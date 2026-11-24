@@ -19,16 +19,17 @@ struct HomeView: View {
     private struct HomeTile {
         let tab: String
         let title: String
-        let icon: String
+        /// The tile's drawing in the asset catalog, as two template layers: `<art>Ink` (lines) and `<art>Accent` (the brand-blue parts).
+        let art: String
     }
 
-    private let setup = HomeTile(tab: "tasks", title: "Setup tasks", icon: "checklist")
-    private let overview = HomeTile(tab: "sales", title: "Sales overview", icon: "chart.line.uptrend.xyaxis")
-    private let insights = HomeTile(tab: "insights", title: "Insights", icon: "sparkles")
-    private let calendar = HomeTile(tab: "calendar", title: "Calendar", icon: "calendar")
-    private let items = HomeTile(tab: "items", title: "Items and services", icon: "tag")
-    private let closeout = HomeTile(tab: "close", title: "Closeout", icon: "banknote")
-    private let itemSales = HomeTile(tab: "r-items", title: "Items sales report", icon: "chart.pie")
+    private let setup = HomeTile(tab: "tasks", title: "Setup tasks", art: "HomeSetup")
+    private let overview = HomeTile(tab: "sales", title: "Sales overview", art: "HomeSales")
+    private let insights = HomeTile(tab: "insights", title: "Insights", art: "HomeInsights")
+    private let calendar = HomeTile(tab: "calendar", title: "Calendar", art: "HomeCalendar")
+    private let items = HomeTile(tab: "items", title: "Items and services", art: "HomeItems")
+    private let closeout = HomeTile(tab: "close", title: "Closeout", art: "HomeCloseout")
+    private let itemSales = HomeTile(tab: "r-items", title: "Items sales report", art: "HomeItemSales")
 
     var body: some View {
         ScrollView {
@@ -161,12 +162,17 @@ struct HomeView: View {
                 model.shell.home.append(.page(tile.tab))
             } label: {
                 VStack(spacing: 0) {
-                    Image(systemName: tile.icon)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(Theme.ink, Theme.blue)
-                        .font(.system(size: 32, weight: .regular))
-                        .frame(height: 40)
-                        .accessibilityHidden(true)
+                    // Thin line drawings like the owner's Clover photo: navy lines (white in dark mode) with brand-blue accents.
+                    ZStack {
+                        Image("\(tile.art)Ink")
+                            .renderingMode(.template)
+                            .foregroundStyle(Theme.ink)
+                        Image("\(tile.art)Accent")
+                            .renderingMode(.template)
+                            .foregroundStyle(Theme.blue)
+                    }
+                    .frame(width: 48, height: 48)
+                    .accessibilityHidden(true)
                     Text(tile.title)
                         .pfFont(20, .medium)
                         .foregroundStyle(.primary)
