@@ -1052,20 +1052,21 @@ struct CreateAppointmentScreen: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.top, 13)
-                // A save on its way cannot be called back, so Cancel waits for its answer.
+                // A save on its way cannot be called back, so Cancel waits for its answer (and stays as it is while the screen
+                // closes after it).
                 Button("Cancel") {
                     focus = nil
                     dismiss()
                 }
                 .buttonStyle(CreateAppointmentPillStyle(kind: .soft))
-                .disabled(form.saving)
+                .disabled(form.saving || form.saved)
                 .padding(.top, 3)
-                // While the appointment is on its way Save keeps its colour with a spinner on it, and pressing it again does
-                // nothing.
+                // While the appointment is on its way, and while the screen closes once it is saved, Save keeps its colour with
+                // a spinner on it; pressing it again does nothing.
                 Button {
                     save()
                 } label: {
-                    if form.saving {
+                    if form.saving || form.saved {
                         ProgressView()
                             .tint(Color.white)
                     } else {
@@ -1073,9 +1074,9 @@ struct CreateAppointmentScreen: View {
                     }
                 }
                 .buttonStyle(CreateAppointmentPillStyle(kind: .primary))
-                .disabled(!form.ready || form.saved)
+                .disabled(!form.ready)
                 .accessibilityLabel("Save")
-                .accessibilityValue(form.saving ? "In progress" : "")
+                .accessibilityValue(form.saving || form.saved ? "In progress" : "")
                 .padding(.top, 16)
             }
             .padding(.horizontal, 24)
@@ -1136,7 +1137,7 @@ struct CreateAppointmentScreen: View {
                 }
             case .discount:
                 CreateAppointmentAmountSheet(title: "Order discount", question: "Amount off", allowsZero: true, start: form.discount) { cents, _ in
-                    pendingProblem = form.setDiscount(cents)
+                    if let message = form.setDiscount(cents) { pendingProblem = message }
                 }
             case .charge:
                 CreateAppointmentAmountSheet(title: "Service charge", question: "Amount", allowsZero: true, start: form.charge) { cents, _ in
