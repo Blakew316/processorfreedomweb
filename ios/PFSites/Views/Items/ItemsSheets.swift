@@ -295,15 +295,16 @@ struct ItemsCategoryPicker: View {
             }
             .scrollDismissesKeyboard(.interactively)
             ItemsHairline(color: ItemsLook.control)
+            // The pills of Filter item results: 48 pt, 16 pt under the rule and 12 pt above the bottom.
             HStack(spacing: 16) {
                 Button("Cancel") { dismiss() }
-                    .buttonStyle(ItemsPillStyle(kind: .grey, height: 45, size: 16, weight: .medium))
+                    .buttonStyle(ItemsPillStyle(kind: .grey, height: 48, size: 16, weight: .medium))
                 Button("Assign") { addNew() }
-                    .buttonStyle(ItemsPillStyle(kind: .brand, height: 45, size: 16, weight: .medium))
+                    .buttonStyle(ItemsPillStyle(kind: .brand, height: 48, size: 16, weight: .medium))
                     .disabled(newName.trimmed.isEmpty)
             }
-            .padding(.top, 17)
-            .padding(.bottom, 14)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
         }
         .background(Color(.systemBackground))
         .presentationDetents([.medium, .large])

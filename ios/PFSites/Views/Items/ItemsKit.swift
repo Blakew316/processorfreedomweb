@@ -268,7 +268,7 @@ struct ItemsSwitchRow: View {
     @Binding var on: Bool
     var greyed = false
     var dotted = false
-    var size: CGFloat = 16.5
+    var size: CGFloat = 16
 
     var body: some View {
         Button {
@@ -325,7 +325,7 @@ struct ItemsCheckRow: View {
                 .padding(.top, dotted ? 0 : 1.3)
             VStack(alignment: .leading, spacing: 6.3) {
                 Text(label)
-                    .pfFont(bold ? 16 : 16.5, bold ? .bold : .regular)
+                    .pfFont(16, bold ? .bold : .regular)
                     .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
                     .modifier(ItemsDotted(show: dotted, color: greyed ? ItemsLook.greyed : Color.primary))
@@ -378,7 +378,7 @@ struct ItemsRadioRow<Extra: View>: View {
                 .padding(.top, 1.7)
             VStack(alignment: .leading, spacing: 6.3) {
                 Text(label)
-                    .pfFont(16.5, .bold)
+                    .pfFont(16, .bold)
                     .foregroundStyle(greyed ? ItemsLook.greyed : ItemsLook.grey)
                     .lineSpacing(5.5)
                     .fixedSize(horizontal: false, vertical: true)
@@ -476,7 +476,7 @@ struct ItemsField<Field: View, Trailing: View>: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
                 field()
-                    .pfFont(17)
+                    .pfFont(16)
                     .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                     .disabled(greyed)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -539,7 +539,7 @@ struct ItemsDropdown<Choices: View, Leading: View>: View {
                 HStack(spacing: 10) {
                     leading()
                     Text(value)
-                        .pfFont(16.5)
+                        .pfFont(16)
                         .foregroundStyle(greyed ? ItemsLook.greyed : Color.primary)
                         .lineLimit(1)
                     Spacer(minLength: 8)
@@ -585,6 +585,9 @@ struct ItemsCard<Content: View>: View {
     var kind: Kind = .standard
     /// The space under the card's last field.
     var bottom: CGFloat = 22
+    /// The space between the description and the hairline under it: 15.3 pt from its last baseline in the Categories and Item
+    /// tracking photos, 19.3 pt in the Details photo.
+    var ruleGap: CGFloat = 11.5
     @ViewBuilder let content: () -> Content
 
     @State private var open = true
@@ -600,7 +603,7 @@ struct ItemsCard<Content: View>: View {
                 }
                 if open {
                     ItemsHairline()
-                        .padding(.top, 12)
+                        .padding(.top, ruleGap)
                 }
             case .ruled:
                 titleRow(chevron: true)
@@ -616,9 +619,10 @@ struct ItemsCard<Content: View>: View {
                     HStack(alignment: .top, spacing: 16) {
                         noteText(note)
                         Spacer(minLength: 0)
+                        // Centred at x = 306 pt, as in the Menus photo.
                         chevron
                             .padding(.top, -8.5)
-                            .padding(.trailing, 11)
+                            .padding(.trailing, 13)
                     }
                     .padding(.top, 19.3)
                 }
@@ -627,8 +631,10 @@ struct ItemsCard<Content: View>: View {
                 content()
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, kind == .side ? 26.4 : 20)
+        // 17 pt from the card's edge to its hairlines, fields and tables on both sides, as in the photos.
+        .padding(.horizontal, 17)
+        // The title's baseline 38.7 pt under the card's top edge (21 + the 17.6 pt ascender); the Menus card's 44 pt.
+        .padding(.top, kind == .side ? 26.4 : 21)
         .padding(.bottom, open ? bottom : 20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -641,18 +647,22 @@ struct ItemsCard<Content: View>: View {
     private var radius: CGFloat { kind == .side ? 24 : 8 }
     private var titleColor: Color { kind == .side ? Color.primary : ItemsLook.title }
 
+    /// The title alone sets the row's height, so the description follows 25 pt under its baseline as in the photos; the chevron
+    /// sits over the row's end, centred on the title, keeping its 36 x 30 pt tap area without making the row taller.
     private func titleRow(chevron show: Bool) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(title)
-                .pfFont(18.5, .bold, relativeTo: .title3)
-                .foregroundStyle(titleColor)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
-            if show { chevron }
-        }
+        Text(title)
+            .pfFont(18.5, .bold, relativeTo: .title3)
+            .foregroundStyle(titleColor)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, show ? 40 : 0)
+            .overlay(alignment: .trailing) {
+                if show { chevron }
+            }
     }
 
+    /// The fold chevron, its glyph centred 11 pt in from the content's edge (x = 319 pt in the photos).
     private var chevron: some View {
         Button {
             withAnimation(.snappy) { open.toggle() }
@@ -664,7 +674,7 @@ struct ItemsCard<Content: View>: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.trailing, -6)
+        .padding(.trailing, -7)
         .accessibilityLabel(open ? "Fold \(title)" : "Open \(title)")
     }
 

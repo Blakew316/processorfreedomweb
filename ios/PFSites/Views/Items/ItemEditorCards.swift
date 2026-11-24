@@ -63,7 +63,7 @@ struct ItemDetailsCard: View {
     let choosePhoto: () -> Void
 
     var body: some View {
-        ItemsCard(title: "Details", note: "Enter basic item details for both POS and online.", bottom: 26) {
+        ItemsCard(title: "Details", note: "Enter basic item details for both POS and online.", bottom: 26, ruleGap: 15.5) {
             VStack(alignment: .leading, spacing: 0) {
                 typeSection
                 deviceSection
@@ -648,7 +648,7 @@ struct ItemCategoriesCard: View {
             HStack(spacing: 17.7) {
                 if selecting { checkbox }
                 Text(name)
-                    .pfFont(16.5)
+                    .pfFont(16)
                     .foregroundStyle(Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -754,7 +754,7 @@ struct ItemMenusCard: View {
                 HStack {
                     Spacer(minLength: 0)
                     Button("+ Assign Menus") {}
-                        .buttonStyle(ItemsPillStyle(kind: .brand, height: 48, size: 16.5, weight: .medium, disabledFill: ItemsLook.control))
+                        .buttonStyle(ItemsPillStyle(kind: .brand, height: 48, size: 16, weight: .medium, disabledFill: ItemsLook.control))
                         .disabled(true)
                         .accessibilityValue("Not available yet")
                 }
@@ -765,6 +765,8 @@ struct ItemMenusCard: View {
         }
     }
 
+    /// The price column is 54 pt wide, 10 pt in from the table's end (x = 266 to 320 pt in the photo): its heading centred on two
+    /// lines, the price starting at its left edge and kept whole on one line.
     private var table: some View {
         VStack(spacing: 0) {
             HStack(spacing: 17.7) {
@@ -776,11 +778,12 @@ struct ItemMenusCard: View {
                 Text("Menu price")
                     .pfFont(16, .bold)
                     .foregroundStyle(Color.primary)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: 66, alignment: .leading)
+                    .frame(width: 54, alignment: .center)
             }
             .padding(.leading, 16)
-            .padding(.trailing, 13)
+            .padding(.trailing, 10)
             .padding(.vertical, 10)
             .frame(minHeight: 71)
             .accessibilityElement(children: .combine)
@@ -791,7 +794,7 @@ struct ItemMenusCard: View {
                     ItemsCheckbox(on: false, greyed: true)
                     Button(action: openMenus) {
                         Text(menu.name)
-                            .pfFont(16.5)
+                            .pfFont(16)
                             .foregroundStyle(Theme.blue)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
@@ -801,14 +804,14 @@ struct ItemMenusCard: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Opens Menus")
                     Text(price)
-                        .pfFont(16.5)
+                        .pfFont(16)
                         .foregroundStyle(Color.primary)
-                        .frame(width: 66, alignment: .leading)
+                        .frame(width: 54, alignment: .leading)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                        .minimumScaleFactor(0.6)
                 }
                 .padding(.leading, 16)
-                .padding(.trailing, 13)
+                .padding(.trailing, 10)
                 .padding(.vertical, 10)
                 .frame(minHeight: 71)
             }

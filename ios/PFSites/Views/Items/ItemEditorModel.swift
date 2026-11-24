@@ -97,10 +97,15 @@ final class ItemEditorModel {
     private(set) var saving = false
     private(set) var uploading = false
 
-    init(item: CatalogItem?) {
+    /// `newCategory` is where a new item goes unless the person picks another: the website's Add item puts it in the business's
+    /// last category (catNames), or "Menu" when there is none, so the Categories card shows where it will really be.
+    init(item: CatalogItem?, newCategory: String = "") {
         itemID = item?.id
         original = item
-        let first = item.map { ItemDraft($0) } ?? ItemDraft()
+        var first = item.map { ItemDraft($0) } ?? ItemDraft()
+        if item == nil {
+            first.category = newCategory
+        }
         draft = first
         start = first
         seenStock = item?.stock ?? 100
@@ -140,7 +145,7 @@ final class ItemEditorModel {
         draft.category = name
     }
 
-    /// Taken off: saved like that, the server puts the item back in its default category.
+    /// Taken off: saved like that, the server puts the item in its default category ("Menu").
     func removeCategory() {
         draft.category = ""
     }

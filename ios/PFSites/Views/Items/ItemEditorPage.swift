@@ -29,7 +29,10 @@ struct ItemEditorPage: View {
         self.items = items
         self.close = close
         self.openMenus = openMenus
-        _editor = State(initialValue: ItemEditorModel(item: itemID.flatMap { items.item($0) }))
+        let item = itemID.flatMap { items.item($0) }
+        // The website's Add item: a new item goes in the business's last category, or "Menu" when there is none.
+        let newCategory = items.categoryNames.last ?? "Menu"
+        _editor = State(initialValue: ItemEditorModel(item: item, newCategory: newCategory))
     }
 
     var body: some View {
@@ -52,7 +55,7 @@ struct ItemEditorPage: View {
         // The grey page stops above the home indicator, as in the photos.
         .background(ItemsLook.page, ignoresSafeAreaEdges: [])
         .background(Color(.systemBackground))
-        .modifier(ItemsCoverBar(close: { leave(then: close) }))
+        .modifier(ItemsCoverBar(close: { leave(then: close) }, busy: editor.saving || deleting))
         .toolbar {
             // Number pads have no return key: Done puts the keyboard away.
             ToolbarItemGroup(placement: .keyboard) {
@@ -112,6 +115,7 @@ struct ItemEditorPage: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(editor.saving || deleting)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityLabel("Back to Item list")
     }
@@ -206,10 +210,12 @@ struct ItemEditorPage: View {
 
     // MARK: Actions
 
-    /// Leaves the editor (back to the list, or closing the cover), asking first when something changed.
+    /// Leaves the editor (back to the list, or closing the cover), asking first when something changed. Never while a save or a
+    /// delete is on its way: if the server refuses it, the person must see why, with their changes still here.
     private func leave(then go: @escaping () -> Void) {
+        if editor.saving || deleting { return }
         focus = nil
-        guard editor.changed, !editor.saving else {
+        guard editor.changed else {
             go()
             return
         }

@@ -39,9 +39,11 @@ struct ItemsScreen: View {
     }
 }
 
-/// The bar of every page of the cover: the X (closes the cover) and "Items and services" bold in the middle.
+/// The bar of every page of the cover: the X (closes the cover) and "Items and services" bold in the middle. `busy` keeps the X
+/// from closing while a save or a delete is on its way.
 struct ItemsCoverBar: ViewModifier {
     let close: () -> Void
+    var busy = false
 
     func body(content: Content) -> some View {
         content
@@ -49,12 +51,21 @@ struct ItemsCoverBar: ViewModifier {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
+                // The photos' bare black X, its centre 28 pt from the edge, with no glass circle behind it (as on Closeout).
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: close) {
                         Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(busy ? ItemsLook.greyed : Color.primary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .offset(x: -10)
+                    .disabled(busy)
                     .accessibilityLabel("Close")
                 }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .principal) {
                     Text("Items and services")
                         .pfFont(19, .bold, relativeTo: .headline)
@@ -274,14 +285,16 @@ struct ItemsListPage: View {
                 .buttonStyle(ItemsCapsuleStyle())
                 .accessibilityLabel("Filters")
                 .accessibilityValue(items.filter.isEmpty ? "" : "On")
+                // Once the list is in, so a new item starts in the website's default category and the editor has the item settings.
                 Button {
                     path.append(.add)
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 19, weight: .light))
-                        .foregroundStyle(ItemsLook.onBrand)
+                        .foregroundStyle(items.loaded ? ItemsLook.onBrand : ItemsLook.greyed)
                 }
                 .buttonStyle(ItemsCapsuleStyle(fill: Theme.blue))
+                .disabled(!items.loaded)
                 .accessibilityLabel("Add item")
                 Button("Select") {
                     items.selecting = true
@@ -297,7 +310,7 @@ struct ItemsListPage: View {
         HStack(spacing: 14) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .regular))
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(ItemsLook.rowGrey)
                 .accessibilityHidden(true)
             TextField("Search items", text: Bindable(items).search, prompt: Text("Search items").foregroundStyle(ItemsLook.rowGrey))
                 .pfFont(17)
@@ -681,20 +694,21 @@ struct ItemsFilterPanel: View {
                 .padding(.bottom, 24)
             }
             ItemsHairline(color: ItemsLook.control)
+            // 48 pt pills, 16 pt under the rule and 12 pt above the home indicator, as in the photo.
             HStack(spacing: 16) {
                 Button("Reset filters") {
                     items.filter = ItemsFilter()
                     close()
                 }
-                .buttonStyle(ItemsPillStyle(kind: .grey, height: 45, size: 16, weight: .medium))
+                .buttonStyle(ItemsPillStyle(kind: .grey, height: 48, size: 16, weight: .medium))
                 Button("Show results") {
                     items.filter = next
                     close()
                 }
-                .buttonStyle(ItemsPillStyle(kind: .brand, height: 45, size: 16, weight: .medium))
+                .buttonStyle(ItemsPillStyle(kind: .brand, height: 48, size: 16, weight: .medium))
             }
-            .padding(.top, 17)
-            .padding(.bottom, 14)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
         }
         .background(Color(.systemBackground), ignoresSafeAreaEdges: .bottom)
         .accessibilityAddTraits(.isModal)
