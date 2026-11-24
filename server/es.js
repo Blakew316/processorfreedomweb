@@ -10,6 +10,7 @@ const EXACT = new Map([
   ['That code is not valid.', 'Ese código no es válido.'],
   ['Your order is below the delivery minimum.', 'Tu pedido no alcanza el mínimo para entrega.'],
   ['Your order is empty.', 'Tu pedido está vacío.'],
+  ["That item is priced at the counter and can't be ordered online.", 'Ese artículo se cobra en el mostrador y no se puede pedir en línea.'],
   ['Online ordering is paused right now. Please call us to order.', 'Los pedidos en línea están en pausa. Llámanos para ordenar.'],
   ['That gift card has nothing left on it.', 'Esa tarjeta de regalo no tiene saldo.'],
   ['That time is no longer available. Please choose another.', 'Esa hora ya no está disponible. Elige otra.'],

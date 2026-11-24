@@ -4789,6 +4789,8 @@ html[data-theme=dark]:has(.k),html[data-theme=dark]:has(.k) body{background:#1c1
 .pf-row.off .pf-act{pointer-events:none}
 .pf-pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:7px;font-size:13px;font-weight:600;background:var(--bg2);color:var(--muted)}
 .pf-pill .pf-ai{display:inline-flex}
+/* The tick in an Enabled pill is drawn at the pill's size: the same icon is drawn large elsewhere, and at that size it spilled out of the pill. */
+.pf-pill .pf-ai svg{width:15px;height:15px}
 .pf-pill.on{background:color-mix(in srgb,var(--blue) 12%,var(--card));color:var(--blue)}
 .pf-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;padding:14px;border-radius:12px;background:var(--bg2)}
 .pf-codes code{font:600 15px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.05em;text-align:center}
@@ -5839,3 +5841,51 @@ html:not([data-theme=dark]) .iv-form:not(.iv-proj)>.iv-card:first-of-type .iv-hr
 .iv-bar .it-btn.fbtn{padding:0 18px;gap:5px}
 .iv-by{padding-left:10px;gap:9px}
 .iv-byic svg{width:26px;height:26px}
+
+/* ===== Inside the PF Sites iPhone app =====
+   The app marks the page with html.pf-app before it loads. The app draws its own top bar, page strip and tab bar, so the web's own
+   navigation is hidden here: the top bar, the sidebar, the section strip, the phone tab bar and the breadcrumbs. The page itself scrolls,
+   not the panel, so pull to refresh and a tap on the clock work as in any iPhone app. The app's bars own the safe areas, so nothing here
+   makes room for the notch, the home line or the web's tab bar. Outside the app none of this applies. */
+html.pf-app body .ed-top[data-mode=office],html.pf-app body .rail,html.pf-app body .subnav,html.pf-app body .subnav:not([hidden]),html.pf-app body .tabbar,html.pf-app body .crumbs,html.pf-app body .phead{display:none!important}
+html.pf-app,html.pf-app body{height:auto!important;overflow-y:visible!important;overscroll-behavior-y:auto!important}
+html.pf-app body .ed,html.pf-app body .ed .ed-body,html.pf-app body .ed .ed-side,html.pf-app body .ed .ed-body .ed-side>.panel{height:auto!important;max-height:none!important;overflow:visible!important;overscroll-behavior:auto!important}
+/* Wide content is trimmed at the sides rather than letting the whole page slide sideways; clip, unlike hidden, keeps the page as the one scroller. */
+html.pf-app body .ed,html.pf-app body .ed .ed-body .ed-side>.panel{overflow-x:clip!important}
+html.pf-app body .ed{display:block!important;min-height:100vh;min-height:100dvh}
+html.pf-app body .ed .ed-body,html.pf-app body .ed .ed-body[data-wide=true]{display:block!important;padding:0!important}
+html.pf-app body .ed .ed-side{display:block!important;width:auto;min-height:0;border:0!important;border-radius:0!important;box-shadow:none!important}
+/* A short page still fills the screen with its own background, as it does on the web. */
+html.pf-app body .ed .ed-body[data-mode=office] .ed-side{min-height:100vh;min-height:100dvh}
+html.pf-app body .ed .ed-body[data-mode=site] .ed-side{min-height:calc(100vh - 52px);min-height:calc(100dvh - 52px)}
+html.pf-app body .ed .ed-body[data-mode=office] .ed-stage,html.pf-app body .ed .ed-body[data-view=edit] .ed-stage{display:none!important}
+html.pf-app body .ed .ed-body[data-view=preview] .ed-side{display:none!important}
+/* Only the room for the web's tab bar goes; the page keeps its own margins. */
+html.pf-app body .ed .ed-body .ed-side>.panel{padding-bottom:24px!important}
+html.pf-app body .toasts{bottom:16px!important}
+/* Pages with a bar along the bottom (the Virtual Terminal, Create appointment, Add customer, and the category, modifier group, label and
+   project pages) keep their messages above it, where the web puts them on a phone, so a message never covers the total or the buttons it is about. */
+html.pf-app body:has(.cl-bar,.it-foot) .toasts{bottom:92px!important}
+/* A short form page still ends with its Cancel and Save bar at the bottom of the screen, as on the web: the page fills the screen's height
+   and the form inside it grows, which pushes the bar down. A long one is unchanged (the bar stays stuck to the bottom while it scrolls). */
+html.pf-app body .ed .ed-body[data-mode=office] .ed-side:has(>.panel>.cl.it-form,>.panel>.cl.iv-form){display:flex!important;flex-direction:column}
+html.pf-app body .ed .ed-body[data-mode=office] .ed-side:has(>.panel>.cl.it-form,>.panel>.cl.iv-form)>.panel{flex:1 0 auto}
+html.pf-app body .bulk{bottom:12px!important}
+/* The website side keeps its own tools (Edit or Preview, which page, and Publish) in a slim bar that stays at the top; its navigation is the app's. */
+html.pf-app body .ed-top[data-mode=site]{display:flex!important;position:sticky;top:0;z-index:20;align-items:center;gap:10px;height:52px!important;min-height:0;box-sizing:border-box;padding:0 14px!important;background:var(--card)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-bottom:1px solid var(--line)!important;box-shadow:none!important}
+html.pf-app body .ed-top[data-mode=site]>*{display:none!important}
+html.pf-app body .ed-top[data-mode=site]>.mid{display:flex!important;flex:1;min-width:0;order:0;align-items:center;gap:8px;padding:0;grid-column:auto}
+html.pf-app body .ed-top[data-mode=site]>.pub-top{display:block!important;flex:none;margin-left:auto}
+html.pf-app body .ed-top[data-mode=site] .mid .mob-toggle{display:flex!important;flex:none}
+html.pf-app body .ed-top[data-mode=site] .mid select{flex:1;min-width:0}
+html.pf-app body .ed-top[data-mode=site][data-view=edit] .mid select{display:none!important}
+html.pf-app body .ed .ed-body[data-view=preview] .ed-stage{display:block!important;height:calc(100vh - 52px);height:calc(100dvh - 52px);padding:0!important}
+/* Like the Home Screen app before it: the screens are not selectable like a web page, but what people type, and the details they copy, are. */
+html.pf-app body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html.pf-app input,html.pf-app textarea,html.pf-app [contenteditable],html.pf-app .note,html.pf-app .urlbox,html.pf-app td,html.pf-app p,html.pf-app code{-webkit-user-select:text;user-select:text}
+/* A ticket or list printed from the app: put into the page by ui.js printInApp, and the only thing on the paper while it is there. */
+.pf-print{display:none}
+@media print{
+  html.pf-app body:has(>.pf-print)>:not(.pf-print){display:none!important}
+  html.pf-app body>.pf-print{display:block!important;background:#fff;color:#000}
+}

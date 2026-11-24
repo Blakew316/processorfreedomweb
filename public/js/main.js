@@ -1,7 +1,7 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
 import { MARK } from './mark.js';
 import { siteFooter, faqList, faqPage, privacyPage, termsPage, contactPage, FAQ, dock, testimonialsSection } from './pages.js';
-import { syncTopColor, h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp } from './ui.js';
+import { syncTopColor, h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp, inApp, toApp, busy, signedOut } from './ui.js';
 
 const root = document.getElementById('app');
 let cleanup = null;
@@ -14,11 +14,11 @@ const brandBar = () => h('header', { class: 'top brand-only' }, h('div', { class
 
 export function topbar(...right) {
   // Inside the app the brand sits in the middle, the same as in the back office.
-  const inApp = location.pathname.startsWith('/app');
-  return h('header', { class: `top${inApp ? ' app' : ''}` }, h('div', { class: 'in' },
-    inApp ? link('/app', { class: 'logo mid', 'aria-label': 'PF Sites' }, h('img', { src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 }))
+  const appPage = location.pathname.startsWith('/app');
+  return h('header', { class: `top${appPage ? ' app' : ''}` }, h('div', { class: 'in' },
+    appPage ? link('/app', { class: 'logo mid', 'aria-label': 'PF Sites' }, h('img', { src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 }))
       : link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
-    h('nav', {}, ...right, !inApp && themeButton())));
+    h('nav', {}, ...right, !appPage && themeButton())));
 }
 
 function changePassword() {
@@ -265,18 +265,36 @@ function auth(mode) {
   if (state.user && (!signup || building)) return next();
   const err = h('p', { class: 'lg-err', role: 'alert' });
   const button = h('button', { class: 'lg-go', type: 'submit' }, signup ? 'Create account' : 'Log in');
-  // Two-step sign-in: once the password is right, the code from the authenticator app is asked for, or one of the recovery codes.
-  let codeBox = null;
-  const askCode = (recovery) => {
+  // Two-step sign-in: once the password is right, a code is asked for: from the authenticator app, the one we text, or one of the recovery codes.
+  // The server says which ways the person has turned on ('app', 'text') and, when it has just texted a code, the end of the number it went to.
+  let codeBox = null, methods = ['app'], phone = '', kind = 'app', back = 'app';
+  const took = (d) => { if (Array.isArray(d.methods) && d.methods.length) methods = d.methods; if (d.phone) phone = d.phone; };
+  const askCode = (want) => {
+    kind = want; if (want !== 'recovery') back = want;
+    const recovery = want === 'recovery';
     const input = h('input', recovery
       ? { name: 'code', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', maxlength: 16, required: true, placeholder: 'XXXXX-XXXXX' }
       : { name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, required: true, placeholder: '123 456' });
-    const box = h('div', { class: 'lg-code' }, h('label', { class: 'lg-field' }, h('span', {}, recovery ? 'Recovery code' : '6-digit code from your authenticator app'), input),
-      h('button', { type: 'button', class: 'lg-link', onclick: () => askCode(!recovery) }, recovery ? 'Use the code from your authenticator app instead' : 'Use a recovery code instead'));
+    const label = recovery ? 'Recovery code' : want === 'text' ? `6-digit code we texted to ${phone || 'your phone'}` : '6-digit code from your authenticator app';
+    const links = recovery ? [[back === 'text' ? 'Use the code we texted instead' : 'Use the code from your authenticator app instead', () => askCode(back)]]
+      : [want === 'text' ? ['Text me a new code', textMe] : methods.includes('text') && ['Text me a code instead', textMe],
+        want === 'text' && methods.includes('app') && ['Use the code from your authenticator app instead', () => askCode('app')],
+        ['Use a recovery code instead', () => askCode('recovery')]];
+    const box = h('div', { class: 'lg-code' }, h('label', { class: 'lg-field' }, h('span', {}, label), input), links.filter(Boolean).map(([t, fn]) => h('button', { type: 'button', class: 'lg-link', onclick: fn }, t)));
     if (codeBox) codeBox.replaceWith(box); else err.before(box);
     codeBox = box; err.textContent = ''; button.textContent = 'Verify and log in';
     input.focus();
   };
+  // A code by text message: the same email and password with sendText and no code. The server texts one and answers that it was sent.
+  async function textMe() {
+    err.textContent = '';
+    const data = Object.fromEntries(new FormData(form)); delete data.code;
+    try { state.user = (await api('POST', '/api/auth/login', { ...data, sendText: true })).user; next(); }
+    catch (ex) {
+      if (ex.data?.twoFactor && ex.data.sent) { took(ex.data); askCode('text'); toast(`We texted a code to ${phone || 'your phone'}.`); return; }
+      err.textContent = ex.message;
+    }
+  }
   const form = h('form', { class: 'lg-form', onsubmit: async (e) => {
     e.preventDefault();
     err.textContent = ''; button.disabled = true;
@@ -286,7 +304,13 @@ function auth(mode) {
       next();
     } catch (ex) {
       button.disabled = false;
-      if (!signup && ex.data?.twoFactor && !codeBox) return askCode(false);
+      if (!signup && ex.data?.twoFactor) {
+        took(ex.data);
+        const first = !codeBox;
+        if (first || (ex.data.sent && kind !== 'text')) askCode(ex.data.sent || !methods.includes('app') ? 'text' : 'app');
+        // The first time, the box says what to type; after that the server's words say what went wrong.
+        if (first && (ex.data.sent || methods.includes('app'))) return;
+      }
       err.textContent = ex.message;
     }
   } },
@@ -453,7 +477,18 @@ async function admin() {
 
 /* ---------- Router ---------- */
 
+// Inside the iPhone app, each page tells the app once it is drawn (the app ends a pull to refresh on it). A page that was replaced before
+// it finished drawing says nothing, so only the page left on screen is reported.
+let routeSeq = 0;
 async function render() {
+  const seq = ++routeSeq;
+  await route();
+  if (inApp && seq === routeSeq && (state.user || !location.pathname.startsWith('/app'))) toApp({ type: 'ready', path: location.pathname });
+}
+// Inside the app, when the session has ended, whatever was open is closed and the page stays empty: the app shows its own lock and sign-in screens.
+function clearForApp() { routeSeq++; cleanup?.(); cleanup = null; root.replaceChildren(); }
+if (inApp) window.addEventListener('pf-signedout', clearForApp);
+async function route() {
   const path = location.pathname.replace(/\/+$/, '') || '/';
   // Moving between the pages of the site already open (Back, Forward, a link) just turns the page; nothing reloads.
   const same = path.match(/^\/app\/site\/([\w-]+)(?:\/([\w-]+))?$/);
@@ -461,8 +496,10 @@ async function render() {
   // Already on the home page: a menu link only moves down the page, so the film keeps playing.
   if (path === '/' && document.querySelector('.film-main')) { const to = location.hash.length > 1 ? document.querySelector(location.hash) : null; if (to) to.scrollIntoView({ behavior: 'smooth', block: 'start' }); else window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   cleanup?.(); cleanup = null; window.scrollTo(0, 0);
+  // The app has its own sign-in screens, so inside it the log in pages are never drawn.
+  if (inApp && /^\/(login|signup|forgot|reset)$/.test(path)) { clearForApp(); return signedOut(); }
   const needsUser = path.startsWith('/app');
-  if (needsUser && !state.user) return go(`/login${location.search}`);
+  if (needsUser && !state.user) { if (inApp) { clearForApp(); return signedOut(); } return go(`/login${location.search}`); }
   try {
     let m;
     if (path === '/') landing();
@@ -477,6 +514,7 @@ async function render() {
     else if ((m = path.match(/^\/app\/site\/([\w-]+)(?:\/([\w-]+))?$/))) cleanup = await (await import('./editor.js')).editor(m[1], mount, title, m[2] || '');
     else go(state.user ? '/app' : '/');
   } catch (e) {
+    if (e.status === 401 && inApp) { clearForApp(); return signedOut(); }
     if (e.status === 401) { state.user = null; return go('/login'); }
     mount(topbar(), h('main', { class: 'page dash' }, h('div', { class: 'empty' }, h('h2', {}, 'Something went wrong.'), h('p', {}, e.message), link(state.user ? '/app' : '/', { class: 'btn' }, 'Go back'))));
   }
@@ -488,7 +526,8 @@ async function render() {
    The kitchen screen is left alone: it is meant to stay on all day. The server also ends a session after 16 minutes with no requests at all. */
 const IDLE_MS = 15 * 60000, WARN_MS = 60000;
 let lastAct = Date.now(), lastPing = Date.now(), warnClose = null, leaving = false;
-const guarded = () => !!state.user && location.pathname.startsWith('/app') && !/\/kitchen$/.test(location.pathname);
+// Inside the iPhone app the app keeps this rule itself (it locks and ends the session), so the page never warns or logs out on its own there.
+const guarded = () => !inApp && !!state.user && location.pathname.startsWith('/app') && !/\/kitchen$/.test(location.pathname);
 const lastSeen = () => { let t = lastAct; try { t = Math.max(t, Number(localStorage.getItem('pf-active')) || 0); } catch { /* private mode */ } return t; };
 function wasActive(force = false) {
   const now = Date.now();
@@ -496,7 +535,8 @@ function wasActive(force = false) {
   lastAct = now;
   try { localStorage.setItem('pf-active', String(now)); } catch { /* private mode */ }
   // While someone is working, the server hears from the app at least every few minutes, so it never ends an active session.
-  if (state.user && now - lastPing > 4 * 60000) { lastPing = now; api('GET', '/api/me').catch(() => {}); }
+  // In the app, a ping that finds the session already ended (signed out everywhere, say) tells the app, which then locks.
+  if (state.user && now - lastPing > 4 * 60000) { lastPing = now; api('GET', '/api/me').then((r) => { if (inApp && !r.user) signedOut(); }).catch(() => {}); }
 }
 async function timedOut(chosen = false) {
   leaving = true; warnClose?.(); warnClose = null;
@@ -527,17 +567,34 @@ for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll', 'mo
 setInterval(checkIdle, 5000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkIdle(); });
 window.addEventListener('storage', (e) => {
-  if (e.key !== 'pf-logout' || !state.user || !location.pathname.startsWith('/app')) return;
+  if (inApp || e.key !== 'pf-logout' || !state.user || !location.pathname.startsWith('/app')) return;
   state.user = null; leaving = true; warnClose?.(); leaving = false; go('/login');
   if (String(e.newValue).endsWith(':idle')) toast('For your security, you were logged out after 15 minutes without activity.');
 });
 
+/* ---------- Inside the PF Sites iPhone app ----------
+   The app draws its own bars, locks itself after 15 minutes and shows its own notifications, so the page leaves those to it.
+   It tells the app when someone is active (so the app's lock timer starts again), and hands printing to the app, which has no pop-up windows. */
+if (inApp) {
+  let told = 0;
+  const active = () => { const now = Date.now(); if (now - told < 10000) return; told = now; toApp({ type: 'activity' }); };
+  for (const ev of ['pointerdown', 'keydown', 'input', 'scroll']) window.addEventListener(ev, active, { passive: true, capture: true });
+  window.print = () => { document.querySelector('.pf-print')?.remove(); toApp({ type: 'print', title: document.title }); };
+  // How the app moves around the page. The back office replaces this with its own while it is open; elsewhere it works by address.
+  window.PF = {
+    go: (k) => { const m = location.pathname.match(/^\/app\/site\/([\w-]+)/); if (!m || !/^[\w-]+$/.test(String(k))) return false; go(`/app/site/${m[1]}${k === 'start' ? '' : `/${k}`}`); return true; },
+    back: () => history.back(),
+    busy,
+    state: () => null,
+    reload: () => location.reload(),
+  };
+}
+
 window.addEventListener('popstate', render);
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+if (!inApp && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
 // When a new version goes live, an open tab picks it up the next time it comes back to the screen.
+// Only then, and only when nothing is in progress: no open window, no field being typed in, nothing waiting to save (see busy in ui.js).
 let build = '', fresh = false;
-// Only swap in the new version when nothing is in progress: no open window, no field being typed in, nothing waiting to save.
-const busy = () => !!document.querySelector('.sheet, .tb-pop, input:focus, textarea:focus, select:focus') || [...document.querySelectorAll('.vt input')].some((x) => x.value && x.type !== 'checkbox') || /Saving/.test(document.querySelector('.ed-top')?.textContent || '');
 const checkBuild = async () => {
   try {
     const r = await fetch('/version', { cache: 'no-store' }); if (!r.ok) return;

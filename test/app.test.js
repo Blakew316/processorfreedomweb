@@ -2074,3 +2074,1552 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     for (const url of [...four, bigUrl]) assert.equal((await anon('GET', url, null, host)).status, 404, url);
   } finally { srv.close(); app17.close(); base = saved; rmSync(d17, { recursive: true, force: true }); }
 });
+
+/* ---------- the iPhone app: devices, passcodes, Face ID, Apple push and text message codes ---------- */
+
+// A server of its own with text messages, Apple push and web push stood in for, so the app's routes can be tried end to end.
+// What it would text, push and email is kept to look at.
+async function appServer({ sms, apns, env = {} } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'pfapp-'));
+  const texts = [], pushes = [], web = [], mails = [];
+  const app = createApp({
+    dataDir: dir, dns, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1', ...env }, mailer: { enabled: false, send: async (m) => { mails.push(m); } },
+    pusher: async (sub, message) => { web.push({ sub, message }); return 'sent'; },
+    sms: sms || { enabled: true, send: async (to, body) => { texts.push({ to, body }); } },
+    apns: apns || { enabled: true, send: async (endpoint, message) => { pushes.push({ endpoint, message }); return endpoint.includes(':dead') ? 'gone' : 'sent'; } },
+  });
+  const srv = createServer(app);
+  await new Promise((r) => srv.listen(0, r));
+  const saved = base; base = `http://127.0.0.1:${srv.address().port}`;
+  // Reads or changes the database directly, to check what is kept and to age things.
+  const sql = (q, ...a) => { const raw = new DatabaseSync(join(dir, 'sites.db')); try { const st = raw.prepare(q); return /^\s*select/i.test(q) ? st.all(...a) : st.run(...a); } finally { raw.close(); } };
+  return { texts, pushes, web, mails, sql, stop: () => { srv.close(); app.close(); base = saved; rmSync(dir, { recursive: true, force: true }); } };
+}
+// Requests that count against an address's limits each come from an address of their own, so those limits stay out of the way here.
+let appIps = 0;
+const newIp = () => ({ headers: { 'X-Forwarded-For': `10.60.${Math.floor(appIps / 250) % 250}.${(appIps++ % 250) + 1}` } });
+// Every answer that carries the signed-in person carries exactly these fields.
+const USER_FIELDS = ['admin', 'email', 'id', 'name', 'phone', 'textCodes', 'textPhone', 'twoFactor'];
+
+test('iPhone app: a log in hands out a device; its passcode follows the Employees rules and opens the app again', async () => {
+  const { createHash } = await import('node:crypto');
+  const s = await appServer();
+  try {
+    const owner = client(), stranger = client(), cook = client();
+    await owner('POST', '/api/auth/signup', { email: 'own@app.test', password: 'long-enough-pw', name: 'Olive' }, newIp());
+    await stranger('POST', '/api/auth/signup', { email: 'far@app.test', password: 'long-enough-pw', name: 'Fay' }, newIp());
+    await cook('POST', '/api/auth/signup', { email: 'cook@app.test', password: 'long-enough-pw', name: 'Cody' }, newIp());
+    const site = (await owner('POST', '/api/sites', { name: 'Pocket Cafe', template: 'restaurant' })).data.site;
+    const far = (await stranger('POST', '/api/sites', { name: 'Far Cafe', template: 'restaurant' })).data.site;
+    const logIn = (c, email, more = {}) => c('POST', '/api/auth/login', { email, password: 'long-enough-pw', ...more }, newIp());
+    const unlock = (body) => client()('POST', '/api/app/unlock', body, newIp());
+    const ownerCode = () => s.sql('SELECT owner_passcode FROM sites WHERE id = ?', site.id)[0].owner_passcode;
+    const devices = (id) => s.sql('SELECT COUNT(*) AS n FROM app_devices WHERE id = ?', id)[0].n;
+
+    // A log in from the app gets a device of its own: an id and a key, handed over this once. Only the key's hash is kept.
+    const phone = client();
+    let r = await logIn(phone, 'own@app.test', { device: { name: 'Olive’s iPhone' } });
+    assert.equal(r.status, 200);
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    const dev = r.data.device, proof = { device: dev.id, secret: dev.secret };
+    assert.match(dev.id, /^[\w-]{16}$/);
+    assert.match(dev.secret, /^[\w-]{43}$/);
+    assert.equal((await logIn(client(), 'own@app.test')).data.device, undefined, 'a log in from a browser gets none');
+    assert.equal((await logIn(client(), 'own@app.test', { password: 'wrong-password', device: { name: 'x' } })).data.device, undefined, 'a wrong password gets nothing');
+    const [row] = s.sql('SELECT * FROM app_devices WHERE id = ?', dev.id);
+    assert.equal(row.secret_hash, createHash('sha256').update(dev.secret).digest('hex'));
+    assert.ok(!JSON.stringify(row).includes(dev.secret), 'the key itself is not kept');
+    assert.deepEqual([row.name, row.site_id, row.fails], ['Olive’s iPhone', '', 0]);
+
+    // No passcode yet. Only someone who belongs to the business can ask about it.
+    assert.deepEqual((await phone('GET', `/api/app/passcode?site=${site.id}`)).data, { has: false, site: { id: site.id, name: 'Pocket Cafe' } });
+    assert.equal((await phone('GET', `/api/app/passcode?site=${far.id}`)).status, 404, 'another business is not found');
+    assert.equal((await client()('GET', `/api/app/passcode?site=${site.id}`)).status, 401);
+
+    // The rules are the Employees page's: 4 digits, no digit four times, no run up or down.
+    for (const bad of ['1111', '1234', '6789', '4321', '0123', '9876', '123', '12345', '12a4', '']) {
+      r = await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: bad });
+      assert.deepEqual([r.status, r.data.error], [400, 'The passcode must be 4 digits with no sequence or repeat.'], bad);
+    }
+    // The device has to be the person's own, with its real key, and the business has to be theirs.
+    r = await phone('POST', '/api/app/passcode', { device: dev.id, secret: 'x'.repeat(43), site: site.id, passcode: '2580' });
+    assert.deepEqual([r.status, r.data.signIn, r.data.error], [401, true, 'Sign in again on this device.']);
+    assert.equal((await stranger('POST', '/api/app/passcode', { ...proof, site: far.id, passcode: '2580' })).data.signIn, true, 'someone else’s device does not work for them');
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: far.id, passcode: '2580' })).status, 404, 'nor a business that is not theirs');
+    assert.equal(s.sql('SELECT owner_passcode FROM sites WHERE id = ?', far.id)[0].owner_passcode, '');
+
+    // The first passcode is saved as the owner's own at this business, and links the phone to it.
+    assert.deepEqual((await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '2580' })).data, { ok: true });
+    assert.equal((await phone('GET', `/api/app/passcode?site=${site.id}`)).data.has, true);
+    assert.equal(ownerCode(), '2580');
+    assert.equal(s.sql('SELECT site_id FROM app_devices WHERE id = ?', dev.id)[0].site_id, site.id);
+
+    // The app locks by ending its session; the passcode opens it again with a new session that works.
+    await phone('POST', '/api/auth/logout', {});
+    assert.equal((await phone('GET', '/api/sites')).status, 401);
+    r = await phone('POST', '/api/app/unlock', { ...proof, passcode: '2580' }, newIp());
+    assert.deepEqual([r.status, r.data.site, r.data.user.email], [200, site.id, 'own@app.test']);
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    assert.deepEqual((await phone('GET', '/api/sites')).data.sites.map((x) => x.id), [site.id]);
+    assert.equal((await unlock({ device: dev.id, secret: `${dev.secret.slice(0, -1)}${dev.secret.endsWith('A') ? 'B' : 'A'}`, passcode: '2580' })).data.signIn, true, 'a wrong key opens nothing');
+    assert.deepEqual([(await unlock({ ...proof })).status], [400], 'a passcode is needed');
+
+    // A wrong passcode says how many tries are left. Linking again needs the passcode already there, unless a new one is made.
+    r = await unlock({ ...proof, passcode: '1357' });
+    assert.deepEqual([r.status, r.data.error, r.data.left], [401, 'That passcode is not right.', 4]);
+    r = await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '1357' });
+    assert.deepEqual([r.status, r.data.error, r.data.left], [400, 'That passcode is not right.', 3]);
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '2580' })).status, 200, 'the right one links it');
+    assert.equal(s.sql('SELECT fails FROM app_devices WHERE id = ?', dev.id)[0].fails, 0, 'and starts the count again');
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '1357', replace: true })).status, 200, 'making a new one replaces it');
+    assert.equal(ownerCode(), '1357');
+    assert.equal((await unlock({ ...proof, passcode: '2580' })).status, 401, 'the old one stops working');
+    assert.equal((await unlock({ ...proof, passcode: '1357' })).status, 200);
+
+    // Five wrong passcodes while linking, and the device is forgotten.
+    for (let i = 1; i <= 4; i++) assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '9512' })).data.left, 5 - i);
+    r = await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '9512' });
+    assert.deepEqual([r.status, r.data.signIn, r.data.error], [401, true, 'Too many wrong passcodes. Sign in with your email and password.']);
+    assert.equal(devices(dev.id), 0);
+    assert.equal((await unlock({ ...proof, passcode: '1357' })).data.signIn, true, 'even the right passcode no longer opens it');
+    assert.equal(ownerCode(), '1357', 'the passcode itself is not changed by wrong tries');
+
+    // Five wrong passcodes on the lock screen, the same.
+    const dev2 = (await logIn(phone, 'own@app.test', { device: { name: 'Olive’s iPhone' } })).data.device, proof2 = { device: dev2.id, secret: dev2.secret };
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof2, site: site.id, passcode: '1357' })).status, 200);
+    for (let i = 1; i <= 4; i++) { r = await unlock({ ...proof2, passcode: '9512' }); assert.deepEqual([r.status, r.data.left], [401, 5 - i]); }
+    r = await unlock({ ...proof2, passcode: '9512' });
+    assert.deepEqual([r.status, r.data.signIn, r.data.error], [401, true, 'Too many wrong passcodes. Sign in with your email and password.']);
+    assert.equal((await unlock({ ...proof2, passcode: '1357' })).data.signIn, true);
+    assert.equal(devices(dev2.id), 0);
+
+    // A team member's passcode is the one on the Employees page.
+    await owner('POST', `/api/sites/${site.id}/team`, { email: 'cook@app.test', name: 'Cody', role: 'kitchen', details: { nickname: 'Chef', passcode: '4826' } });
+    const cdev = (await logIn(cook, 'cook@app.test', { device: { name: 'Cody’s iPhone' } })).data.device, cproof = { device: cdev.id, secret: cdev.secret };
+    assert.equal((await cook('GET', `/api/app/passcode?site=${site.id}`)).data.has, true);
+    assert.equal((await cook('POST', '/api/app/passcode', { ...cproof, site: site.id, passcode: '1357' })).status, 400, 'the owner’s passcode is not theirs');
+    assert.equal((await cook('POST', '/api/app/passcode', { ...cproof, site: site.id, passcode: '4826' })).status, 200);
+    assert.equal((await unlock({ ...cproof, passcode: '4826' })).status, 200);
+    // A new one made in the app is what the Employees page shows; nothing else the owner typed changes, and the owner's own stays.
+    assert.equal((await cook('POST', '/api/app/passcode', { ...cproof, site: site.id, passcode: '7391', replace: true })).status, 200);
+    let member = (await owner('GET', `/api/sites/${site.id}/team`)).data.members.find((m) => m.email === 'cook@app.test');
+    assert.deepEqual([member.details.passcode, member.details.nickname, member.name, member.role], ['7391', 'Chef', 'Cody', 'kitchen']);
+    assert.equal(ownerCode(), '1357');
+    // The owner changing it on the Employees page changes what opens the app; the page still refuses a weak one.
+    assert.equal((await owner('POST', `/api/sites/${site.id}/team`, { email: 'cook@app.test', role: 'kitchen', details: { nickname: 'Chef', passcode: '1234' } })).status, 400);
+    assert.equal((await owner('POST', `/api/sites/${site.id}/team`, { email: 'cook@app.test', role: 'kitchen', details: { nickname: 'Chef', passcode: '5173' } })).status, 201);
+    assert.equal((await unlock({ ...cproof, passcode: '7391' })).status, 401);
+    assert.equal((await unlock({ ...cproof, passcode: '5173' })).status, 200);
+    assert.equal((await cook('POST', '/api/app/passcode', { ...cproof, site: far.id, passcode: '5173', replace: true })).status, 404, 'a business they are not on stays out of reach');
+
+    // Taken off the team, the phone no longer opens the app, and the device is forgotten.
+    member = (await owner('GET', `/api/sites/${site.id}/team`)).data.members.find((m) => m.email === 'cook@app.test');
+    assert.equal((await owner('DELETE', `/api/sites/${site.id}/team/${member.id}`)).status, 200);
+    r = await unlock({ ...cproof, passcode: '5173' });
+    assert.deepEqual([r.status, r.data.signIn], [401, true]);
+    assert.equal(devices(cdev.id), 0);
+
+    // Thirty tries from one address in fifteen minutes, then a pause.
+    let last = 0;
+    for (let i = 0; i < 31; i++) last = (await client()('POST', '/api/app/unlock', { device: 'nope', secret: 'nope', passcode: '1357' }, { headers: { 'X-Forwarded-For': '10.99.0.1' } })).status;
+    assert.equal(last, 429);
+  } finally { s.stop(); }
+});
+
+test('iPhone app: Face ID, signing a phone out, and every way a phone is made to sign in again', async () => {
+  const { createHash } = await import('node:crypto');
+  const s = await appServer();
+  try {
+    const me = client(), stranger = client();
+    await me('POST', '/api/auth/signup', { email: 'face@app.test', password: 'long-enough-pw', name: 'Faye' }, newIp());
+    await stranger('POST', '/api/auth/signup', { email: 'else@app.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Face Cafe', template: 'restaurant' })).data.site;
+    let password = 'long-enough-pw';
+    const unlock = (body) => client()('POST', '/api/app/unlock', body, newIp());
+    const theirDevices = () => s.sql("SELECT id FROM app_devices WHERE user_id = (SELECT id FROM users WHERE email = 'face@app.test')").map((x) => x.id);
+    // Signs a phone in from the app and links it with the passcode, as the app does after a log in.
+    const setUp = async (c) => {
+      const d = (await c('POST', '/api/auth/login', { email: 'face@app.test', password, device: { name: 'iPhone' } }, newIp())).data.device;
+      const p = { device: d.id, secret: d.secret };
+      assert.equal((await c('POST', '/api/app/passcode', { ...p, site: site.id, passcode: '2580', replace: true })).status, 200);
+      return p;
+    };
+
+    // Face ID needs the passcode set up first.
+    const phone = client();
+    const d = (await phone('POST', '/api/auth/login', { email: 'face@app.test', password, device: { name: 'iPhone' } }, newIp())).data.device, proof = { device: d.id, secret: d.secret };
+    let r = await phone('POST', '/api/app/biometric', proof);
+    assert.deepEqual([r.status, r.data.error], [400, 'Set up your passcode first.']);
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: site.id, passcode: '2580' })).status, 200);
+    assert.equal((await stranger('POST', '/api/app/biometric', proof)).data.signIn, true, 'only for the person’s own device');
+    assert.equal((await client()('POST', '/api/app/biometric', proof)).status, 401, 'and only signed in');
+    const { bio } = (await phone('POST', '/api/app/biometric', proof)).data;
+    assert.match(bio, /^[\w-]{43}$/);
+    assert.equal(s.sql('SELECT bio_hash FROM app_devices WHERE id = ?', d.id)[0].bio_hash, createHash('sha256').update(bio).digest('hex'), 'only its hash is kept');
+    // Face ID opens the app in place of the passcode.
+    r = await unlock({ ...proof, bio });
+    assert.deepEqual([r.status, r.data.site, r.data.user.email], [200, site.id, 'face@app.test']);
+    // A Face ID key that does not match switches Face ID off on that phone; the passcode still opens it.
+    r = await unlock({ ...proof, bio: 'x'.repeat(43) });
+    assert.deepEqual([r.status, r.data.bioOff, r.data.error], [401, true, 'Face ID could not sign you in. Use your passcode.']);
+    assert.equal((await unlock({ ...proof, bio })).data.bioOff, true, 'even the right key is off now');
+    assert.equal((await unlock({ ...proof, passcode: '2580' })).status, 200);
+    // Turned on again it gets a new key; turned off from the app it stops working.
+    const again = (await phone('POST', '/api/app/biometric', proof)).data.bio;
+    assert.notEqual(again, bio);
+    assert.equal((await unlock({ ...proof, bio: again })).status, 200);
+    assert.deepEqual((await phone('DELETE', '/api/app/biometric', proof)).data, { ok: true });
+    assert.equal((await unlock({ ...proof, bio: again })).data.bioOff, true);
+
+    // Signing the phone out forgets it and ends its session. Doing it again, or with a session alone, does no harm.
+    assert.deepEqual((await phone('POST', '/api/app/signout', proof)).data, { ok: true });
+    assert.equal((await phone('GET', '/api/sites')).status, 401, 'the session ended');
+    assert.equal((await unlock({ ...proof, passcode: '2580' })).data.signIn, true, 'the device is gone');
+    assert.deepEqual((await client()('POST', '/api/app/signout', proof)).data, { ok: true });
+    const solo = client();
+    await solo('POST', '/api/auth/login', { email: 'face@app.test', password }, newIp());
+    assert.equal((await solo('POST', '/api/app/signout', {})).status, 200);
+    assert.equal((await solo('GET', '/api/sites')).status, 401);
+
+    // "Sign out everywhere" forgets every phone.
+    const a = client(), b = client();
+    const pa = await setUp(a), pb = await setUp(b);
+    assert.equal((await a('POST', '/api/auth/logout-all', {})).status, 200);
+    for (const p of [pa, pb]) assert.equal((await unlock({ ...p, passcode: '2580' })).data.signIn, true);
+    assert.deepEqual(theirDevices(), []);
+    // So does a new password, made on the profile page...
+    const c = client(), pc = await setUp(c);
+    assert.equal((await c('POST', '/api/auth/password', { current: password, next: 'another-long-pw' })).status, 200);
+    password = 'another-long-pw';
+    assert.equal((await c('GET', '/api/sites')).status, 200, 'the session that changed it carries on');
+    assert.equal((await unlock({ ...pc, passcode: '2580' })).data.signIn, true);
+    // ...or set from a reset link.
+    const e = client(), pe = await setUp(e);
+    await client()('POST', '/api/auth/forgot', { email: 'face@app.test' }, newIp());
+    const token = s.mails.filter((m) => m.to === 'face@app.test').at(-1).text.match(/token=([\w-]+)/)[1];
+    r = await client()('POST', '/api/auth/reset', { token, password: 'third-long-pw' }, newIp());
+    assert.equal(r.status, 200);
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    password = 'third-long-pw';
+    assert.equal((await unlock({ ...pe, passcode: '2580' })).data.signIn, true);
+    assert.deepEqual(theirDevices(), []);
+
+    // Ten phones a person: an eleventh sign-in drops the one used longest ago, and its notifications with it.
+    const made = [];
+    for (let i = 0; i < 11; i++) {
+      const p = client(), dv = (await p('POST', '/api/auth/login', { email: 'face@app.test', password, device: { name: `Phone ${i}` } }, newIp())).data.device;
+      if (i === 0) assert.equal((await p('POST', '/api/app/push', { device: dv.id, secret: dv.secret, token: 'c3'.repeat(32), env: 'production' })).status, 201);
+      made.push(dv.id);
+    }
+    const kept = theirDevices();
+    assert.equal(kept.length, 10);
+    assert.ok(!kept.includes(made[0]) && made.slice(1).every((id) => kept.includes(id)), 'the oldest went');
+    assert.equal(s.sql("SELECT COUNT(*) AS n FROM push_subs WHERE endpoint LIKE 'apns:%'")[0].n, 0, 'with its notifications');
+    // A long name is cut to 60 characters.
+    const named = (await client()('POST', '/api/auth/login', { email: 'face@app.test', password, device: { name: 'N'.repeat(80) } }, newIp())).data.device;
+    assert.equal(s.sql('SELECT name FROM app_devices WHERE id = ?', named.id)[0].name, 'N'.repeat(60));
+  } finally { s.stop(); }
+});
+
+test('iPhone app: notifications go to Apple, show on the Devices page, and phones Apple calls gone are dropped', async () => {
+  const s = await appServer();
+  try {
+    const owner = client(), stranger = client();
+    await owner('POST', '/api/auth/signup', { email: 'ring@app.test', password: 'long-enough-pw', name: 'Rin' }, newIp());
+    await stranger('POST', '/api/auth/signup', { email: 'nosy@app.test', password: 'long-enough-pw' }, newIp());
+    const site = (await owner('POST', '/api/sites', { name: 'Ring Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
+    await owner('POST', `/api/sites/${site.id}/publish`, {});
+    const [item] = (await owner('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const order = () => client()('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: item.id, qty: 1 }] }, { host: 'ringcafe.pfsites.test' });
+    const appleRows = () => s.sql("SELECT endpoint FROM push_subs WHERE endpoint LIKE 'apns:%' ORDER BY endpoint").map((x) => x.endpoint);
+    const phone = client();
+    const d = (await phone('POST', '/api/auth/login', { email: 'ring@app.test', password: 'long-enough-pw', device: { name: 'iPhone' } }, newIp())).data.device;
+    const proof = { device: d.id, secret: d.secret }, live = 'a1'.repeat(32), fresh = 'e4'.repeat(32), dead = `dead${'b2'.repeat(30)}`;
+    const heldBy = (id) => s.sql('SELECT push_endpoint FROM app_devices WHERE id = ?', id)[0].push_endpoint;
+
+    // Only a real device token, for one of Apple's two services, from the person's own signed-in phone.
+    for (const bad of [{ token: 'nothex'.repeat(11), env: 'production' }, { token: live, env: 'staging' }, { token: live }, { token: 'a1'.repeat(31), env: 'production' }, { token: 'a1'.repeat(101), env: 'production' }, { env: 'production' }]) {
+      assert.equal((await phone('POST', '/api/app/push', { ...proof, ...bad })).status, 400, JSON.stringify(bad));
+    }
+    assert.equal((await client()('POST', '/api/app/push', { ...proof, token: live, env: 'production' })).status, 401, 'signed out');
+    assert.equal((await stranger('POST', '/api/app/push', { ...proof, token: live, env: 'production' })).data.signIn, true, 'someone else’s device');
+    assert.deepEqual(appleRows(), []);
+    // Kept as apns:<service>:<token>, the token in small letters, next to the browsers' notifications.
+    assert.deepEqual((await phone('POST', '/api/app/push', { ...proof, token: live.toUpperCase(), env: 'production' })).data, { ok: true });
+    const endpoint = `apns:production:${live}`;
+    assert.deepEqual(s.sql("SELECT endpoint, p256dh, auth, fails FROM push_subs WHERE endpoint LIKE 'apns:%'").map((x) => ({ ...x })), [{ endpoint, p256dh: '', auth: '', fails: 0 }]);
+    assert.equal(heldBy(d.id), endpoint);
+    // The browser route never takes one.
+    assert.equal((await phone('POST', '/api/push/subscribe', { subscription: { endpoint, keys: { p256dh: 'a', auth: 'b' } } })).status, 400);
+    // A new token for the same phone replaces its old address.
+    assert.equal((await phone('POST', '/api/app/push', { ...proof, token: fresh, env: 'development' })).status, 201);
+    assert.deepEqual(appleRows(), [`apns:development:${fresh}`]);
+    assert.equal(heldBy(d.id), `apns:development:${fresh}`);
+
+    // A second phone, whose token Apple will call gone, and a browser.
+    const phone2 = client();
+    const d2 = (await phone2('POST', '/api/auth/login', { email: 'ring@app.test', password: 'long-enough-pw', device: { name: 'Old iPhone' } }, newIp())).data.device;
+    assert.equal((await phone2('POST', '/api/app/push', { device: d2.id, secret: d2.secret, token: dead, env: 'production' })).status, 201);
+    assert.equal((await owner('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/ring', keys: { p256dh: 'k', auth: 'a' } } })).status, 201);
+    // The Devices page names the phones as the iPhone app.
+    let listed = (await owner('GET', `/api/sites/${site.id}/devices`)).data.devices;
+    assert.deepEqual(listed.map((x) => x.service).sort(), ['googleapis.com', 'iPhone app', 'iPhone app']);
+
+    // A new order: Apple gets each phone, with the business's id to group its alerts by; the browser still goes by web push.
+    assert.equal((await order()).status, 201);
+    await new Promise((res) => setTimeout(res, 60));
+    assert.deepEqual(s.pushes.map((p) => p.endpoint).sort(), [`apns:development:${fresh}`, `apns:production:${dead}`]);
+    for (const { message } of s.pushes) {
+      assert.match(message.title, /^New order #\d+ · /);
+      assert.deepEqual([message.url, message.siteId], [`/app/site/${site.id}?tab=orders`, site.id]);
+      assert.match(message.tag, /^order-/);
+    }
+    assert.deepEqual(s.web.map((w) => w.sub.endpoint), ['https://fcm.googleapis.com/fcm/send/ring']);
+    assert.equal(s.web[0].message.siteId, undefined, 'web push messages are as they were');
+    // The phone Apple called gone is dropped; the other stays.
+    assert.deepEqual(appleRows(), [`apns:development:${fresh}`]);
+    listed = (await owner('GET', `/api/sites/${site.id}/devices`)).data.devices;
+    assert.equal(listed.filter((x) => x.service === 'iPhone app').length, 1);
+
+    // Removing it on the Devices page works as for a browser.
+    const iphone = listed.find((x) => x.service === 'iPhone app');
+    assert.deepEqual((await owner('DELETE', `/api/sites/${site.id}/devices/${iphone.id}`)).data, { ok: true });
+    assert.ok(!(await owner('GET', `/api/sites/${site.id}/devices`)).data.devices.some((x) => x.service === 'iPhone app'));
+
+    // Turned off from the app, its address goes and the phone forgets it.
+    assert.equal((await phone('POST', '/api/app/push', { ...proof, token: fresh, env: 'development' })).status, 201);
+    assert.equal((await stranger('DELETE', '/api/app/push', proof)).data.signIn, true, 'not by someone else');
+    assert.deepEqual((await phone('DELETE', '/api/app/push', proof)).data, { ok: true });
+    assert.deepEqual(appleRows(), []);
+    assert.equal(heldBy(d.id), '');
+
+    // Ten notification devices a person, browsers and phones together: the one set up longest ago drops off, and a phone whose
+    // address dropped off forgets it.
+    await owner('POST', '/api/push/unsubscribe', { endpoint: 'https://fcm.googleapis.com/fcm/send/ring' });
+    assert.equal((await phone('POST', '/api/app/push', { ...proof, token: fresh, env: 'development' })).status, 201);
+    s.sql("UPDATE push_subs SET created_at = created_at - 60000 WHERE endpoint LIKE 'apns:%'");
+    for (let i = 0; i < 10; i++) assert.equal((await owner('POST', '/api/push/subscribe', { subscription: { endpoint: `https://fcm.googleapis.com/fcm/send/n${i}`, keys: { p256dh: 'k', auth: 'a' } } })).status, 201);
+    assert.deepEqual(appleRows(), []);
+    assert.equal(heldBy(d.id), '');
+    assert.equal(s.sql('SELECT COUNT(*) AS n FROM push_subs')[0].n, 10);
+
+    // Signing the phone out takes its notifications with it.
+    assert.equal((await phone('POST', '/api/app/push', { ...proof, token: fresh, env: 'development' })).status, 201);
+    assert.deepEqual(appleRows(), [`apns:development:${fresh}`]);
+    assert.equal((await phone('POST', '/api/app/signout', proof)).status, 200);
+    assert.deepEqual(appleRows(), []);
+  } finally { s.stop(); }
+});
+
+test('iPhone app: while Apple push is not set up, phones are skipped, not counted as failing', async () => {
+  const s = await appServer({ apns: { enabled: false, send: async () => { throw new Error('Apple push is not set up.'); } } });
+  try {
+    const owner = client();
+    await owner('POST', '/api/auth/signup', { email: 'quiet@app.test', password: 'long-enough-pw' }, newIp());
+    const config = (await owner('GET', '/api/config')).data;
+    assert.deepEqual([config.smsEnabled, config.appPush], [true, false]);
+    const site = (await owner('POST', '/api/sites', { name: 'Quiet Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
+    await owner('POST', `/api/sites/${site.id}/publish`, {});
+    const [item] = (await owner('GET', `/api/sites/${site.id}/menu`)).data.items;
+    const phone = client();
+    const d = (await phone('POST', '/api/auth/login', { email: 'quiet@app.test', password: 'long-enough-pw', device: { name: 'iPhone' } }, newIp())).data.device;
+    assert.equal((await phone('POST', '/api/app/push', { device: d.id, secret: d.secret, token: 'f5'.repeat(32), env: 'production' })).status, 201);
+    await owner('POST', '/api/push/subscribe', { subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/quiet', keys: { p256dh: 'k', auth: 'a' } } });
+    assert.equal((await client()('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: item.id, qty: 1 }] }, { host: 'quietcafe.pfsites.test' })).status, 201);
+    await new Promise((res) => setTimeout(res, 60));
+    assert.deepEqual(s.sql("SELECT fails FROM push_subs WHERE endpoint LIKE 'apns:%'").map((x) => x.fails), [0], 'the phone is kept, with no failure counted');
+    assert.equal(s.web.length, 1, 'browsers still hear about it');
+  } finally { s.stop(); }
+});
+
+test('text message codes: set up with the password and a texted code, sign in with one, limits, recovery codes, turning off', async () => {
+  const { createHash } = await import('node:crypto');
+  const { totpCode } = await import('../server/app.js');
+  // Where Twilio and Apple push are not set up, the pages are told, and text codes cannot be set up.
+  const plain = client();
+  let r = await plain('POST', '/api/auth/signup', { email: 'plain@app.test', password: 'long-enough-pw' }, newIp());
+  assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+  r = await plain('GET', '/api/config');
+  assert.deepEqual([r.data.smsEnabled, r.data.appPush], [false, false]);
+  await plain('PUT', '/api/me', { phone: '(903) 555-0100' });
+  r = await plain('POST', '/api/me/sms/setup', { password: 'long-enough-pw' });
+  assert.deepEqual([r.status, r.data.error], [400, 'Text messages are not available yet.']);
+  r = await plain('POST', '/api/me/email', { email: 'plain2@app.test', password: 'long-enough-pw' });
+  assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+
+  const s = await appServer();
+  // The server's clock is moved on where a test needs time to pass, such as the 30 seconds between texts.
+  const realNow = Date.now;
+  let shift = 0;
+  const later = (ms) => { shift += ms; };
+  Date.now = () => realNow() + shift;
+  const codeIn = (text) => text.body.match(/code is (\d{6})\./)[1];
+  const lastCode = () => codeIn(s.texts.at(-1));
+  const otherThan = (code) => (code === '000000' ? '111111' : '000000');
+  // Turns text codes on for a signed-in person the way the profile page does, then lets the 30-second gap between texts pass.
+  const textsOn = async (c, phone, password = 'long-enough-pw') => {
+    await c('PUT', '/api/me', { phone });
+    assert.equal((await c('POST', '/api/me/sms/setup', { password }, newIp())).status, 200);
+    assert.equal((await c('POST', '/api/me/sms/enable', { code: lastCode() })).data.user.textCodes, true);
+    later(31000);
+  };
+  try {
+    r = await client()('GET', '/api/config');
+    assert.deepEqual([r.data.smsEnabled, r.data.appPush], [true, true]);
+    const me = client(), elsewhere = client();
+    await me('POST', '/api/auth/signup', { email: 'txt@app.test', password: 'long-enough-pw', name: 'Tia' }, newIp());
+    let u = (await me('GET', '/api/me')).data.user;
+    assert.deepEqual(Object.keys(u).sort(), USER_FIELDS);
+    assert.deepEqual([u.twoFactor, u.textCodes, u.textPhone], [false, false, '']);
+
+    // Setting up needs a session, the password, and a mobile number on the profile that looks like one.
+    assert.equal((await client()('POST', '/api/me/sms/setup', { password: 'long-enough-pw' })).status, 401);
+    r = await me('POST', '/api/me/sms/setup', { password: 'wrong-password' });
+    assert.deepEqual([r.status, r.data.error], [401, 'Your password is not right.']);
+    r = await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' });
+    assert.deepEqual([r.status, r.data.error], [400, 'Add your mobile number first.']);
+    await me('PUT', '/api/me', { phone: '555-0100' });
+    r = await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' });
+    assert.deepEqual([r.status, r.data.error], [400, 'That phone number does not look right.']);
+    u = (await me('PUT', '/api/me', { phone: '(903) 555-0142' })).data.user;
+    assert.deepEqual(Object.keys(u).sort(), USER_FIELDS);
+    assert.equal(s.texts.length, 0, 'nothing was texted yet');
+    r = await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp());
+    assert.deepEqual(r.data, { sent: true, phone: '•••• 0142' });
+    assert.equal(s.texts.length, 1);
+    const setupCode = lastCode();
+    assert.equal(s.texts[0].to, '+19035550142');
+    // The last line binds the code to this site, so an iPhone offers to fill it in here and nowhere else.
+    assert.equal(s.texts[0].body, `Your Processor Freedom code is ${setupCode}. It expires in 10 minutes.\n\n@app.pfsites.test #${setupCode}`);
+    // The code is kept only as a hash, for ten minutes.
+    const [kept] = s.sql('SELECT * FROM codes');
+    assert.deepEqual([kept.purpose, kept.phone, kept.tries], ['setup', '+19035550142', 0]);
+    assert.ok(!kept.hash.includes(setupCode) && kept.hash !== createHash('sha256').update(setupCode).digest('hex'));
+    assert.ok(Math.abs(kept.expires_at - Date.now() - 10 * 60000) < 5000);
+    // Another text within 30 seconds is refused, saying when to ask again.
+    r = await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp());
+    assert.equal(r.status, 429);
+    assert.match(r.data.error, /^Please wait ([1-9]|[12]\d|30) seconds? before asking for another code\.$/);
+    assert.equal(s.texts.length, 1);
+
+    // Turning it on takes the texted code, once. Other devices sign in again, now with a code, and the account's email hears about it.
+    assert.equal((await elsewhere('POST', '/api/auth/login', { email: 'txt@app.test', password: 'long-enough-pw' }, newIp())).status, 200);
+    r = await me('POST', '/api/me/sms/enable', { code: otherThan(setupCode) });
+    assert.deepEqual([r.status, r.data.error], [400, 'That code is not right. Check the text message and try again.']);
+    u = (await me('POST', '/api/me/sms/enable', { code: setupCode })).data.user;
+    assert.deepEqual(Object.keys(u).sort(), USER_FIELDS);
+    assert.deepEqual([u.textCodes, u.textPhone, u.twoFactor, u.phone], [true, '•••• 0142', false, '(903) 555-0142']);
+    assert.equal((await me('POST', '/api/me/sms/enable', { code: setupCode })).data.error, 'That code has expired. Ask for a new one.', 'a code works once');
+    assert.equal(s.sql("SELECT sms_phone FROM users WHERE email = 'txt@app.test'")[0].sms_phone, '+19035550142');
+    assert.deepEqual([(await me('GET', '/api/me')).data.user.textCodes, (await me('GET', '/api/sites')).status], [true, 200]);
+    assert.equal((await elsewhere('GET', '/api/sites')).status, 401, 'other devices are signed out');
+    assert.ok(s.mails.some((m) => m.to === 'txt@app.test' && m.subject === 'Text message codes are on' && m.text.includes('•••• 0142')));
+
+    // Signing in now texts a code; the password alone is not enough.
+    later(31000);
+    const dev = client(), signIn = (more = {}, c = client()) => c('POST', '/api/auth/login', { email: 'txt@app.test', password: 'long-enough-pw', ...more }, newIp());
+    const iphone = { device: { name: 'Tia’s iPhone' } }, theirDevices = () => s.sql("SELECT COUNT(*) AS n FROM app_devices WHERE user_id = (SELECT id FROM users WHERE email = 'txt@app.test')")[0].n;
+    r = await signIn(iphone, dev);
+    assert.deepEqual([r.status, r.data.error, r.data.twoFactor, r.data.methods, r.data.phone, r.data.sent], [401, 'Enter the 6-digit code we texted to •••• 0142.', true, ['text'], '•••• 0142', true]);
+    assert.equal(r.data.device, undefined, 'the iPhone app gets no device until the code is in');
+    assert.equal((await dev('GET', '/api/sites')).status, 401);
+    const loginCode = lastCode();
+    assert.equal(s.texts.at(-1).to, '+19035550142');
+    // A wrong code says so and keeps the code step up; a right code does not rescue a wrong password; the right one signs in, spaces and all.
+    r = await signIn({ ...iphone, code: otherThan(loginCode) }, dev);
+    assert.deepEqual([r.status, r.data.twoFactor, r.data.methods, r.data.phone, r.data.error], [401, true, ['text'], '•••• 0142', 'That code is not right. Check the text message and try again, or use one of your recovery codes.']);
+    assert.equal(theirDevices(), 0);
+    assert.equal((await signIn({ password: 'wrong-password', code: loginCode })).status, 401);
+    r = await signIn({ ...iphone, code: ` ${loginCode.slice(0, 3)} ${loginCode.slice(3)} ` }, dev);
+    assert.equal(r.status, 200);
+    assert.match(r.data.device.secret, /^[\w-]{43}$/);
+    assert.equal(theirDevices(), 1, 'one device, made once the code was right');
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    assert.deepEqual([r.data.user.textCodes, r.data.user.textPhone, r.data.user.twoFactor], [true, '•••• 0142', false]);
+    assert.equal((await dev('GET', '/api/sites')).status, 200);
+    r = await signIn({ code: loginCode });
+    assert.deepEqual([r.status, r.data.error], [401, 'That code has expired. Ask for a new code, or use one of your recovery codes.'], 'a code works once');
+    // A code older than ten minutes is refused.
+    later(31000);
+    assert.equal((await signIn()).data.sent, true);
+    const stale = lastCode();
+    s.sql("UPDATE codes SET expires_at = ? WHERE purpose = 'login'", Date.now() - 1);
+    assert.equal((await signIn({ code: stale })).data.error, 'That code has expired. Ask for a new code, or use one of your recovery codes.');
+
+    // Five wrong tries use a code up; the two-step limit counts every try, texted codes included.
+    const lim = client();
+    await lim('POST', '/api/auth/signup', { email: 'lim@app.test', password: 'long-enough-pw' }, newIp());
+    await textsOn(lim, '903 555 0177');
+    const limIn = (more = {}) => client()('POST', '/api/auth/login', { email: 'lim@app.test', password: 'long-enough-pw', ...more }, newIp());
+    assert.equal((await limIn()).data.sent, true);
+    const good = lastCode();
+    for (let i = 0; i < 4; i++) assert.equal((await limIn({ code: otherThan(good) })).data.error, 'That code is not right. Check the text message and try again, or use one of your recovery codes.');
+    assert.equal((await limIn({ code: otherThan(good) })).data.error, 'That code is not right, and it can’t be tried again. Ask for a new code, or use one of your recovery codes.');
+    assert.equal((await limIn({ code: good })).status, 401, 'after five wrong tries even the right code is refused');
+    assert.equal(s.sql("SELECT COUNT(*) AS n FROM codes WHERE user_id = (SELECT id FROM users WHERE email = 'lim@app.test')")[0].n, 0, 'and it is gone');
+    assert.equal((await limIn({ code: good })).status, 401);
+    r = await limIn({ code: good });
+    assert.deepEqual([r.status, r.data.twoFactor, r.data.methods, r.data.phone], [429, true, ['text'], '•••• 0177']);
+    // Six texts an hour for one person, however they are spread out; then it says how many minutes to wait.
+    for (let i = 0; i < 4; i++) { later(31000); assert.equal((await limIn()).data.sent, true); }
+    later(31000);
+    r = await limIn();
+    assert.equal(r.status, 429);
+    assert.match(r.data.error, /^Please wait (5\d|60) minutes before asking for another code\.$/);
+    assert.deepEqual([r.data.twoFactor, r.data.methods, r.data.phone, r.data.sent], [true, ['text'], '•••• 0177', undefined]);
+
+    // With the authenticator app on as well, its code is asked for first; a text goes out only when the person asks for one.
+    const both = client();
+    await both('POST', '/api/auth/signup', { email: 'both@app.test', password: 'long-enough-pw' }, newIp());
+    const { secret } = (await both('POST', '/api/me/2fa/setup', {})).data;
+    u = (await both('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret) })).data.user;
+    assert.deepEqual(Object.keys(u).sort(), USER_FIELDS);
+    await textsOn(both, '+1 903 555 0958');
+    u = (await both('GET', '/api/me')).data.user;
+    assert.deepEqual([u.twoFactor, u.textCodes, u.textPhone], [true, true, '•••• 0958']);
+    const bothIn = (more = {}) => client()('POST', '/api/auth/login', { email: 'both@app.test', password: 'long-enough-pw', ...more }, newIp());
+    const textsBefore = s.texts.length;
+    r = await bothIn();
+    assert.deepEqual([r.status, r.data.error, r.data.twoFactor, r.data.methods, r.data.phone, r.data.sent], [401, 'Enter the 6-digit code from your authenticator app.', true, ['app', 'text'], '•••• 0958', undefined]);
+    assert.equal(s.texts.length, textsBefore, 'nothing is texted until asked');
+    r = await bothIn({ sendText: true });
+    assert.deepEqual([r.status, r.data.error, r.data.sent], [401, 'Enter the 6-digit code we texted to •••• 0958.', true]);
+    assert.equal(s.texts.at(-1).to, '+19035550958');
+    // A wrong code names both ways; either right code signs in.
+    assert.equal((await bothIn({ code: otherThan(lastCode()) })).data.error, 'That code is not right. Try the newest code from your authenticator app or the text message, or use one of your recovery codes.');
+    assert.equal((await bothIn({ code: lastCode() })).status, 200, 'the texted code');
+    assert.equal((await bothIn({ code: totpCode(secret, Date.now(), 1) })).status, 200, 'the authenticator app’s code');
+    // Turning the authenticator app off while text codes stay on keeps the recovery codes.
+    const codes = (await both('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).data.codes;
+    assert.equal(codes.length, 10);
+    u = (await both('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).data.user;
+    assert.deepEqual(Object.keys(u).sort(), USER_FIELDS);
+    assert.deepEqual([u.twoFactor, u.textCodes], [false, true]);
+    later(31000);
+    r = await bothIn();
+    assert.deepEqual([r.data.methods, r.data.sent], [['text'], true], 'with text codes alone a code is texted straight away');
+    assert.equal((await bothIn({ code: codes[0] })).status, 200, 'a recovery code still signs in');
+    assert.equal((await bothIn({ code: codes[0] })).status, 401, 'once');
+    // Turning text codes off needs the password; with both ways off the recovery codes go, and the password alone signs in.
+    assert.equal((await both('POST', '/api/me/sms/disable', { password: 'wrong-password' })).status, 401);
+    u = (await both('POST', '/api/me/sms/disable', { password: 'long-enough-pw' })).data.user;
+    assert.deepEqual(Object.keys(u).sort(), USER_FIELDS);
+    assert.deepEqual([u.twoFactor, u.textCodes, u.textPhone], [false, false, '']);
+    assert.deepEqual(s.sql("SELECT sms_on, sms_phone, recovery FROM users WHERE email = 'both@app.test'").map((x) => ({ ...x })), [{ sms_on: 0, sms_phone: '', recovery: '' }]);
+    assert.equal((await bothIn()).status, 200);
+    assert.equal((await both('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).data.error, 'Turn on two-step sign-in first, then download your recovery codes.');
+
+    // Recovery codes work with only text codes on, and sign in without texting anything.
+    const rec = client();
+    await rec('POST', '/api/auth/signup', { email: 'rec@app.test', password: 'long-enough-pw' }, newIp());
+    assert.equal((await rec('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).status, 409, 'not with two-step sign-in off');
+    await textsOn(rec, '9035550199');
+    const spare = (await rec('POST', '/api/me/2fa/recovery', { password: 'long-enough-pw' })).data.codes;
+    assert.equal(spare.length, 10);
+    const recIn = (more = {}, password = 'long-enough-pw') => client()('POST', '/api/auth/login', { email: 'rec@app.test', password, ...more }, newIp());
+    const sentBefore = s.texts.length;
+    assert.equal((await recIn({ code: spare[3] })).status, 200);
+    assert.equal(s.texts.length, sentBefore);
+    assert.equal((await recIn({ code: spare[3] })).status, 401, 'once');
+    // A code sent for setting up never signs anyone in.
+    assert.equal((await rec('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp())).status, 200);
+    assert.equal((await recIn({ code: lastCode() })).status, 401);
+    assert.equal(s.sql("SELECT COUNT(*) AS n FROM codes WHERE purpose = 'setup' AND user_id = (SELECT id FROM users WHERE email = 'rec@app.test')")[0].n, 1, 'it is left for setting up');
+    // A reset link from the email, for an address nobody had confirmed, turns text codes off too: someone who signed up with another
+    // person's address first cannot keep the real owner out with their own phone.
+    await client()('POST', '/api/auth/forgot', { email: 'rec@app.test' }, newIp());
+    const tokenFor = () => s.mails.filter((m) => m.to === 'rec@app.test').at(-1).text.match(/token=([\w-]+)/)[1];
+    r = await client()('POST', '/api/auth/reset', { token: tokenFor(), password: 'reset-long-pw' }, newIp());
+    assert.equal(r.status, 200);
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    assert.deepEqual([r.data.user.textCodes, r.data.user.textPhone], [false, '']);
+    assert.deepEqual(s.sql("SELECT sms_on, sms_phone, recovery FROM users WHERE email = 'rec@app.test'").map((x) => ({ ...x })), [{ sms_on: 0, sms_phone: '', recovery: '' }]);
+    assert.equal(s.sql("SELECT COUNT(*) AS n FROM codes WHERE user_id = (SELECT id FROM users WHERE email = 'rec@app.test')")[0].n, 0);
+    // Once the address is confirmed, a reset link only sets the password: signing in still needs the texted code.
+    const rec2 = client();
+    assert.equal((await recIn({}, 'reset-long-pw').then((x) => x.status)), 200);
+    assert.equal((await rec2('POST', '/api/auth/login', { email: 'rec@app.test', password: 'reset-long-pw' }, newIp())).status, 200);
+    later(31000);
+    await textsOn(rec2, '9035550199', 'reset-long-pw');
+    await client()('POST', '/api/auth/forgot', { email: 'rec@app.test' }, newIp());
+    r = await client()('POST', '/api/auth/reset', { token: tokenFor(), password: 'second-reset-pw' }, newIp());
+    assert.deepEqual([r.status, r.data], [200, { twoFactor: true }]);
+    assert.equal(s.sql("SELECT sms_on FROM users WHERE email = 'rec@app.test'")[0].sms_on, 1, 'text codes stay on');
+    r = await recIn({}, 'second-reset-pw');
+    assert.deepEqual([r.status, r.data.sent, r.data.methods], [401, true, ['text']]);
+    assert.equal((await recIn({ code: lastCode() }, 'second-reset-pw')).status, 200);
+  } finally { Date.now = realNow; s.stop(); }
+});
+
+test('a text that cannot be sent says so, and leaves no code behind', async () => {
+  const s = await appServer({ sms: { enabled: true, send: async () => { throw new Error('Twilio answered 400: [number] is not a valid phone number.'); } } });
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'nosend@app.test', password: 'long-enough-pw' }, newIp());
+    await me('PUT', '/api/me', { phone: '9035550123' });
+    const r = await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp());
+    assert.deepEqual([r.status, r.data.error], [502, 'We could not send the text message. Please try again in a moment.']);
+    assert.equal(s.sql('SELECT COUNT(*) AS n FROM codes')[0].n, 0);
+    assert.equal((await me('GET', '/api/me')).data.user.textCodes, false);
+  } finally { s.stop(); }
+});
+
+test('texts go through Twilio, and phone numbers are read the way people type them', async () => {
+  const { createSms, normalizePhone, maskPhone } = await import('../server/sms.js');
+  const keys = { TWILIO_ACCOUNT_SID: 'AC0123', TWILIO_AUTH_TOKEN: 'tok-secret' };
+  assert.equal(createSms({}).enabled, false);
+  assert.equal(createSms(keys).enabled, false, 'a number or a messaging service is needed too');
+  assert.equal(createSms({ ...keys, TWILIO_FROM: '+19035550100' }).enabled, true);
+  assert.equal(createSms({ ...keys, TWILIO_MESSAGING_SERVICE_SID: 'MG0123' }).enabled, true);
+  await assert.rejects(createSms({}).send('+19035550111', 'x'), /not set up/);
+
+  const calls = [];
+  const taken = async (url, init) => { calls.push({ url, init }); return new Response(JSON.stringify({ sid: 'SM1' }), { status: 201 }); };
+  assert.deepEqual(await createSms({ ...keys, TWILIO_FROM: '+19035550100' }, taken).send('+19035550111', 'Your code is 123456.'), { sent: true });
+  const [{ url, init }] = calls;
+  assert.equal(url, 'https://api.twilio.com/2010-04-01/Accounts/AC0123/Messages.json');
+  assert.equal(init.method, 'POST');
+  assert.equal(init.headers.Authorization, `Basic ${Buffer.from('AC0123:tok-secret').toString('base64')}`);
+  assert.ok(init.signal instanceof AbortSignal, 'it gives up after a while');
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(init.body)), { To: '+19035550111', From: '+19035550100', Body: 'Your code is 123456.' });
+  await createSms({ ...keys, TWILIO_FROM: '+19035550100', TWILIO_MESSAGING_SERVICE_SID: 'MG0123' }, taken).send('+19035550111', 'Hi');
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(calls[1].init.body)), { To: '+19035550111', MessagingServiceSid: 'MG0123', Body: 'Hi' });
+  // A refusal throws with Twilio's reason, numbers blanked out, and never the message itself.
+  const refused = createSms({ ...keys, TWILIO_FROM: '+19035550100' }, async () => new Response(JSON.stringify({ code: 21211, message: "The 'To' number +1 903 555 0111 is not a valid phone number." }), { status: 400 }));
+  await assert.rejects(refused.send('+19035550111', 'Your code is 123456.'), (e) => e.message === "Twilio answered 400: The 'To' number [number] is not a valid phone number.");
+  await assert.rejects(createSms({ ...keys, TWILIO_FROM: '+19035550100' }, taken).send('903-555-0111', 'x'), /not a number/);
+  assert.equal(calls.length, 2, 'nothing was sent for a number that is not one');
+
+  for (const [typed, want] of [['+1 (903) 555-0100', '+19035550100'], ['(903) 555-0100', '+19035550100'], ['903.555.0100', '+19035550100'], ['1 903 555 0100', '+19035550100'], ['+44 20 7946 0958', '+442079460958'],
+    ['555-0100', ''], ['+1234567', ''], ['+1234567890123456', ''], ['2 903 555 0100', ''], ['call 903 555 0100', ''], ['903+555+0100', ''], ['', '']]) assert.equal(normalizePhone(typed), want, typed);
+  assert.equal(maskPhone('+19035550100'), '•••• 0100');
+  assert.equal(maskPhone(''), '');
+});
+
+test('Apple push: a signed token, one connection kept open per host, and Apple’s answers', async () => {
+  const http2 = await import('node:http2');
+  const { generateKeyPairSync, verify } = await import('node:crypto');
+  const { createApns } = await import('../server/apns.js');
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).trim();
+  // Stands in for Apple: records each request and answers as told.
+  const got = [];
+  let answer = { status: 200 }, opened = 0;
+  const srv = http2.createServer();
+  srv.on('session', () => { opened++; });
+  srv.on('stream', (stream, headers) => {
+    let body = '';
+    stream.setEncoding('utf8');
+    stream.on('data', (c) => { body += c; });
+    stream.on('end', () => { got.push({ headers, body }); stream.respond({ ':status': answer.status, 'content-type': 'application/json' }); stream.end(answer.reason ? JSON.stringify({ reason: answer.reason }) : ''); });
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const origin = `http://127.0.0.1:${srv.address().port}`, dialed = [];
+  const env = { APNS_KEY_ID: 'ABC123DEFG', APNS_TEAM_ID: 'D8D94SXAG6', APNS_KEY: pem.replace(/\n/g, '\\n') };
+  const apns = createApns(env, { hosts: { development: origin, production: `${origin}/` }, connect: (o) => { dialed.push(o); return http2.connect(o); } });
+  try {
+    // Off unless all three keys are set, and off with a key that cannot be used.
+    assert.equal(createApns({}).enabled, false);
+    assert.equal(createApns({ ...env, APNS_TEAM_ID: '' }).enabled, false);
+    assert.equal(createApns({ ...env, APNS_KEY: 'not a key' }).enabled, false);
+    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+    assert.equal(createApns({ ...env, APNS_KEY: rsa }).enabled, false, 'only the kind of key Apple gives out');
+    await assert.rejects(createApns({}).send(`apns:production:${'ab'.repeat(32)}`, {}), /not set up/);
+    // The .p8 key works pasted with written-out \n, or bare without its PEM lines.
+    assert.equal(apns.enabled, true);
+    assert.equal(createApns({ ...env, APNS_KEY: pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '') }).enabled, true);
+
+    const token = 'ab'.repeat(32), msg = { title: 'New order #12 · $9.00', body: 'Ring Cafe · Pickup · Ana', url: '/app/site/s1?tab=orders', tag: 'order-o1', siteId: 's1' };
+    assert.equal(await apns.send(`apns:development:${token}`, msg), 'sent');
+    const [{ headers, body }] = got;
+    assert.deepEqual([headers[':method'], headers[':path'], headers['apns-topic'], headers['apns-push-type'], headers['apns-priority'], headers['apns-collapse-id']], ['POST', `/3/device/${token}`, 'com.processorfreedomsites.app', 'alert', '10', 'order-o1']);
+    assert.deepEqual(JSON.parse(body), { aps: { alert: { title: msg.title, body: msg.body }, sound: 'default', 'thread-id': 's1' }, url: msg.url });
+    // The token says ES256 and the key's id, is issued by the team, and is signed with the key.
+    const [h, c, sig] = headers.authorization.replace(/^bearer /, '').split('.');
+    const part = (x) => JSON.parse(Buffer.from(x, 'base64url').toString());
+    assert.deepEqual(part(h), { alg: 'ES256', kid: 'ABC123DEFG' });
+    assert.equal(part(c).iss, 'D8D94SXAG6');
+    assert.ok(Math.abs(part(c).iat - Date.now() / 1000) < 60);
+    assert.ok(verify('sha256', Buffer.from(`${h}.${c}`), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(sig, 'base64url')));
+    // The same token and connection are used again; without a tag there is no collapse id, and alerts group under 'pf'.
+    assert.equal(await apns.send(`apns:development:${token}`, { title: 'Again', body: '' }), 'sent');
+    assert.equal(got[1].headers.authorization, headers.authorization);
+    assert.equal(got[1].headers['apns-collapse-id'], undefined);
+    assert.equal(JSON.parse(got[1].body).aps['thread-id'], 'pf');
+    // A tag longer than Apple allows is cut to 64 bytes; production goes to its own host.
+    await apns.send(`apns:development:${token}`, { ...msg, tag: 'x'.repeat(100) });
+    assert.equal(got.at(-1).headers['apns-collapse-id'], 'x'.repeat(64));
+    assert.equal(await apns.send(`apns:production:${token}`, msg), 'sent');
+    assert.deepEqual(dialed, [origin, `${origin}/`]);
+    // Apple's answers: a phone that is gone is dropped; anything else is a failure, counted by the caller.
+    for (const [status, reason] of [[410, 'Unregistered'], [400, 'BadDeviceToken'], [400, 'DeviceTokenNotForTopic']]) { answer = { status, reason }; assert.equal(await apns.send(`apns:development:${token}`, msg), 'gone', reason); }
+    answer = { status: 400, reason: 'PayloadTooLarge' };
+    await assert.rejects(apns.send(`apns:development:${token}`, msg), /PayloadTooLarge/);
+    answer = { status: 500 };
+    await assert.rejects(apns.send(`apns:development:${token}`, msg), /500/);
+    // A token Apple calls expired is made again for the next notification.
+    answer = { status: 403, reason: 'ExpiredProviderToken' };
+    await assert.rejects(apns.send(`apns:development:${token}`, msg), /ExpiredProviderToken/);
+    answer = { status: 200 };
+    assert.equal(await apns.send(`apns:development:${token}`, msg), 'sent');
+    const renewed = got.at(-1).headers.authorization.replace(/^bearer /, '').split('.');
+    assert.notEqual(renewed.join('.'), headers.authorization.replace(/^bearer /, ''));
+    assert.ok(verify('sha256', Buffer.from(`${renewed[0]}.${renewed[1]}`), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(renewed[2], 'base64url')));
+    // An address that is not an iPhone token is dropped without asking Apple.
+    const asked = got.length;
+    assert.equal(await apns.send('apns:development:not-a-token', msg), 'gone');
+    assert.equal(await apns.send('https://fcm.googleapis.com/fcm/send/x', msg), 'gone');
+    assert.equal(got.length, asked);
+    assert.equal(opened, 2, 'one connection per host, kept open');
+  } finally { apns.close(); srv.close(); }
+});
+
+/* ---------- the iPhone app, after review: two-step and phones, remembered devices, the location list, text caps, Apple push connections ---------- */
+
+test('iPhone app: turning two-step sign-in on makes phones set up with the password alone sign in again, now with a code', async () => {
+  const { totpCode } = await import('../server/app.js');
+  const s = await appServer();
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'step@app.test', password: 'long-enough-pw', name: 'Stef' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Step Cafe', template: 'restaurant' })).data.site;
+    const unlock = (p) => client()('POST', '/api/app/unlock', { ...p, passcode: '2580' }, newIp());
+    const phones = () => s.sql('SELECT COUNT(*) AS n FROM app_devices')[0].n;
+    const textedCode = () => s.texts.at(-1).body.match(/code is (\d{6})\./)[1];
+    // Signs a phone in from the app with what the account needs, and links it with the passcode, as the app does.
+    const setUp = async (more = {}) => {
+      const c = client();
+      const r = await c('POST', '/api/auth/login', { email: 'step@app.test', password: 'long-enough-pw', device: { name: 'iPhone' }, ...more }, newIp());
+      assert.equal(r.status, 200, JSON.stringify(r.data));
+      const p = { device: r.data.device.id, secret: r.data.device.secret };
+      assert.equal((await c('POST', '/api/app/passcode', { ...p, site: site.id, passcode: '2580', replace: true })).status, 200);
+      return p;
+    };
+
+    // A phone set up while the password alone signed in opens with the passcode...
+    const early = await setUp();
+    assert.equal((await unlock(early)).status, 200);
+    // ...until the authenticator app is turned on. Then it has to sign in again, with a code, like every other device.
+    const { secret } = (await me('POST', '/api/me/2fa/setup', {})).data;
+    assert.equal((await me('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret) })).status, 200);
+    let r = await unlock(early);
+    assert.deepEqual([r.status, r.data.signIn, r.data.error], [401, true, 'Sign in again on this device.']);
+    assert.equal(phones(), 0);
+    assert.equal((await me('GET', '/api/sites')).status, 200, 'the session that turned it on carries on');
+    // A phone set up with a code opens with the passcode, and adding text codes while the app is on changes nothing for it.
+    const coded = await setUp({ code: totpCode(secret, Date.now(), 1) });
+    assert.equal((await unlock(coded)).status, 200);
+    await me('PUT', '/api/me', { phone: '903 555 0161' });
+    assert.equal((await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp())).status, 200);
+    assert.equal((await me('POST', '/api/me/sms/enable', { code: textedCode() })).status, 200);
+    assert.equal((await unlock(coded)).status, 200);
+
+    // With both ways off again, a phone is set up with the password alone; turning text codes on drops it the same way.
+    assert.equal((await me('POST', '/api/me/2fa/disable', { password: 'long-enough-pw' })).status, 200);
+    assert.equal((await me('POST', '/api/me/sms/disable', { password: 'long-enough-pw' })).status, 200);
+    const plain = await setUp();
+    assert.equal((await unlock(plain)).status, 200);
+    shift += 31000;
+    assert.equal((await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp())).status, 200);
+    assert.equal((await me('POST', '/api/me/sms/enable', { code: textedCode() })).status, 200);
+    r = await unlock(plain);
+    assert.deepEqual([r.status, r.data.signIn], [401, true]);
+    assert.equal(phones(), 0);
+  } finally { Date.now = realNow; s.stop(); }
+});
+
+test('remember this device: after a right code it skips the code for 14 days, until the account is made safe again', async () => {
+  const { createHash } = await import('node:crypto');
+  const { totpCode } = await import('../server/app.js');
+  const s = await appServer();
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  const later = (ms) => { shift += ms; };
+  try {
+    let password = 'long-enough-pw';
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'keep@app.test', password, name: 'Kip' }, newIp());
+    // The address is confirmed first, so a reset link later only sets the password and leaves two-step sign-in on.
+    const resetToken = async () => { await client()('POST', '/api/auth/forgot', { email: 'keep@app.test' }, newIp()); return s.mails.filter((m) => m.to === 'keep@app.test').at(-1).text.match(/token=([\w-]+)/)[1]; };
+    assert.equal((await client()('POST', '/api/auth/reset', { token: await resetToken(), password }, newIp())).status, 200);
+    await me('POST', '/api/auth/login', { email: 'keep@app.test', password }, newIp());
+    // Text codes on, the way the profile page does it.
+    await me('PUT', '/api/me', { phone: '903 555 0171' });
+    const textedCode = () => s.texts.at(-1).body.match(/code is (\d{6})\./)[1];
+    assert.equal((await me('POST', '/api/me/sms/setup', { password }, newIp())).status, 200);
+    assert.equal((await me('POST', '/api/me/sms/enable', { code: textedCode() })).status, 200);
+    const logIn = (more = {}) => client()('POST', '/api/auth/login', { email: 'keep@app.test', password, ...more }, newIp());
+    // Signs in with a texted code and remember, as the app does, an hour on each time so the limits on texts stay out of the way.
+    const remember = async () => {
+      later(3600000);
+      assert.equal((await logIn()).data.sent, true);
+      const got = await logIn({ code: textedCode(), remember: true });
+      assert.equal(got.status, 200);
+      return got.data.trust;
+    };
+    const signedIn = async (trust) => { const c = client(); assert.equal((await c('POST', '/api/auth/login', { email: 'keep@app.test', password, trust }, newIp())).status, 200); return c; };
+
+    // Nothing is remembered without the right code, or without asking.
+    later(31000);
+    let r = await logIn({ remember: true });
+    assert.deepEqual([r.status, r.data.twoFactor, r.data.trust], [401, true, undefined]);
+    r = await logIn({ remember: true, code: textedCode() === '000000' ? '111111' : '000000' });
+    assert.deepEqual([r.status, r.data.trust], [401, undefined]);
+    r = await logIn({ code: textedCode() });
+    assert.deepEqual([r.status, r.data.trust], [200, undefined]);
+    assert.equal(s.sql('SELECT COUNT(*) AS n FROM trusts')[0].n, 0);
+    // With remember, the answer carries a token for this device; only its hash is kept, for 14 days.
+    later(3600000);
+    assert.equal((await logIn()).data.sent, true);
+    r = await logIn({ code: textedCode(), remember: true, device: { name: 'iPhone' } });
+    assert.equal(r.status, 200);
+    const trust = r.data.trust;
+    assert.match(trust, /^[\w-]{43}$/);
+    assert.match(r.data.device.secret, /^[\w-]{43}$/, 'the app still gets its device');
+    const [row] = s.sql('SELECT * FROM trusts');
+    assert.equal(row.token_hash, createHash('sha256').update(trust).digest('hex'));
+    assert.ok(Math.abs(row.expires_at - Date.now() - 14 * 86400000) < 5000);
+
+    // The remembered device signs in with the password alone: no code is asked for and nothing is texted.
+    const sent = s.texts.length;
+    later(31000);
+    r = await logIn({ trust });
+    assert.deepEqual([r.status, r.data.trust, r.data.twoFactor], [200, undefined, undefined]);
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    assert.equal(s.texts.length, sent);
+    // Never with a wrong password, never with a made-up token, and never for someone else.
+    assert.equal((await logIn({ trust, password: 'wrong-password' })).status, 401);
+    r = await logIn({ trust: 'x'.repeat(43) });
+    assert.deepEqual([r.status, r.data.twoFactor], [401, true]);
+    const other = client();
+    await other('POST', '/api/auth/signup', { email: 'other@app.test', password: 'long-enough-pw' }, newIp());
+    const { secret } = (await other('POST', '/api/me/2fa/setup', {})).data;
+    assert.equal((await other('POST', '/api/me/2fa/enable', { password: 'long-enough-pw', code: totpCode(secret) })).status, 200);
+    const otherIn = (more) => client()('POST', '/api/auth/login', { email: 'other@app.test', password: 'long-enough-pw', ...more }, newIp());
+    r = await otherIn({ trust });
+    assert.deepEqual([r.status, r.data.twoFactor], [401, true]);
+    // A person keeps ten remembered devices: an eleventh pushes out the one remembered longest ago.
+    const theirs = [];
+    for (let i = 0; i < 11; i++) { later(120000); theirs.push((await otherIn({ code: totpCode(secret), remember: true })).data.trust); }
+    assert.ok(theirs.every((x) => /^[\w-]{43}$/.test(x)));
+    assert.equal(s.sql("SELECT COUNT(*) AS n FROM trusts WHERE user_id = (SELECT id FROM users WHERE email = 'other@app.test')")[0].n, 10);
+    assert.equal((await otherIn({ trust: theirs[0] })).data.twoFactor, true, 'the first one went');
+    assert.equal((await otherIn({ trust: theirs[10] })).status, 200);
+    // Fourteen days on, it is no use.
+    later(14 * 86400000);
+    r = await logIn({ trust });
+    assert.deepEqual([r.status, r.data.twoFactor], [401, true]);
+
+    // Signing out everywhere ends every remembered device...
+    let t = await remember();
+    let c = await signedIn(t);
+    assert.equal((await c('POST', '/api/auth/logout-all', {})).status, 200);
+    later(31000);
+    assert.equal((await logIn({ trust: t })).data.twoFactor, true, 'logging out everywhere ends it');
+    // ...and so does a new password, made on the profile page or set from a reset link...
+    t = await remember();
+    c = await signedIn(t);
+    assert.equal((await c('POST', '/api/auth/password', { current: password, next: 'another-long-pw' })).status, 200);
+    password = 'another-long-pw';
+    later(31000);
+    assert.equal((await logIn({ trust: t })).data.twoFactor, true, 'a new password ends it');
+    t = await remember();
+    r = await client()('POST', '/api/auth/reset', { token: await resetToken(), password: 'third-long-pw' }, newIp());
+    assert.deepEqual([r.status, r.data], [200, { twoFactor: true }]);
+    password = 'third-long-pw';
+    later(31000);
+    assert.equal((await logIn({ trust: t })).data.twoFactor, true, 'a reset ends it');
+    // ...and two-step sign-in turned off and on again.
+    t = await remember();
+    c = await signedIn(t);
+    assert.equal((await c('POST', '/api/me/sms/disable', { password })).status, 200);
+    later(31000);
+    assert.equal((await c('POST', '/api/me/sms/setup', { password }, newIp())).status, 200);
+    assert.equal((await c('POST', '/api/me/sms/enable', { code: textedCode() })).status, 200);
+    later(31000);
+    assert.equal((await logIn({ trust: t })).data.twoFactor, true, 'turning two-step sign-in on again ends it');
+
+    // With two-step sign-in off there is no code to skip, so nothing is remembered.
+    await client()('POST', '/api/auth/signup', { email: 'free@app.test', password: 'long-enough-pw' }, newIp());
+    r = await client()('POST', '/api/auth/login', { email: 'free@app.test', password: 'long-enough-pw', remember: true, code: '123456' }, newIp());
+    assert.deepEqual([r.status, r.data.trust], [200, undefined]);
+  } finally { Date.now = realNow; s.stop(); }
+});
+
+test('iPhone app: the location list shows each business with its street and new orders, most recently updated first', async () => {
+  const s = await appServer();
+  try {
+    const owner = client(), boss = client();
+    await owner('POST', '/api/auth/signup', { email: 'loc@app.test', password: 'long-enough-pw', name: 'Lou' }, newIp());
+    await boss('POST', '/api/auth/signup', { email: 'boss@app.test', password: 'long-enough-pw', name: 'Bo' }, newIp());
+    const main = (await owner('POST', '/api/sites', { name: 'Main Street Cafe', template: 'order', kind: 'ordering', csv: 'Item,Price\nTaco,10.00' })).data.site;
+    const lot = (await owner('POST', '/api/sites', { name: 'Back Lot', template: 'restaurant' })).data.site;
+    const diner = (await boss('POST', '/api/sites', { name: 'Boss Diner', template: 'restaurant' })).data.site;
+    assert.equal((await boss('POST', `/api/sites/${diner.id}/team`, { email: 'loc@app.test', name: 'Lou', role: 'manager' })).status, 201);
+    await owner('POST', `/api/sites/${main.id}/publish`, {});
+    const [item] = (await owner('GET', `/api/sites/${main.id}/menu`)).data.items;
+    for (let i = 0; i < 2; i++) assert.equal((await client()('POST', '/_order', { method: 'pickup', name: 'Ana', phone: '903-555-0100', email: 'ana@example.com', items: [{ id: item.id, qty: 1 }] }, { host: 'mainstreetcafe.pfsites.test' })).status, 201);
+    // The address the owner typed for the first business, and when each was last changed.
+    s.sql("UPDATE sites SET draft = json_set(draft, '$.business.address1', '12 Main St', '$.business.city', 'Tyler', '$.business.state', 'TX', '$.business.zip', '75701') WHERE id = ?", main.id);
+    for (const [at, id] of [[3000, lot.id], [2000, diner.id], [1000, main.id]]) s.sql('UPDATE sites SET updated_at = ? WHERE id = ?', at, id);
+    const r = await owner('GET', '/api/app/sites');
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.data.sites, [
+      { id: lot.id, name: 'Back Lot', role: 'owner', live: false, url: 'https://backlot.pfsites.test', newOrders: 0, street: '' },
+      { id: diner.id, name: 'Boss Diner', role: 'manager', live: false, url: 'https://bossdiner.pfsites.test', newOrders: 0, street: '' },
+      { id: main.id, name: 'Main Street Cafe', role: 'owner', live: true, url: 'https://mainstreetcafe.pfsites.test', newOrders: 2, street: '12 Main St, Tyler, TX, 75701' },
+    ]);
+    assert.equal((await client()('GET', '/api/app/sites')).status, 401);
+  } finally { s.stop(); }
+});
+
+test('text codes: one number cannot be texted over and over from many accounts, numbers abroad are refused, and setup codes have their own share', async () => {
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  const later = (ms) => { shift += ms; };
+  let n = 0;
+  // A new account with this mobile number on its profile.
+  const account = async (phone) => { const c = client(); await c('POST', '/api/auth/signup', { email: `caps${n++}@app.test`, password: 'long-enough-pw' }, newIp()); await c('PUT', '/api/me', { phone }); return c; };
+  const setUp = (c) => c('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp());
+  const codeOf = (text) => text.body.match(/code is (\d{6})\./)[1];
+  const signIn = (i) => client()('POST', '/api/auth/login', { email: `caps${i}@app.test`, password: 'long-enough-pw' }, newIp());
+  try {
+    const s = await appServer();
+    try {
+      // Six new accounts all name one person's number. Whoever asks, it is texted once in 30 seconds and five setup codes a day.
+      const flood = [];
+      for (let i = 0; i < 6; i++) flood.push(await account('(903) 555-0188'));
+      assert.equal((await setUp(flood[0])).status, 200);
+      let r = await setUp(flood[1]);
+      assert.equal(r.status, 429);
+      assert.match(r.data.error, /^Please wait ([1-9]|[12]\d|30) seconds? before asking for another code\.$/);
+      for (let i = 1; i < 5; i++) { later(31000); assert.equal((await setUp(flood[i])).status, 200, `setup ${i}`); }
+      later(31000);
+      r = await setUp(flood[5]);
+      assert.deepEqual([r.status, r.data.error], [429, 'Please wait 24 hours before asking for another code.']);
+      const toThem = s.texts.filter((x) => x.to === '+19035550188');
+      assert.equal(toThem.length, 5);
+      // Sign-in codes count against the number too: two accounts that share a phone cannot have it texted twice in 30 seconds.
+      for (const i of [0, 1]) assert.equal((await flood[i]('POST', '/api/me/sms/enable', { code: codeOf(toThem[i]) })).status, 200);
+      later(3600000);
+      assert.equal((await signIn(0)).data.sent, true);
+      r = await signIn(1);
+      assert.deepEqual([r.status, r.data.twoFactor, r.data.methods], [429, true, ['text']]);
+      assert.match(r.data.error, /^Please wait ([1-9]|[12]\d|30) seconds? before asking for another code\.$/);
+      // Numbers abroad are refused unless SMS_COUNTRIES lets them in, and nothing is texted.
+      const before = s.texts.length;
+      r = await setUp(await account('+44 20 7946 0958'));
+      assert.deepEqual([r.status, r.data.error], [400, 'We can only text numbers that start with +1 for now.']);
+      assert.equal(s.texts.length, before);
+    } finally { s.stop(); }
+
+    // With SMS_COUNTRIES they can be. Setup codes stop at their share of SMS_PER_HOUR (a sixth, here 2), and sign-in codes still go
+    // until all of it (here 12) is used.
+    const t = await appServer({ env: { SMS_COUNTRIES: '1, 44', SMS_PER_HOUR: '12' } });
+    try {
+      const first = n;
+      const uk = await account('+44 20 7946 0958'), us = await account('903 555 0144'), third = await account('903 555 0145');
+      assert.equal((await setUp(uk)).status, 200);
+      assert.equal(t.texts.at(-1).to, '+442079460958');
+      assert.equal((await setUp(us)).status, 200);
+      let r = await setUp(third);
+      assert.equal(r.status, 429, 'setup codes have used their share of the hour');
+      assert.match(r.data.error, /^Please wait (5\d|60) minutes before asking for another code\.$/);
+      for (const [c, text] of [[uk, t.texts[0]], [us, t.texts[1]]]) assert.equal((await c('POST', '/api/me/sms/enable', { code: codeOf(text) })).status, 200);
+      later(31000);
+      assert.equal((await signIn(first)).data.sent, true, 'a sign-in code still goes');
+      // A new hour: the third account sets up, then sign-ins use the rest of the hour's texts, and then even a person with texts of
+      // their own left has to wait.
+      later(3600000);
+      assert.equal((await third('POST', '/api/auth/login', { email: `caps${first + 2}@app.test`, password: 'long-enough-pw' }, newIp())).status, 200, 'an hour on, signed in again');
+      assert.equal((await setUp(third)).status, 200);
+      assert.equal((await third('POST', '/api/me/sms/enable', { code: codeOf(t.texts.at(-1)) })).status, 200);
+      for (let round = 0; round < 4; round++) {
+        later(31000);
+        for (const i of round < 3 ? [first, first + 1, first + 2] : [first, first + 1]) assert.equal((await signIn(i)).data.sent, true, `round ${round}, account ${i}`);
+      }
+      later(31000);
+      r = await signIn(first + 2);
+      assert.deepEqual([r.status, r.data.twoFactor], [429, true]);
+      assert.match(r.data.error, /^Please wait (5\d|60) minutes before asking for another code\.$/);
+    } finally { t.stop(); }
+  } finally { Date.now = realNow; }
+});
+
+test('text codes name the address in APP_URL, never one a request makes up, and cannot be turned on without it', async () => {
+  // On Render without APP_URL, Render's own address is all the service knows, and people may well sign in at another one.
+  const s = await appServer({ env: { APP_URL: '', SITES_DOMAIN: '', RENDER_EXTERNAL_URL: 'https://pf-sites.onrender.com' } });
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'host@app.test', password: 'long-enough-pw' }, newIp());
+    assert.equal((await me('GET', '/api/config')).data.smsEnabled, false);
+    await me('PUT', '/api/me', { phone: '903 555 0191' });
+    let r = await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, newIp());
+    assert.deepEqual([r.status, r.data.error], [400, 'Text messages are not available yet.']);
+    assert.equal(s.texts.length, 0);
+    // Someone who turned text codes on before still gets a sign-in code, bound to the service's own address.
+    s.sql("UPDATE users SET sms_on = 1, sms_phone = '+19035550191' WHERE email = 'host@app.test'");
+    r = await client()('POST', '/api/auth/login', { email: 'host@app.test', password: 'long-enough-pw' }, { host: 'processorfreedomsites.com', ...newIp() });
+    assert.deepEqual([r.status, r.data.sent], [401, true]);
+    assert.match(s.texts.at(-1).body, /^Your Processor Freedom code is (\d{6})\. It expires in 10 minutes\.\n\n@pf-sites\.onrender\.com #\1$/);
+  } finally { s.stop(); }
+  // With APP_URL set, the code names it even when a request names another address (a look-alike site passing requests on, say).
+  const t = await appServer({ env: { RENDER_EXTERNAL_URL: 'https://pf-sites.onrender.com' } });
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'bound@app.test', password: 'long-enough-pw' }, newIp());
+    assert.equal((await me('GET', '/api/config')).data.smsEnabled, true);
+    await me('PUT', '/api/me', { phone: '903 555 0192' });
+    assert.equal((await me('POST', '/api/me/sms/setup', { password: 'long-enough-pw' }, { host: 'look-alike.example', ...newIp() })).status, 200);
+    assert.match(t.texts.at(-1).body, /^Your Processor Freedom code is (\d{6})\. It expires in 10 minutes\.\n\n@app\.pfsites\.test #\1$/);
+  } finally { t.stop(); }
+});
+
+test('the iPhone app is tied to this address, so it can offer the codes texted for it', async () => {
+  const anon = client();
+  const r = await anon('GET', '/.well-known/apple-app-site-association');
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /^application\/json/);
+  assert.deepEqual(r.data, { webcredentials: { apps: ['D8D94SXAG6.com.processorfreedomsites.app'] } });
+  assert.equal((await anon('GET', '/.well-known/apple-app-site-association', null, { host: 'nobody.pfsites.test' })).status, 404, 'a merchant’s site never answers for the app');
+  const s = await appServer({ env: { APNS_TEAM_ID: 'ABCDE12345', APNS_BUNDLE_ID: 'com.example.sites' } });
+  try { assert.deepEqual((await client()('GET', '/.well-known/apple-app-site-association')).data, { webcredentials: { apps: ['ABCDE12345.com.example.sites'] } }); } finally { s.stop(); }
+});
+
+test('iPhone app: a passcode the business gave out opens only that business, with no staff powers', async () => {
+  const s = await appServer({ env: { ADMIN_EMAILS: 'hal@app.test' } });
+  try {
+    const boss = client(), phone = client();
+    await boss('POST', '/api/auth/signup', { email: 'bea@app.test', password: 'long-enough-pw', name: 'Bea' }, newIp());
+    await client()('POST', '/api/auth/signup', { email: 'hal@app.test', password: 'long-enough-pw', name: 'Hal' }, newIp());
+    // Hal is staff with his address confirmed, owns a business of his own, and is on Bea's team, which sets and sees his passcode there.
+    await client()('POST', '/api/auth/forgot', { email: 'hal@app.test' }, newIp());
+    assert.equal((await client()('POST', '/api/auth/reset', { token: s.mails.filter((m) => m.to === 'hal@app.test').at(-1).text.match(/token=([\w-]+)/)[1], password: 'long-enough-pw' }, newIp())).status, 200);
+    const signIn = () => phone('POST', '/api/auth/login', { email: 'hal@app.test', password: 'long-enough-pw', device: { name: 'Hal’s iPhone' } }, newIp());
+    let r = await signIn();
+    assert.equal(r.data.user.admin, true);
+    const proof = { device: r.data.device.id, secret: r.data.device.secret };
+    const own = (await phone('POST', '/api/sites', { name: 'Hal Bakery', template: 'restaurant' })).data.site;
+    const work = (await boss('POST', '/api/sites', { name: 'Bea Bistro', template: 'restaurant' })).data.site;
+    // Staff cannot be added through a team, so this is someone who became staff after joining one.
+    s.sql('INSERT INTO members (site_id, user_id, role, created_at, details) VALUES (?, ?, ?, ?, ?)', work.id, r.data.user.id, 'manager', Date.now(), JSON.stringify({ name: 'Hal', passcode: '4826' }));
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: work.id, passcode: '4826' })).status, 200);
+
+    // The phone locks; the passcode Bea gave Hal opens it again, but only at Bea Bistro, and without staff powers.
+    await phone('POST', '/api/auth/logout', {});
+    r = await phone('POST', '/api/app/unlock', { ...proof, passcode: '4826' }, newIp());
+    assert.deepEqual([r.status, r.data.site, r.data.user.admin], [200, work.id, false]);
+    assert.deepEqual(Object.keys(r.data.user).sort(), USER_FIELDS);
+    assert.equal((await phone('GET', '/api/me')).data.user.admin, false);
+    assert.deepEqual((await phone('GET', '/api/sites')).data.sites.map((x) => x.id), [work.id]);
+    assert.deepEqual((await phone('GET', '/api/app/sites')).data.sites.map((x) => x.id), [work.id]);
+    assert.equal((await phone('GET', `/api/sites/${work.id}`)).status, 200);
+    r = await phone('GET', `/api/sites/${own.id}`);
+    assert.deepEqual([r.status, r.data.error], [403, 'Sign in with your email and password to open this business.']);
+    assert.equal((await phone('GET', `/api/sites/${own.id}/orders`)).status, 403);
+    assert.equal((await phone('GET', `/api/app/passcode?site=${own.id}`)).status, 403);
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof, site: own.id, passcode: '1357', replace: true })).status, 403, 'no passcode can be made at his own business from here');
+    assert.equal(s.sql('SELECT owner_passcode FROM sites WHERE id = ?', own.id)[0].owner_passcode, '');
+    assert.equal((await phone('POST', '/api/sites', { name: 'Another Shop', template: 'restaurant' })).status, 403);
+    assert.equal((await phone('GET', '/api/admin')).status, 403);
+    assert.equal((await phone('GET', `/preview/${own.id}/`)).headers.get('location'), '/login');
+    // A new name would follow him into his own business's records, so it waits for a full sign-in; his phone number can change.
+    assert.deepEqual([(await phone('PUT', '/api/me', { name: 'Not Hal' })).status, (await phone('PUT', '/api/me', { phone: '903 555 0133' })).status], [403, 200]);
+    assert.equal((await phone('GET', '/api/me')).data.user.name, 'Hal');
+    // Face ID set up from here is held to the same business.
+    const { bio } = (await phone('POST', '/api/app/biometric', proof)).data;
+    await phone('POST', '/api/auth/logout', {});
+    assert.equal((await phone('POST', '/api/app/unlock', { ...proof, bio }, newIp())).status, 200);
+    assert.equal((await phone('GET', `/api/sites/${own.id}`)).status, 403);
+
+    // Signed in with the email and password, everything is back. Linked to his own business, his own passcode opens everything.
+    r = await signIn();
+    const proof2 = { device: r.data.device.id, secret: r.data.device.secret };
+    assert.deepEqual((await phone('GET', '/api/sites')).data.sites.map((x) => x.id).sort(), [own.id, work.id].sort());
+    assert.equal((await phone('POST', '/api/app/passcode', { ...proof2, site: own.id, passcode: '1357' })).status, 200);
+    await phone('POST', '/api/auth/logout', {});
+    r = await phone('POST', '/api/app/unlock', { ...proof2, passcode: '1357' }, newIp());
+    assert.deepEqual([r.status, r.data.site, r.data.user.admin], [200, own.id, true]);
+    for (const id of [own.id, work.id]) assert.equal((await phone('GET', `/api/sites/${id}`)).status, 200);
+    assert.equal((await phone('GET', '/api/admin')).status, 200);
+  } finally { s.stop(); }
+});
+
+test('Apple push: a connection that went quiet or dead is replaced, and a notification lost with it goes once more', async () => {
+  const http2 = await import('node:http2');
+  const net = await import('node:net');
+  const { generateKeyPairSync } = await import('node:crypto');
+  const { createApns } = await import('../server/apns.js');
+  const pem = generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+  // Stands in for Apple, behind a stand-in for the network: each connection through it can go silent (a router forgot it) or be
+  // cut the moment anything more is sent on it.
+  let answered = 0, answer = 200, silenceNew = false;
+  const apple = http2.createServer();
+  apple.on('stream', (stream) => { stream.on('data', () => {}); stream.on('end', () => { answered++; stream.respond({ ':status': answer }); stream.end(answer === 200 ? '' : JSON.stringify({ reason: 'InternalServerError' })); }); });
+  await new Promise((r) => apple.listen(0, r));
+  const links = [];
+  const network = net.createServer((near) => {
+    const far = net.connect(apple.address().port), link = { near, far, silent: silenceNew, cut: false };
+    links.push(link);
+    near.on('data', (d) => { if (link.cut) { near.resetAndDestroy(); far.destroy(); } else if (!link.silent) far.write(d); });
+    far.on('data', (d) => { if (!link.silent) near.write(d); });
+    near.on('error', () => {}); far.on('error', () => {}); near.on('close', () => far.destroy()); far.on('close', () => near.destroy());
+  });
+  await new Promise((r) => network.listen(0, r));
+  let dialed = 0;
+  const origin = `http://127.0.0.1:${network.address().port}`;
+  const apns = createApns({ APNS_KEY_ID: 'ABC123DEFG', APNS_TEAM_ID: 'D8D94SXAG6', APNS_KEY: pem }, { hosts: { development: origin }, connect: (o) => { dialed++; return http2.connect(o); }, waits: { answer: 600, quiet: 150, ping: 200 } });
+  const endpoint = `apns:development:${'ab'.repeat(32)}`, msg = { title: 'New order #1 · $9.00', body: 'Cafe', tag: 'order-1' };
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  try {
+    assert.equal(await apns.send(endpoint, msg), 'sent');
+    assert.equal(dialed, 1);
+    // Used again straight away, the open connection is used as it is.
+    assert.equal(await apns.send(endpoint, msg), 'sent');
+    assert.equal(dialed, 1);
+    // Quiet for a while and dead without a word: a ping finds out before the notification is sent, and a fresh connection takes it.
+    links.at(-1).silent = true;
+    await pause(200);
+    let at = Date.now();
+    assert.equal(await apns.send(endpoint, msg), 'sent');
+    assert.equal(dialed, 2);
+    assert.ok(Date.now() - at < 550, 'no waiting for an answer that was never coming');
+    // Dead while in use: the notification goes unanswered, so it goes once more on a fresh connection.
+    links.at(-1).silent = true;
+    at = Date.now();
+    assert.equal(await apns.send(endpoint, msg), 'sent');
+    assert.equal(dialed, 3);
+    assert.ok(Date.now() - at >= 590);
+    // Cut as it is used: tried once more on a fresh connection as well.
+    links.at(-1).cut = true;
+    assert.equal(await apns.send(endpoint, msg), 'sent');
+    assert.equal(dialed, 4);
+    // Apple's own answer is not tried again: it counts, as before.
+    const asked = answered;
+    answer = 500;
+    await assert.rejects(apns.send(endpoint, msg), /InternalServerError/);
+    assert.deepEqual([answered, dialed], [asked + 1, 4]);
+    // When the fresh connection is no better, the notification fails once, and counts once.
+    answer = 200;
+    silenceNew = true;
+    for (const l of links) l.silent = true;
+    await assert.rejects(apns.send(endpoint, msg), /did not answer in time/);
+    assert.equal(dialed, 5);
+  } finally { apns.close(); for (const l of links) { l.near.destroy(); l.far.destroy(); } network.close(); apple.close(); }
+});
+
+/* ---------- the Sale screen's items: variable prices, product codes, the Sale settings, and Apple push keys per environment ---------- */
+
+test('variable-price items: kept with the item, priced at the counter, never offered online or taken in an online order', async () => {
+  const core = await import('../shared/core.js');
+  const { orderPage, menuSection } = await import('../shared/order.js');
+  const s = await appServer();
+  try {
+    const me = client(), anon = client();
+    await me('POST', '/api/auth/signup', { email: 'scale@app.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Scale Deli', template: 'restaurant', kind: 'ordering', csv: 'Item,Price\nSandwich,8.00\nCheese,4.00' })).data.site;
+    const S = `/api/sites/${site.id}`, host = { host: 'scaledeli.pfsites.test' };
+    let items = (await me('GET', `${S}/menu`)).data.items;
+    assert.deepEqual(items.map((x) => [x.name, x.variable]), [['Sandwich', false], ['Cheese', false]]);
+    const [sandwich, cheese] = items;
+
+    // The flag is saved and sent back; a save that does not send it keeps it; the price it had is kept, for if it goes back to fixed.
+    items = (await me('PUT', `${S}/menu/${cheese.id}`, { variable: true })).data.items;
+    assert.deepEqual([items[1].variable, items[1].price], [true, 400]);
+    assert.equal(s.sql('SELECT variable FROM menu_items WHERE id = ?', cheese.id)[0].variable, 1);
+    items = (await me('PUT', `${S}/menu/${cheese.id}`, { name: 'Cheese by the pound', price: '' })).data.items;
+    assert.deepEqual([items[1].name, items[1].variable, items[1].price], ['Cheese by the pound', true, 400], 'it needs no price, and loses none');
+    // A new one may have no price at all; a fixed-price item still needs one.
+    items = (await me('POST', `${S}/menu`, { name: 'Catering tray', variable: true })).data.items;
+    assert.deepEqual([items.at(-1).name, items.at(-1).variable, items.at(-1).price], ['Catering tray', true, 0]);
+    assert.equal((await me('POST', `${S}/menu`, { name: 'No price yet' })).status, 400);
+    assert.equal((await me('PUT', `${S}/menu/${sandwich.id}`, { price: '' })).status, 400, 'a fixed price cannot be emptied');
+
+    // Customers never see one: not on the order page, not in what the cart can take, not in the menu on the home page.
+    await me('POST', `${S}/publish`, {});
+    const page = (await anon('GET', '/order', null, host)).data;
+    assert.deepEqual(Object.keys(JSON.parse(page.match(/<script type="application\/json" id="pf-order">([^<]*)<\/script>/)[1]).items), [sandwich.id]);
+    assert.match(page, /Sandwich/);
+    assert.ok(!/Cheese by the pound|Catering tray/.test(page));
+    const home = (await anon('GET', '/', null, host)).data;
+    assert.match(home, /Sandwich/);
+    assert.ok(!/Cheese by the pound|Catering tray/.test(home), 'the home page menu leaves them out too');
+
+    // An order with one is refused where the lines are priced, and nothing is taken.
+    const who = { method: 'pickup', name: 'Ana Ruiz', phone: '903-555-0100', email: 'ana@example.com' };
+    let r = await anon('POST', '/_order', { ...who, items: [{ id: sandwich.id, qty: 1 }, { id: cheese.id, qty: 1 }] }, host);
+    assert.deepEqual([r.status, r.data.error], [400, "That item is priced at the counter and can't be ordered online."]);
+    assert.equal((await me('GET', `${S}/orders`)).data.orders.length, 0);
+    assert.deepEqual((await me('GET', `${S}/menu`)).data.items.map((x) => x.stock), [100, 100, 100], 'no stock was taken');
+
+    // Back to a fixed price, it is offered and sold again at the price it kept.
+    await me('PUT', `${S}/menu/${cheese.id}`, { variable: false });
+    assert.ok((await anon('GET', '/order', null, host)).data.includes('Cheese by the pound'));
+    r = await anon('POST', '/_order', { ...who, items: [{ id: cheese.id, qty: 2 }] }, host);
+    assert.equal(r.status, 201);
+    assert.equal((await me('GET', `${S}/orders`)).data.orders[0].subtotal, 800);
+
+    // Many at once, or from an item list: a "Price type" column (as Clover exports it) or the word in place of the price (as Square does).
+    items = (await me('POST', `${S}/menu/bulk`, { ids: [sandwich.id, cheese.id], set: { variable: true } })).data.items;
+    assert.deepEqual(items.map((x) => x.variable), [true, true, true]);
+    items = (await me('POST', `${S}/menu/bulk`, { ids: [sandwich.id], set: { variable: false } })).data.items;
+    assert.deepEqual(items.map((x) => x.variable), [false, true, true]);
+    const list = parseMenuCsv('Item name,Price,Price Type\nCoffee,3.00,Fixed\nSalmon,,Variable\nLobster,Market price,\nBread,4.50,VARIABLE\nTea,soon,\n');
+    assert.deepEqual(list.items.map((x) => [x.name, x.price, x.variable]), [['Coffee', 300, false], ['Salmon', 0, true], ['Lobster', 0, true], ['Bread', 450, true]]);
+    assert.deepEqual(list.errors.map((e) => e.row), [6], 'a word that is not a price still is not one');
+    r = await me('POST', `${S}/menu/import`, { csv: 'Item name,Price,Price type\nSalmon,,Variable\n' });
+    assert.deepEqual([r.status, r.data.imported, r.data.items.at(-1).name, r.data.items.at(-1).variable, r.data.items.at(-1).price], [200, 1, 'Salmon', true, 0]);
+
+    // Whoever hands the pages a menu: the website editor's preview (visibleMenu), the page itself, and its two parts.
+    const ordering = { ...core.defaultOrdering(), enabled: true };
+    const fixed = { id: 'f1', name: 'Plain bagel', price: 300, category: 'Menu', available: true, stock: 10, options: [] }, open = { id: 'v1', name: 'Weighed salmon', price: 0, category: 'Menu', available: true, stock: 10, options: [], variable: true };
+    assert.deepEqual(core.visibleMenu([fixed, open], ordering).map((x) => x.id), ['f1']);
+    const deli = normalizeSite(createSite('Deli', 'restaurant', { kind: 'ordering' }));
+    for (const pg of ['order', 'home']) { const { html } = renderPage(deli, pg, { ordering, menu: [fixed, open], base: '/s/deli' }); assert.ok(html.includes('Plain bagel') && !html.includes('Weighed salmon'), pg); }
+    const alone = orderPage({ menu: [fixed, open], ordering, base: '', siteKey: 'deli', lang: 'en' });
+    assert.ok(alone.includes('Plain bagel') && !alone.includes('Weighed salmon'));
+    assert.deepEqual(Object.keys(JSON.parse(alone.match(/id="pf-order">([^<]*)</)[1]).items), ['f1']);
+    assert.ok(!menuSection({ title: 'Menu' }, { menu: [fixed, open], ordering, lang: 'en' }).includes('Weighed salmon'));
+    // A website that is not taking orders, whose only items are priced at the counter, shows no menu and loads no ordering styles.
+    const shop = renderPage(deli, 'home', { ordering: core.defaultOrdering(), menu: [open], base: '/s/deli' }).html;
+    assert.ok(!shop.includes('Weighed salmon') && !shop.includes('.ord-menu'));
+  } finally { s.stop(); }
+});
+
+test('product codes: kept as typed, matched the way a scanner reads them, never on two items, in edits, bulk edits and imports', async () => {
+  const core = await import('../shared/core.js');
+  // The one rule the server, the website's item search and the app's scanner share.
+  assert.equal(core.normalizeCode(' 0 49000-00634 6 '), '049000006346');
+  assert.equal(core.normalizeCode('0049000006346'), '049000006346', 'a 13-digit EAN starting with 0 is the 12-digit UPC-A inside it');
+  assert.equal(core.normalizeCode('4006381333931'), '4006381333931', 'any other EAN stays as it is');
+  assert.equal(core.normalizeCode('00049000006346'), '00049000006346', 'only a 13-digit one loses its 0');
+  assert.equal(core.normalizeCode('0ABCDEFGHIJKL'), '0ABCDEFGHIJKL', 'only digits');
+  assert.equal(core.normalizeCode('sku–ab 12 x'), 'SKUAB12X', 'any dash or space, and letters in capitals');
+  assert.equal(core.cleanCode('  12 34\n '), '12 34');
+  assert.equal(core.cleanCode(' - – '), '', 'only dashes and spaces is no code');
+  assert.equal(core.cleanCode('x'.repeat(80)), 'x'.repeat(64));
+  assert.equal(core.cleanCode({ a: 1 }), '');
+
+  const s = await appServer();
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'codes@app.test', password: 'long-enough-pw' }, newIp());
+    // An item list's barcode column fills in product codes; a row repeating one already on the list is left out.
+    const site = (await me('POST', '/api/sites', { name: 'Corner Store', template: 'order', kind: 'ordering', csv: 'Item,Price,UPC\nCola,2.00,0 49000-00634 6\nChips,1.50,\nGum,1.00,\nCola again,2.00,049000006346\n' })).data.site;
+    const S = `/api/sites/${site.id}`;
+    let items = (await me('GET', `${S}/menu`)).data.items;
+    assert.deepEqual(items.map((x) => [x.name, x.code]), [['Cola', '0 49000-00634 6'], ['Chips', ''], ['Gum', '']]);
+    const [cola, chips, gum] = items;
+    const codes = async () => (await me('GET', `${S}/menu`)).data.items.map((x) => x.code);
+    const TAKEN = 'Another item already uses that product code.';
+
+    // Saved as typed, trimmed; a save that does not send it keeps it.
+    items = (await me('PUT', `${S}/menu/${chips.id}`, { code: '  SNK-001  ' })).data.items;
+    assert.equal(items[1].code, 'SNK-001');
+    items = (await me('PUT', `${S}/menu/${chips.id}`, { name: 'Potato chips' })).data.items;
+    assert.deepEqual([items[1].name, items[1].code], ['Potato chips', 'SNK-001']);
+    // No other item can have a code in use, however it is written.
+    for (const code of ['0049000006346', '049000006346', 'snk 001', 'SNK001']) {
+      const r = await me('PUT', `${S}/menu/${gum.id}`, { code });
+      assert.deepEqual([r.status, r.data.error], [400, TAKEN], code);
+    }
+    assert.deepEqual([(await me('POST', `${S}/menu`, { name: 'Diet cola', price: 200, code: '0-49000-00634-6' })).status, (await me('GET', `${S}/menu`)).data.items.length], [400, 3], 'a refused item is not added');
+    assert.equal((await me('POST', `${S}/menu`, { name: 'Diet cola', price: 200, code: '049000050103' })).status, 201);
+    // An item may write its own code another way, or keep it through other edits; items without a code never clash.
+    items = (await me('PUT', `${S}/menu/${cola.id}`, { price: 225, code: '0049000006346' })).data.items;
+    assert.deepEqual([items[0].price, items[0].code], [225, '0049000006346']);
+    assert.equal((await me('PUT', `${S}/menu/${gum.id}`, { code: '' })).status, 200);
+    assert.equal((await me('POST', `${S}/menu`, { name: 'Mints', price: 100, code: '   ' })).status, 201);
+    assert.deepEqual(await codes(), ['0049000006346', 'SNK-001', '', '049000050103', '']);
+    // Should two items ever share a code (put in the database some other way), each can still be saved with it, so nothing is held up.
+    s.sql("UPDATE menu_items SET code = 'snk-001' WHERE id = ?", gum.id);
+    assert.equal((await me('PUT', `${S}/menu/${gum.id}`, { price: 125 })).status, 200);
+    assert.equal((await me('PUT', `${S}/menu/${gum.id}`, { code: 'SNK 001' })).status, 200, 'even written another way');
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [gum.id], set: { code: 'snk001' } })).status, 200);
+    s.sql("UPDATE menu_items SET code = '' WHERE id = ?", gum.id);
+
+    // Bulk edits: one code on several items is refused, and so is a code in use; a refusal changes nothing; an empty code clears them all.
+    let r = await me('POST', `${S}/menu/bulk`, { ids: [cola.id, gum.id], set: { code: 'NEW-1', taxable: false } });
+    assert.deepEqual([r.status, r.data.error], [400, TAKEN]);
+    assert.deepEqual((await me('GET', `${S}/menu`)).data.items.slice(0, 3).map((x) => [x.code, x.taxable]), [['0049000006346', true], ['SNK-001', true], ['', true]], 'nothing was changed');
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [gum.id], set: { code: 'snk-001' } })).status, 400);
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [gum.id, gum.id, 'not-mine'], set: { code: 'GUM-1' } })).status, 200, 'the same item sent twice is one item');
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [gum.id, gum.id], set: { addStock: 5 } })).data.items[2].stock, 105, 'and gets added stock once');
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [cola.id], set: { code: '049000006346' } })).status, 200, 'its own code written another way');
+    items = (await me('POST', `${S}/menu/bulk`, { ids: [cola.id, chips.id], set: { code: '' } })).data.items;
+    assert.deepEqual(items.map((x) => x.code), ['', '', 'GUM-1', '049000050103', '']);
+
+    // Imports: the file's own repeats, codes already on the menu, and numbers a spreadsheet cut short are left out, each with why.
+    const list = parseMenuCsv('Name,Price,Product code,SKU\nA,1,111,\nB,1,,222\nC,1,1-1-1,\nD,1,1.23457E+11,\nE,1,,\n');
+    assert.deepEqual(list.items.map((x) => [x.name, x.code]), [['A', '111'], ['B', '222'], ['E', '']]);
+    assert.deepEqual(list.errors.map((e) => [e.row, e.reason]), [[4, 'Product code 1-1-1 is already used by “A”.'], [5, 'Product code 1.23457E+11 lost its digits in the spreadsheet. Format that column as text and save the file again.']]);
+    r = await me('POST', `${S}/menu/import`, { csv: 'Name,Price,Barcode\nGum refill,1.00,gum 1\nLollipop,0.50,LOL-1\n' });
+    assert.deepEqual([r.status, r.data.imported, r.data.skipped], [200, 1, [{ row: 2, reason: 'Product code gum 1 is already used by “Gum”.' }]]);
+    assert.deepEqual(r.data.items.map((x) => x.name).slice(-1), ['Lollipop']);
+    r = await me('POST', `${S}/menu/import`, { csv: 'Name,Price,Barcode\nCandy,0.50,lol 1\n' });
+    assert.deepEqual([r.status, r.data.error], [400, 'Product code lol 1 is already used by “Lollipop”.'], 'nothing left to add');
+    // Replacing the menu clears every code first, so the same file goes in whole.
+    r = await me('POST', `${S}/menu/import`, { csv: 'Name,Price,Barcode\nGum refill,1.00,gum 1\nLollipop,0.50,LOL-1\n', replace: true });
+    assert.deepEqual([r.status, r.data.imported, r.data.items.map((x) => x.code)], [200, 2, ['gum 1', 'LOL-1']]);
+  } finally { s.stop(); }
+});
+
+test('a variable-price item that never had a price is not made a fixed one at $0.00, in one edit or many', async () => {
+  const s = await appServer();
+  try {
+    const me = client(), anon = client();
+    await me('POST', '/api/auth/signup', { email: 'weigh@app.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Weigh Deli', template: 'restaurant', kind: 'ordering', csv: 'Item,Price,Price type\nBagel,3.00,\nSalmon,,Variable\nCheese,4.00,Variable\n' })).data.site;
+    const S = `/api/sites/${site.id}`, host = { host: 'weighdeli.pfsites.test' };
+    const [bagel, salmon, cheese, tray] = (await me('POST', `${S}/menu`, { name: 'Catering tray', variable: true })).data.items;
+    const now = async () => (await me('GET', `${S}/menu`)).data.items.map((x) => [x.name, x.variable, x.price, x.taxable]);
+    const before = [['Bagel', false, 300, true], ['Salmon', true, 0, true], ['Cheese', true, 400, true], ['Catering tray', true, 0, true]];
+    assert.deepEqual(await now(), before);
+
+    // Made a fixed price with no price sent, one that never had a price of its own is refused, alone or with others, and nothing changes.
+    let r = await me('PUT', `${S}/menu/${tray.id}`, { variable: false });
+    assert.deepEqual([r.status, r.data.error], [400, 'Enter a price like 9.99.']);
+    r = await me('POST', `${S}/menu/bulk`, { ids: [bagel.id, cheese.id, salmon.id], set: { variable: false, taxable: false } });
+    assert.deepEqual([r.status, r.data.error], [400, 'Salmon has no price yet. Give it a price, then make it a fixed price.']);
+    assert.deepEqual(await now(), before, 'nothing was changed');
+
+    // So customers are still never offered one at $0.00, and an order with them is still refused.
+    await me('POST', `${S}/publish`, {});
+    const offered = async () => Object.keys(JSON.parse((await anon('GET', '/order', null, host)).data.match(/id="pf-order">([^<]*)</)[1]).items);
+    assert.deepEqual(await offered(), [bagel.id]);
+    const who = { method: 'pickup', name: 'Ana Ruiz', phone: '903-555-0100', email: 'ana@example.com' };
+    r = await anon('POST', '/_order', { ...who, items: [{ id: salmon.id, qty: 3 }, { id: tray.id, qty: 2 }] }, host);
+    assert.deepEqual([r.status, r.data.error], [400, "That item is priced at the counter and can't be ordered online."]);
+
+    // With a price sent it is a fixed price at once; one that kept its price goes back to it; 0 sent on purpose is a free item, as any item may be.
+    r = await me('PUT', `${S}/menu/${tray.id}`, { variable: false, price: '45.00' });
+    assert.deepEqual([r.status, r.data.items[3].variable, r.data.items[3].price], [200, false, 4500]);
+    r = await me('POST', `${S}/menu/bulk`, { ids: [cheese.id], set: { variable: false } });
+    assert.deepEqual([r.status, r.data.items[2].variable, r.data.items[2].price], [200, false, 400]);
+    r = await me('PUT', `${S}/menu/${salmon.id}`, { variable: false, price: 0 });
+    assert.deepEqual([r.status, r.data.items[1].variable, r.data.items[1].price], [200, false, 0]);
+    assert.deepEqual(await offered(), [bagel.id, salmon.id, cheese.id, tray.id]);
+  } finally { s.stop(); }
+});
+
+test('product codes from item lists and pastes: only a code column is read, a 0 a spreadsheet dropped goes back, hidden characters go', async () => {
+  const core = await import('../shared/core.js');
+  const codesIn = (csv) => parseMenuCsv(csv).items.map((x) => x.code);
+  // A column about the code ("Barcode type", "SKU description") is not the code. Read as it, items would get the wrong code, the real
+  // code column after it would be passed over, and rows sharing the type would be left out as repeats.
+  let list = parseMenuCsv('Name,Price,Barcode type,Barcode\nA,1,UPC-A,036000291452\nB,1,UPC-A,012000001291\nC,1,EAN-13,4006381333931\n');
+  assert.deepEqual([list.items.map((x) => [x.name, x.code]), list.errors], [[['A', '036000291452'], ['B', '012000001291'], ['C', '4006381333931']], []]);
+  list = parseMenuCsv('Item,Price,SKU Description,SKU\nA,1,Red shirt,RS-1\nB,1,Red shirt,RS-2\n');
+  assert.deepEqual([list.items.map((x) => [x.name, x.code, x.desc]), list.errors], [[['A', 'RS-1', 'Red shirt'], ['B', 'RS-2', 'Red shirt']], []]);
+  for (const head of ['Barcode format', 'Barcode symbology', 'UPC description', 'Product code type', 'SKU name', 'Item code type', 'Barcode image']) assert.deepEqual(codesIn(`Name,Price,${head}\nA,1,X-1\n`), [''], head);
+  for (const head of ['UPC', 'UPC-A', 'EAN 13', 'EAN13', 'GTIN-14', 'UPC/EAN', 'UPC barcode', 'Barcode (UPC)', 'Barcode number', 'Barcode #', 'Product codes', 'Barcode*', 'SKU', 'SKU #', 'SKU No.', 'PLU code', 'Item code']) assert.deepEqual(codesIn(`Name,Price,${head}\nA,1,X-1\n`), ['X-1'], head);
+
+  // A barcode a spreadsheet took for a number has lost its first 0: UPC-A 049000006346 (most US grocery brands start with 0) comes back
+  // as 49000006346, UPC-E 04963406 and EAN-8 01234565 with 7 digits. The 0 goes back when it makes a valid barcode again, so the code is
+  // the one the scanner reads. Any other number stays as it is.
+  assert.deepEqual(codesIn('Item,Price,UPC\nCola,2.00,49000006346\nCan,1.00,4963406\nMints,1.00,1234565\nOwn,1.00,12345678901\nShort,1.00,1234567\nFull,2.00,049000050103\n'), ['049000006346', '04963406', '01234565', '12345678901', '1234567', '049000050103']);
+  assert.equal(core.normalizeCode(codesIn('Item,Price,Barcode\nCola,2.00,49000006346\n')[0]), core.normalizeCode('0049000006346'), 'what the scanner reads finds it');
+  // Seven digits only in a column named for those barcodes: a business's own codes are often seven digits long.
+  assert.deepEqual(codesIn('Item,Price,SKU,Barcode\nCola,2.00,49000006346,\nCan,1.00,4963406,\nMints,1.00,,1234565\n'), ['049000006346', '4963406', '1234565']);
+  // Written both ways in one file, it is one barcode, so the second row is left out.
+  list = parseMenuCsv('Item,Price,UPC\nCola,2.00,049000006346\nCola again,2.00,49000006346\n');
+  assert.deepEqual(list.errors.map((e) => [e.row, e.reason]), [[3, 'Product code 049000006346 is already used by “Cola”.']]);
+
+  // Characters no one can see, which a code pasted from a web page or a document can carry (zero-width space, soft hyphen, byte order
+  // mark, word joiner), are taken out: kept, the scanner's reading would never match, and a code in use would not be seen as in use.
+  assert.equal(core.cleanCode('4900​0006346'), '49000006346');
+  assert.equal(core.cleanCode('﻿049­000⁠006346‍'), '049000006346');
+  assert.equal(core.cleanCode('SNK\u0085-001'), 'SNK-001', 'and control characters of every kind');
+  assert.equal(core.cleanCode('​⁠ '), '', 'only hidden characters is no code');
+  assert.equal(core.normalizeCode('0 4900​0006346­'), '049000006346');
+
+  const s = await appServer();
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'lists@app.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Shelf Store', template: 'order', kind: 'ordering', csv: 'Item,Price\nCola,2.00\nChips,1.50\n' })).data.site;
+    const S = `/api/sites/${site.id}`, TAKEN = 'Another item already uses that product code.';
+    const [cola, chips] = (await me('GET', `${S}/menu`)).data.items;
+    assert.equal((await me('PUT', `${S}/menu/${cola.id}`, { code: '049000006346' })).status, 200);
+    // From a spreadsheet that dropped the 0, it is the same barcode as the one typed in, so that row is left out, and said why.
+    let r = await me('POST', `${S}/menu/import`, { csv: 'Item,Price,UPC\nCola 2 liter,3.00,49000006346\nChips large,2.50,028400090858\n' });
+    assert.deepEqual([r.status, r.data.imported, r.data.skipped], [200, 1, [{ row: 2, reason: 'Product code 049000006346 is already used by “Cola”.' }]]);
+    // Pasted with a hidden character, a code in use is still seen as in use, in one edit or many, and a new one is kept without it.
+    r = await me('PUT', `${S}/menu/${chips.id}`, { code: '0490​00006346' });
+    assert.deepEqual([r.status, r.data.error], [400, TAKEN]);
+    r = await me('POST', `${S}/menu/bulk`, { ids: [chips.id], set: { code: '0490⁠-0000-6346' } });
+    assert.deepEqual([r.status, r.data.error], [400, TAKEN]);
+    r = await me('PUT', `${S}/menu/${chips.id}`, { code: '​SNK-2⁠' });
+    assert.deepEqual([r.status, r.data.items[1].code], [200, 'SNK-2']);
+
+    // The website's item list download, with its Price type and Product code columns, comes back the same when it is uploaded again to
+    // replace the menu (the usual change-it-in-a-spreadsheet round trip): every code, and every variable price, stays as it was.
+    r = await me('POST', `${S}/menu/import`, { csv: 'Category,Item name,Price,Cost,Description,Stock,Taxable,Price type,Product code\nDeli,Bagel,3.00,,,100,yes,Fixed,0 12345 67890 5\nDeli,Smoked salmon,0.00,,,100,yes,Variable,SAL-1\n', replace: true });
+    assert.deepEqual([r.status, r.data.items.map((x) => [x.name, x.price, x.variable, x.code])], [200, [['Bagel', 300, false, '0 12345 67890 5'], ['Smoked salmon', 0, true, 'SAL-1']]]);
+  } finally { s.stop(); }
+});
+
+test('the Sale screen settings are kept with the business, so every phone and the website see the same', async () => {
+  const core = await import('../shared/core.js');
+  assert.deepEqual(core.defaultOrdering().sale, { groupItems: true, stayInCategory: false });
+  assert.deepEqual(core.normalizeOrdering({}).sale, { groupItems: true, stayInCategory: false }, 'settings saved before these existed');
+  assert.deepEqual(core.normalizeOrdering({ sale: { groupItems: 'no', stayInCategory: 1 } }).sale, { groupItems: true, stayInCategory: false }, 'only true and false count');
+  assert.deepEqual(core.normalizeOrdering({ sale: 'x' }).sale, { groupItems: true, stayInCategory: false });
+  const s = await appServer();
+  try {
+    const me = client(), phone = client();
+    await me('POST', '/api/auth/signup', { email: 'sale@app.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Sale Cafe', template: 'order', kind: 'ordering' })).data.site;
+    assert.deepEqual(site.ordering.sale, { groupItems: true, stayInCategory: false });
+    let r = await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, sale: { groupItems: false, stayInCategory: true } }, rev: site.orderingRev });
+    assert.deepEqual([r.status, r.data.ordering.sale], [200, { groupItems: false, stayInCategory: true }]);
+    // Seen from another sign-in, and kept by a later save of other settings that sends it back as it was.
+    await phone('POST', '/api/auth/login', { email: 'sale@app.test', password: 'long-enough-pw' }, newIp());
+    const seen = (await phone('GET', `/api/sites/${site.id}`)).data.site;
+    assert.deepEqual(seen.ordering.sale, { groupItems: false, stayInCategory: true });
+    r = await phone('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...seen.ordering, allowNotes: false }, rev: seen.orderingRev });
+    assert.deepEqual([r.data.ordering.allowNotes, r.data.ordering.sale], [false, { groupItems: false, stayInCategory: true }]);
+    // A save made from what an older copy showed is refused, as for every other setting.
+    assert.equal((await me('PUT', `/api/sites/${site.id}/ordering`, { ordering: { ...site.ordering, sale: { groupItems: true, stayInCategory: true } }, rev: site.orderingRev })).status, 412);
+  } finally { s.stop(); }
+});
+
+test('Apple push: each environment signs with its own key, one key serves both, and a key Apple will not take gets a fresh connection', async () => {
+  const http2 = await import('node:http2');
+  const { generateKeyPairSync, verify } = await import('node:crypto');
+  const { createApns } = await import('../server/apns.js');
+  const pair = () => { const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' }); return { pem: privateKey.export({ type: 'pkcs8', format: 'pem' }), publicKey }; };
+  const prod = pair(), sand = pair();
+  // Stands in for one of Apple's hosts. It takes only the keys made for its environment and, as Apple does, ties each connection to
+  // the key of the first notification sent on it. Each request is kept with the key that signed it and the connection it came on.
+  const appleHost = async (own) => {
+    const srv = http2.createServer(), got = [], ids = new WeakMap(), tied = new WeakMap(), host = { srv, got, takes: new Set([own]), force: [], opened: 0 };
+    srv.on('session', (session) => { ids.set(session, ++host.opened); });
+    srv.on('stream', (stream, headers) => {
+      const [h, c, sig] = String(headers.authorization).replace(/^bearer /, '').split('.');
+      const kid = JSON.parse(Buffer.from(h, 'base64url').toString()).kid;
+      if (!tied.has(stream.session)) tied.set(stream.session, kid);
+      stream.on('data', () => {});
+      stream.on('end', () => {
+        const reason = host.force.shift() || (!host.takes.has(kid) ? 'BadEnvironmentKeyIdInToken' : tied.get(stream.session) !== kid ? 'UnrelatedKeyIdInToken' : '');
+        got.push({ kid, conn: ids.get(stream.session), reason, signed: `${h}.${c}`, sig });
+        stream.respond({ ':status': reason ? 403 : 200, 'content-type': 'application/json' });
+        stream.end(reason ? JSON.stringify({ reason }) : '');
+      });
+    });
+    await new Promise((r) => srv.listen(0, r));
+    host.origin = `http://127.0.0.1:${srv.address().port}`;
+    return host;
+  };
+  const sandbox = await appleHost('SANDBOXKID'), production = await appleHost('PRODKEY001');
+  const team = { APNS_TEAM_ID: 'D8D94SXAG6' }, prodKey = { APNS_KEY_ID: 'PRODKEY001', APNS_KEY: prod.pem }, sandKey = { APNS_SANDBOX_KEY_ID: 'SANDBOXKID', APNS_SANDBOX_KEY: sand.pem };
+  const made = [], start = (env) => { const a = createApns(env, { hosts: { development: sandbox.origin, production: production.origin } }); made.push(a); return a; };
+  const dev = `apns:development:${'cd'.repeat(32)}`, live = `apns:production:${'cd'.repeat(32)}`, msg = { title: 'New order #7 · $5.00', body: 'Deli · Pickup', tag: 'order-7' };
+  const since = (h, n) => h.got.slice(n).map((x) => [x.kid, x.reason]);
+  const signedBy = (x, publicKey) => verify('sha256', Buffer.from(x.signed), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(x.sig, 'base64url'));
+  const ownKeysOnly = () => { sandbox.takes = new Set(['SANDBOXKID']); production.takes = new Set(['PRODKEY001']); };
+  try {
+    // On while either key can be used; off without the team, or with no key that can be read.
+    assert.equal(createApns({ ...team, ...prodKey, ...sandKey }).enabled, true);
+    assert.equal(createApns({ ...team, ...sandKey }).enabled, true, 'a sandbox key alone is enough');
+    assert.equal(createApns({ ...team, ...prodKey }).enabled, true);
+    assert.equal(createApns({ ...prodKey, ...sandKey }).enabled, false);
+    assert.equal(createApns({ ...team, APNS_KEY_ID: 'PRODKEY001', APNS_KEY: 'not a key', APNS_SANDBOX_KEY_ID: 'SANDBOXKID', APNS_SANDBOX_KEY: 'nor this' }).enabled, false);
+    assert.equal(createApns({ ...team, APNS_SANDBOX_KEY: sand.pem }).enabled, false, 'a key needs its id');
+
+    // Both keys: each environment signs with its own, on its own host.
+    let apns = start({ ...team, ...prodKey, ...sandKey });
+    assert.equal(await apns.send(dev, msg), 'sent');
+    assert.equal(await apns.send(live, msg), 'sent');
+    assert.deepEqual([since(sandbox, 0), since(production, 0)], [[['SANDBOXKID', '']], [['PRODKEY001', '']]]);
+    assert.ok(signedBy(sandbox.got[0], sand.publicKey) && signedBy(production.got[0], prod.publicKey));
+    // Only one key set (a key made for both environments): it signs for both, whichever of the two it is.
+    for (const [only, kid, key] of [[prodKey, 'PRODKEY001', prod.publicKey], [sandKey, 'SANDBOXKID', sand.publicKey]]) {
+      sandbox.takes.add(kid); production.takes.add(kid);
+      apns = start({ ...team, ...only });
+      assert.equal(await apns.send(dev, msg), 'sent');
+      assert.equal(await apns.send(live, msg), 'sent');
+      assert.deepEqual([sandbox.got.at(-1).kid, production.got.at(-1).kid], [kid, kid]);
+      assert.ok(signedBy(sandbox.got.at(-1), key) && signedBy(production.got.at(-1), key));
+      ownKeysOnly();
+    }
+    // A sandbox key that cannot be read leaves the production key to sign for both.
+    sandbox.takes.add('PRODKEY001');
+    apns = start({ ...team, ...prodKey, APNS_SANDBOX_KEY_ID: 'SANDBOXKID', APNS_SANDBOX_KEY: 'not a key' });
+    assert.equal(await apns.send(dev, msg), 'sent');
+    assert.equal(sandbox.got.at(-1).kid, 'PRODKEY001');
+    ownKeysOnly();
+
+    // The two keys pasted the wrong way round: Apple says a key is not for its environment, so the notification goes once more, on a
+    // fresh connection, with the other key. That key is used there from then on.
+    apns = start({ ...team, APNS_KEY_ID: 'SANDBOXKID', APNS_KEY: sand.pem, APNS_SANDBOX_KEY_ID: 'PRODKEY001', APNS_SANDBOX_KEY: prod.pem });
+    let n = sandbox.got.length, opened = sandbox.opened;
+    assert.equal(await apns.send(dev, msg), 'sent');
+    assert.deepEqual(since(sandbox, n), [['PRODKEY001', 'BadEnvironmentKeyIdInToken'], ['SANDBOXKID', '']]);
+    assert.equal(sandbox.opened - opened, 2, 'a fresh connection for the other key');
+    assert.equal(await apns.send(dev, msg), 'sent');
+    assert.deepEqual(since(sandbox, n + 2), [['SANDBOXKID', '']], 'straight to the key that worked, on the same connection');
+    assert.equal(sandbox.opened - opened, 2);
+    n = production.got.length;
+    assert.equal(await apns.send(live, msg), 'sent');
+    assert.deepEqual(since(production, n), [['SANDBOXKID', 'BadEnvironmentKeyIdInToken'], ['PRODKEY001', '']]);
+
+    // A key made for one environment only, and no other key: one more try on a fresh connection, then it counts as a failure.
+    apns = start({ ...team, ...prodKey });
+    n = sandbox.got.length; opened = sandbox.opened;
+    await assert.rejects(apns.send(dev, msg), /BadEnvironmentKeyIdInToken/);
+    assert.deepEqual(since(sandbox, n), [['PRODKEY001', 'BadEnvironmentKeyIdInToken'], ['PRODKEY001', 'BadEnvironmentKeyIdInToken']]);
+    assert.equal(sandbox.opened - opened, 2);
+
+    // A connection Apple has tied to another key is closed, and the notification goes once more on a fresh one; only once.
+    apns = start({ ...team, ...prodKey, ...sandKey });
+    assert.equal(await apns.send(live, msg), 'sent');
+    n = production.got.length; opened = production.opened;
+    production.force.push('UnrelatedKeyIdInToken');
+    assert.equal(await apns.send(live, msg), 'sent');
+    assert.deepEqual(since(production, n), [['PRODKEY001', 'UnrelatedKeyIdInToken'], ['PRODKEY001', '']]);
+    assert.equal(production.opened - opened, 1);
+    assert.notEqual(production.got.at(-1).conn, production.got.at(-2).conn);
+    production.force.push('UnrelatedKeyIdInToken', 'UnrelatedKeyIdInToken');
+    await assert.rejects(apns.send(live, msg), /UnrelatedKeyIdInToken/);
+    assert.equal(production.got.length - n, 4, 'one more try, not more');
+    assert.equal(await apns.send(live, msg), 'sent', 'and the next notification goes as usual');
+
+    // The service says the app can get notifications when only the sandbox key is set.
+    const s = await appServer({ apns: start({ ...team, ...sandKey }) });
+    try { assert.equal((await client()('GET', '/api/config')).data.appPush, true); } finally { s.stop(); }
+  } finally { for (const a of made) a.close(); sandbox.srv.close(); production.srv.close(); }
+});
+
+test('Apple push: a key set up only halfway is named in the log, with what is missing and which key signs in its place', async () => {
+  const { generateKeyPairSync } = await import('node:crypto');
+  const { createApns } = await import('../server/apns.js');
+  const pem = generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+  const team = { APNS_TEAM_ID: 'D8D94SXAG6' }, prodKey = { APNS_KEY_ID: 'PRODKEY001', APNS_KEY: pem }, sandKey = { APNS_SANDBOX_KEY_ID: 'SANDBOXKID', APNS_SANDBOX_KEY: pem };
+  // Whether notifications are on with these settings, and what starting up with them says in the log.
+  const startup = (env) => { const lines = [], was = console.error; console.error = (...a) => { lines.push(a.join(' ')); }; try { const a = createApns(env); a.close(); return [a.enabled, lines]; } finally { console.error = was; } };
+  // Nothing to say when nothing is set, when only the team is (the app's saved passwords need it alone), or when each key is whole.
+  assert.deepEqual(startup({}), [false, []]);
+  assert.deepEqual(startup(team), [false, []]);
+  assert.deepEqual(startup({ ...team, ...prodKey }), [true, []]);
+  assert.deepEqual(startup({ ...team, ...prodKey, ...sandKey }), [true, []]);
+  // The production key's id without the key, or the key without its id: the sandbox key then signs for TestFlight and App Store builds
+  // too, which Apple refuses when it is a sandbox-only key, so the log says which setting is missing.
+  const PROD = 'The production Apple push key could not be used, so the sandbox key signs in its place:';
+  assert.deepEqual(startup({ ...team, ...sandKey, APNS_KEY_ID: 'PRODKEY001' }), [true, [`${PROD} APNS_KEY is not set.`]]);
+  assert.deepEqual(startup({ ...team, ...sandKey, APNS_KEY: pem }), [true, [`${PROD} APNS_KEY_ID is not set.`]]);
+  assert.deepEqual(startup({ ...team, ...prodKey, APNS_SANDBOX_KEY: pem }), [true, ['The sandbox Apple push key could not be used, so the production key signs in its place: APNS_SANDBOX_KEY_ID is not set.']]);
+  // Keys without the team: notifications are off, and the log says why.
+  assert.deepEqual(startup({ ...prodKey, ...sandKey }), [false, ['production', 'sandbox'].map((k) => `The ${k} Apple push key could not be used, so iPhone notifications are off: APNS_TEAM_ID is not set.`)]);
+  assert.deepEqual(startup({ APNS_SANDBOX_KEY_ID: 'SANDBOXKID' }), [false, ['The sandbox Apple push key could not be used, so iPhone notifications are off: APNS_SANDBOX_KEY and APNS_TEAM_ID are not set.']]);
+  // A key that cannot be read, or is not the kind Apple gives out, is named the same way.
+  const [on, [line]] = startup({ ...team, ...sandKey, APNS_KEY_ID: 'PRODKEY001', APNS_KEY: 'garbage' });
+  assert.ok(on && line.startsWith(`${PROD} APNS_KEY could not be read (`), line);
+  const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' });
+  assert.deepEqual(startup({ ...team, ...prodKey, APNS_SANDBOX_KEY_ID: 'SANDBOXKID', APNS_SANDBOX_KEY: rsa }), [true, ['The sandbox Apple push key could not be used, so the production key signs in its place: APNS_SANDBOX_KEY is not the P-256 key Apple gives out.']]);
+});

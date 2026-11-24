@@ -66,6 +66,33 @@ export const LOGO = '<img src="/assets/logo.svg" alt="" width="28" height="28">'
 
 export const state = { user: null, config: { addressPrefix: '', addressSuffix: '', cnameTarget: '', emailEnabled: false } };
 
+/* Inside the PF Sites iPhone app the back office runs in the app's own web view. Before the page loads, the app marks it with the
+   pf-app class and gives it two ways to talk to it: pf for messages that need no answer, and pfAsk for questions that do. */
+export const inApp = document.documentElement.classList.contains('pf-app') && !!window.webkit?.messageHandlers?.pf;
+export const toApp = (msg) => { try { window.webkit.messageHandlers.pf.postMessage(msg); } catch { /* not in the app */ } };
+export const askApp = (msg) => window.webkit.messageHandlers.pfAsk.postMessage(msg);
+// The session has ended. The app shows its own lock or sign-in screen, so it is told once, and the page clears itself.
+let toldOut = false;
+export function signedOut() {
+  state.user = null;
+  if (toldOut) return;
+  toldOut = true;
+  toApp({ type: 'signedOut' });
+  window.dispatchEvent(new Event('pf-signedout'));
+}
+// In the app a 401 can mean the session ended, or only that a password was typed wrong; asking who is signed in tells the two apart.
+let checking = null;
+function checkSession() {
+  checking ||= fetch('/api/me', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } })
+    .then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && !d.user) signedOut(); })
+    .catch(() => { /* offline: the app shows that itself */ }).finally(() => { checking = null; });
+}
+/* Something is in progress: an open window or pop-up, a field being typed in, a sale not sent yet, or a change still saving.
+   A sale on the Virtual Terminal counts once something is typed into it or a customer is chosen. An untouched one does not: its amount
+   boxes show $0.00 and its Email or None choice holds no typing, so neither is taken for a sale in progress. */
+const saleStarted = () => !!document.querySelector('.vt .vt-picked') || [...document.querySelectorAll('.vt input')].some((x) => x.type !== 'checkbox' && x.type !== 'radio' && x.value.trim() && !/^\$?0+(\.0+)?$/.test(x.value.trim()));
+export const busy = () => !!document.querySelector('.sheet, .tb-pop, input:focus, textarea:focus, select:focus') || saleStarted() || /Saving/.test(document.querySelector('.ed-top')?.textContent || '');
+
 export async function api(method, path, body) {
   const opts = { method, headers: {}, credentials: 'same-origin' };
   if (body instanceof Blob) { opts.body = body; opts.headers['Content-Type'] = body.type || 'application/octet-stream'; }
@@ -80,12 +107,17 @@ export async function api(method, path, body) {
     if (!res) throw new Error('We could not reach the server. Check your connection and try again.');
     if (restarting) throw new Error('We are updating right now. Give it a moment and try again.');
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && inApp) checkSession();
     if (!res.ok) { const e = new Error(data.error || 'Something went wrong. Please try again.'); e.status = res.status; e.data = data; throw e; }
     return data;
   }
 }
 
-export function go(path) { history.pushState(null, '', path); window.dispatchEvent(new Event('popstate')); }
+export function go(path) {
+  // The app has its own sign-in screens, so inside it the log in pages are never opened: the app is told the session ended instead.
+  if (inApp && /^\/(login|signup|forgot|reset)(?=[/?#]|$)/.test(path)) return signedOut();
+  history.pushState(null, '', path); window.dispatchEvent(new Event('popstate'));
+}
 export const link = (href, attrs, ...kids) => h('a', { href, ...attrs, onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); go(href); } }, ...kids);
 
 let toasts;
@@ -271,23 +303,52 @@ export function announceOrders(list, siteName) {
   chime();
   try { if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') new Notification(list.length === 1 ? `New order #${list[0].number}` : `${list.length} new orders`, { body: `${siteName} · ${list.map((o) => o.name).join(', ')}`, icon: '/assets/icon-192.png' }); } catch { /* ignore */ }
 }
+/* The app has no pop-up windows. What would print in a window of its own is put into the page, shown only when printing,
+   and the app prints the page. The window's styles are kept to the printed part, so the page around it is untouched. */
+export function printInApp(title, css, html) {
+  document.querySelector('.pf-print')?.remove();
+  const scoped = css.replace(/(^|\})([^{}]+)\{/g, (m, end, sel) => `${end}${sel.split(',').map((s) => (s.trim() === 'body' ? '.pf-print' : `.pf-print ${s.trim()}`)).join(',')}{`);
+  document.body.append(h('div', { class: 'pf-print', 'aria-hidden': 'true' }, h('style', {}, scoped), h('div', { html })));
+  toApp({ type: 'print', title });
+}
 export function printTicket(o, siteName, extra) {
   const e = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const css = 'body{font:15px/1.4 -apple-system,Helvetica,Arial,sans-serif;margin:18px;color:#000}h1{font-size:30px;margin:0}h2{font-size:17px;margin:2px 0 14px;font-weight:600}.l{display:flex;gap:10px;font-size:19px;font-weight:600;padding:8px 0;border-top:1px dashed #999}.l b{min-width:34px}.o{font-size:15px;font-weight:400;display:block}p{margin:4px 0}.n{border:2px solid #000;padding:8px;margin-top:12px;font-weight:600}';
+  const ticket = `<h1>#${e(o.number)} · ${e(extra.method)}</h1><h2>${e(siteName)} · ${e(extra.when)}</h2>${o.items.map((l) => `<div class="l"><b>${l.qty}×</b><span>${e(l.name)}${l.opts?.length ? `<span class="o">${e(l.opts.join(', '))}</span>` : ''}</span></div>`).join('')}${o.notes ? `<div class="n">${e(o.notes)}</div>` : ''}<p style="margin-top:14px"><b>${e(o.name)}</b> · ${e(o.phone)}</p>${o.address ? `<p>Deliver to: ${e(o.address)}</p>` : ''}${o.vehicle ? `<p>Vehicle: ${e(o.vehicle)}</p>` : ''}<p>Total ${e(extra.total)}</p>`;
+  if (inApp) return printInApp(`Order #${o.number}`, css, ticket);
   const w = window.open('', '_blank', 'width=420,height=640');
   if (!w) return toast('Allow pop-ups to print tickets.', true);
-  w.document.write(`<!doctype html><title>Order #${e(o.number)}</title><style>body{font:15px/1.4 -apple-system,Helvetica,Arial,sans-serif;margin:18px;color:#000}h1{font-size:30px;margin:0}h2{font-size:17px;margin:2px 0 14px;font-weight:600}.l{display:flex;gap:10px;font-size:19px;font-weight:600;padding:8px 0;border-top:1px dashed #999}.l b{min-width:34px}.o{font-size:15px;font-weight:400;display:block}p{margin:4px 0}.n{border:2px solid #000;padding:8px;margin-top:12px;font-weight:600}</style><h1>#${e(o.number)} · ${e(extra.method)}</h1><h2>${e(siteName)} · ${e(extra.when)}</h2>${o.items.map((l) => `<div class="l"><b>${l.qty}×</b><span>${e(l.name)}${l.opts?.length ? `<span class="o">${e(l.opts.join(', '))}</span>` : ''}</span></div>`).join('')}${o.notes ? `<div class="n">${e(o.notes)}</div>` : ''}<p style="margin-top:14px"><b>${e(o.name)}</b> · ${e(o.phone)}</p>${o.address ? `<p>Deliver to: ${e(o.address)}</p>` : ''}${o.vehicle ? `<p>Vehicle: ${e(o.vehicle)}</p>` : ''}<p>Total ${e(extra.total)}</p><script>onload=()=>{print()}<\/script>`);
+  w.document.write(`<!doctype html><title>Order #${e(o.number)}</title><style>${css}</style>${ticket}<script>onload=()=>{print()}<\/script>`);
   w.document.close();
 }
 
 /* Notifications that arrive even when the builder is closed. */
 const keyBytes = (k) => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
-export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+// In the app, notifications are the app's own (Apple push), so the app is asked. Its last answer is kept, so a switch can be drawn
+// straight away: until it says otherwise, they are taken to be available.
+let appPush = null;
+async function askPush(cmd) {
+  let r;
+  try { r = await askApp({ cmd }); } catch {
+    if (cmd !== 'pushState') throw new Error('Notifications could not be changed. Please try again.');
+    r = { supported: false, on: false };
+  }
+  appPush = { ...appPush, ...(r && typeof r === 'object' ? r : {}) };
+  return appPush;
+}
+export const pushSupported = () => (inApp ? appPush?.supported !== false : 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
 export async function pushOn() {
+  if (inApp) return !!(await askPush('pushState')).on;
   if (!pushSupported()) return false;
   const reg = await navigator.serviceWorker.getRegistration('/');
   return !!(reg && await reg.pushManager.getSubscription());
 }
 export async function enablePush() {
+  if (inApp) {
+    const r = await askPush('pushEnable');
+    if (r.on) return;
+    throw new Error(r.supported === false ? 'Notifications are not available in the app yet.' : r.denied ? 'Notifications are turned off for PF Sites. Turn them on in Settings on your iPhone, then try again.' : 'Notifications could not be turned on. Please try again.');
+  }
   if (!pushSupported()) throw new Error('This browser cannot show these notifications. On iPhone or iPad, add this page to your Home Screen first, then open it from there and try again.');
   if (await Notification.requestPermission() !== 'granted') throw new Error('Notifications are blocked for this site. Allow them in your browser settings and try again.');
   const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
@@ -296,6 +357,7 @@ export async function enablePush() {
   await api('POST', '/api/push/subscribe', { subscription: sub.toJSON() });
 }
 export async function disablePush() {
+  if (inApp) { await askPush('pushDisable'); return; }
   const reg = await navigator.serviceWorker.getRegistration('/');
   const sub = reg && await reg.pushManager.getSubscription();
   if (sub) { await api('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }

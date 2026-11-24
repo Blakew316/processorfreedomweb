@@ -1,6 +1,6 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, visibleMenu, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods, isOpenNow, steadyId, hoursText as coreHoursText } from '/shared/core.js';
 import { renderPage, anchorFor } from '/shared/render.js';
-import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, saveSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme } from './ui.js';
+import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, saveSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, themeButton, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme, inApp, toApp, busy, printInApp } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
 const TABS = [
@@ -178,8 +178,12 @@ export async function editor(id, mount, title, startTab = '') {
   let saleBusy = false, saleCust = false, custAdding = false, teamAdding = false, schedWeek = '', tsEdit = '', tsAdding = false;
   let saleDraft = { type: 'pay', tip: '', note: '', taxOn: true, tender: 'cash', customer: null, q: '', lines: [] };
   let calView = 'day', calDate = '', custFilter = 'all', custSort = 'recent', invCat = '', teamQ = '', teamRole = 'all';
-  let pushIsOn = null;
-  pushOn().then((v) => { pushIsOn = v; }).catch(() => { pushIsOn = false; });
+  let pushIsOn = null, mounted = false;
+  // In the iPhone app the app answers this, a moment after the page is drawn, so the notification switches are drawn again once it has.
+  pushOn().then((v) => { pushIsOn = v; }).catch(() => { pushIsOn = false; }).finally(() => { if (inApp && mounted && !staleSeen && (tab === 'alerts' || tab === 'devices')) paintPanel(); });
+  // What the iPhone app was last told: where the page is (nav) and how many new orders are waiting (badge). See tellApp.
+  // bizClosed: this business has been closed (another one opened in its place), so answers still on their way are not shown or told to the app.
+  let navSent = '', navLast = null, badgeSent = null, bizClosed = false;
   let notify = null;         // set while building a form whose changes are not part of the site draft
 
   /* ---------- saving and preview ---------- */
@@ -687,7 +691,8 @@ export async function editor(id, mount, title, startTab = '') {
                 h('button', { type: 'button', class: 'btn soft sm', title: 'Switch between percent and dollars', onclick: () => { o.loyalty.type = o.loyalty.type === 'percent' ? 'amount' : 'percent'; o.loyalty.value = o.loyalty.type === 'percent' ? 10 : 500; saveOrdering(); redraw(); } }, o.loyalty.type === 'percent' ? '%' : '$')))),
               null]),
           group('Notifications on this device', h('label', { class: 'switch' }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Sound and pop-up alerts')), h('input', { type: 'checkbox', checked: alertsOn(), onchange: (e) => setAlerts(e.target.checked) }), h('i')),
-            h('label', { class: 'switch' }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Notify this device')), h('input', { type: 'checkbox', checked: pushIsOn === true, onchange: async (e) => { const want = e.target.checked; try { if (want) { await enablePush(); toast('This device will be notified of new orders'); } else { await disablePush(); } pushIsOn = want; } catch (ex) { e.target.checked = !want; toast(ex.message, true); } } }), h('i'))),
+            // In the iPhone app this asks the app (Apple push); when the service has no Apple push set up yet, the switch is shown greyed out.
+            h('label', { class: `switch${inApp && !pushSupported() ? ' rp-off' : ''}`, title: inApp && !pushSupported() ? 'Not available yet' : null }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Notify this device')), h('input', { type: 'checkbox', checked: pushIsOn === true, disabled: inApp && !pushSupported(), onchange: async (e) => { const want = e.target.checked; try { if (want) { await enablePush(); toast('This device will be notified of new orders'); } else { await disablePush(); } pushIsOn = want; } catch (ex) { e.target.checked = !want; toast(ex.message, true); } } }), h('i'))),
           group('Alerts and reports', toggle('Email me a summary each morning', o, 'dailySummary'), null,
             wrap('Warn me when an item drops to', h('input', { type: 'number', min: 0, max: 9999, value: o.lowStockAt, style: 'max-width:160px', oninput: (e) => { o.lowStockAt = Math.max(0, Math.round(Number(e.target.value)) || 0); saveOrdering(); } }), 'You get a notification on your devices, and an email, the moment an order takes an item to this number or below. Use 0 to hear only when something sells out.')),
           group('Order emails', text('Send new orders to', o, 'notifyEmail', { type: 'email', placeholder: draft.business.email || state.user.email }),
@@ -1013,9 +1018,11 @@ export async function editor(id, mount, title, startTab = '') {
       const L = (t, k) => (typeof k === 'function' ? h('a', { href: '#', onclick: (e) => { e.preventDefault(); k(); } }, t) : k && known(k) ? h('a', { href: pathFor(k), onclick: (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); goTab(k); } }, t) : h('span', { class: 'set-off', 'aria-disabled': 'true' }, t));
       const box = (title, ...kids) => h('div', { class: 'set-card' }, h('h3', {}, h('span', { class: 'set-head' }, h('span', {}, title))), h('div', { class: 'set-body' }, h('div', {}, ...kids)));
       // The tiles, their order and their links are exactly those of the reference photos. A link with nothing behind it yet is greyed out.
-      const check = h('i', { class: u.twoFactor ? 'on' : '', 'aria-hidden': 'true', html: u.twoFactor ? '<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.6 10.3l2.9 2.8 5.9-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '' });
+      // Two-factor counts as on with either way of getting a code: the authenticator app or text messages.
+      const twoOn = !!(u.twoFactor || u.textCodes);
+      const check = h('i', { class: twoOn ? 'on' : '', 'aria-hidden': 'true', html: twoOn ? '<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.6 10.3l2.9 2.8 5.9-6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '' });
       return [h('div', { class: 'set-grid set-clover' },
-        box('Profile', h('p', {}, `${u.name || u.email}, ${roleName}`), h('p', {}, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, check, 'Two-factor authentication is ', h('b', {}, u.twoFactor ? 'on' : 'off')), L('Edit your profile', 'profile')),
+        box('Profile', h('p', {}, `${u.name || u.email}, ${roleName}`), h('p', {}, [u.phone, u.email].filter(Boolean).join(' | ')), h('p', { class: 'set-2fa' }, check, 'Two-factor authentication is ', h('b', {}, twoOn ? 'on' : 'off')), L('Edit your profile', 'profile')),
         box('Services and appointments', L('Appointment booking', 'booking')),
         box('Employees', L('Employee jobs', null), L('Employee roles', 'team'), L('Employee permissions', null), L('Device passcode', null), L('Timesheets & Scheduling', 'timesheets')),
         box('About your business', L('Business information', 'bizinfo'), L('Merchants', 'sites'), L('Closeout settings', null)),
@@ -1061,7 +1068,7 @@ export async function editor(id, mount, title, startTab = '') {
     },
     devices() {
       if (!deviceData) { api('GET', `/api/sites/${id}/devices`).then((r) => { deviceData = r; if (tab === 'devices') paintPanel(); }).catch((e) => { toast(e.message, true); deviceData = { devices: [] }; if (tab === 'devices') paintPanel(); }); return [group('', skel(3, 'row'))]; }
-      const here = h('button', { class: 'btn', style: 'justify-self:start', onclick: async () => { try { await enablePush(); pushIsOn = true; await reload('devices'); toast('This device will be notified of new orders'); paintPanel(); } catch (e) { toast(e.message, true); } } }, ic('bell', 16), 'Notify this device');
+      const here = h('button', { class: 'btn', style: 'justify-self:start', disabled: inApp && !pushSupported(), title: inApp && !pushSupported() ? 'Not available yet' : null, onclick: async () => { try { await enablePush(); pushIsOn = true; await reload('devices'); toast('This device will be notified of new orders'); paintPanel(); } catch (e) { toast(e.message, true); } } }, ic('bell', 16), 'Notify this device');
       return [group('Notified devices', deviceData.devices.length ? h('div', { class: 'slist' }, deviceData.devices.map((d) => h('div', { class: 'srow', style: 'padding:12px 12px 12px 16px;gap:10px' }, h('span', { class: 'sico' }, ic('phone', 16)), h('div', { class: 'grow', style: 'min-width:0' }, h('b', { style: 'font-weight:500;font-size:15px;display:block' }, d.name || d.email), h('span', { class: 'small muted' }, `Added ${fmtDate(d.createdAt)} · via ${d.service}`)),
         h('button', { class: 'btn text sm', style: 'color:var(--red)', onclick: async () => { if (!await confirmSheet({ title: 'Stop notifying this device?', text: 'It will no longer get new-order notifications.', action: 'Remove', danger: true })) return; try { await api('DELETE', `/api/sites/${id}/devices/${d.id}`); await reload('devices'); paintPanel(); } catch (e) { toast(e.message, true); } } }, 'Remove'))))
         : emptyState('phone', 'No devices yet', ''), pushIsOn !== true && here,
@@ -1417,6 +1424,8 @@ export async function editor(id, mount, title, startTab = '') {
   async function loadOrders(quiet) {
     try {
       const fresh = (await api('GET', `/api/sites/${id}/orders`)).orders;
+      // Another business was opened while these were on their way: its orders are not this one's to announce.
+      if (bizClosed) return;
       const had = orders ? new Set(orders.map((x) => x.id)) : null;
       const arrived = had ? fresh.filter((x) => !had.has(x.id)).length : 0;
       const changed = !orders || JSON.stringify(fresh) !== JSON.stringify(orders);
@@ -1426,7 +1435,7 @@ export async function editor(id, mount, title, startTab = '') {
       if (changed && had) freshStock();
       if (changed && statsTab() && stats && !stats.failed && stats.to === stats.today && !salesBusy) refreshStats();
       else if (changed && !statsTab()) stats = null;
-    } catch (e) { if (!quiet) toast(e.message, true); }
+    } catch (e) { if (!quiet && !bizClosed) toast(e.message, true); }
   }
   // Orders change stock on the server, so the counts here are brought up to date, never while an item's window is open.
   let stockLater = false;
@@ -1988,7 +1997,7 @@ export async function editor(id, mount, title, startTab = '') {
     try { const fresh = await api('GET', `/api/sites/${id}/${f[0]()}`); const same = JSON.stringify(fresh) === JSON.stringify(f[2]()); f[1](fresh); if (quiet && !same && tab === k && !document.querySelector('.scrim')) paintPanel(); }
     catch (e) { if (!quiet) toast(e.message, true); }
   }
-  const goTab = (k, fromHistory = false, replace = false) => { if (!known(k)) k = 'start'; if (k === 'online') forget('devices'); if (k === 'outreach') forget('customers'); if (k === 'inbox') forget('leads'); if (k === 'rewards') PANELS._rw = null; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history[replace ? 'replaceState' : 'pushState'](null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; panel.scrollTop = 0; paintPanel(); };
+  const goTab = (k, fromHistory = false, replace = false) => { if (!known(k)) k = 'start'; if (k === 'online') forget('devices'); if (k === 'outreach') forget('customers'); if (k === 'inbox') forget('leads'); if (k === 'rewards') PANELS._rw = null; noteVisit(k); if (!fromHistory && location.pathname !== pathFor(k)) window.history[replace ? 'replaceState' : 'pushState'](null, '', pathFor(k)); if (k === 'invoices' || k === 'est' || k === 'projects') refreshBills(); if (FEEDS[k] && FEEDS[k][2]()) reload(k, true); if (tab === 'items' && k !== 'items') paint(true); tab = k; sel = null; editItem = null; pageScroller().scrollTop = 0; paintPanel(); };
   // What the merchant still has to do. Shown in Notifications, not on the dashboard.
   function setupTodos() {
     const b = draft.business;
@@ -2102,6 +2111,8 @@ export async function editor(id, mount, title, startTab = '') {
   const lastIn = {};
   const rail = h('nav', { class: 'rail', 'aria-label': 'Site settings' });
   const panel = h('div', { class: 'panel' });
+  // In the iPhone app the page itself scrolls, not the panel, so pull to refresh and a tap on the clock work as in any app.
+  const pageScroller = () => (inApp ? document.scrollingElement || document.documentElement : panel);
   const top = h('header', { class: 'ed-top' });
   const body = h('div', { class: 'ed-body', 'data-view': 'edit', 'data-mode': '', 'data-rail': (() => { try { return localStorage.getItem('pf-rail') || null; } catch { return null; } })() }, rail, h('aside', { class: 'ed-side' }, tabsEl, subnav, panel), stage);
 
@@ -2788,7 +2799,8 @@ export async function editor(id, mount, title, startTab = '') {
         f('Default pay type', h('select', { onchange: (e) => { v.payType = e.target.value; paintPanel(); } }, [['hourly', 'Hourly'], ['salary', 'Salary']].map(([k, l]) => h('option', { value: k, selected: v.payType === k }, l)))),
         f(v.payType === 'salary' ? 'Default annual salary' : 'Default hourly rate', inp('rate', { inputmode: 'decimal' })),
         h('h3', {}, 'Security'), f('Custom ID', inp('customId', { maxlength: 40 }), 'Custom IDs allow you to group employees by their location or their function.'),
-        h('label', { class: 'field cl-field rp-off', 'aria-disabled': 'true' }, h('span', {}, 'Device passcode (4 digits)'), h('div', { class: 'cl-passw' }, (pass.disabled = true, pass), (eye.disabled = true, eye)), h('small', {}, 'If you do not enter a passcode, one will be assigned.'), rules),
+        // The same 4 digits the person types to open the PF Sites iPhone app at this business.
+        h('label', { class: 'field cl-field' }, h('span', {}, 'Device passcode (4 digits)'), h('div', { class: 'cl-passw' }, pass, eye), h('small', {}, 'If you do not enter a passcode, one will be assigned.'), rules),
         h('div', { class: 'cl-formf' }, ex && h('button', { type: 'button', class: 'btn text', style: 'color:var(--red);margin-right:auto', onclick: async () => {
           // Taking someone off the team ends their access to this business straight away.
           if (!await confirmSheet({ title: `Remove ${ex.name || ex.email}?`, text: 'They lose access to this business straight away.', action: 'Remove employee', danger: true })) return;
@@ -3042,18 +3054,66 @@ export async function editor(id, mount, title, startTab = '') {
   CL.profile = () => {
     const u = state.user;
     const saveMe = async (patch) => { const user = (await api('PUT', '/api/me', patch)).user; state.user = { ...state.user, ...user }; };
-    // One box, Cancel and Save. Enter saves too.
-    const editOne = (title, label, value, attrs, save) => {
+    // One box, Cancel and Save. Enter saves too. A next step, when given, opens once it is saved.
+    const editOne = (title, label, value, attrs, save, after) => {
       const inp = h('input', { value: value || '', autofocus: true, ...attrs });
       const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Save');
       small(title, () => h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, label), inp)), (close) => {
-        btn.onclick = async () => { btn.disabled = true; try { await save(inp.value); close(); toast('Saved'); paintPanel(); } catch (e) { toast(e.message, true); btn.disabled = false; } };
+        btn.onclick = async () => { btn.disabled = true; try { await save(inp.value); close(); toast('Saved'); paintPanel(); if (typeof after === 'function') setTimeout(after, 200); } catch (e) { toast(e.message, true); btn.disabled = false; } };
         inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
         return [h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), btn];
       });
     };
     const editName = () => editOne('Full name', 'Full name', u.name, { maxlength: 80, autocomplete: 'name' }, async (v) => { if (!v.trim()) throw new Error('Enter your name.'); await saveMe({ name: v }); });
-    const editPhone = () => editOne('Mobile number', 'Mobile number', u.phone, { type: 'tel', maxlength: 40, autocomplete: 'tel' }, (v) => saveMe({ phone: v }));
+    const editPhone = (after) => editOne('Mobile number', 'Mobile number', state.user.phone, { type: 'tel', maxlength: 40, autocomplete: 'tel' }, (v) => saveMe({ phone: v }), after);
+    // Codes by text message. Turning them on takes the mobile number (asked for first when there is none), the password, then the code we text to it.
+    const pwBox = () => h('input', { type: 'password', autocomplete: 'current-password', autofocus: true });
+    const smsOn = () => {
+      if (!state.user.phone) return editPhone(smsOn);
+      const pw = pwBox();
+      small('Text message authentication', () => [h('p', { class: 'cl-small' }, `We will text a 6-digit code to ${state.user.phone}. Enter it to turn this on.`),
+        h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Your password, to confirm'), pw))], (close) => {
+        const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Send code');
+        pw.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
+        btn.onclick = async () => {
+          if (!pw.value) return toast('Enter your password.', true);
+          btn.disabled = true;
+          try { const r = await api('POST', '/api/me/sms/setup', { password: pw.value }); close(); setTimeout(() => smsCode(pw.value, r.phone), 200); } catch (e) { toast(e.message, true); btn.disabled = false; }
+        };
+        return [h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), btn];
+      });
+    };
+    const smsCode = (password, phone) => {
+      const code = h('input', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, placeholder: '123 456', autofocus: true });
+      const again = h('button', { type: 'button', class: 'btn text sm', style: 'justify-self:start', onclick: async () => { again.disabled = true; try { await api('POST', '/api/me/sms/setup', { password }); toast(`We texted a new code to ${phone || 'your phone'}.`); } catch (e) { toast(e.message, true); } again.disabled = false; } }, 'Text me a new code');
+      small('Enter the code', () => [h('p', { class: 'cl-small' }, `Enter the 6-digit code we texted to ${phone || 'your phone'}. It works for 10 minutes.`),
+        h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, '6-digit code'), code)), again], (close) => {
+        const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Turn on');
+        code.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
+        btn.onclick = async () => {
+          if (!code.value.replace(/\D/g, '')) return toast('Enter the code we texted you.', true);
+          btn.disabled = true;
+          try { const { user } = await api('POST', '/api/me/sms/enable', { code: code.value }); state.user = { ...state.user, ...user }; close(); toast('Text message codes are on'); paintPanel(); } catch (e) { toast(e.message, true); btn.disabled = false; }
+        };
+        return [h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), btn];
+      });
+    };
+    const smsOff = () => {
+      const pw = pwBox();
+      small('Turn off text message codes', () => [h('p', { class: 'cl-small' }, state.user.twoFactor ? 'Signing in will ask for the code from your authenticator app instead.' : 'Signing in will need only your password again.'),
+        h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Your password, to confirm'), pw))], (close) => {
+        const btn = h('button', { type: 'button', class: 'btn cl-blue' }, 'Turn off');
+        pw.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } };
+        btn.onclick = async () => {
+          if (!pw.value) return toast('Enter your password.', true);
+          btn.disabled = true;
+          try { const { user } = await api('POST', '/api/me/sms/disable', { password: pw.value }); state.user = { ...state.user, ...user }; close(); toast('Text message codes are off'); paintPanel(); } catch (e) { toast(e.message, true); btn.disabled = false; }
+        };
+        return [h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), btn];
+      });
+    };
+    // Text messages can be turned on once the service can send them. Someone who already has them on can always turn them off.
+    const smsLive = !!state.config.smsEnabled || !!u.textCodes;
     const editPassword = () => {
       const cur = h('input', { type: 'password', autocomplete: 'current-password', autofocus: true }), nxt = h('input', { type: 'password', autocomplete: 'new-password' });
       small('Password', () => h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Current password'), cur), h('label', { class: 'field cl-field' }, h('span', {}, 'New password'), nxt)), (close) => {
@@ -3087,7 +3147,7 @@ export async function editor(id, mount, title, startTab = '') {
     // Turning the authenticator app on or off uses the same steps as before: a QR code to scan, or the password to switch it off.
     const twoFa = () => { const old = PANELS.profile(); const card = [...old[0].querySelectorAll('.prof-card')].find((c) => c.querySelector('h3')?.textContent === 'Two-step sign-in'); card?.querySelector('button')?.click(); };
     const recovery = () => {
-      if (!u.twoFactor) return toast('Turn on the authenticator app first.', true);
+      if (!u.twoFactor && !u.textCodes) return toast('Turn on two-step sign-in first.', true);
       const pw = h('input', { type: 'password', autocomplete: 'current-password', autofocus: true });
       small('Download recovery codes', () => [h('p', { class: 'cl-small' }, 'You will get 10 new recovery codes. Each one works once. Any codes you downloaded before will stop working.'),
         h('div', { class: 'cl-promoform' }, h('label', { class: 'field cl-field' }, h('span', {}, 'Your password, to confirm'), pw))], (close) => {
@@ -3118,10 +3178,11 @@ export async function editor(id, mount, title, startTab = '') {
     return [h('div', { class: 'cl pf' }, h('h1', { class: 'pf-title' }, 'Profile'),
       card('Full name', null, u.name, pfAct('Edit', PI.pen, editName)),
       card('Email address', null, u.email, pfAct('Edit', PI.pen, editEmail)),
-      card('Mobile number', 'This number will be used for text message authentication once it is available.', u.phone, u.phone ? pfAct('Edit', PI.pen, editPhone) : pfAct('Add', PI.plus, editPhone)),
+      card('Mobile number', state.config.smsEnabled ? 'This number is used for text message authentication.' : 'This number will be used for text message authentication once it is available.', u.phone, u.phone ? pfAct('Edit', PI.pen, editPhone) : pfAct('Add', PI.plus, editPhone)),
       card('Password', 'Use at least 8 characters. Changing it signs you out on your other devices.', null, pfAct('Edit', PI.pen, editPassword)),
       h('div', { class: 'scard pf-card pf-mfa' }, h('h2', {}, 'Multi-factor authentication'),
-        row('Text message authentication', null, false, pfAct('Enable', null, null, '', true), true),
+        smsLive ? row('Text message authentication', u.textCodes && u.textPhone ? `Codes are texted to ${u.textPhone}.` : null, !!u.textCodes, u.textCodes ? pfAct('Disable', null, smsOff, 'danger') : pfAct('Enable', null, smsOn))
+          : row('Text message authentication', null, false, pfAct('Enable', null, null, '', true), true),
         row('Authenticator app', null, !!u.twoFactor, u.twoFactor ? pfAct('Disable', null, twoFa, 'danger') : pfAct('Enable', null, twoFa)),
         row('Processor Freedom app authentication', 'Use the Processor Freedom app to turn on this authentication method.', false, null, true),
         row('Recovery codes', 'If you don’t have your phone, you can enter a recovery code to securely log in to your Processor Freedom account. Select Download to save a set of 10 recovery codes on your device, then store them in a safe location. Enter a unique recovery code each time you log in.', null, pfAct('Download', PI.dl, recovery))),
@@ -3593,12 +3654,15 @@ export async function editor(id, mount, title, startTab = '') {
         h('div', { class: 'swb-f' }, h('button', { type: 'button', class: 'it-btn grey', onclick: close }, 'Cancel'), go)];
     }, 'swb', () => done(picked));
   });
-  // A table shown in a print window, for Print in an item menu.
+  // A table shown in a print window, for Print in an item menu. The iPhone app has no pop-up windows, so there the app prints it from the page.
   function printList(title, head, rows) {
+    const e = (t) => String(t ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const css = 'body{font:14px system-ui,sans-serif;margin:32px;color:#111}h1{font-size:22px}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #ddd}';
+    const table = `<h1>${e(title)}</h1><table><thead><tr>${head.map((x) => `<th>${e(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((x) => `<td>${e(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    if (inApp) return printInApp(title, css, table);
     const w = window.open('', '_blank');
     if (!w) return toast('Allow pop-ups for this site to print.', true);
-    const e = (t) => String(t ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-    w.document.write(`<!doctype html><meta charset="utf-8"><title>${e(title)}</title><style>body{font:14px system-ui,sans-serif;margin:32px;color:#111}h1{font-size:22px}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #ddd}</style><h1>${e(title)}</h1><table><thead><tr>${head.map((x) => `<th>${e(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((x) => `<td>${e(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>${e(title)}</title><style>${css}</style>${table}`);
     w.document.close(); w.focus(); w.print();
   }
   // Table columns, as in the photos: a side panel with a box for each column; the name column always shows.
@@ -4756,7 +4820,7 @@ export async function editor(id, mount, title, startTab = '') {
   };
 
   function paintPanel() {
-    const y = panel.scrollTop;
+    const y = pageScroller().scrollTop;
     // A page that is kept between redraws (an invoice or project being written) keeps the field you were in.
     const was = document.activeElement;
     let caret = null; try { caret = was && typeof was.selectionStart === 'number' ? [was.selectionStart, was.selectionEnd] : null; } catch { /* no caret here */ }
@@ -4806,10 +4870,23 @@ export async function editor(id, mount, title, startTab = '') {
     if (cur[0] === 'appt-new' || cur[0] === 'cust-new' || cur[0] === 'sale') requestAnimationFrame(() => panel.style.setProperty('--cl-left', `${Math.round(panel.getBoundingClientRect().left)}px`));
     if (REPORT_TABS.has(cur[0]) && !CL[cur[0]]) addReportTools(cur[0]);
     labelTables(panel);
-    panel.scrollTop = y;
+    pageScroller().scrollTop = y;
     if (was && was !== document.body && was.isConnected && panel.contains(was) && document.activeElement !== was) { was.focus({ preventScroll: true }); try { if (caret) was.setSelectionRange(caret[0], caret[1]); } catch { /* not a text field */ } }
     const title2 = top.querySelector('.m-title b');
     if (title2 && title2.textContent !== group.label && body.dataset.view !== 'preview') paintTop(); else paintTabbar();
+    if (inApp) tellApp(cur, group, mode, fresh);
+  }
+  /* The iPhone app draws its own top bar, page strip and tab bar from what the page tells it: where it is, the section's pages,
+     and how many new orders are waiting (the same count as the badge in the menu). Each is sent only when it changes. */
+  function tellApp(cur, group, mode, fresh) {
+    // A business that was closed while its orders were still loading would otherwise tell the app its own count, for the business now open.
+    if (bizClosed) return;
+    const parent = PARENT[cur[0]] || '';
+    const msg = { type: 'nav', site: id, siteName: meta.name, tab: cur[0], title: cur[1], group: group.label, pages: group.tabs.length > 1 ? group.tabs.map((k, i) => ({ id: k, label: group.subs[i] })) : [], parent, parentTitle: parent ? nameOf(parent) : '', mode, role: loaded.role };
+    const sent = JSON.stringify(msg);
+    if (sent !== navSent) { navSent = sent; navLast = msg; toApp(msg); }
+    // Until the orders have loaded the count is not known yet, unless the business takes no orders online.
+    if ((orders || !ordering.enabled) && fresh !== badgeSent) { badgeSent = fresh; toApp({ type: 'badge', orders: fresh }); }
   }
   /* ---------- phone navigation ---------- */
   const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main screens' });
@@ -4968,11 +5045,15 @@ export async function editor(id, mount, title, startTab = '') {
         null, h('div', { class: 'acts' }, h('button', { class: 'btn soft', onclick: () => { close(); goTab('hours'); } }, 'Time zone and hours'), h('button', { class: 'btn', onclick: close }, 'Done'))];
     });
   }
-  // Reports always print on white, whatever the screen theme.
+  // Reports always print on white, whatever the screen theme. In a browser, print() waits while its print window is open, so the theme goes
+  // back once it closes. In the iPhone app, print() only hands the page to the app's print sheet and returns at once, and that sheet can lay
+  // the page out again later (another printer, other paper), so there the theme goes back on the next touch or key press: the page gets
+  // none while the sheet is up.
   function printLight() {
     const root = document.documentElement, was = root.dataset.theme;
     root.dataset.theme = 'light';
-    const back = () => { if (was) root.dataset.theme = was; else delete root.dataset.theme; window.removeEventListener('afterprint', back); };
+    const back = () => { if (was) root.dataset.theme = was; else delete root.dataset.theme; window.removeEventListener('afterprint', back); for (const ev of ['pointerdown', 'keydown']) window.removeEventListener(ev, back, true); };
+    if (inApp) { setTimeout(() => { window.print(); setTimeout(() => { for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, back, true); }, 300); }, 60); return; }
     window.addEventListener('afterprint', back);
     setTimeout(() => { window.print(); setTimeout(back, 1000); }, 60);
   }
@@ -5237,10 +5318,23 @@ export async function editor(id, mount, title, startTab = '') {
   window.addEventListener('message', onMessage);
   window.addEventListener('beforeunload', onLeave);
 
+  /* How the iPhone app moves around the back office: its tab bar, page strip, back button and pull to refresh call these.
+     Set each time a business opens, and put back as it was when it closes. */
+  const pfBefore = window.PF;
+  const bridge = inApp && {
+    go: (k) => { if (!known(k)) return false; body.dataset.view = 'edit'; goTab(k); paintTop(); return true; },
+    back: () => { if (PARENT[tab]) goTab(PARENT[tab]); else window.history.back(); },
+    busy: () => busy() || saveState !== 'saved',
+    state: () => navLast,
+    reload: () => location.reload(),
+  };
+  if (bridge) window.PF = bridge;
+
   mount(h('div', { class: 'ed' }, top, body, tabbar));
   paintTop(); paintPanel(); paint(true);
+  mounted = true;
 
-  const leave = () => { staleSeen = true; document.removeEventListener('visibilitychange', onVisible); clearInterval(salesTick); clearInterval(liveTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); };
+  const leave = () => { staleSeen = true; bizClosed = true; document.removeEventListener('visibilitychange', onVisible); clearInterval(salesTick); clearInterval(liveTick); window.removeEventListener('keydown', onKey); stageWatch.disconnect(); clearInterval(poll); window.removeEventListener('message', onMessage); window.removeEventListener('beforeunload', onLeave); if (saveState !== 'saved') save.flush(); if (bridge && window.PF === bridge) window.PF = pfBefore; };
   leave.siteId = id; leave.nav = (k) => goTab(k, true);
   return leave;
 }

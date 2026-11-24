@@ -5,7 +5,7 @@ import { invoicePage } from './invoice.js';
 import { bookingPage } from './booking.js';
 import { ORDER_CSS, ORDER_JS, menuSection, orderPage, orderStatusPage } from './order.js';
 import { ION } from './icons.js';
-import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, contrast, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM, strings } from './core.js';
+import { esc, str, arr, safeUrl, safeImg, isHex, readableAccent, onColor, lum, mix, contrast, FONTS, RADII, ICONS, LEGAL_PAGES, legalText, PLATFORM, strings, onlineItems } from './core.js';
 
 const icon = (name, size = 24) => `<svg viewBox="0 0 512 512" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">${ICONS[name] || ICONS.star}</svg>`;
 
@@ -339,7 +339,8 @@ export function renderPage(site, page = 'home', opts = {}) {
   const lang = site.lang === 'es' ? 'es' : 'en';
   const T = strings(lang);
   const ordering = opts.ordering || null;
-  const menu = arr(opts.menu);
+  // Customers are never offered an item priced at the counter (a variable price), whoever drew the menu.
+  const menu = onlineItems(opts.menu);
   const legalOn = Object.keys(LEGAL_PAGES).filter((k) => site.legal?.[k]?.enabled !== false);
 
   // Links: "#anchor" stays on the home page; from a legal page it points back home.

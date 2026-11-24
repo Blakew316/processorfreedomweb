@@ -1,6 +1,6 @@
 // The order page and order status page of a published site, plus the small script that runs the cart.
 
-import { esc, str, arr, safeImg, money, ORDER_METHODS, readyLabel, openMethods, strings, fill, isOpenNow, orderSlots, slotLabel, itemPrice } from './core.js';
+import { esc, str, arr, safeImg, money, ORDER_METHODS, readyLabel, openMethods, strings, fill, isOpenNow, orderSlots, slotLabel, itemPrice, onlineItems } from './core.js';
 
 export const ORDER_CSS = `
 .order,.ostat{padding:72px 0 104px}
@@ -411,14 +411,17 @@ export function groupMenu(menu, ordering) {
 /** The menu shown as a section on the home page. */
 export function menuSection(d, { menu, ordering, preview, orderHref, lang }) {
   const T = strings(lang);
-  const cats = groupMenu(menu, ordering);
+  // A variable-price item has no price to show: it is priced at the counter, so the menu leaves it out.
+  const cats = groupMenu(onlineItems(menu), ordering);
   if (!cats.length) return preview ? `<div class="wrap">${d.title ? `<div class="sec-head"><h2>${esc(d.title)}</h2></div>` : ''}<div class="empty">Your menu items appear here. Upload your item list in the Menu tab.</div></div>` : '';
   const strip = (x) => (d.showPhotos === false ? { ...x, image: '' } : x);
   return `<div class="wrap">${d.title || d.subtitle ? `<div class="sec-head">${d.title ? `<h2>${esc(d.title)}</h2>` : ''}${d.subtitle ? `<p>${esc(d.subtitle)}</p>` : ''}</div>` : ''}${cats.map((c) => `<div class="cat" style="padding-top:${cats.length > 1 ? 28 : 0}px">${cats.length > 1 ? `<h2 style="font-size:24px;margin-bottom:16px">${esc(c.label)}</h2>` : ''}<div class="tiles">${c.items.map((x) => tile(strip(x), { T })).join('')}</div></div>`).join('')}${ordering?.enabled ? `<div class="actions" style="justify-content:center;margin-top:44px"><a class="btn" ${orderHref}>${esc(T.orderOnline)}</a></div>` : ''}</div>`;
 }
 
-export function orderPage({ menu, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy, codes, mailOn = true }) {
+export function orderPage({ menu: all, ordering, base, preview, siteKey, hasPayUrl, lang, now, taken, busy, codes, mailOn = true }) {
   const o = ordering;
+  // Only items that can be ordered online are shown or can go in the cart; one priced at the counter (a variable price) never is.
+  const menu = onlineItems(all);
   const T = strings(lang);
   const methods = openMethods(o);
   const open = o.accepting && methods.length > 0;

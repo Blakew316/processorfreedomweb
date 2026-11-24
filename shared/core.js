@@ -623,10 +623,22 @@ export function parseCsv(text) {
   return rows.map((r) => r.map((x) => x.trim())).filter((r) => r.some((x) => x !== ''));
 }
 
+// A product code column is one named for the code and nothing else: the code's names ("UPC", "EAN-13", "UPC/EAN", "Barcode or SKU"),
+// maybe with "code", "number", "no." or "#", and a note in brackets ("Barcode (UPC)"). "Barcode type" or "SKU description" is about the
+// code, not the code: read as it, every item would get the wrong code, and the real code column after it would be passed over.
+const CODE_NAMES = String.raw`(product\s*codes?|item\s*codes?|bar\s*codes?|upcs?|eans?|gtins?|isbns?|skus?|plus?)`;
+// Which barcode of its kind: UPC-A, UPC-E, EAN 13, GTIN-14.
+const CODE_VARIANT = String.raw`([\s_-]?([ae]|\d{1,2}))?`;
+const codeColumn = (first) => new RegExp(String.raw`^${first}${CODE_VARIANT}([\s_/-]*(${CODE_NAMES}${CODE_VARIANT}|codes?|numbers?|nums?\.?|nos?\.?|nr\.?|#|ids?|values?|or|and|&))*(\s*(\([^)]*\)|\[[^\]]*\]))?[\s.:*]*$`, 'i');
 const COLS = [
   ['category', /^(menu\s*)?(categor(y|ies)|section|group|department|type)$/i],
   ['name', /^((item|product|menu\s*item|dish)(\s*name)?|name|title)$/i],
   ['cost', /^(unit\s*|item\s*)?cost$/i],
+  // Before the price, so a "Price type" column (as Clover exports it) is never read as the price.
+  ['variable', /^(price\s*(type|kind|mode)|pricing\s*(type|strategy|method))$/i],
+  // The barcode number, or else the business's own SKU, as the item's product code.
+  ['code', codeColumn(String.raw`(product\s*codes?|bar\s*codes?|upcs?|eans?|gtins?)`)],
+  ['sku', codeColumn(String.raw`(skus?|plus?|item\s*codes?)`)],
   ['price', /price|cost|amount|^\$$/i],
   ['desc', /desc|details|notes?$/i],
   ['stock', /stock|qty|quantity|inventory|on\s*hand|count/i],
@@ -634,6 +646,8 @@ const COLS = [
   ['available', /availab|active|enabled|in\s*stock|visible/i],
   ['taxable', /tax/i],
 ];
+// What item lists write for an item priced when it is sold, in a price type column or in place of the price.
+const VARIABLE_PRICE = /^(variable|open|manual|market)(\s*price)?$/i;
 
 export const MENU_TEMPLATE_CSV = `Category,Item name,Price,Description,Stock,Photo URL
 Tacos,Taco al pastor,3.50,"Marinated pork, pineapple, onion and cilantro",,
@@ -667,6 +681,10 @@ export function parseMenuCsv(text) {
   }
   const get = (r, k) => (map[k] === undefined ? '' : str(r[map[k]], 2000).trim());
   let category = '';
+  // The product codes taken so far, so two rows never give one barcode to two items: the first row keeps it.
+  const codes = new Map();
+  // A code column named for UPC, EAN or GTIN barcodes holds nothing else (see zeroBack).
+  const gtinColumn = map.code !== undefined && /(^|[^a-z])(upc|ean|gtin)/i.test(head[map.code]);
   body.forEach((r, i) => {
     out.rows++;
     const row = i + offset;
@@ -675,9 +693,18 @@ export function parseMenuCsv(text) {
     if (get(r, 'category')) category = get(r, 'category').slice(0, 60);
     if (!name && !priceText) return;
     if (!name) return out.errors.push({ row, reason: 'Missing item name.' });
-    const price = parsePrice(priceText);
+    // Priced at the counter each time it is sold: a price type of "Variable" (as Clover exports it), or the word where the price goes (as
+    // Square does). Any price the row has is kept with it, for if it goes back to a fixed price.
+    const variable = VARIABLE_PRICE.test(get(r, 'variable')) || VARIABLE_PRICE.test(priceText);
+    const price = variable ? parsePrice(priceText) ?? 0 : parsePrice(priceText);
     if (price === null) return out.errors.push({ row, reason: priceText ? `“${priceText.slice(0, 20)}” is not a price.` : `No price for “${name.slice(0, 40)}”.` });
+    const fromCode = get(r, 'code'), codeText = fromCode || get(r, 'sku');
+    // A long number a spreadsheet showed as 1.23457E+11 has lost its last digits, so it would find the wrong item, or none.
+    if (/^\d(\.\d+)?e\+\d{1,2}$/i.test(codeText)) return out.errors.push({ row, reason: `Product code ${codeText.slice(0, 20)} lost its digits in the spreadsheet. Format that column as text and save the file again.` });
+    const code = zeroBack(cleanCode(codeText), !!fromCode && gtinColumn), key = normalizeCode(code);
+    if (key && codes.has(key)) return out.errors.push({ row, reason: `Product code ${code} is already used by “${codes.get(key).slice(0, 40)}”.` });
     if (out.items.length >= 1000) return out.errors.push({ row, reason: 'Only the first 1,000 items are imported.' });
+    if (key) codes.set(key, name);
     const stockText = get(r, 'stock');
     const stock = /^\d{1,6}$/.test(stockText) ? Number(stockText) : null;
     const avail = get(r, 'available');
@@ -688,6 +715,7 @@ export function parseMenuCsv(text) {
       available: !/^(no|n|false|0|off|hidden|unavailable|sold\s*out)$/i.test(avail),
       taxable: !/^(no|n|false|0|off|exempt|none|non-?taxable)$/i.test(get(r, 'taxable')),
       cost: costText ? parsePrice(costText) : null,
+      variable, code, row,
     });
   });
   if (!out.items.length && !out.errors.length) out.errors.push({ row: 0, reason: 'No items were found in the file.' });
@@ -712,6 +740,9 @@ export function defaultOrdering() {
     slotLimit: 0, deals: [], dailySummary: true, lowStockAt: 5,
     modGroups: [], menus: [], dayparts: [], labels: [], revClasses: [], discounts: [],
     booking: { enabled: false, title: 'Book online', note: '', perSlot: 2, services: [] },
+    // How the iPhone app's Sale screen builds an order, kept with the business so every phone and the website see the same choice:
+    // tapping an item already in the order adds to its quantity, and the list goes back to all items after an item is added.
+    sale: { groupItems: true, stayInCategory: false },
   };
 }
 const ID_CHARS = 'ABCDEFGHJKMNPQRSTVWXYZ0123456789';
@@ -759,6 +790,7 @@ export function normalizeOrdering(input) {
     revClasses: [...new Set(arr(o.revClasses).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 40),
     discounts: arr(o.discounts).slice(0, 60).map((x, i) => ({ id: str(x?.id, 24) || `d${i}`, name: str(x?.name, 60).trim(), type: x?.type === 'amount' ? 'amount' : 'percent', value: x?.type === 'amount' ? int(x?.value, 0, 1_000_000_00, 0) : int(x?.value, 0, 100, 10) })).filter((x) => x.name),
     booking: { enabled: o.booking?.enabled === true, title: str(o.booking?.title ?? 'Book online', 60).trim() || 'Book online', note: str(o.booking?.note, 300), perSlot: int(o.booking?.perSlot, 1, 200, 2), services: arr(o.booking?.services).slice(0, 40).map((x, i2) => ({ id: str(x?.id, 24) || `s${i2}`, name: str(x?.name, 80).trim(), minutes: int(x?.minutes, 0, 600, 60), price: int(x?.price, 0, 1_000_000_00, 0) })).filter((x) => x.name) },
+    sale: { groupItems: o.sale?.groupItems !== false, stayInCategory: o.sale?.stayInCategory === true },
   };
 }
 export const openMethods = (o) => Object.keys(ORDER_METHODS).filter((k) => o?.methods && Object.hasOwn(o.methods, k) && o.methods[k]);
@@ -855,7 +887,8 @@ export const rewardText = (l) => (l.type === 'percent' ? `${l.value}%` : money(l
 /** Items customers can see right now: hidden categories and categories outside their hours are left out. */
 export function visibleMenu(menu, ordering, nowMs = Date.now()) {
   // An item switched off ('Available to order' off, or hidden from the menu) is not shown to customers at all; sold out is only for stock 0.
-  const items = arr(menu).filter((x) => x.available !== false);
+  // Nor is one priced at the counter (a variable price).
+  const items = onlineItems(menu).filter((x) => x.available !== false);
   const metas = arr(ordering?.cats), menus = arr(ordering?.menus).filter((x) => x.cats.length);
   if (!metas.length && !menus.length) return items;
   const d = new Date(wallNow(ordering, nowMs));
@@ -893,6 +926,35 @@ export function applyMods(menu, ordering) {
 /** What an item costs right now, after any sale discount. */
 export const itemPrice = (it) => (it.sale > 0 ? Math.round((it.price * (100 - Math.min(90, it.sale))) / 100) : it.price);
 export const DEFAULT_STOCK = 100;
+/** Items that can be ordered online. A variable-price item is priced at the counter each time it is sold, so customers never see it. */
+export const onlineItems = (menu) => arr(menu).filter((x) => x && !x.variable);
+
+/* Product codes: the number on an item's barcode (UPC-A, EAN-13, EAN-8, UPC-E, Code 128 or 39 text) or the business's own SKU. */
+/** The form two product codes are compared in, by the server, the website's item search and the iPhone app's scanner alike, so one
+ *  barcode always finds one item: spaces, dashes and characters no one can see taken out, letters in capitals, and a 13-digit EAN that
+ *  starts with 0 read as the 12-digit UPC-A it holds ('0 12345-67890 5' and '0012345678905' both become '012345678905'). */
+export function normalizeCode(code) {
+  const c = str(code, 200).replace(/[\s\-\u2010-\u2015\u2212\p{Cc}\p{Cf}]+/gu, '').toUpperCase();
+  return /^0\d{12}$/.test(c) ? c.slice(1) : c;
+}
+/** A product code as it is kept: as typed, trimmed, without control characters, at most 64 characters. Only spaces and dashes is no code.
+ *  Characters no one can see (a zero-width space, a soft hyphen, a byte order mark), which a code pasted from a web page or a document
+ *  can carry, are taken out too: kept, the code would never match what a scanner reads, nor be seen as the same code as another. */
+export function cleanCode(input) {
+  const c = str(input, 200).replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, 64).trim();
+  return normalizeCode(c) ? c : '';
+}
+// GS1's check digit, the last digit of every UPC, EAN and GTIN: counted from the right, the digits weigh 1, 3, 1, 3... and add up to a
+// multiple of 10.
+const gs1Ok = (d) => [...d].reverse().reduce((sum, c, i) => sum + Number(c) * (i % 2 ? 3 : 1), 0) % 10 === 0;
+// A UPC-E barcode (0, six digits, the check digit) is a UPC-A with some of its zeros left out, and carries that UPC-A's check digit.
+const upcA = (e) => { const [ns, a, b, c, d, f, g, k] = e; return `${ns}${g <= '2' ? `${a}${b}${g}0000${c}${d}${f}` : g === '3' ? `${a}${b}${c}00000${d}${f}` : g === '4' ? `${a}${b}${c}${d}00000${f}` : `${a}${b}${c}${d}${f}0000${g}`}${k}`; };
+// A spreadsheet that took a barcode for a number dropped its first 0: a UPC-A that starts with 0 (most US grocery brands do) comes back
+// with 11 digits, and an EAN-8 or UPC-E with 7. The scanner reads the 0, so the item would never be found, nor the same barcode typed in
+// properly be seen as taken. When the 0 makes it a valid barcode again (its check digit adds up), it is put back. A business's own codes
+// are rarely 11 digits long but often 7, and one in five of those would add up by chance, so 7 digits only in a column named for those
+// barcodes (gtin).
+const zeroBack = (c, gtin) => ((/^\d{11}$/.test(c) && gs1Ok(`0${c}`)) || (gtin && /^\d{7}$/.test(c) && (gs1Ok(`0${c}`) || gs1Ok(upcA(`0${c}`)))) ? `0${c}` : c);
 
 /* Item options: sizes, add-ons and choices. */
 /** Modifiers: name and price; "online: false" hides one on the order page, "inStock: false" shows it as sold out. */

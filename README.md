@@ -104,8 +104,11 @@ See `.env.example` for every setting.
 | `shared/render.js` | Turns a site into HTML. The preview and the published site use this same code. |
 | `shared/order.js` | The order page, cart and order status page. |
 | `server/mail.js` | Order emails. |
+| `server/sms.js` | Two-step sign-in codes by text message (Twilio). |
+| `server/apns.js` | New-order notifications to the iPhone app (Apple push). |
 | `server/app.js` | Accounts, API, uploads, and serving published sites by hostname or path. |
 | `public/` | The builder interface. Plain JavaScript modules, no build step. |
+| `ios/` | The PF Sites iPhone app (SwiftUI). See `ios/README.md` to build and sign it. |
 | `test/` | Unit tests and a full sign-up-to-publish flow. |
 
 Typography uses the system font stack, which is San Francisco and New York on Apple devices and the closest
@@ -130,3 +133,9 @@ The editor has two separate sides, switched at the top:
 Also in the back office: daily refill per item, happy-hour prices, a cap on orders per 15 minutes, a customer list with export,
 team logins (kitchen or manager), low-stock alerts and a morning summary email. Menu scanning from a photo or PDF appears when
 `ANTHROPIC_API_KEY` is set.
+
+## iPhone app
+
+`ios/` holds the PF Sites iPhone app (SwiftUI, Xcode 27.2, iOS 26 or later); `ios/README.md` explains how to build and sign it.
+It talks to the routes under `/api/app/`. Two-step codes by text message need the `TWILIO_*` settings and `APP_URL`, and
+new-order notifications on the iPhone need the `APNS_*` settings; see `.env.example`. Keys go in Render's Environment page.

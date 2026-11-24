@@ -262,6 +262,33 @@ export function openDb(dataDir) {
       customer TEXT NOT NULL DEFAULT '{}', start TEXT NOT NULL DEFAULT '', finish TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', attachments TEXT NOT NULL DEFAULT '[]', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS projects_site ON projects(site_id, created_at);
   `);
+  // The iPhone app. The owner's own 4-digit passcode at a business lives with the business; a team member's stays where the Employees
+  // page keeps it, in the membership details. Two-step codes can also go by text message, to a number proved by a code texted to it.
+  addColumn('sites', 'owner_passcode', "TEXT NOT NULL DEFAULT ''");
+  addColumn('users', 'sms_on', 'INTEGER NOT NULL DEFAULT 0');
+  addColumn('users', 'sms_phone', "TEXT NOT NULL DEFAULT ''");
+  // Codes texted to a person ('login' or 'setup'), kept only as hashes. One live code per person and purpose.
+  // Each signed-in iPhone has a key of its own; only its hash is kept, with the Face ID key's hash, the business its passcode opens
+  // and the address its notifications go to.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS codes (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, purpose TEXT NOT NULL, phone TEXT NOT NULL, hash TEXT NOT NULL,
+      tries INTEGER NOT NULL DEFAULT 0, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS codes_user ON codes(user_id, purpose);
+    CREATE TABLE IF NOT EXISTS app_devices (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, site_id TEXT NOT NULL DEFAULT '', secret_hash TEXT NOT NULL,
+      bio_hash TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', push_endpoint TEXT NOT NULL DEFAULT '', fails INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, used_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS app_devices_user ON app_devices(user_id);
+  `);
+  // A session the iPhone app opened with a passcode a business gave out opens only that business; '' opens everything the person has.
+  addColumn('sessions', 'site_id', "TEXT NOT NULL DEFAULT ''");
+  // An item with a variable price is priced at the counter each time it is sold (by weight, a custom job), so it is never sold online.
+  addColumn('menu_items', 'variable', 'INTEGER NOT NULL DEFAULT 0');
+  // The item's product code: the number on its barcode, or the business's own SKU. No two items of a business share one.
+  addColumn('menu_items', 'code', "TEXT NOT NULL DEFAULT ''");
+  // Devices a person asked to remember for 14 days after a right two-step code. Only a hash of each one's token is kept.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS trusts (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS trusts_user ON trusts(user_id);
+  `);
   const q = (sql) => db.prepare(sql);
   // Reports look orders up by when they were paid or refunded, and customers by email.
   db.exec(`

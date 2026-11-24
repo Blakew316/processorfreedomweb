@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gzipSync } from 'node:zlib';
 import { promises as fs, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
@@ -6,11 +6,13 @@ import { promises as dnsp } from 'node:dns';
 import { join, extname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, newId } from './db.js';
-import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice, hoursText } from '../shared/core.js';
+import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggestions, cleanDomain, str, esc, safeImg, LEGAL_PAGES, PLATFORM, parseMenuCsv, parsePrice, normalizeOrdering, defaultOrdering, openMethods, orderTotals, ORDER_METHODS, ORDER_STATUSES, cleanOptions, resolveOptions, findPromo, isOpenNow, orderSlots, slotLabel, money, visibleMenu, zoneFor, rewardText, DEFAULT_STOCK, wallNow, openAtWall, pricedMenu, invoiceTotals, safeUrl, applyMods, itemPrice, hoursText, normalizeCode, cleanCode } from '../shared/core.js';
 import { inSpanish } from './es.js';
 import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail, rewardEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
 import { newVapidKeys, sendPush } from './push.js';
+import { createApns } from './apns.js';
+import { createSms, normalizePhone, maskPhone } from './sms.js';
 import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
@@ -23,10 +25,14 @@ const MAX_SITES = 25;
 
 class HttpError extends Error {
   // code: a short word the page can act on, such as 'prices' when an order's total changed.
-  constructor(status, message, code) { super(message); this.status = status; if (code) this.code = code; }
+  // extra: flags the answer carries next to the message, such as signIn when the iPhone app has to be signed in to again.
+  constructor(status, message, code, extra) { super(message); this.status = status; if (code) this.code = code; if (extra) this.extra = extra; }
 }
 const bad = (status, message) => { throw new HttpError(status, message); };
 const sha = (s) => createHash('sha256').update(s).digest('hex');
+// On a signed-in person: the one business their session may open, when it was opened with a passcode the business gave them.
+// A symbol, so it never shows in what is sent back.
+const ONLY = Symbol('only');
 
 /* Two-step sign-in: the six-digit codes an authenticator app shows (the standard 30-second kind). */
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -106,6 +112,9 @@ export function createApp(options = {}) {
   const dns = options.dns || dnsp;
   const mailer = options.mailer || createMailer(env);
   const pusher = options.pusher || sendPush;
+  // Texted sign-in codes and notifications to the iPhone app; each is only offered when its keys are set.
+  const sms = options.sms || createSms(env);
+  const apns = options.apns || createApns(env);
   const scanner = options.scanner || (scanEnabled(env) ? (buf, type) => scanMenu(env, buf, type) : null);
   // Notification keys are made once and kept with the data, so there is nothing to configure.
   const vapid = (() => {
@@ -135,7 +144,10 @@ export function createApp(options = {}) {
     const next = () => {
       const sub = subs[i++];
       if (!sub) return;
-      setImmediate(() => Promise.resolve().then(() => pusher(sub, message, vapid))
+      // iPhone app devices are reached through Apple. While Apple push is not set up here they are skipped, not counted as failing.
+      const apple = sub.endpoint.startsWith('apns:');
+      if (apple && !apns.enabled) { next(); return; }
+      setImmediate(() => Promise.resolve().then(() => (apple ? apns.send(sub.endpoint, { ...message, siteId: site.id }) : pusher(sub, message, vapid)))
         .then((r) => { if (r === 'gone') db.run('DELETE FROM push_subs WHERE endpoint = ?', sub.endpoint); else if (sub.fails) db.run('UPDATE push_subs SET fails = 0 WHERE endpoint = ?', sub.endpoint); })
         .catch((e) => { console.error('Push failed:', e.message); db.run('UPDATE push_subs SET fails = fails + 1 WHERE endpoint = ?', sub.endpoint); db.run('DELETE FROM push_subs WHERE endpoint = ? AND fails >= 5', sub.endpoint); })
         .finally(next));
@@ -158,6 +170,8 @@ export function createApp(options = {}) {
   const ownHost = (host) => { const h = String(host || '').split(':')[0].toLowerCase().replace(/^www\./, ''); return !!h && OWN_HOSTS.some((o) => h === o || h.endsWith(`.${o}`)); };
 
   const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
+  // The iPhone app as Apple names it: the team that signs it and its bundle id, the same ones Apple push uses.
+  const IOS_APP_ID = `${String(env.APNS_TEAM_ID || '').trim() || 'D8D94SXAG6'}.${String(env.APNS_BUNDLE_ID || '').trim() || 'com.processorfreedomsites.app'}`;
 
   // What the app itself may load and talk to: its own files, the two libraries it uses, and nothing else. It cannot be framed by another site or post a form elsewhere.
   const APP_CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob: https:", "font-src 'self' data:", "connect-src 'self'", "frame-src 'self' https:", "worker-src 'self'", "manifest-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'"].join('; ');
@@ -183,7 +197,7 @@ export function createApp(options = {}) {
   // Counts one more without refusing, and reads a count, for limits that only count failures.
   const bump = (key, windowMs) => { const now = Date.now(), rec = hits.get(key); if (!rec || rec.until < now) hits.set(key, { n: 1, until: now + windowMs }); else rec.n++; };
   const counted = (key) => { const rec = hits.get(key); return rec && rec.until >= Date.now() ? rec.n : 0; };
-  const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ? OR (seen_at > 0 AND seen_at < ?)', now, now - IDLE_MS); db.run('DELETE FROM user_ips WHERE at < ?', now - 90 * DAY); }, 10 * 60000);
+  const sweep = setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (v.until < now) hits.delete(k); db.run('DELETE FROM sessions WHERE expires_at < ? OR (seen_at > 0 AND seen_at < ?)', now, now - IDLE_MS); db.run('DELETE FROM user_ips WHERE at < ?', now - 90 * DAY); db.run('DELETE FROM codes WHERE expires_at < ?', now); db.run('DELETE FROM trusts WHERE expires_at < ?', now); }, 10 * 60000);
   sweep.unref();
 
   // Who is asking, for the attempt limits. A visitor can type any address into these headers, so they are only believed
@@ -254,9 +268,10 @@ export function createApp(options = {}) {
     const m = String(req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
     return m ? m[1] : '';
   }
-  function startSession(req, res, userId) {
+  // only: a business id when the session may open that business and nothing else (see /api/app/unlock).
+  function startSession(req, res, userId, only = '') {
     const token = randomBytes(32).toString('base64url');
-    db.run('INSERT INTO sessions (token_hash, user_id, expires_at, seen_at) VALUES (?, ?, ?, ?)', sha(token), userId, Date.now() + SESSION_DAYS * DAY, Date.now());
+    db.run('INSERT INTO sessions (token_hash, user_id, expires_at, seen_at, site_id) VALUES (?, ?, ?, ?, ?)', sha(token), userId, Date.now() + SESSION_DAYS * DAY, Date.now(), only);
     db.run('UPDATE users SET last_seen = ? WHERE id = ?', Date.now(), userId);
     db.run('INSERT INTO user_ips (user_id, ip, at) VALUES (?, ?, ?) ON CONFLICT(user_id, ip) DO UPDATE SET at = excluded.at', userId, ipOf(req), Date.now());
     res.setHeader('Set-Cookie', `pf_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${protoOf(req) === 'https' ? '; Secure' : ''}`);
@@ -267,12 +282,24 @@ export function createApp(options = {}) {
     const token = cookie(req, 'pf_session');
     if (!token) return null;
     const now = Date.now(), key = sha(token);
-    const u = db.get('SELECT u.id, u.email, u.name, u.verified, u.phone, u.totp_on, s.seen_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', key, now);
+    const u = db.get('SELECT u.id, u.email, u.name, u.verified, u.phone, u.totp_on, u.sms_on, u.sms_phone, s.seen_at, s.site_id AS only FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?', key, now);
     if (u && u.seen_at && now - u.seen_at > IDLE_MS) { db.run('DELETE FROM sessions WHERE token_hash = ?', key); return null; }
     if (u && now - u.seen_at > 30000) db.run('UPDATE sessions SET seen_at = ? WHERE token_hash = ?', now, key);
-    return u ? { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone, twoFactor: !!u.totp_on } : null;
+    return u ? userOut(u) : null;
   }
   const requireUser = (req) => currentUser(req) || bad(401, 'Please sign in to continue.');
+  // A person as the pages and the iPhone app see them, built in this one place so every answer carries the same fields.
+  // twoFactor: the authenticator app is on. textCodes: codes by text message are on, to the number textPhone shows the end of.
+  // A session that may only open one business carries no staff powers, and remembers which business that is.
+  function userOut(u) {
+    const out = { id: u.id, email: u.email, name: u.name, admin: isAdmin(u) && !u.only, phone: u.phone || '', twoFactor: !!u.totp_on, textCodes: !!u.sms_on, textPhone: u.sms_on ? maskPhone(u.sms_phone) : '' };
+    if (u.only) out[ONLY] = u.only;
+    return out;
+  }
+  const userById = (id, only = '') => userOut({ ...db.get('SELECT id, email, name, verified, phone, totp_on, sms_on, sms_phone FROM users WHERE id = ?', id), only });
+  // Whether a person's session may open a business: every session may, except one the app opened with a passcode the business gave out.
+  const inScope = (user, siteId) => !user[ONLY] || user[ONLY] === siteId;
+  const ELSEWHERE = 'Sign in with your email and password to open this business.';
 
   /* ---------- sites ---------- */
 
@@ -307,20 +334,34 @@ export function createApp(options = {}) {
     return out;
   }
   const orderingOf = (s) => normalizeOrdering(s.ordering ? JSON.parse(s.ordering) : defaultOrdering());
-  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, color: r.color || '', price: r.price, cost: r.cost ?? null, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [] });
+  const toItem = (r) => ({ id: r.id, category: r.category, name: r.name, color: r.color || '', price: r.price, cost: r.cost ?? null, desc: r.description, image: r.image, available: !!r.available, stock: r.stock ?? 0, restock: r.restock ?? null, mods: r.mods ? JSON.parse(r.mods) : [], label: r.label || '', revclass: r.revclass || '', taxable: r.taxable !== 0, sale: r.sale || 0, options: r.options ? cleanOptions(JSON.parse(r.options)) : [], variable: !!r.variable, code: r.code || '' });
   const menuOf = (siteId) => db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', siteId).map(toItem);
   const toOrder = (r) => ({ id: r.id, number: r.number, token: r.token, status: r.status, method: r.method, name: r.name, email: r.email, phone: r.phone, address: r.address, vehicle: r.vehicle, notes: r.notes, items: JSON.parse(r.items), subtotal: r.subtotal, discount: r.discount || 0, promo: r.promo || '', scheduled: r.scheduled || '', tax: r.tax, fee: r.fee, tip: r.tip, total: r.total, createdAt: r.created_at, paidAt: r.paid_at || null, paidMethod: r.paid_method || '', refunded: r.refunded || 0, refundNote: r.refund_note || '', refundedAt: r.refunded_at || null, handledBy: r.handled_by || '', gift: r.gift || 0, giftCode: r.gift_code ? `…${r.gift_code.slice(-4)}` : '', taxRate: r.tax_rate ?? null });
   function cleanItem(b, prev = {}) {
-    const price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
+    const okPrice = (n) => n != null && n >= 0 && n <= 100_000_00;
+    const variable = (b.variable ?? prev.variable ?? 0) ? 1 : 0;
+    let price = typeof b.price === 'number' ? Math.round(b.price) : b.price === undefined ? prev.price : parsePrice(b.price);
+    // A variable-price item is priced at the counter each time it is sold, so it needs no price of its own. One it had is kept, for if
+    // it goes back to a fixed price.
+    if (variable && !okPrice(price)) price = okPrice(prev.price) ? prev.price : 0;
+    // Going back to a fixed price takes a price. One that never had its own would otherwise be sold, and offered online, at $0.00. A
+    // price sent with the change is used as it is, 0 included: that is a free item, as any item may be.
+    if (!variable && prev.variable && b.price === undefined && !(price > 0)) bad(400, 'Enter a price like 9.99.');
     const name = str(b.name ?? prev.name, 120).trim();
     if (!name) bad(400, 'Give the item a name.');
-    if (price == null || !(price >= 0) || price > 100_000_00) bad(400, 'Enter a price like 9.99.');
+    if (!okPrice(price)) bad(400, 'Enter a price like 9.99.');
     const stock = b.stock === undefined || b.stock === null || b.stock === '' ? prev.stock ?? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.stock)) || 0));
     const restock = b.restock === undefined ? prev.restock ?? null : b.restock === null || b.restock === '' ? null : Math.max(0, Math.min(999999, Math.round(Number(b.restock)) || 0));
     const sale = b.sale === undefined ? prev.sale || 0 : Math.max(0, Math.min(90, Math.round(Number(b.sale)) || 0));
     const cost = b.cost === undefined ? prev.cost ?? null : b.cost === null || b.cost === '' ? null : typeof b.cost === 'number' ? Math.max(0, Math.min(100_000_00, Math.round(b.cost))) : parsePrice(b.cost);
-    return { cost: cost == null || !(cost >= 0) ? null : Math.min(100_000_00, cost), category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, restock, sale, mods: JSON.stringify(Array.isArray(b.mods) ? b.mods.slice(0, 30).map((x) => str(x, 24)) : prev.mods ? JSON.parse(prev.mods) : []), label: str(b.label ?? prev.label, 40).trim(), revclass: str(b.revclass ?? prev.revclass, 40).trim(), options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))) };
+    return { cost: cost == null || !(cost >= 0) ? null : Math.min(100_000_00, cost), category: str(b.category ?? prev.category, 60).trim() || 'Menu', name, price, description: str(b.desc ?? prev.description, 500).trim(), image: safeImg(b.image ?? prev.image), available: (b.available ?? prev.available ?? 1) ? 1 : 0, taxable: (b.taxable ?? prev.taxable ?? 1) ? 1 : 0, stock, restock, sale, mods: JSON.stringify(Array.isArray(b.mods) ? b.mods.slice(0, 30).map((x) => str(x, 24)) : prev.mods ? JSON.parse(prev.mods) : []), label: str(b.label ?? prev.label, 40).trim(), revclass: str(b.revclass ?? prev.revclass, 40).trim(), options: JSON.stringify(cleanOptions(b.options ?? (prev.options ? JSON.parse(prev.options) : []))), variable, code: cleanCode(b.code ?? prev.code) };
   }
+  // Two items of a business never share a product code, compared the way a scanner reads them (normalizeCode), so one barcode always
+  // finds one item. The map is each code in use, in that form, with the item that has it.
+  const CODE_TAKEN = 'Another item already uses that product code.';
+  const codesOf = (siteId, exceptId = '') => new Map(db.all("SELECT name, code FROM menu_items WHERE site_id = ? AND code != '' AND id != ?", siteId, exceptId).map((r) => [normalizeCode(r.code), r.name]));
+  // An item keeping the code it has is never stopped by it, so no other change to the item is held up.
+  const checkCode = (siteId, code, prevCode = '', exceptId = '') => { const key = normalizeCode(code); if (key && key !== normalizeCode(prevCode) && codesOf(siteId, exceptId).has(key)) bad(400, CODE_TAKEN); };
   // A category typed in another case joins the one that exists ('sides' goes into 'Sides'), never making a near-duplicate.
   const canonCategory = (site, name) => {
     const want = String(name || '').trim();
@@ -330,7 +371,7 @@ export function createApp(options = {}) {
   };
   function insertItems(siteId, items, startStock = DEFAULT_STOCK) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
-    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, restock, options, sort, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, it.restock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++, Number.isInteger(it.cost) && it.cost >= 0 ? Math.min(100_000_00, it.cost) : null);
+    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, restock, options, sort, cost, variable, code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, it.restock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++, Number.isInteger(it.cost) && it.cost >= 0 ? Math.min(100_000_00, it.cost) : null, it.variable === true || it.variable === 1 ? 1 : 0, cleanCode(it.code));
   }
   // A promo code is either one the merchant created or an unused loyalty reward.
   function promoFor(site, ordering, code) {
@@ -365,6 +406,7 @@ export function createApp(options = {}) {
     const site = db.get('SELECT * FROM sites WHERE id = ?', id);
     const role = site ? roleOn(site, user) : '';
     if (!role) bad(404, 'We could not find that site.');
+    if (!inScope(user, site.id)) bad(403, ELSEWHERE);
     if (LEVEL[role] < LEVEL[need]) bad(403, 'Your login does not allow that. Ask the owner of this site.');
     return { user, site, role };
   }
@@ -556,6 +598,8 @@ export function createApp(options = {}) {
 
   route('GET', '/api/config', (req, res) => json(res, 200, {
     sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey, scanEnabled: !!scanner,
+    // Whether text codes can be turned on (Twilio and APP_URL are set up) and whether the iPhone app can get notifications (Apple push is set up).
+    smsEnabled: smsReady, appPush: !!apns.enabled,
   }));
 
   route('GET', '/api/me', (req, res) => json(res, 200, { user: currentUser(req) }));
@@ -573,8 +617,148 @@ export function createApp(options = {}) {
     const id = newId();
     db.run('INSERT INTO users (id, email, name, pass_hash, created_at) VALUES (?, ?, ?, ?, ?)', id, email, name, await hashPassword(password), Date.now());
     startSession(req, res, id);
-    json(res, 201, { user: { id, email, name, admin: false } });
+    json(res, 201, { user: userById(id) });
   });
+
+  /* ---------- two-step codes by text message ---------- */
+
+  // A code texted to a person's verified mobile number: 6 digits, good for 10 minutes and 5 tries, used once. Only its hash is kept,
+  // bound to the person and to what it is for, so a code sent to set up text codes can never sign anyone in.
+  const CODE_MS = 10 * 60000, CODE_TRIES = 5;
+  const codeHash = (userId, purpose, code) => sha(`${SECRET}:${userId}:${purpose}:${code}`);
+  // Compares two secrets in the same time whatever they hold, so how long it takes gives nothing away.
+  const sameSecret = (a, b) => timingSafeEqual(createHash('sha256').update(String(a)).digest(), createHash('sha256').update(String(b)).digest());
+  // How long until a counted limit lets one more through (0 when it would now), and that wait in plain words.
+  const waitFor = (key, max) => { const rec = hits.get(key), now = Date.now(); return rec && rec.until >= now && rec.n >= max ? rec.until - now : 0; };
+  const inWords = (ms) => {
+    const [n, unit] = ms < 60000 ? [Math.max(1, Math.ceil(ms / 1000)), 'second'] : ms < 90 * 60000 ? [Math.ceil(ms / 60000), 'minute'] : [Math.ceil(ms / 3600000), 'hour'];
+    return `${n} ${unit}${n === 1 ? '' : 's'}`;
+  };
+  // Codes are bound to the address people sign in at, so an iPhone offers to fill one in there and in the app, and never on a look-alike
+  // site. That address comes from our settings (APP_URL), never from the request: anyone can make up the address a request names.
+  // Without APP_URL, text codes cannot be turned on, since a code bound to an address people do not use would never be offered; codes
+  // for people who already use them still go, bound to our own address, so nobody is locked out by a change of settings.
+  const CODE_HOST = FIXED_ORIGIN.replace(/^https?:\/\//, '').split(/[:/]/)[0].toLowerCase();
+  const smsReady = !!sms.enabled && !!APP_HOST;
+  if (sms.enabled && !APP_HOST) console.warn('Text message codes stay off until APP_URL is set to the address people sign in at (for example https://processorfreedomsites.com), because each code is bound to that address.');
+  // The countries text codes can go to: the calling codes in SMS_COUNTRIES (such as "1,44"), or only +1 (the US and Canada) when it is
+  // not set. Texts abroad cost far more, and are what people abuse when they get a site to text numbers that pay them per message.
+  const SMS_COUNTRIES = (() => { const list = [...new Set(String(env.SMS_COUNTRIES || '').split(/[\s,+]+/).filter((c) => /^\d{1,3}$/.test(c)))]; return list.length ? list : ['1']; })();
+  const textable = (phone) => SMS_COUNTRIES.some((c) => phone.startsWith(`+${c}`));
+  const NOT_TEXTABLE = `We can only text numbers that start with ${SMS_COUNTRIES.map((c) => `+${c}`).join(', ').replace(/, ([^,]*)$/, ' or $1')} for now.`;
+  // Overall caps an hour: SMS_PER_HOUR texts in all (600 when it is not set), of which setup codes, which go to numbers nobody has
+  // proved yet, may use a sixth. That smaller cap of their own means however many are asked for, they never use up what sign-ins need.
+  const SMS_PER_HOUR = Math.max(1, Math.round(Number(env.SMS_PER_HOUR)) || 600), SETUP_SMS_PER_HOUR = Math.max(1, Math.floor(SMS_PER_HOUR / 6));
+  async function textCode(req, userId, purpose, phone) {
+    if (!sms.enabled) bad(400, 'Text messages are not available yet.');
+    // Texts cost money and land on someone's phone, so they are capped every way they could be sent in bulk: one every 30 seconds and
+    // six an hour for a person, twenty an hour from one address, the same for one phone number however many accounts name it, and
+    // overall. A number still being set up gets five setup codes a day, so new accounts cannot be used to text someone over and over.
+    const caps = [[`sms-gap:${userId}`, 1, 30000], [`sms-hour:${userId}`, 6, 3600000], [`sms-ip:${ipOf(req)}`, 20, 3600000],
+      [`sms-to-gap:${phone}`, 1, 30000], [`sms-to-hour:${phone}`, 6, 3600000], ['sms-all', SMS_PER_HOUR, 3600000],
+      ...(purpose === 'setup' ? [[`sms-new:${phone}`, 5, DAY], ['sms-new-all', SETUP_SMS_PER_HOUR, 3600000]] : [])];
+    const wait = Math.max(...caps.map(([key, max]) => waitFor(key, max)));
+    if (wait) bad(429, `Please wait ${inWords(wait)} before asking for another code.`);
+    for (const [key, , ms] of caps) bump(key, ms);
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0'), id = newId(12), now = Date.now();
+    // One live code per person and purpose: a new one replaces the last.
+    db.run('DELETE FROM codes WHERE user_id = ? AND purpose = ?', userId, purpose);
+    db.run('INSERT INTO codes (id, user_id, purpose, phone, hash, tries, expires_at, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)', id, userId, purpose, phone, codeHash(userId, purpose, code), now + CODE_MS, now);
+    // The last line is what lets an iPhone offer the code on our own address only (an origin-bound code).
+    try { await sms.send(phone, `Your Processor Freedom code is ${code}. It expires in 10 minutes.${CODE_HOST ? `\n\n@${CODE_HOST} #${code}` : ''}`); } catch (e) {
+      db.run('DELETE FROM codes WHERE id = ?', id);
+      console.error('Text message failed:', e.message);
+      bad(502, 'We could not send the text message. Please try again in a moment.');
+    }
+  }
+  // Checks a texted code. { ok: true, phone } once for the live code; otherwise { gone: true } when there is no live code (none was sent,
+  // or it expired or was used), { spent: true } when this wrong try was its last, or { left } with the tries it still has.
+  function useTextCode(userId, purpose, code) {
+    const row = db.get('SELECT * FROM codes WHERE user_id = ? AND purpose = ?', userId, purpose);
+    if (!row || row.expires_at < Date.now()) { if (row) db.run('DELETE FROM codes WHERE id = ?', row.id); return { ok: false, gone: true }; }
+    // Taken in the same step it is checked, so two sign-ins at the same moment cannot both use it.
+    if (/^\d{6}$/.test(code) && sameSecret(codeHash(userId, purpose, code), row.hash)) return db.run('DELETE FROM codes WHERE id = ?', row.id).changes === 1 ? { ok: true, phone: row.phone } : { ok: false, gone: true };
+    const tries = db.get('UPDATE codes SET tries = tries + 1 WHERE id = ? RETURNING tries', row.id)?.tries ?? CODE_TRIES;
+    if (tries >= CODE_TRIES) { db.run('DELETE FROM codes WHERE id = ?', row.id); return { ok: false, spent: true }; }
+    return { ok: false, left: CODE_TRIES - tries };
+  }
+
+  /* ---------- the iPhone app's devices ---------- */
+
+  // Each signed-in iPhone holds a key of its own (a device). With it and the person's passcode, or Face ID, the app opens again without
+  // the email and password. Only hashes of the keys are kept; a key is handed over once, when it is made, and never again.
+  const SIGN_IN_AGAIN = 'Sign in again on this device.';
+  // A person keeps up to ten iPhones; the one used longest ago is dropped, with its notifications.
+  function newDevice(userId, name) {
+    const id = newId(12), secret = randomBytes(32).toString('base64url'), now = Date.now();
+    db.run('INSERT INTO app_devices (id, user_id, secret_hash, name, created_at, used_at) VALUES (?, ?, ?, ?, ?, ?)', id, userId, sha(secret), name, now, now);
+    for (const old of db.all('SELECT * FROM app_devices WHERE user_id = ? ORDER BY used_at DESC, rowid DESC LIMIT -1 OFFSET 10', userId)) dropDevice(old);
+    return { id, secret };
+  }
+  // A notification address is only removed for the person it belongs to, in case the same phone has since been set up by someone else.
+  const dropDevice = (dev) => { if (dev.push_endpoint) db.run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', dev.push_endpoint, dev.user_id); db.run('DELETE FROM app_devices WHERE id = ?', dev.id); };
+  // Every iPhone signed in to the account has to sign in with the email and password again, and its notifications stop.
+  const dropDevices = (userId) => { db.run("DELETE FROM push_subs WHERE user_id = ? AND endpoint LIKE 'apns:%'", userId); db.run('DELETE FROM app_devices WHERE user_id = ?', userId); };
+  // "Remember this device for 14 days": after a right two-step code, a device can skip the code for that person. It holds a token of
+  // its own, handed over once; only the token's hash is kept, and a person has ten remembered devices at most.
+  const TRUST_MS = 14 * DAY;
+  function newTrust(userId) {
+    const token = randomBytes(32).toString('base64url'), now = Date.now();
+    db.run('INSERT INTO trusts (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)', sha(token), userId, now + TRUST_MS, now);
+    db.run('DELETE FROM trusts WHERE user_id = ? AND token_hash NOT IN (SELECT token_hash FROM trusts WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 10)', userId, userId);
+    return token;
+  }
+  const trusted = (userId, token) => !!token && !!db.get('SELECT 1 FROM trusts WHERE token_hash = ? AND user_id = ? AND expires_at > ?', sha(token), userId, Date.now());
+  // The ways in that skip a step end together: phones set up to open with a passcode or Face ID, and devices remembered for 14 days.
+  const endShortcuts = (userId) => { dropDevices(userId); db.run('DELETE FROM trusts WHERE user_id = ?', userId); };
+  // Two-step sign-in has just been turned on: every other browser signs in again, now with a code, and so does every phone set up to
+  // open with a passcode or Face ID and every remembered device, since they may have been set up with the password alone. The session
+  // that turned it on carries on.
+  function twoStepOn(req, userId) {
+    db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', userId, sha(cookie(req, 'pf_session')));
+    endShortcuts(userId);
+  }
+  // Ten notification devices a person; the one used longest ago drops off, and an iPhone whose address dropped off forgets it.
+  const capPush = (userId) => {
+    db.run('DELETE FROM push_subs WHERE user_id = ? AND endpoint NOT IN (SELECT endpoint FROM push_subs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10)', userId, userId);
+    db.run("UPDATE app_devices SET push_endpoint = '' WHERE user_id = ? AND push_endpoint != '' AND push_endpoint NOT IN (SELECT endpoint FROM push_subs WHERE user_id = ?)", userId, userId);
+  };
+  // The device a request proves it holds, from { device, secret } in the body. With a user given, the device must be theirs.
+  function deviceOf(b, user) {
+    const id = str(b.device, 40), secret = str(b.secret, 200);
+    const row = id && secret ? db.get('SELECT * FROM app_devices WHERE id = ?', id) : null;
+    if (!row || !sameSecret(sha(secret), row.secret_hash) || (user && row.user_id !== user.id)) throw new HttpError(401, SIGN_IN_AGAIN, null, { signIn: true });
+    return row;
+  }
+  // Passcodes follow the Employees page's rules: 4 digits, not one digit four times, and not a run up or down such as 1234 or 4321.
+  const PASS_RULE = 'The passcode must be 4 digits with no sequence or repeat.';
+  const weakPasscode = (p) => /^(\d)\1{3}$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p);
+  const passcodeOk = (p) => /^\d{4}$/.test(p) && !weakPasscode(p);
+  // A business the person really belongs to, as its owner or on its team. Staff powers do not count: a passcode is a person's own.
+  // A session opened with a passcode the business gave out cannot reach another business's passcode this way either.
+  function personSite(id, user) {
+    const site = db.get('SELECT * FROM sites WHERE id = ?', str(id, 40));
+    if (!site || !(site.user_id === user.id || db.get('SELECT 1 FROM members WHERE site_id = ? AND user_id = ?', site.id, user.id))) bad(404, 'We could not find that site.');
+    if (!inScope(user, site.id)) bad(403, ELSEWHERE);
+    return site;
+  }
+  // The passcode a person opens the app with at a business: the owner's own, or the one on their Employees entry. '' when none yet.
+  function passcodeOf(site, userId) {
+    if (site.user_id === userId) return passcodeOk(site.owner_passcode) ? site.owner_passcode : '';
+    let d = {}; try { d = JSON.parse(db.get('SELECT details FROM members WHERE site_id = ? AND user_id = ?', site.id, userId)?.details || '{}') || {}; } catch { /* none */ }
+    return passcodeOk(str(d.passcode)) ? str(d.passcode) : '';
+  }
+  function savePasscode(site, userId, code) {
+    if (site.user_id === userId) { db.run('UPDATE sites SET owner_passcode = ? WHERE id = ?', code, site.id); return; }
+    // One statement, so an Employees save at the same moment is never half undone, and everything else the owner typed stays.
+    db.run("UPDATE members SET details = json_set(CASE WHEN json_valid(details) THEN (CASE WHEN json_type(details) = 'object' THEN details ELSE '{}' END) ELSE '{}' END, '$.passcode', ?) WHERE site_id = ? AND user_id = ?", code, site.id, userId);
+  }
+  // Five wrong passcodes and the device is forgotten: from then on only the email and password open the app on that phone.
+  function wrongPasscode(res, dev, status) {
+    const fails = db.get('UPDATE app_devices SET fails = fails + 1 WHERE id = ? RETURNING fails', dev.id)?.fails ?? 5;
+    if (fails >= 5) { dropDevice(dev); return json(res, 401, { error: 'Too many wrong passcodes. Sign in with your email and password.', signIn: true }); }
+    return json(res, status, { error: 'That passcode is not right.', left: 5 - fails });
+  }
 
   route('POST', '/api/auth/login', async (req, res) => {
     limit(`login:${ipOf(req)}`, 12, 15 * 60000);
@@ -587,18 +771,45 @@ export function createApp(options = {}) {
     const ok = await checkPassword(str(b.password, 200), u ? u.pass_hash : '00:00');
     if (!u || !ok) { bump(failKey, 15 * 60000); if (guessing) bad(429, 'Too many attempts. Please wait a few minutes and try again.'); bad(401, 'That email and password do not match.'); }
     if (guessing && !db.get('SELECT 1 FROM user_ips WHERE user_id = ? AND ip = ?', u.id, ipOf(req))) bad(429, 'Too many attempts. Please wait a few minutes and try again.');
-    // With two-step sign-in on, the password alone is not enough: the code from the authenticator app is needed too.
-    if (u.totp_on) {
+    // With two-step sign-in on, the password alone is not enough: a code from the authenticator app, or one texted to the person, is needed too.
+    // A device the person asked to remember after a right code skips the code for 14 days; the password is still checked above.
+    let trust = '';
+    if ((u.totp_on || u.sms_on) && !trusted(u.id, str(b.trust, 100))) {
+      const methods = [...(u.totp_on ? ['app'] : []), ...(u.sms_on ? ['text'] : [])], phone = u.sms_on ? maskPhone(u.sms_phone) : '';
+      // Every answer on this step says which ways are open, so the page or the app keeps showing the code box.
+      const step2 = { twoFactor: true, methods, ...(phone ? { phone } : {}) };
       const code = str(b.code, 24).replace(/\s/g, '');
-      if (!code) return json(res, 401, { error: 'Enter the 6-digit code from your authenticator app.', twoFactor: true });
-      limit(`2fa:${u.id}`, 8, 15 * 60000);
-      const step = totpStep(u.totp_secret, code);
-      if (step >= 0) {
-        if (!useTotpStep(u.id, step)) return json(res, 401, { error: 'That code can’t be used again. Wait for your authenticator app to show a new code, then enter it.', twoFactor: true });
-      } else if (!useRecoveryCode(u, code)) return json(res, 401, { error: 'That code is not right. Codes change every 30 seconds, so try the newest one, or use one of your recovery codes.', twoFactor: true });
+      if (!code) {
+        // A code is texted when that is the only way, or when the person asks for one instead of using the app.
+        if (u.sms_on && (b.sendText === true || !u.totp_on)) {
+          try { await textCode(req, u.id, 'login', u.sms_phone); } catch (e) { if (e instanceof HttpError) return json(res, e.status, { error: e.message, ...step2 }); throw e; }
+          return json(res, 401, { error: `Enter the 6-digit code we texted to ${phone}.`, ...step2, sent: true });
+        }
+        return json(res, 401, { error: 'Enter the 6-digit code from your authenticator app.', ...step2 });
+      }
+      try { limit(`2fa:${u.id}`, 8, 15 * 60000); } catch (e) { return json(res, e.status, { error: e.message, ...step2 }); }
+      let passed = false, reused = false, texted = null;
+      if (u.totp_on) {
+        const step = totpStep(u.totp_secret, code);
+        if (step >= 0) { if (useTotpStep(u.id, step)) passed = true; else reused = true; }
+      }
+      if (!passed && !reused && u.sms_on && /^\d{6}$/.test(code)) passed = (texted = useTextCode(u.id, 'login', code)).ok;
+      if (!passed && !reused && useRecoveryCode(u, code)) passed = true;
+      if (!passed) {
+        const why = reused ? 'That code can’t be used again. Wait for your authenticator app to show a new code, then enter it.'
+          : u.totp_on && u.sms_on ? 'That code is not right. Try the newest code from your authenticator app or the text message, or use one of your recovery codes.'
+            : u.totp_on ? 'That code is not right. Codes change every 30 seconds, so try the newest one, or use one of your recovery codes.'
+              : texted?.spent ? 'That code is not right, and it can’t be tried again. Ask for a new code, or use one of your recovery codes.'
+                : texted?.gone ? 'That code has expired. Ask for a new code, or use one of your recovery codes.'
+                  : 'That code is not right. Check the text message and try again, or use one of your recovery codes.';
+        return json(res, 401, { error: why, ...step2 });
+      }
+      if (b.remember === true) trust = newTrust(u.id);
     }
     startSession(req, res, u.id);
-    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
+    // The iPhone app also gets a key of its own for this phone, so later it can be opened with a passcode or Face ID instead.
+    const device = b.device && typeof b.device === 'object' && !Array.isArray(b.device) ? newDevice(u.id, str(b.device.name, 60).trim()) : null;
+    json(res, 200, { user: userOut(u), ...(device ? { device } : {}), ...(trust ? { trust } : {}) });
   });
 
   // An authenticator code works once: a code from the same 30 seconds as the last one used, or from earlier, is refused.
@@ -612,7 +823,8 @@ export function createApp(options = {}) {
   // The list is read again here, after the password check, so two log ins at the same moment cannot both use one code.
   function useRecoveryCode(u, code) {
     if (recoveryNorm(code).length !== 10) return false;
-    const row = db.get('SELECT recovery FROM users WHERE id = ? AND totp_on = 1', u.id);
+    // Recovery codes stand in for whichever way of getting codes is on: the authenticator app, text messages, or both.
+    const row = db.get('SELECT recovery FROM users WHERE id = ? AND (totp_on = 1 OR sms_on = 1)', u.id);
     if (!row) return false;
     let list = [];
     try { list = JSON.parse(row.recovery || '[]'); } catch { list = []; }
@@ -629,6 +841,8 @@ export function createApp(options = {}) {
     const user = requireUser(req);
     db.run('DELETE FROM sessions WHERE user_id = ?', user.id);
     db.run('DELETE FROM push_subs WHERE user_id = ?', user.id);
+    // Phones set up to open with a passcode or Face ID, and devices remembered for 14 days, sign in with the email and password again too.
+    endShortcuts(user.id);
     res.setHeader('Set-Cookie', 'pf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
     json(res, 200, { ok: true });
   });
@@ -647,10 +861,12 @@ export function createApp(options = {}) {
     const name = b.name === undefined ? user.name : str(b.name, 80).trim();
     const phone = b.phone === undefined ? user.phone : str(b.phone, 40).trim();
     if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
+    // A new name follows the person into the records of every business they work at, so a session that may only open one of them cannot change it.
+    if (user[ONLY] && name !== user.name) bad(403, 'Sign in with your email and password to change your name.');
     if (name && name !== user.name) { const clash = knownByAccountName(user, name).find((site) => namesInUse(site, user.id).has(name)); if (clash) bad(400, `Someone at ${clash.name} already goes by that name. Add a last name or an initial.`); }
     db.run('UPDATE users SET name = ?, phone = ? WHERE id = ?', name, phone, user.id);
     accountRenamed(user, user.name || user.email, name || user.email);
-    json(res, 200, { user: { ...user, name, phone } });
+    json(res, 200, { user: userById(user.id, user[ONLY]) });
   });
   // Changing the sign-in email needs the password, and the new address has to be confirmed again before it carries staff powers.
   route('POST', '/api/me/email', async (req, res) => {
@@ -665,7 +881,7 @@ export function createApp(options = {}) {
       if (db.get('SELECT 1 FROM users WHERE email = ?', email)) bad(409, 'Another account already uses that email address.');
       db.run('UPDATE users SET email = ?, verified = 0 WHERE id = ?', email, user.id);
     }
-    json(res, 200, { user: { ...user, email, admin: email === user.email ? user.admin : false } });
+    json(res, 200, { user: userById(user.id, user[ONLY]) });
   });
   // Two-step sign-in. Step one hands out a secret for the authenticator app; it only takes effect once a code from the app proves it was set up.
   route('POST', '/api/me/2fa/setup', (req, res) => {
@@ -677,7 +893,7 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/me/2fa/recovery', async (req, res) => {
     const user = requireUser(req);
-    if (!user.twoFactor) bad(409, 'Turn on the authenticator app first, then download your recovery codes.');
+    if (!user.twoFactor && !user.textCodes) bad(409, 'Turn on two-step sign-in first, then download your recovery codes.');
     limit(`pw:${user.id}`, 8, 15 * 60000);
     const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
     if (!await checkPassword(str((await readJson(req)).password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
@@ -702,20 +918,22 @@ export function createApp(options = {}) {
     const step = totpStep(row.totp_secret, code);
     if (step < 0) bad(400, 'That code is not right. Codes change every 30 seconds, so try the newest one.');
     // The code used to turn it on counts as used, so it cannot also be used to log in.
-    const done = db.run("UPDATE users SET totp_on = 1, recovery = '', totp_step = ? WHERE id = ? AND totp_on = 0 AND totp_secret = ?", step, user.id, row.totp_secret);
+    // Recovery codes made while text codes were already on stay; any left from before are cleared.
+    const done = db.run("UPDATE users SET totp_on = 1, recovery = CASE WHEN sms_on = 1 THEN recovery ELSE '' END, totp_step = ? WHERE id = ? AND totp_on = 0 AND totp_secret = ?", step, user.id, row.totp_secret);
     if (done.changes) Promise.resolve().then(() => mailer.send({ to: user.email, ...noticeEmail({ title: 'Two-step sign-in is on', intro: 'Signing in to your Processor Freedom account now needs a code from your authenticator app as well as your password.', warn: 'If you did not do this, reset your password straight away from the sign-in page, then contact us.', manageUrl: `${linkOrigin(req)}/login` }) })).catch((e) => console.error('Two-step email failed:', e.message));
     if (!done.changes) bad(409, 'Start again: the setup code has expired.');
     // Every other device has to sign in again, now with a code.
-    db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
-    json(res, 200, { user: { ...user, twoFactor: true } });
+    twoStepOn(req, user.id);
+    json(res, 200, { user: userById(user.id, user[ONLY]) });
   });
   route('POST', '/api/me/2fa/disable', async (req, res) => {
     const user = requireUser(req);
     limit(`pw:${user.id}`, 8, 15 * 60000);
     const row = db.get('SELECT pass_hash FROM users WHERE id = ?', user.id);
     if (!await checkPassword(str((await readJson(req)).password, 200), row.pass_hash)) bad(401, 'Your password is not right.');
-    db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '', totp_step = 0 WHERE id = ?", user.id);
-    json(res, 200, { user: { ...user, twoFactor: false } });
+    // Recovery codes stay while text codes are still on; with both ways off they go too.
+    db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = CASE WHEN sms_on = 1 THEN recovery ELSE '' END, totp_step = 0 WHERE id = ?", user.id);
+    json(res, 200, { user: userById(user.id, user[ONLY]) });
   });
 
   route('POST', '/api/auth/password', async (req, res) => {
@@ -726,8 +944,9 @@ export function createApp(options = {}) {
     if (!await checkPassword(str(b.current, 200), row.pass_hash)) bad(401, 'Your current password is not right.');
     if (str(b.next, 200).length < 8) bad(400, 'Use at least 8 characters for your new password.');
     db.run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassword(str(b.next, 200)), user.id);
-    // Sign out every other device.
+    // Sign out every other device, every phone set up to open with a passcode or Face ID, and every device remembered for 14 days.
     db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', user.id, sha(cookie(req, 'pf_session')));
+    endShortcuts(user.id);
     json(res, 200, { ok: true });
   });
 
@@ -761,15 +980,168 @@ export function createApp(options = {}) {
     db.run(`UPDATE users SET pass_hash = ?${row.kind === 'email' ? ', verified = 1' : ''} WHERE id = ?`, await hashPassword(str(b.password, 200)), row.user_id);
     // Two-step turned on for an address nobody had confirmed is cleared by the first link that proves the mailbox, so someone who
     // signed up with another person's address first cannot lock the real owner out.
-    if (row.kind === 'email' && !before.verified) db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '', totp_step = 0 WHERE id = ?", row.user_id);
+    // Text codes going to a number that person chose are cleared the same way.
+    if (row.kind === 'email' && !before.verified) { db.run("UPDATE users SET totp_on = 0, totp_secret = '', recovery = '', totp_step = 0, sms_on = 0, sms_phone = '' WHERE id = ?", row.user_id); db.run('DELETE FROM codes WHERE user_id = ?', row.user_id); }
     db.run('DELETE FROM resets WHERE user_id = ?', row.user_id);
     db.run('DELETE FROM sessions WHERE user_id = ?', row.user_id);
-    const u = db.get('SELECT id, email, name, verified, phone, totp_on FROM users WHERE id = ?', row.user_id);
+    // A new password also means every phone set up to open with a passcode or Face ID, and every remembered device, signs in with it again.
+    endShortcuts(row.user_id);
+    const u = db.get('SELECT id, email, name, verified, phone, totp_on, sms_on, sms_phone FROM users WHERE id = ?', row.user_id);
     // With two-step sign-in on, a link from the email only sets the password: logging in still needs the code or a recovery code.
     // A link staff made for a locked-out merchant (who may have lost the phone) signs in as before.
-    if (u.totp_on && !row.staff) return json(res, 200, { twoFactor: true });
+    if ((u.totp_on || u.sms_on) && !row.staff) return json(res, 200, { twoFactor: true });
     startSession(req, res, row.user_id);
-    json(res, 200, { user: { id: u.id, email: u.email, name: u.name, admin: isAdmin(u), phone: u.phone || '', twoFactor: !!u.totp_on } });
+    json(res, 200, { user: userOut(u) });
+  });
+
+  /* Two-step sign-in by text message. Codes go to the profile's mobile number, once a code texted to it proves it reaches the person. */
+  route('POST', '/api/me/sms/setup', async (req, res) => {
+    const user = requireUser(req);
+    if (!smsReady) bad(400, 'Text messages are not available yet.');
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    const b = await readJson(req);
+    if (!await checkPassword(str(b.password, 200), db.get('SELECT pass_hash FROM users WHERE id = ?', user.id).pass_hash)) bad(401, 'Your password is not right.');
+    if (!str(user.phone).trim()) bad(400, 'Add your mobile number first.');
+    const phone = normalizePhone(user.phone);
+    if (!phone) bad(400, 'That phone number does not look right.');
+    // Where codes may go is settled here, when a number is chosen. A number already proved keeps getting sign-in codes.
+    if (!textable(phone)) bad(400, NOT_TEXTABLE);
+    await textCode(req, user.id, 'setup', phone);
+    json(res, 200, { sent: true, phone: maskPhone(phone) });
+  });
+  route('POST', '/api/me/sms/enable', async (req, res) => {
+    const user = requireUser(req);
+    if (!smsReady) bad(400, 'Text messages are not available yet.');
+    limit(`2fa:${user.id}`, 8, 15 * 60000);
+    const got = useTextCode(user.id, 'setup', str((await readJson(req)).code, 24).replace(/\s/g, ''));
+    if (!got.ok) bad(400, got.spent ? 'That code is not right, and it can’t be tried again. Ask for a new one.' : got.gone ? 'That code has expired. Ask for a new one.' : 'That code is not right. Check the text message and try again.');
+    // Codes go to the number the setup code reached. Recovery codes made while another way was on stay; any left from before are cleared.
+    db.run("UPDATE users SET sms_on = 1, sms_phone = ?, recovery = CASE WHEN totp_on = 1 OR sms_on = 1 THEN recovery ELSE '' END WHERE id = ?", got.phone, user.id);
+    // Turning two-step sign-in on signs every other device out, so they sign in again, now with a code.
+    if (!user.twoFactor && !user.textCodes) twoStepOn(req, user.id);
+    // The account's email hears about it, so someone who got in another way cannot move the codes to their own phone unnoticed.
+    const intro = `Signing in to your Processor Freedom account now needs a code as well as your password, and we can text it to ${maskPhone(got.phone)}.`;
+    Promise.resolve().then(() => mailer.send({ to: user.email, ...noticeEmail({ title: 'Text message codes are on', intro, warn: 'If you did not do this, reset your password straight away from the sign-in page, then contact us.', manageUrl: `${linkOrigin(req)}/login` }) })).catch((e) => console.error('Text codes email failed:', e.message));
+    json(res, 200, { user: userById(user.id, user[ONLY]) });
+  });
+  route('POST', '/api/me/sms/disable', async (req, res) => {
+    const user = requireUser(req);
+    limit(`pw:${user.id}`, 8, 15 * 60000);
+    if (!await checkPassword(str((await readJson(req)).password, 200), db.get('SELECT pass_hash FROM users WHERE id = ?', user.id).pass_hash)) bad(401, 'Your password is not right.');
+    // Recovery codes stay while the authenticator app is still on; with both ways off they go too.
+    db.run("UPDATE users SET sms_on = 0, sms_phone = '', recovery = CASE WHEN totp_on = 1 THEN recovery ELSE '' END WHERE id = ?", user.id);
+    db.run('DELETE FROM codes WHERE user_id = ?', user.id);
+    json(res, 200, { user: userById(user.id, user[ONLY]) });
+  });
+
+  /* The iPhone app: on a phone that signed in before, a passcode or Face ID opens it again. Everything here answers in JSON. */
+  // Whether the person already has a passcode at a business, so the app asks for it or offers to make one.
+  route('GET', '/api/app/passcode', (req, res, p, url) => {
+    const user = requireUser(req);
+    const site = personSite(url.searchParams.get('site'), user);
+    json(res, 200, { has: !!passcodeOf(site, user.id), site: { id: site.id, name: site.name } });
+  });
+  // Links this phone to a business: the person types the passcode they have there, or makes one (replace makes a new one over the old).
+  route('POST', '/api/app/passcode', async (req, res) => {
+    const user = requireUser(req);
+    const b = await readJson(req);
+    const dev = deviceOf(b, user);
+    const site = personSite(b.site, user);
+    const code = str(b.passcode, 10);
+    if (!passcodeOk(code)) bad(400, PASS_RULE);
+    const have = passcodeOf(site, user.id);
+    if (have && b.replace !== true) { if (!sameSecret(code, have)) return wrongPasscode(res, dev, 400); } else savePasscode(site, user.id, code);
+    db.run('UPDATE app_devices SET site_id = ?, fails = 0, used_at = ? WHERE id = ?', site.id, Date.now(), dev.id);
+    json(res, 200, { ok: true });
+  });
+  // Face ID: the phone keeps a second key behind Face ID and hands it over in place of the passcode. A new one replaces the old.
+  route('POST', '/api/app/biometric', async (req, res) => {
+    const user = requireUser(req);
+    const dev = deviceOf(await readJson(req), user);
+    if (!dev.site_id) bad(400, 'Set up your passcode first.');
+    const bio = randomBytes(32).toString('base64url');
+    db.run('UPDATE app_devices SET bio_hash = ? WHERE id = ?', sha(bio), dev.id);
+    json(res, 200, { bio });
+  });
+  route('DELETE', '/api/app/biometric', async (req, res) => {
+    const user = requireUser(req);
+    const dev = deviceOf(await readJson(req), user);
+    db.run("UPDATE app_devices SET bio_hash = '' WHERE id = ?", dev.id);
+    json(res, 200, { ok: true });
+  });
+  // Opens the app again with the device key and the passcode, or the device key and the Face ID key, and starts a session as a log in
+  // does. No two-step code is asked for: the device was only made after a full sign-in, and turning two-step sign-in on drops it.
+  // At a business the person owns, the passcode is theirs alone and the session opens everything they have. A team member's passcode
+  // is one the business set and can see, so that session opens only that business, with no staff powers: whoever knows it and holds
+  // the phone cannot reach the person's other businesses. Face ID gets the same, since its key could have been set up in such a session.
+  route('POST', '/api/app/unlock', async (req, res) => {
+    limit(`unlock:${ipOf(req)}`, 30, 15 * 60000);
+    const b = await readJson(req);
+    const dev = deviceOf(b);
+    const site = dev.site_id ? db.get('SELECT * FROM sites WHERE id = ?', dev.site_id) : null;
+    // Someone taken off the team, or whose business is gone, can no longer get in this way.
+    if (!site || !(site.user_id === dev.user_id || db.get('SELECT 1 FROM members WHERE site_id = ? AND user_id = ?', site.id, dev.user_id))) { dropDevice(dev); throw new HttpError(401, SIGN_IN_AGAIN, null, { signIn: true }); }
+    const bio = str(b.bio, 200);
+    if (bio) {
+      // A Face ID key that does not match is switched off, so the app falls back to the passcode.
+      if (!dev.bio_hash || !sameSecret(sha(bio), dev.bio_hash)) { db.run("UPDATE app_devices SET bio_hash = '' WHERE id = ?", dev.id); return json(res, 401, { error: 'Face ID could not sign you in. Use your passcode.', bioOff: true }); }
+    } else {
+      const typed = str(b.passcode, 10), have = passcodeOf(site, dev.user_id);
+      if (!typed) bad(400, 'Enter your passcode.');
+      if (!have || !sameSecret(typed, have)) return wrongPasscode(res, dev, 401);
+    }
+    db.run('UPDATE app_devices SET fails = 0, used_at = ? WHERE id = ?', Date.now(), dev.id);
+    const only = site.user_id === dev.user_id ? '' : site.id;
+    startSession(req, res, dev.user_id, only);
+    json(res, 200, { user: userById(dev.user_id, only), site: site.id });
+  });
+  // The businesses the app's location list offers, most recently updated first, with only what that list shows. street: the address
+  // the owner typed for the business (address line, city, state and ZIP), '' when there is none.
+  route('GET', '/api/app/sites', (req, res) => {
+    const user = requireUser(req);
+    const rows = db.all('SELECT * FROM sites WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?) ORDER BY updated_at DESC', user.id, user.id).filter((s) => inScope(user, s.id));
+    json(res, 200, { sites: rows.map((s) => {
+      let biz = {}; try { biz = JSON.parse(s.draft).business || {}; } catch { /* none */ }
+      return { id: s.id, name: s.name, role: s.user_id === user.id ? 'owner' : roleOn(s, { id: user.id }), live: !!s.published, url: siteUrl(req, s),
+        newOrders: db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND status = 'new'", s.id).n, street: [biz.address1, biz.city, biz.state, biz.zip].map((x) => str(x).trim()).filter(Boolean).join(', ') };
+    }) });
+  });
+  // Notifications to the iPhone app go through Apple. They are kept with the browsers' ones, so new-order alerts and the Devices page
+  // treat them alike, but they only come in here, from a signed-in phone holding its device key, never through the browser route.
+  route('POST', '/api/app/push', async (req, res) => {
+    const user = requireUser(req);
+    const b = await readJson(req);
+    const dev = deviceOf(b, user);
+    const token = str(b.token, 300), mode = b.env === 'production' || b.env === 'development' ? b.env : '';
+    if (!/^[0-9a-f]{64,200}$/i.test(token) || !mode) bad(400, 'This device could not be set up for notifications.');
+    limit(`push:${user.id}`, 30, 3600000);
+    const endpoint = `apns:${mode}:${token.toLowerCase()}`;
+    db.run("INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, '', '', ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, created_at = excluded.created_at, fails = 0", endpoint, user.id, Date.now());
+    if (dev.push_endpoint && dev.push_endpoint !== endpoint) db.run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', dev.push_endpoint, user.id);
+    // A phone has one address for notifications: any other of this person's devices that held it lets go of it. Another account's
+    // devices are never written to; if one of them held it, the address is now this person's and removing theirs leaves it alone.
+    db.run("UPDATE app_devices SET push_endpoint = CASE WHEN id = ? THEN ? ELSE '' END WHERE id = ? OR (user_id = ? AND push_endpoint = ?)", dev.id, endpoint, dev.id, user.id, endpoint);
+    capPush(user.id);
+    json(res, 201, { ok: true });
+  });
+  route('DELETE', '/api/app/push', async (req, res) => {
+    const user = requireUser(req);
+    const dev = deviceOf(await readJson(req), user);
+    if (dev.push_endpoint) db.run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', dev.push_endpoint, user.id);
+    db.run("UPDATE app_devices SET push_endpoint = '' WHERE id = ?", dev.id);
+    json(res, 200, { ok: true });
+  });
+  // Signs this phone out for good: its key and its notifications go, and the session too if there is one. Holding the key is enough to
+  // give it up, and a key that already stopped working still signs the phone out.
+  route('POST', '/api/app/signout', async (req, res) => {
+    const b = await readJson(req);
+    let dev = null;
+    try { dev = deviceOf(b); } catch (e) { if (!(e instanceof HttpError)) throw e; }
+    if (dev) dropDevice(dev);
+    const token = cookie(req, 'pf_session');
+    if (token) db.run('DELETE FROM sessions WHERE token_hash = ?', sha(token));
+    res.setHeader('Set-Cookie', 'pf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    json(res, 200, { ok: true });
   });
 
   route('GET', '/api/address', (req, res, p, url) => {
@@ -785,12 +1157,13 @@ export function createApp(options = {}) {
 
   route('GET', '/api/sites', (req, res) => {
     const user = requireUser(req);
-    const rows = db.all('SELECT s.*, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads FROM sites s WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?) ORDER BY updated_at DESC', user.id, user.id);
+    const rows = db.all('SELECT s.*, (SELECT COUNT(*) FROM leads l WHERE l.site_id = s.id) AS leads FROM sites s WHERE user_id = ? OR id IN (SELECT site_id FROM members WHERE user_id = ?) ORDER BY updated_at DESC', user.id, user.id).filter((s) => inScope(user, s.id));
     json(res, 200, { sites: rows.map((s) => ({ ...present(req, s, true), role: s.user_id === user.id ? 'owner' : roleOn(s, { id: user.id }), leads: s.leads, menu: menuOf(s.id).slice(0, 12), newOrders: db.get("SELECT COUNT(*) AS n FROM orders WHERE site_id = ? AND status = 'new'", s.id).n })) });
   });
 
   route('POST', '/api/sites', async (req, res) => {
     const user = requireUser(req);
+    if (user[ONLY]) bad(403, 'Sign in with your email and password to add a business.');
     const b = await readJson(req);
     const name = str(b.name, 80).trim();
     if (!name) bad(400, 'Give your business a name to continue.');
@@ -1022,7 +1395,7 @@ export function createApp(options = {}) {
     if (!member || b.name !== undefined) details.name = name;
     if (b.details && typeof b.details === 'object') {
       const d = b.details, pass = str(d.passcode, 4).replace(/\D/g, '');
-      if (pass && (pass.length !== 4 || /^(\d)\1{3}$/.test(pass) || '0123456789'.includes(pass) || '9876543210'.includes(pass))) bad(400, 'The passcode must be 4 digits with no sequence or repeat.');
+      if (pass && (pass.length !== 4 || weakPasscode(pass))) bad(400, PASS_RULE);
       const phone = str(d.phone, 40).trim();
       if (phone && !/^[+()\d][\d\s().-]{5,}$/.test(phone)) bad(400, 'That phone number does not look right.');
       Object.assign(details, { nickname: str(d.nickname, 60).trim(), phone, payType: d.payType === 'salary' ? 'salary' : 'hourly', rate: Math.max(0, Math.min(100000000, Math.round(Number(d.rate)) || 0)), customId: str(d.customId, 40).trim(), passcode: pass });
@@ -1051,6 +1424,7 @@ export function createApp(options = {}) {
   // Anyone on a team can take themselves off it.
   route('DELETE', '/api/sites/:id/membership', (req, res, p) => {
     const user = requireUser(req);
+    if (!inScope(user, p.id)) bad(403, ELSEWHERE);
     if (!db.run('DELETE FROM members WHERE site_id = ? AND user_id = ?', str(p.id, 40), user.id).changes) bad(404, 'You are not on this site\'s team.');
     json(res, 200, { ok: true });
   });
@@ -1458,7 +1832,7 @@ export function createApp(options = {}) {
   /* Devices that get new-order notifications for this site. */
   route('GET', '/api/sites/:id/devices', (req, res, p) => {
     const { site } = ownSite(req, p.id, 'owner');
-    json(res, 200, { devices: db.all('SELECT s.endpoint, s.created_at AS createdAt, u.name, u.email FROM push_subs s JOIN users u ON u.id = s.user_id WHERE s.user_id = ? OR s.user_id IN (SELECT user_id FROM members WHERE site_id = ?) ORDER BY s.created_at DESC', site.user_id, site.id).map((d) => ({ id: sha(d.endpoint).slice(0, 16), service: new URL(d.endpoint).hostname.replace(/^.*?([^.]+\.[^.]+)$/, '$1'), createdAt: d.createdAt, name: d.name, email: d.email })) });
+    json(res, 200, { devices: db.all('SELECT s.endpoint, s.created_at AS createdAt, u.name, u.email FROM push_subs s JOIN users u ON u.id = s.user_id WHERE s.user_id = ? OR s.user_id IN (SELECT user_id FROM members WHERE site_id = ?) ORDER BY s.created_at DESC', site.user_id, site.id).map((d) => ({ id: sha(d.endpoint).slice(0, 16), service: d.endpoint.startsWith('apns:') ? 'iPhone app' : new URL(d.endpoint).hostname.replace(/^.*?([^.]+\.[^.]+)$/, '$1'), createdAt: d.createdAt, name: d.name, email: d.email })) });
   });
   route('DELETE', '/api/sites/:id/devices/:device', (req, res, p) => {
     const { site } = ownSite(req, p.id, 'owner');
@@ -1880,6 +2254,7 @@ export function createApp(options = {}) {
     if (db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n >= 1000) bad(400, 'A menu can hold up to 1,000 items.');
     const made = cleanItem(await readJson(req));
     made.category = canonCategory(site, made.category);
+    checkCode(site.id, made.code);
     insertItems(site.id, [made]);
     json(res, 201, { items: menuOf(site.id) });
   });
@@ -1892,15 +2267,26 @@ export function createApp(options = {}) {
       ? { errors: [], items: b.items.slice(0, 1000).map((x) => { try { const it = cleanItem({ category: x?.category, name: x?.name, price: typeof x?.price === 'number' ? x.price : 0, desc: x?.desc }); return { ...it, stock: undefined }; } catch { return null; } }).filter(Boolean) }
       : parseMenuCsv(str(b.csv, 1_000_000));
     if (!parsed.items.length) bad(400, parsed.errors[0]?.reason || 'No items were found in the file.');
+    // A row whose product code an item on the menu already has is left out and said why, as adding that one item would be refused.
+    // The file's own repeats were left out as it was read. Replacing the menu clears every code first, so then nothing clashes.
+    const taken = b.replace ? new Map() : codesOf(site.id), skipped = [...parsed.errors], adding = [];
+    for (const it of parsed.items) {
+      const key = normalizeCode(it.code);
+      if (key && taken.has(key)) { skipped.push({ row: it.row || 0, reason: `Product code ${it.code} is already used by “${taken.get(key).slice(0, 40)}”.` }); continue; }
+      if (key) taken.set(key, it.name);
+      adding.push(it);
+    }
+    skipped.sort((x, y) => x.row - y.row);
+    if (!adding.length) bad(400, skipped[0]?.reason || 'No items were found in the file.');
     const existing = b.replace ? 0 : db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n;
     const room = Math.max(0, 1000 - existing);
     db.raw.exec('BEGIN');
     try {
       if (b.replace) db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
-      insertItems(site.id, parsed.items.slice(0, room), b.startStock === undefined ? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.startStock)) || 0)));
+      insertItems(site.id, adding.slice(0, room), b.startStock === undefined ? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.startStock)) || 0)));
       db.raw.exec('COMMIT');
     } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
-    json(res, 200, { imported: Math.min(room, parsed.items.length), skipped: parsed.errors, items: menuOf(site.id) });
+    json(res, 200, { imported: Math.min(room, adding.length), skipped, items: menuOf(site.id) });
   });
 
   route('PUT', '/api/sites/:id/menu/:item', async (req, res, p) => {
@@ -1918,7 +2304,8 @@ export function createApp(options = {}) {
     }
     const it = cleanItem(body, prev);
     it.category = canonCategory(site, it.category);
-    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ?, mods = ?, label = ?, revclass = ?, cost = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, it.mods, it.label, it.revclass, it.cost, prev.id);
+    checkCode(site.id, it.code, prev.code, prev.id);
+    db.run('UPDATE menu_items SET category = ?, name = ?, price = ?, description = ?, image = ?, available = ?, taxable = ?, sale = ?, stock = ?, restock = ?, options = ?, mods = ?, label = ?, revclass = ?, cost = ?, variable = ?, code = ? WHERE id = ?', it.category, it.name, it.price, it.description, it.image, it.available, it.taxable, it.sale, it.stock, it.restock, it.options, it.mods, it.label, it.revclass, it.cost, it.variable, it.code, prev.id);
     json(res, 200, { items: menuOf(site.id) });
   });
 
@@ -1992,8 +2379,7 @@ export function createApp(options = {}) {
     if (!/^https:\/\//.test(endpoint) || !PUSH_HOSTS.test(pushHost) || !p256dh || !auth) bad(400, 'This device could not be set up for notifications.');
     limit(`push:${user.id}`, 30, 3600000);
     db.run('INSERT INTO push_subs (endpoint, user_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, created_at = excluded.created_at, fails = 0', endpoint, user.id, p256dh, auth, Date.now());
-    // Ten devices a person; the one used longest ago drops off.
-    db.run('DELETE FROM push_subs WHERE user_id = ? AND endpoint NOT IN (SELECT endpoint FROM push_subs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10)', user.id, user.id);
+    capPush(user.id);
     json(res, 201, { ok: true });
   });
   route('POST', '/api/push/unsubscribe', async (req, res) => {
@@ -2006,11 +2392,15 @@ export function createApp(options = {}) {
   route('POST', '/api/sites/:id/menu/bulk', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
     const b = await readJson(req);
-    const ids = (Array.isArray(b.ids) ? b.ids : []).slice(0, 1000).map((x) => str(x, 40));
+    // Each item once, so an id sent twice never gets a change (added stock, a product code) twice.
+    const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).slice(0, 1000).map((x) => str(x, 40)))];
     if (!ids.length) bad(400, 'Select at least one item.');
     const set = b.set && typeof b.set === 'object' ? b.set : {};
     const num = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v)) || 0));
     if (set.sale !== undefined && !(Number.isInteger(Number(set.sale)) && Number(set.sale) >= 0 && Number(set.sale) <= 90)) bad(400, 'Enter a whole percent from 0 to 90.');
+    // Product codes in bulk: an empty one clears them all. A code is checked item by item inside the transaction, so it can go on one
+    // item only: the second item given it already sees it on the first, and the whole change is refused.
+    const code = typeof set.code === 'string' ? cleanCode(set.code) : null;
     db.raw.exec('BEGIN');
     try {
       for (const itemId of ids) {
@@ -2029,6 +2419,13 @@ export function createApp(options = {}) {
         if (set.sale !== undefined) db.run('UPDATE menu_items SET sale = ? WHERE id = ?', num(set.sale, 0, 90), row.id);
         if (str(set.category, 60).trim()) db.run('UPDATE menu_items SET category = ? WHERE id = ?', canonCategory(site, str(set.category, 60)), row.id);
         if (set.pricePercent !== undefined) { const pct = Math.max(-90, Math.min(500, Number(set.pricePercent) || 0)); db.run('UPDATE menu_items SET price = ? WHERE id = ?', Math.max(0, Math.min(100_000_00, Math.round((row.price * (100 + pct)) / 100))), row.id); }
+        if (typeof set.variable === 'boolean') {
+          // As in one edit: an item that never had a price of its own would go back to a fixed price at $0.00, and be sold online at
+          // that, so the whole change is refused and the item named.
+          if (!set.variable && row.variable && !(row.price > 0)) bad(400, `${row.name} has no price yet. Give it a price, then make it a fixed price.`);
+          db.run('UPDATE menu_items SET variable = ? WHERE id = ?', set.variable ? 1 : 0, row.id);
+        }
+        if (code !== null) { checkCode(site.id, code, row.code, row.id); db.run('UPDATE menu_items SET code = ? WHERE id = ?', code, row.id); }
       }
       db.raw.exec('COMMIT');
     } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
@@ -2492,6 +2889,8 @@ export function createApp(options = {}) {
         const lines = []; const need = new Map(); const before = new Map();
         for (const w of wanted) {
           const row = db.get('SELECT * FROM menu_items WHERE id = ? AND site_id = ?', w.id, site.id);
+          // A variable-price item is priced at the counter each time it is sold, so an online order can never set its price.
+          if (row?.variable) bad(400, "That item is priced at the counter and can't be ordered online.");
           if (!row || !row.available || row.stock === 0 || !visibleMenu([toItem(row)], ordering).length) bad(409, `${row ? row.name : 'One of your items'} is no longer available. Please remove it and try again.`);
           const it = applyMods(pricedMenu([toItem(row)], ordering), ordering)[0];
           if (it.blocked) bad(409, `${it.name} is sold out right now. Please remove it and try again.`);
@@ -2678,7 +3077,7 @@ export function createApp(options = {}) {
       if (!m[2]) return redirect(res, `/preview/${m[1]}/`, 302);
       const user = currentUser(req);
       const site = user && db.get('SELECT * FROM sites WHERE id = ?', m[1]);
-      if (!site || !(LEVEL[roleOn(site, user)] >= LEVEL.manager)) return redirect(res, '/login');
+      if (!site || !inScope(user, site.id) || !(LEVEL[roleOn(site, user)] >= LEVEL.manager)) return redirect(res, '/login');
       return serveSite(req, res, site, `/preview/${m[1]}`, m[2], appOrigin(req), true);
     }
 
@@ -2697,6 +3096,9 @@ export function createApp(options = {}) {
 
     if (method !== 'GET' && method !== 'HEAD') return send(res, 405, 'Method not allowed');
     if (path === '/healthz') return send(res, 200, 'ok', { 'Content-Type': 'text/plain' });
+    // Ties the iPhone app to this address, so the app offers sign-in codes texted for it (and passwords saved for it). Apple reads it
+    // from this exact path, as JSON, with no redirect. Merchants' own addresses never get here: their sites are answered above.
+    if (path === '/.well-known/apple-app-site-association') return json(res, 200, { webcredentials: { apps: [IOS_APP_ID] } }, { 'Cache-Control': 'public, max-age=3600' });
     if (path === '/version') return send(res, 200, BUILD, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
     if (path === '/favicon.ico') return (await sendFile(res, join(ROOT, 'public'), 'icon-32.png', { 'Cache-Control': 'public, max-age=86400' })) || send(res, 404, '');
     if (path === '/sw.js') return (await sendFile(res, join(ROOT, 'public'), 'sw.js', { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' })) || send(res, 404, 'Not found');
@@ -2726,13 +3128,13 @@ export function createApp(options = {}) {
       if (res.headersSent) return res.end();
       const message = status === 500 && !(err instanceof HttpError) ? 'Something went wrong on our side. Please try again.' : err.message || 'Bad request';
       const wantsJson = req.url.startsWith('/api/') || String(req.headers.accept || '').includes('json') || String(req.headers['content-type'] || '').includes('json');
-      wantsJson ? json(res, status, { error: message, ...(err instanceof HttpError && err.code ? { code: err.code } : {}) }) : html(res, status, simplePage(status === 429 ? 'Slow down' : 'Something went wrong', message));
+      wantsJson ? json(res, status, { error: message, ...(err instanceof HttpError && err.code ? { code: err.code } : {}), ...(err instanceof HttpError && err.extra ? err.extra : {}) }) : html(res, status, simplePage(status === 429 ? 'Slow down' : 'Something went wrong', message));
     });
   };
   handler.db = db;
   handler.tick = tick;
   handler.backup = backup;
   handler.sweepUploads = sweepUploads;
-  handler.close = () => { clearInterval(sweep); clearInterval(daily); clearTimeout(firstTick); db.close(); };
+  handler.close = () => { clearInterval(sweep); clearInterval(daily); clearTimeout(firstTick); apns.close?.(); db.close(); };
   return handler;
 }
