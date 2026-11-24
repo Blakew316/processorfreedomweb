@@ -20,7 +20,8 @@ struct MainTabsView: View {
                         .navigationDestination(for: Route.self) { route in RouteDestination(route: route) }
                 }
             }
-            Tab("Orders", systemImage: "list.bullet.rectangle.portrait", value: MainTab.orders) {
+            // The receipt icon from the owner's Clover photo (Assets: OrdersTab, a template so it tints like the others).
+            Tab("Orders", image: "OrdersTab", value: MainTab.orders) {
                 NavigationStack(path: $shell.orders) {
                     OrdersView()
                         .navigationDestination(for: Route.self) { route in RouteDestination(route: route) }
