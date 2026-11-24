@@ -116,6 +116,8 @@ struct PasscodeView: View {
                 // Over the dashboard (another business's passcode, Change passcode) the step closes with the bare X every
                 // full-screen cover in the app has, in the same place: its centre 28 pt from the edge, 22 pt down.
                 PasscodeCloseButton {
+                    // Not while a passcode is being checked or saved: its answer must not land on a step that was left.
+                    guard !working else { return }
                     focused = false
                     onCancel()
                 }
@@ -421,7 +423,13 @@ struct PasscodeView: View {
         }
     }
 
+    /// A passcode is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot passcode?,
+    /// the X) wait for the answer, so it never lands after the person has gone somewhere else. It is never long: the request
+    /// gives up by itself.
+    private var working: Bool { busy || finished }
+
     private func forgot() {
+        guard !working else { return }
         switch step.purpose {
         case .afterSignIn:
             // Right after the email and password: they can simply make a new one.
@@ -435,11 +443,13 @@ struct PasscodeView: View {
     }
 
     private func logOut() {
+        guard !working else { return }
         focused = false
         Task { await model.signOut() }
     }
 
     private func switchUser() {
+        guard !working else { return }
         focused = false
         model.switchUser()
     }

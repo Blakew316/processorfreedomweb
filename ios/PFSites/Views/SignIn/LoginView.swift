@@ -196,7 +196,9 @@ struct LoginView: View {
                 break
             case .needsCode(let error):
                 auth.took(error)
-                auth.path.append(.twoStep)
+                // Only from this screen: if it was left with Back while the answer was on its way, the code step is not
+                // pushed onto Welcome.
+                if auth.path.last == .login { auth.path.append(.twoStep) }
             case .failed(let message):
                 auth.error = message
                 Haptics.error()

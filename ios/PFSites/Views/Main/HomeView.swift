@@ -237,11 +237,7 @@ struct HomeView: View {
                     }
                     .frame(width: 48, height: 48)
                     .accessibilityHidden(true)
-                    // 17.5 pt with strokes 2.2 pt thick in the photo: the semibold weight.
-                    Text(tile.title)
-                        .pfFont(17.5, .semibold)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.center)
+                    HomeTileTitle(title: tile.title)
                         .padding(.top, 6)
                 }
                 .padding(.top, 22)
@@ -259,5 +255,43 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+}
+
+/// A Home tile's name: 17.5 pt semibold (its strokes are 2.2 pt thick in the photo). A name too long for one line ("Items and
+/// services" on most iPhones) is set the way the photo sets it: two lines with their left edges together and their baselines
+/// 17 pt apart, which makes that row of tiles 130 pt tall (plain wrapping would centre each line and set them 21 pt apart).
+private struct HomeTileTitle: View {
+    let title: String
+    /// Two 21 pt lines drawn 4 pt closer, scaled with the text size.
+    @ScaledMetric(relativeTo: .body) private var closer: CGFloat = -4
+
+    var body: some View {
+        let words = title.split(separator: " ").map(String.init)
+        // Where the name may break, longest first line first: "Items and" / "services", then "Items" / "and services".
+        let breaks = Array(stride(from: words.count - 1, to: 0, by: -1))
+        ViewThatFits(in: .horizontal) {
+            line(title)
+            ForEach(breaks, id: \.self) { count in
+                VStack(alignment: .leading, spacing: closer) {
+                    line(words.prefix(count).joined(separator: " "))
+                    line(words.dropFirst(count).joined(separator: " "))
+                }
+            }
+            // A word wider than the tile: ordinary wrapping.
+            Text(title)
+                .pfFont(17.5, .semibold)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+    }
+
+    private func line(_ text: String) -> some View {
+        Text(text)
+            .pfFont(17.5, .semibold)
+            .foregroundStyle(.primary)
+            .lineLimit(1)
     }
 }

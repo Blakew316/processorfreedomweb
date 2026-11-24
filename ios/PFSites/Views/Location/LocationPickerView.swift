@@ -198,6 +198,8 @@ struct LocationPickerView: View {
                 .animation(.snappy(duration: 0.2), value: picked)
             }
             .buttonStyle(.plain)
+            // Read as written, not in the capitals the list shows them in (VoiceOver spells some capitals out letter by letter).
+            .accessibilityLabel("\(business.name), \(business.placeLine)")
             .accessibilityAddTraits(picked ? .isSelected : [])
             if index < list.count - 1 {
                 Rectangle()

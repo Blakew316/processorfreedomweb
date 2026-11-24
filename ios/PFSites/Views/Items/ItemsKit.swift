@@ -11,12 +11,12 @@ enum ItemsLook {
     static let title = Color(light: UIColor(hex: 0x2B2B2B), dark: .label)
     /// #5C5C5C: card descriptions, grey headings and labels.
     static let grey = Color(light: UIColor(hex: 0x5C5C5C), dark: UIColor(hex: 0xAEAEB2))
-    /// #4D4D4D: the notes under radio buttons and checkboxes, and checkbox borders.
-    static let soft = Color(light: UIColor(hex: 0x4D4D4D), dark: UIColor(hex: 0xAEAEB2))
+    /// #4D4D4D: the notes under radio buttons and checkboxes, and checkbox borders (the app's muted text).
+    static let soft = SettingsLook.muted
     /// #727272: the grey lines of a list row and its checkboxes.
     static let rowGrey = Color(light: UIColor(hex: 0x727272), dark: .secondaryLabel)
-    /// #E5E5E5: hairlines and card borders.
-    static let line = Color(light: UIColor(hex: 0xE5E5E5), dark: UIColor(hex: 0x38383A))
+    /// Hairlines and card borders: the app's own (#E3E3E3; the photos' #E5E5E5 is two steps from it).
+    static let line = SettingsLook.border
     /// The white line under each list hairline (nothing in dark mode).
     static let lineLight = Color(light: .white, dark: .clear)
     /// #E3E3E3: round buttons, grey pills, the Menus card and its table.
@@ -33,8 +33,8 @@ enum ItemsLook {
     static let placeholder = Color(.placeholderText)
     /// Things Processor Freedom does not do: shown, greyed, and not tappable.
     static let greyed = SettingsLook.greyed
-    /// The fainter grey of a greyed field's placeholder.
-    static let greyedFaint = Color(.quaternaryLabel)
+    /// #E7E7E7: the fainter grey of a greyed field's placeholder ("$0.00" in the photo).
+    static let greyedFaint = Color(light: UIColor(hex: 0xE7E7E7), dark: .quaternaryLabel)
     /// A checked box: Clover's dark green, so navy (brand blue in dark mode, where navy would sink into the black), as on
     /// Appointments.
     static let checked = Color(light: UIColor(hex: 0x0A1F44), dark: UIColor(hex: 0x1D4F9E))
@@ -748,7 +748,7 @@ struct ItemsCard<Content: View>: View {
         .background(ItemsLook.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .strokeBorder(kind == .side ? ItemsLook.control : ItemsLook.line, lineWidth: 1)
+                .strokeBorder(ItemsLook.line, lineWidth: 1)
         }
     }
 

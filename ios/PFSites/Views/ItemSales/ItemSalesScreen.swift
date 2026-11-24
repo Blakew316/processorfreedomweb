@@ -424,8 +424,8 @@ struct ItemSalesScreen: View {
             guard let made = try await report.quickBooksFile(siteID: siteID, siteName: siteName) else {
                 return "No payments in this period to send to QuickBooks."
             }
-            // The sheet stays while the file is made; if it went anyway, the file is not kept to pop up later.
-            guard syncOpen else { return nil }
+            // The sheet stays while the file is made; if it went anyway (Cancel), the file is not kept to pop up later.
+            guard syncOpen, !Task.isCancelled else { return nil }
             fileToOffer = made.file
             syncOpen = false
             let plural = made.count == 1 ? "" : "s"

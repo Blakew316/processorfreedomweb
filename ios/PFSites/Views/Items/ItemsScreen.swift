@@ -23,9 +23,9 @@ struct ItemsScreen: View {
                 .navigationDestination(for: ItemsRoute.self) { route in
                     switch route {
                     case .edit(let id):
-                        ItemEditorPage(items: items, itemID: id, close: { dismiss() }, openMenus: { path.append(.web("menus")) })
+                        ItemEditorPage(items: items, itemID: id, close: { dismiss() }, openMenus: { openMenus() })
                     case .add:
-                        ItemEditorPage(items: items, itemID: nil, close: { dismiss() }, openMenus: { path.append(.web("menus")) })
+                        ItemEditorPage(items: items, itemID: nil, close: { dismiss() }, openMenus: { openMenus() })
                     case .web(let tab):
                         WebScreen(tab: tab)
                     }
@@ -36,6 +36,12 @@ struct ItemsScreen: View {
             // Back from a page: anything changed there (the Menus page, the item settings) shows here.
             if new.count < old.count { Task { await items.load(model) } }
         }
+    }
+
+    /// The website's Menus page over the editor, once: a second tap before it has slid in opens nothing more.
+    private func openMenus() {
+        guard path.count == 1 else { return }
+        path.append(.web("menus"))
     }
 }
 
