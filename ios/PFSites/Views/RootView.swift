@@ -123,6 +123,9 @@ struct ShellView: View {
             case .items:
                 ItemsScreen()
                     .environment(model)
+            case .closeout:
+                CloseoutScreen()
+                    .environment(model)
             }
         }
     }

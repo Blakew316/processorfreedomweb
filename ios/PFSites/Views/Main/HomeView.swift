@@ -165,6 +165,7 @@ struct HomeView: View {
                 case "calendar": model.shell.home.append(.appointments)
                 case "insights": model.shell.cover = .insights
                 case "items": model.shell.cover = .items
+                case "close": model.shell.cover = .closeout
                 default: model.shell.home.append(.page(tile.tab))
                 }
             } label: {

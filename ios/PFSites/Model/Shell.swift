@@ -33,6 +33,7 @@ enum ShellCover: Identifiable {
     case settingsPage(SettingsPageID)   // a native Settings page (Business information, Payments, ...)
     case insights                       // Home → Insights, full screen with an X like the owner's photo
     case items                          // Home → Items and services, full screen with an X like the owner's photos
+    case closeout                       // Home → Closeout, full screen with an X like the owner's photos
 
     var id: String {
         switch self {
@@ -41,6 +42,7 @@ enum ShellCover: Identifiable {
         case .settingsPage(let page): return "settings-\(page.rawValue)"
         case .insights: return "insights"
         case .items: return "items"
+        case .closeout: return "closeout"
         }
     }
 }
