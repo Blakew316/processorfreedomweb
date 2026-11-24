@@ -148,6 +148,7 @@ enum SettingsActions {
         case .group(let id): model.shell.push(.settingsGroup(id))
         case .locations: model.shell.sheet = .locations
         case .appSecurity: model.shell.push(.appSecurity)
+        case .native(let page): model.shell.cover = .settingsPage(page)
         case .unavailable: break
         }
     }

@@ -25,11 +25,13 @@ enum ShellSheet: String, Identifiable {
 enum ShellCover: Identifiable {
     case switchTo(Site)      // the passcode step for another business
     case changePasscode
+    case settingsPage(SettingsPageID)   // a native Settings page (Business information, Payments, ...)
 
     var id: String {
         switch self {
         case .switchTo(let site): return "switch-\(site.id)"
         case .changePasscode: return "passcode"
+        case .settingsPage(let page): return "settings-\(page.rawValue)"
         }
     }
 }

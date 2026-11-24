@@ -66,6 +66,7 @@ struct SettingsRow: Identifiable, Hashable {
         case group(String)      // a Settings sub-list
         case locations          // the Choose primary location sheet
         case appSecurity        // the app's own security list
+        case native(SettingsPageID) // a native full-screen Settings page
         case unavailable
     }
 
@@ -95,31 +96,31 @@ enum SettingsCatalog {
     static func groups(owner: Bool) -> [SettingsGroup] {
         [
             SettingsGroup(id: "about", title: "About your business", bands: [SettingsBand(title: "Global settings", rows: [
-                SettingsRow(title: "Business information", target: .page("bizinfo")),
+                SettingsRow(title: "Business information", target: .native(.businessInformation)),
                 SettingsRow(title: "Merchants", target: .locations),
-                SettingsRow(title: "Closeout settings", target: .unavailable),
+                SettingsRow(title: "Closeout settings", target: .native(.closeoutSettings)),
             ])]),
             SettingsGroup(id: "operations", title: "Business operations", bands: [SettingsBand(title: "Global settings", rows: operationsRows(owner: owner))]),
             SettingsGroup(id: "transactions", title: "Transactions", bands: [
                 SettingsBand(title: "Global settings", rows: [
-                    SettingsRow(title: "Orders", target: .page("orders")),
-                    SettingsRow(title: "Order receipts", target: .unavailable),
-                    SettingsRow(title: "Order types", target: .page("ordering")),
-                    SettingsRow(title: "Payments", target: .page("tx")),
-                    SettingsRow(title: "Payment receipts", target: .unavailable),
-                    SettingsRow(title: "Invoice number", target: .unavailable),
-                    SettingsRow(title: "Invoices and estimates", target: .page("invoices")),
-                    SettingsRow(title: "Manual card entry permission", target: .unavailable),
+                    SettingsRow(title: "Orders", target: .native(.ordersOptions)),
+                    SettingsRow(title: "Order receipts", target: .native(.orderReceipts)),
+                    SettingsRow(title: "Order types", target: .native(.orderTypes)),
+                    SettingsRow(title: "Payments", target: .native(.payments)),
+                    SettingsRow(title: "Payment receipts", target: .native(.paymentReceipts)),
+                    SettingsRow(title: "Invoice number", target: .native(.invoiceNumber)),
+                    SettingsRow(title: "Invoices and estimates", target: .native(.invoicesEstimates)),
+                    SettingsRow(title: "Manual card entry permission", target: .native(.manualCardEntry)),
                 ]),
                 SettingsBand(title: "PF Sites settings", rows: [
-                    SettingsRow(title: "Payment note", target: .unavailable),
-                    SettingsRow(title: "Quick sale", target: .unavailable),
-                    SettingsRow(title: "Carbon copy receipts", target: .unavailable),
-                    SettingsRow(title: "Tap to Pay on iPhone", target: .unavailable),
+                    SettingsRow(title: "Payment note", target: .native(.paymentNote)),
+                    SettingsRow(title: "Quick sale", target: .native(.quickSale)),
+                    SettingsRow(title: "Carbon copy receipts", target: .native(.carbonCopyReceipts)),
+                    SettingsRow(title: "Tap to Pay on iPhone", target: .native(.tapToPay)),
                 ]),
             ]),
             SettingsGroup(id: "services", title: "Services and appointments", bands: [SettingsBand(title: "Global settings", rows: [
-                SettingsRow(title: "Appointment booking", target: .page("booking")),
+                SettingsRow(title: "Appointment booking", target: .native(.appointmentBooking)),
             ])]),
         ]
     }

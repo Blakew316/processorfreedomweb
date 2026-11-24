@@ -114,6 +114,9 @@ struct ShellView: View {
             case .changePasscode:
                 ChangePasscodeView()
                     .environment(model)
+            case .settingsPage(let page):
+                SettingsPageHost(id: page)
+                    .environment(model)
             }
         }
     }
