@@ -31,6 +31,10 @@ enum CreateAppointmentLook {
     static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: .secondaryLabel)
     /// 6.33 pt (the photos' 19 px) between a field's name and its box.
     static let labelGap: CGFloat = 6.33
+    /// The corners of the photos' cards are quarter circles of 24 pt, and those of a service's card inside one of 25 pt (both
+    /// fitted to the photos' borders pixel by pixel; a 20 pt squircle leaves the corners up to 3 pt squarer).
+    static let cardShape = RoundedRectangle(cornerRadius: 24)
+    static let serviceShape = RoundedRectangle(cornerRadius: 25)
 }
 
 // MARK: - Drawings (traced from the photos in their own boxes, in points, and scaled to the frame they get)
@@ -101,7 +105,7 @@ struct CreateAppointmentPlusRing: Shape {
 
 // MARK: - Cards, labels and fields
 
-/// A white card of the form (1 pt #E3E3E3 border, 20 pt corners, 17 pt inside), with its title (18 pt bold) and a chevron that
+/// A white card of the form (1 pt #E3E3E3 border, 24 pt corners, 17 pt inside), with its title (18 pt bold) and a chevron that
 /// opens and closes it; the whole title row is the button. Closed it is the photos' 76 pt. `gap` is the space the photo has
 /// between the title and the first line under it, and `bottom` the space under the last line. The spaces here and in the form
 /// are whole pixels of the photos (thirds of a point), so every line lands where the photo has it.
@@ -149,11 +153,11 @@ struct CreateAppointmentCard<Content: View>: View {
         }
         .padding(.horizontal, 17)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(SettingsLook.card, in: CreateAppointmentLook.cardShape)
         // What is inside shows only as far as the card has opened, so nothing spills over the next card while it folds.
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(CreateAppointmentLook.cardShape)
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            CreateAppointmentLook.cardShape
                 .strokeBorder(SettingsLook.border, lineWidth: 1)
         }
     }

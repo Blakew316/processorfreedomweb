@@ -145,19 +145,12 @@ struct ScannerSurface: View {
         showRefused = true
     }
 
-    /// One sighting of one or more codes. New reads go on, unless paused; every sighting keeps a code from being read twice. A
-    /// code that comes into view while paused (the next item held up while a message is still showing) is not lost: it is read at
-    /// its first sighting once the scanner is free, instead of waiting to be taken away and shown again.
+    /// One sighting of one or more codes. New reads go on, unless paused; every sighting keeps a code from being read twice.
     private func take(_ codes: [String], fresh: Bool) {
         let now = Date()
         for code in codes {
-            if paused {
-                gate.sawWhileBusy(code, at: now)
-                continue
-            }
-            let held = gate.wasHeld(code)
             let isNew = gate.pass(code, at: now)
-            if isNew && (fresh || held) { onRead(code) }
+            if fresh && isNew && !paused { onRead(code) }
         }
     }
 }

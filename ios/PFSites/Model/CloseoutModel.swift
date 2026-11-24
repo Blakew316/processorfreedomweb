@@ -117,13 +117,17 @@ final class CloseoutModel {
         let mine = round
         loading = true
         var words: String?
-        // The business's clock is asked for beside the batches. The first batches wait for it, so their times never change under
-        // the reader; after that it is only checked again, at most once a minute, and holds nothing back.
-        let clockKnown = zoneLoadedAt != nil
-        let clock = Task { await loadZone(siteID: siteID) }
+        // The business's clock is asked for beside the batches. The first batches wait a moment for it (it nearly always answers
+        // with them, and never more than a second and a half), so their times do not change under the reader; after that it is
+        // only checked again, at most once a minute, and holds nothing back.
+        Task { await loadZone(siteID: siteID) }
         do {
             let answer = try await API.get("/api/sites/\(siteID)/closeouts")
-            if !clockKnown { await clock.value }
+            var waits = 0
+            while zoneLoadedAt == nil, zoneLoading, waits < 15 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                waits += 1
+            }
             guard mine == round else { return nil }
             if answer["open"].isObject {
                 let fresh = CloseoutOpenBatch(answer["open"])

@@ -16,7 +16,9 @@ struct AppSecurityView: View {
     @State private var faceIDProblem = ""
     @State private var pushProblem = ""
 
-    static let lockTitle = "Lock after 15 minutes without activity"
+    /// The names of two rows, shared with the search across all settings.
+    static let timeoutTitle = "Inactivity timeout"
+    static let analyticsTitle = "App analytics"
 
     /// Change location is offered by the header's switch-location rule: with more than one business, or after a team member's
     /// passcode unlock (that session covers only the business that gave out the passcode, and the location list is where they
@@ -215,7 +217,7 @@ struct AppSecurityView: View {
     /// The app locks after 15 minutes without activity, a fixed rule, so the chevron is greyed.
     private var timeoutRow: some View {
         VStack(spacing: 0) {
-            titleAndValue(title: "Inactivity timeout", value: "15 minutes") {
+            titleAndValue(title: Self.timeoutTitle, value: "15 minutes") {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(SettingsLook.greyed)
@@ -281,7 +283,7 @@ struct AppSecurityView: View {
 
     /// PF Sites collects no app analytics, so the switch is off and cannot be turned on.
     private var analyticsRow: some View {
-        switchRow(title: "App analytics", isOn: .constant(false), greyed: true)
+        switchRow(title: Self.analyticsTitle, isOn: .constant(false), greyed: true)
     }
 
     private var logOutRow: some View {

@@ -245,18 +245,21 @@ struct SettingsSearchResults: View {
         return all.filter { $0.title.localizedCaseInsensitiveContains(query) }
     }
 
-    /// The rows of App security and privacy that this iPhone and this login have, as that page shows them.
+    /// The rows of App security and privacy that this iPhone and this login have, by the names and in the order that page shows them.
     private var securityMatches: [Match] {
         let shell = model.shell
         let card = "App security and privacy"
-        var out = [Match(title: "Change passcode", card: card, enabled: Keychain.device != nil) { shell.cover = .changePasscode }]
+        var out: [Match] = []
         if model.biometry != .none {
             out.append(Match(title: model.biometry.name, card: card, enabled: true) { shell.push(.appSecurity) })
         }
+        out.append(Match(title: AppSecurityView.timeoutTitle, card: card, enabled: true) { shell.push(.appSecurity) })
+        // PF Sites collects no app analytics: greyed there, and here.
+        out.append(Match(title: AppSecurityView.analyticsTitle, card: card, enabled: false) {})
+        out.append(Match(title: "Appearance", card: card, enabled: true) { shell.push(.appSecurity) })
+        out.append(Match(title: "Change passcode", card: card, enabled: Keychain.device != nil) { shell.cover = .changePasscode })
         out.append(Match(title: "Notifications", card: card, enabled: model.config.appPush) { shell.push(.appSecurity) })
         out.append(Match(title: "Two-step sign-in", card: card, enabled: true) { shell.push(.page("profile")) })
-        out.append(Match(title: "Appearance", card: card, enabled: true) { shell.push(.appSecurity) })
-        out.append(Match(title: AppSecurityView.lockTitle, card: card, enabled: true) { shell.push(.appSecurity) })
         if AppSecurityView.offersChangeLocation(model) {
             out.append(Match(title: "Change location", card: card, enabled: true) { shell.sheet = .locations })
         }

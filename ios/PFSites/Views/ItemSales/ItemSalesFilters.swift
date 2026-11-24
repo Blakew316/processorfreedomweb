@@ -242,7 +242,7 @@ struct ItemSalesSearchField: View {
     @FocusState private var typing: Bool
 
     var body: some View {
-        // The photo's places: the glass 15.4 pt in from the box's edge; the words start 47 pt in.
+        // The photo's place for the glass: 15.4 pt in from the box's edge. The gap after it keeps the typed words where they were.
         HStack(spacing: 13.6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .regular))

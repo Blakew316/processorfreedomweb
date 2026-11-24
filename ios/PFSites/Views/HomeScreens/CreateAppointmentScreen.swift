@@ -538,7 +538,7 @@ struct CreateAppointmentScreen: View {
         .padding(.bottom, 21)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            CreateAppointmentLook.serviceShape
                 .strokeBorder(SettingsLook.border, lineWidth: 1)
         }
     }

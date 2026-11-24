@@ -379,10 +379,17 @@ struct TxLoading: View {
                     .pfFont(16)
                     .foregroundStyle(Theme.error)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Try again", action: retry)
-                    .pfFont(16, .semibold)
-                    .foregroundStyle(Theme.blue)
-                    .buttonStyle(.plain)
+                Button(action: retry) {
+                    Text("Try again")
+                        .pfFont(16, .semibold)
+                        .foregroundStyle(Theme.blue)
+                        // A taller place to tap than the words themselves, without moving anything.
+                        .padding(.vertical, 12.5)
+                        .padding(.trailing, 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, -12.5)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
