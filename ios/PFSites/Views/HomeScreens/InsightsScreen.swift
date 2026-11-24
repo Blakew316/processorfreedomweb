@@ -48,19 +48,26 @@ struct InsightsScreen: View {
                 visibleHeight = height
             }
             .background(Color(.systemBackground))
-            .scrollEdgeEffectStyle(.hard, for: .top)
             .refreshable { await load(stats) }
             .navigationTitle("Insights")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // The photo's bare black X, its centre 28 pt from the edge: no glass circle behind it.
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(Color.primary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .offset(x: -10)
                     .accessibilityLabel("Close")
                 }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .principal) {
                     Text("Insights")
                         .pfFont(19, .bold, relativeTo: .headline)
