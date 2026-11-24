@@ -207,6 +207,7 @@ struct OrderFiltersSheet: View {
     /// chosen one navy (Clover's dark green), white in dark mode.
     private func choice(_ title: String, on: Bool, pick: @escaping () -> Void) -> some View {
         Button {
+            if !on { Haptics.light() }
             withAnimation(.snappy(duration: 0.2)) { pick() }
         } label: {
             HStack(spacing: 13) {

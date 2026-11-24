@@ -185,6 +185,9 @@ struct OrdersTabView: View {
         return Button {
             tabTapped = true
             orders.tabChosen = true
+            guard !on else { return }
+            // The light tap the app gives when moving between the pages of a section.
+            Haptics.light()
             orders.tab = tab
         } label: {
             Text(count > 0 ? "\(title) (\(count))" : title)

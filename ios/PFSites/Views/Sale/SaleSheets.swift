@@ -103,6 +103,8 @@ struct CategorySheet: View {
 
     private func row(title: String, selected: Bool, choose: @escaping () -> Void) -> some View {
         Button {
+            // The light tap the app gives when another choice in a list is taken.
+            if !selected { Haptics.light() }
             choose()
             dismiss()
         } label: {
