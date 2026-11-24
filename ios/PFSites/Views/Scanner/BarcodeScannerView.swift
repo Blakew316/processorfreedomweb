@@ -310,6 +310,7 @@ enum BarcodeScan {
             let root = SingleScanView(finish: { code in BarcodeScan.finish(code) })
                 .environment(AppModel.shared)
                 .tint(Theme.blue)
+                .dynamicTypeSize(...DynamicTypeSize.large)
             let host = UIHostingController(rootView: root)
             host.modalPresentationStyle = .fullScreen
             host.overrideUserInterfaceStyle = .dark

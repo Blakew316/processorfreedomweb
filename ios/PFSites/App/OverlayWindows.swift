@@ -26,7 +26,7 @@ final class OverlayWindows {
         guard lockWindow == nil, let scene else { return }
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
-        let host = UIHostingController(rootView: LockScreen().environment(AppModel.shared).tint(Theme.blue))
+        let host = UIHostingController(rootView: LockScreen().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large))
         host.view.backgroundColor = .systemBackground
         window.rootViewController = host
         window.makeKeyAndVisible()
@@ -63,7 +63,7 @@ final class OverlayWindows {
         guard coverWindow == nil, let scene else { return }
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 2)
-        let host = UIHostingController(rootView: PrivacyCover())
+        let host = UIHostingController(rootView: PrivacyCover().dynamicTypeSize(...DynamicTypeSize.large))
         host.view.backgroundColor = .systemBackground
         window.rootViewController = host
         window.isHidden = false
@@ -83,7 +83,7 @@ final class OverlayWindows {
         guard warningWindow == nil, let scene else { return }
         let window = BannerWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1)
-        let host = UIHostingController(rootView: IdleWarningBanner().environment(AppModel.shared).tint(Theme.blue))
+        let host = UIHostingController(rootView: IdleWarningBanner().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large))
         host.view.backgroundColor = .clear
         window.rootViewController = host
         // It comes down from the top as it appears (just fades in with Reduce Motion).

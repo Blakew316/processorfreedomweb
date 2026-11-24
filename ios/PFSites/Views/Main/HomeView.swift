@@ -12,9 +12,14 @@ struct HomeView: View {
         let orders: Int
     }
 
-    /// Every tile is as tall as the tallest one (a two-line name like "Items and services"), so the grid stays even at any text size.
+    /// Tiles side by side are as tall as each other (a two-line name like "Items and services" makes its whole row taller), and a
+    /// tile on a row of its own is as tall as it needs, as in Clover's photo.
     @State private var tileHeights: [String: CGFloat] = [:]
-    private var tileHeight: CGFloat { max(118, tileHeights.values.max() ?? 0) }
+    private static let tileRows: [[String]] = [["insights", "calendar"], ["items", "close"]]
+    private func tileHeight(_ tab: String) -> CGFloat {
+        let row = Self.tileRows.first { $0.contains(tab) } ?? [tab]
+        return row.compactMap { tileHeights[$0] }.max() ?? 0
+    }
 
     private struct HomeTile {
         let tab: String
@@ -47,7 +52,7 @@ struct HomeView: View {
                 }
                 tile(itemSales)
             }
-            .padding(.horizontal, 17)
+            .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 20)
         }
@@ -66,30 +71,32 @@ struct HomeView: View {
         let showing = shell.salesAllowed && shell.salesShown
         return VStack(alignment: .leading, spacing: 0) {
             TimelineView(.everyMinute) { context in
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 15) {
                     Text(context.date, format: .dateTime.weekday(.wide).month(.wide).day())
-                        .pfFont(26, .bold, relativeTo: .title)
+                        .pfFont(23, .bold, relativeTo: .title)
                     // Today's sales take the time's place while they are shown, in the same size, as in the photos.
                     if showing, let sales {
                         Text(Money.format(sales.net))
-                            .pfFont(32, .light, relativeTo: .largeTitle)
+                            .pfFont(26, .light, relativeTo: .largeTitle)
                             .accessibilityLabel("Net sales today, \(Money.format(sales.net)), \(sales.orders) \(sales.orders == 1 ? "order" : "orders")")
                     } else if showing && loadingSales {
                         ProgressView()
                             .tint(.white)
-                            .frame(minHeight: 38, alignment: .leading)
+                            .frame(minHeight: 31, alignment: .leading)
                     } else {
                         Text(context.date, format: .dateTime.hour().minute())
-                            .pfFont(32, .light, relativeTo: .largeTitle)
+                            .pfFont(26, .light, relativeTo: .largeTitle)
                     }
                 }
                 .foregroundStyle(.white)
             }
             salesPart
-                .padding(.top, 18)
+                .padding(.top, 15)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, minHeight: 138, alignment: .leading)
+        .padding(.top, 11)
+        .padding(.bottom, 16)
+        .padding(.horizontal, 17)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.navy))
     }
 
@@ -120,7 +127,7 @@ struct HomeView: View {
     private func cardButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .pfFont(18, .semibold)
+                .pfFont(14, .semibold)
                 .foregroundStyle(Theme.linkOnNavy)
         }
         .buttonStyle(.plain)
@@ -185,19 +192,20 @@ struct HomeView: View {
                     .frame(width: 48, height: 48)
                     .accessibilityHidden(true)
                     Text(tile.title)
-                        .pfFont(20, .medium)
+                        .pfFont(17.5, .medium)
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 14)
+                        .padding(.top, 6)
                 }
-                .padding(.vertical, 22)
+                .padding(.top, 22)
+                .padding(.bottom, 16)
                 .padding(.horizontal, 12)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     ceil(proxy.size.height)
                 } action: { height in
                     tileHeights[tile.tab] = height
                 }
-                .frame(maxWidth: .infinity, minHeight: tileHeight)
+                .frame(maxWidth: .infinity, minHeight: tileHeight(tile.tab))
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(light: .white, dark: .secondarySystemBackground)))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(.systemGray5), lineWidth: 1))
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
