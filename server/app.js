@@ -1139,7 +1139,7 @@ export function createApp(options = {}) {
   });
 
   const invoiceUrl = (req, site, token) => `${siteUrl(req, site).replace(/\/$/, '')}/invoice/${token}`;
-  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discountName: r.discount_name || '', discount: r.discount, subtotal: r.subtotal, tax: r.tax, total: r.total,
+  const toInvoice = (r, req, site) => ({ id: r.id, number: r.number, kind: r.kind === 'estimate' ? 'estimate' : 'invoice', label: `${r.kind === 'estimate' ? 'EST' : 'INV'}-${r.number}`, status: r.status, customer: JSON.parse(r.customer), items: JSON.parse(r.items), notes: r.notes, due: r.due, taxRate: r.tax_rate, discountName: r.discount_name || '', discount: r.discount, discountPct: r.discount_pct || 0, subtotal: r.subtotal, tax: r.tax, total: r.total,
     project: r.project || '', terms: r.terms || '', attachments: JSON.parse(r.attachments || '[]'), payUrl: r.pay_url, paidMethod: r.paid_method, paidNote: r.paid_note, reminders: r.reminders, createdAt: r.created_at, sentAt: r.sent_at, viewedAt: r.viewed_at, paidAt: r.paid_at, ...(req ? { url: invoiceUrl(req, site, r.token) } : {}) });
   const invoicesOf = (req, site) => db.all('SELECT * FROM invoices WHERE site_id = ? ORDER BY created_at DESC LIMIT 2000', site.id).map((r) => toInvoice(r, req, site));
   // Files attached to an invoice or project: only files uploaded here by someone who works on this site (or already on it),
@@ -1170,11 +1170,14 @@ export function createApp(options = {}) {
     const rate = Number(b.taxRate);
     const taxRate = Number.isFinite(rate) ? Math.min(30, Math.max(0, Math.round(rate * 1000) / 1000)) : 0;
     const due = realDay(b.due) ? b.due : '';
-    const totals = invoiceTotals(items, taxRate, b.discount);
-    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...totals, discountName: totals.discount ? str(b.discountName, 60).trim() : '', terms: TERMS.includes(b.terms) ? b.terms : '', attachments: cleanFiles(b.attachments, { most: 3, total: 25 * MB, site, keep }) };
+    // A percentage discount is worked out here from what was sold (never a service charge).
+    const pct = Math.max(0, Math.min(100, Math.round((Number(b.discountPct) || 0) * 1000) / 1000));
+    const goods = items.reduce((a, l) => a + (l.charge ? 0 : Math.round(l.price * l.qty)), 0);
+    const totals = invoiceTotals(items, taxRate, pct ? Math.round((goods * pct) / 100) : b.discount);
+    return { customer, items, notes: str(b.notes, 2000).trim(), project: str(b.project, 80).trim(), due, taxRate, payUrl: safeUrl(str(b.payUrl, 500).trim()), ...totals, discountName: totals.discount ? str(b.discountName, 60).trim() : '', discountPct: totals.discount ? pct : 0, terms: TERMS.includes(b.terms) ? b.terms : '', attachments: cleanFiles(b.attachments, { most: 3, total: 25 * MB, site, keep }) };
   }
   const ownInvoice = (site, invId) => db.get('SELECT * FROM invoices WHERE id = ? AND site_id = ?', invId, site.id) || bad(404, 'We could not find that invoice.');
-  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, discount_name = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, project = ?, terms = ?, attachments = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.discountName || '', v.subtotal, v.tax, v.total, v.payUrl, v.project || '', v.terms || '', JSON.stringify(v.attachments || []), Date.now(), rowId);
+  const saveInvoice = (rowId, v) => db.run('UPDATE invoices SET customer = ?, items = ?, notes = ?, due = ?, tax_rate = ?, discount = ?, discount_name = ?, discount_pct = ?, subtotal = ?, tax = ?, total = ?, pay_url = ?, project = ?, terms = ?, attachments = ?, updated_at = ? WHERE id = ?', JSON.stringify(v.customer), JSON.stringify(v.items), v.notes, v.due, v.taxRate, v.discount, v.discountName || '', v.discountPct || 0, v.subtotal, v.tax, v.total, v.payUrl, v.project || '', v.terms || '', JSON.stringify(v.attachments || []), Date.now(), rowId);
 
   route('POST', '/api/sites/:id/contacts/import', async (req, res, p) => {
     const { site } = ownSite(req, p.id);
@@ -1489,7 +1492,11 @@ export function createApp(options = {}) {
     const { site } = ownSite(req, p.id);
     const row = ownInvoice(site, p.inv);
     if (row.status === 'paid' || row.status === 'void') bad(409, 'A paid or cancelled invoice cannot be changed. Duplicate it instead.');
-    const v = cleanInvoice(await readJson(req, 200_000), site, filesOf(row.attachments));
+    // A save from a page that does not know about files or payment terms leaves them as they are.
+    const raw = await readJson(req, 200_000);
+    if (raw.attachments === undefined) raw.attachments = filesOf(row.attachments);
+    if (raw.terms === undefined) raw.terms = row.terms;
+    const v = cleanInvoice(raw, site, filesOf(row.attachments));
     saveInvoice(row.id, v);
     keepContact(site.id, v.customer);
     json(res, 200, { invoice: toInvoice(ownInvoice(site, row.id), req, site), invoices: invoicesOf(req, site), contacts: contactsOf(site.id) });

@@ -1311,7 +1311,7 @@ export async function editor(id, mount, title, startTab = '') {
         ['Transactions, last 30 days', 'Recorded payments and refunds.', async () => { const d = await api('GET', `/api/sites/${id}/transactions?range=last30`); return [`${meta.slug}-transactions`, [['Date', 'Time', 'Type', 'For', 'Customer', 'Tender', 'Amount', 'Note'], ...d.payments.map((x) => [x.date, x.time, x.amount < 0 ? 'Void' : 'Payment', `${x.source} ${x.ref}`, x.customer, x.method, cash(x.amount), x.note || '']), ...d.refunds.map((x) => [x.date, x.time, 'Refund', `${x.source} ${x.ref}`, x.customer, x.method, `-${cash(x.amount)}`, x.note])]]; }],
         ['Item list', 'Your whole inventory with prices and quantities.', async () => [`${meta.slug}-items`, [['Category', 'Item name', 'Price', 'Description', 'Stock', 'Taxable', 'Printer label', 'Revenue class'], ...menu.map((x) => [x.category, x.name, cash(x.price), x.desc, x.stock, x.taxable === false ? 'no' : 'yes', x.label, x.revclass])]]],
         ['Customers', 'Everyone who has ordered or been invoiced.', async () => { const r = await api('GET', `/api/sites/${id}/customers`); return [`${meta.slug}-customers`, [['Name', 'Company', 'Email', 'Phone', 'Orders', 'Total spent', 'Last order'], ...r.customers.map((c) => [c.name, c.company || '', c.email, c.phone, c.orders, cash(c.spent), iso(c.last)])]]; }],
-        ['Invoices and estimates', 'Every invoice and estimate with its status.', async () => { const r = await api('GET', `/api/sites/${id}/invoices`); return [`${meta.slug}-invoices`, [['Number', 'Kind', 'Status', 'Customer', 'Email', 'Created', 'Due', 'Paid', 'Total'], ...r.invoices.map((v) => [v.label, v.kind, v.status, v.customer.name, v.customer.email, iso(v.createdAt), v.due, iso(v.paidAt), cash(v.total)])]]; }],
+        ['Invoices and estimates', 'Every invoice and estimate with its status.', async () => { const r = await api('GET', `/api/sites/${id}/invoices`); const day = (ms) => (ms ? bizDay(ms) : ''); return [`${meta.slug}-invoices`, [['Number', 'Kind', 'Status', 'Customer', 'Company', 'Email', 'Project', 'Created', 'Sent', 'Due', 'Paid', 'Paid by', 'Subtotal', 'Discount', 'Tax', 'Total'], ...r.invoices.map((v) => [v.label, v.kind === 'estimate' ? 'Estimate' : 'Invoice', BILL_STATUS[v.kind === 'estimate' ? 'estimate' : 'invoice'][billState(v)], v.customer.name, v.customer.company || '', v.customer.email, v.project || '', day(v.createdAt), day(v.sentAt), v.due, day(v.paidAt), v.paidMethod || '', cash(v.subtotal), cash(v.discount), cash(v.tax), cash(v.total)])]]; }],
       ];
       return [h('div', { class: 'inv' }, h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Exports'), null)),
         h('div', { class: 'scard', style: 'padding:8px 24px' }, list.map(([label, hint2, fn]) => h('div', { class: 'rline', style: 'align-items:center;padding:14px 0' }, h('span', {}, h('b', { style: 'color:var(--ink);font-weight:500;display:block' }, label), hint2), h('button', { class: 'btn soft sm', onclick: () => grab(label, fn) }, ic('dl', 14), 'Download')))))];
@@ -1910,7 +1910,9 @@ export async function editor(id, mount, title, startTab = '') {
         const q2 = input.value.trim().toLowerCase();
         const has = (t) => !q2 || String(t).toLowerCase().includes(q2);
         const out = [];
-        for (const [k, label, icon] of tabs) if (has(label)) out.push({ icon, label, kind: 'Screen', go: () => goTab(k) });
+        // The create pages open blank from here, never the last record that was open in them.
+        const open2 = { 'inv-edit': () => openInvoice(null, null, 'invoice'), 'est-edit': () => openInvoice(null, null, 'estimate'), 'proj-edit': () => openProject(null) };
+        for (const [k, label, icon] of tabs) if (has(label)) out.push({ icon, label, kind: 'Screen', go: open2[k] || (() => goTab(k)) });
         if (q2) {
           for (const [label, k] of SETTINGS) if (has(label) && tabs.some(([t]) => t === k)) out.push({ icon: tabs.find(([t]) => t === k)[2], label, kind: tabs.find(([t]) => t === k)[1], go: () => goTab(k) });
           for (const it of menu) if (has(`${it.name} ${it.category}`)) out.push({ icon: 'tag', label: it.name, kind: `Item · ${money(itemPrice(it))}`, go: () => { goTab('items'); openItem(it.id); } });
@@ -3839,7 +3841,7 @@ export async function editor(id, mount, title, startTab = '') {
   function itKebab(items, label = 'More actions', { below = false } = {}) {
     const b = h('button', { type: 'button', class: 'it-more', 'aria-label': label, title: label, 'aria-haspopup': 'menu' }, h('span', { class: 'rep-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
     b.onclick = () => {
-      popover(b, (close) => h('div', { class: 'it-menu', role: 'menu' }, items.filter(Boolean).map(([l, icon, fn, kind]) => h('button', { type: 'button', role: 'menuitem', class: kind || '', disabled: !fn, onclick: () => { close(); fn(); } }, icon && h('span', { class: 'it-mi', html: icon }), h('span', {}, l)))), 'right');
+      popover(b, (close) => menuKeys(h('div', { class: 'it-menu', role: 'menu' }, items.filter(Boolean).map(([l, icon, fn, kind]) => h('button', { type: 'button', role: 'menuitem', class: kind || '', disabled: !fn, onclick: () => { close(); fn(); } }, icon && h('span', { class: 'it-mi', html: icon }), h('span', {}, l)))), b, close), 'right');
       requestAnimationFrame(() => {
         if (!popEl || popEl._for !== b) return;
         const r = b.getBoundingClientRect(), m = popEl.getBoundingClientRect();
@@ -4328,7 +4330,7 @@ export async function editor(id, mount, title, startTab = '') {
   /* ---------- Invoices, estimates and projects, like the photos ---------- */
   const IVI = {
     find: SV('<path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21H11"/><path d="M14 3l5 5v3"/><path d="M14 3v5h5"/><circle cx="16" cy="16.5" r="3.5"/><path d="m18.6 19.1 2.4 2.4"/>', 22),
-    upload: SV('<path d="M12 15V4.5M7.5 9 12 4.5 16.5 9M5 14.5v4h14v-4"/>', 20),
+    upload: SV('<path d="M12 14.5v-10M8 8.5l4-4 4 4"/><path d="M3.5 14.5v2.5a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-2.5"/>', 26),
     file: SV('<path d="M13.5 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z"/><path d="M13.5 3.5v5h5"/>', 20),
   };
   const MB = 1024 * 1024;
@@ -4338,8 +4340,20 @@ export async function editor(id, mount, title, startTab = '') {
   const billDay = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }) : '— —');
   const billState = (v) => (invoiceLate(v, bizDay()) ? 'late' : v.status);
   const BILL_STATUS = { invoice: { draft: 'Draft', sent: 'Unpaid', late: 'Overdue', paid: 'Paid', void: 'Cancelled' }, estimate: { draft: 'Draft', sent: 'Sent', late: 'Expired', paid: 'Paid', void: 'Cancelled' } };
-  const loadBills = (...on) => { if (bills || clState.billsBusy) return; clState.billsBusy = true; api('GET', `/api/sites/${id}/invoices`).then((r) => { bills = r; }).catch((e) => { toast(e.message, true); bills = { invoices: [], contacts: [], payUrl: '' }; }).finally(() => { clState.billsBusy = false; if (on.includes(tab)) paintPanel(); }); };
-  const loadProjects = (...on) => { if (projData || clState.projBusy) return; clState.projBusy = true; api('GET', `/api/sites/${id}/projects`).then((r) => { projData = r; }).catch(() => { projData = { projects: [] }; }).finally(() => { clState.projBusy = false; if (on.includes(tab)) paintPanel(); }); };
+  // Whichever of these pages is open when the data arrives is drawn again, even if it is not the page that asked.
+  const BILL_TABS = ['invoices', 'est', 'projects', 'inv-edit', 'est-edit', 'proj-edit'];
+  const loadBills = () => { if (bills || clState.billsBusy) return; clState.billsBusy = true; api('GET', `/api/sites/${id}/invoices`).then((r) => { bills = r; }).catch((e) => { toast(e.message, true); bills = { invoices: [], contacts: [], payUrl: '' }; }).finally(() => { clState.billsBusy = false; if (BILL_TABS.includes(tab)) paintPanel(); }); };
+  const loadProjects = () => { if (projData || clState.projBusy) return; clState.projBusy = true; api('GET', `/api/sites/${id}/projects`).then((r) => { projData = r; }).catch(() => { projData = { projects: [] }; }).finally(() => { clState.projBusy = false; if (BILL_TABS.includes(tab)) paintPanel(); }); };
+  // Arrow keys, Home and End move through a menu; Tab and Escape leave it and go back to its button.
+  function menuKeys(menu, anchor, close) {
+    menu.addEventListener('keydown', (e) => {
+      const items = [...menu.querySelectorAll('button:not(:disabled)')], i = items.indexOf(document.activeElement);
+      const to = { ArrowDown: (i + 1) % items.length, ArrowUp: (i - 1 + items.length) % items.length, Home: 0, End: items.length - 1 }[e.key];
+      if (to !== undefined && items.length) { e.preventDefault(); items[to].focus(); }
+      else if (e.key === 'Tab' || e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); anchor.focus(); }
+    });
+    return menu;
+  }
   // Everyone the business can bill: saved customers and people who have ordered, for the customer search.
   const loadPeople = () => { if (customers || clState.custBusy) return; clState.custBusy = true; api('GET', `/api/sites/${id}/customers`).then((r) => { customers = r.customers; }).catch(() => {}).finally(() => { clState.custBusy = false; }); };
   const copyBillLink = async (url) => { try { await navigator.clipboard.writeText(url); toast('Invoice link copied'); } catch { toast('Copy the link from the address bar after pressing View', true); } };
@@ -4354,7 +4368,7 @@ export async function editor(id, mount, title, startTab = '') {
       return [h('div', { class: 'row' }, h('h2', { class: 'grow' }, v.label), h('span', { class: `status ${v.status === 'paid' ? 'ok' : ''}` }, v.status === 'paid' ? 'Paid' : 'Cancelled'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, ic('x', 20))),
         h('p', { class: 'muted' }, `${v.customer.company || v.customer.name}${v.customer.email ? ` · ${v.customer.email}` : ''}`),
         h('div', { class: 'bill-lines ro' }, v.items.map((l) => h('div', { class: 'rline' }, h('span', {}, `${l.qty} × ${l.name}`), h('b', {}, money(l.price * l.qty)))), v.discount > 0 && h('div', { class: 'rline' }, h('span', {}, 'Discount'), h('b', {}, `−${money(v.discount)}`)), v.tax > 0 && h('div', { class: 'rline' }, h('span', {}, 'Tax'), h('b', {}, money(v.tax))), h('div', { class: 'rline total' }, h('span', {}, 'Total'), h('b', {}, money(v.total)))),
-        v.status === 'paid' && h('div', { class: 'note' }, h('b', {}, `Paid ${fmtDate(v.paidAt)}`), v.paidMethod && ` by ${v.paidMethod.toLowerCase()}`, v.paidNote && ` · ${v.paidNote}`),
+        v.status === 'paid' && h('div', { class: 'note' }, h('b', {}, `Paid ${billDay(bizDay(v.paidAt))}`), v.paidMethod && ` by ${v.paidMethod.toLowerCase()}`, v.paidNote && ` · ${v.paidNote}`),
         h('div', { class: 'acts', style: 'justify-content:space-between;flex-wrap:wrap' },
           h('div', { class: 'row' }, v.status === 'paid' && h('button', { class: 'btn text sm', onclick: () => act(() => api('POST', `/api/sites/${id}/invoices/${v.id}/status`, { status: 'sent' })) }, 'Undo paid'), v.status !== 'paid' && h('button', { class: 'btn danger sm', onclick: async () => { if (await confirmSheet({ title: `Delete ${v.label}?`, text: 'It is removed from your records and the customer’s link stops working.', action: 'Delete', danger: true })) act(() => api('DELETE', `/api/sites/${id}/invoices/${v.id}`)); } }, 'Delete')),
           h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => { close(); dup(v); } }, 'Duplicate'), h('a', { class: 'btn', href: ownView(v), target: '_blank', rel: 'noopener' }, v.kind === 'estimate' ? 'View estimate' : 'View invoice', ic('out', 15))))];
@@ -4416,51 +4430,55 @@ export async function editor(id, mount, title, startTab = '') {
     const shown = all.filter((v) => hit(v) && (!f.status.length || f.status.includes(billState(v))) && (!f.project || v.project === f.project));
     const STATUS = BILL_STATUS[kind];
     const by = h('button', { type: 'button', class: 'iv-by', 'aria-haspopup': 'menu', 'aria-label': `Search by ${byLabel}` }, h('span', { class: 'iv-byic', html: IVI.find, 'aria-hidden': 'true' }), h('span', {}, byLabel), h('span', { class: 'iv-bych', html: II.chevD, 'aria-hidden': 'true' }));
-    by.onclick = () => popover(by, (close) => h('div', { class: 'it-menu', role: 'menu' }, BY.map(([k, l]) => h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(f.by === k), onclick: () => { close(); f.by = k; paintPanel(); panel.querySelector('.iv-bar .it-search input')?.focus(); } }, h('span', {}, l)))), 'left');
+    by.onclick = () => { popover(by, (close) => menuKeys(h('div', { class: 'it-menu', role: 'menu' }, BY.map(([k, l]) => h('button', { type: 'button', role: 'menuitemradio', 'aria-checked': String(f.by === k), onclick: () => { close(); f.by = k; paintPanel(); panel.querySelector('.iv-bar .it-search input')?.focus(); } }, h('span', {}, l)))), by, close), 'left'); requestAnimationFrame(() => popEl?.querySelector('[aria-checked=true]')?.focus()); };
     const nf = f.status.length + (f.project ? 1 : 0);
     const filt = h('button', { type: 'button', class: 'it-btn grey fbtn', onclick: () => billFilters(f, kind, key) }, h('span', { class: 'it-bic', html: II.sliders }), 'Filters', nf > 0 && h('em', {}, String(nf)));
     const cols = [{ k: 'ref', l: 'Reference #', w: '16.4%' }, { k: 'num', l: est ? 'Estimate #' : 'Invoice #', w: '9.7%', cls: 'iv-nw' }, { k: 'cust', l: 'Customer', w: '17.4%' }, { k: 'total', l: 'Total', w: '10.8%', cls: 'iv-nw' },
       { k: 'sent', l: 'Sent date', w: '14%', cls: 'iv-nw', next: true, sort: (r) => r.v.sentAt || r.v.createdAt }, { k: 'due', l: est ? 'Valid until' : 'Due date', w: '13.4%', cls: 'iv-nw', next: true, sort: (r) => r.v.due || '' }, { k: 'status', l: 'Status', w: '10.7%' }, { k: 'act', l: '', w: '7.6%', cls: 'iv-actc' }];
     const rows = shown.map((v) => ({ id: v.id, label: v.label, v, cells: {
       ref: itLink(billRef(v), () => openInvoice(v)), num: v.label, cust: v.customer.name || v.customer.company, total: money(v.total),
-      sent: v.sentAt ? billDay(bizDay(v.sentAt)) : '— —', due: billDay(v.due), status: h('span', { class: 'iv-st' }, STATUS[billState(v)]), act: billMenu(v),
+      sent: v.sentAt ? billDay(bizDay(v.sentAt)) : '— —', due: h('span', { 'data-l': est ? 'Valid until' : 'Due' }, billDay(v.due)),
+      status: [h('span', { class: 'iv-st' }, STATUS[billState(v)]), v.status === 'sent' && h('div', { class: 'iv-seen' }, v.viewedAt ? `Opened ${billDay(bizDay(v.viewedAt))}` : 'Not opened yet', v.reminders ? ` · ${v.reminders} reminder${v.reminders === 1 ? '' : 's'}` : '')], act: billMenu(v),
     } }));
     return [h('div', { class: 'cl it iv' }, h('div', { class: 'iv-head' }, h('h1', {}, title)),
       h('div', { class: 'iv-kpis' }, kpis.map(([l, val]) => h('div', { class: 'iv-kpi' }, h('span', {}, l), h('b', {}, String(val))))),
       h('div', { class: 'it-bar iv-bar' }, by, itSearch(`Search by ${byLabel}`, key), filt, itBtn(est ? 'Create new estimate' : 'Create new invoice', { icon: II.plus, kind: 'fill', onclick: () => openInvoice(null, null, kind) })),
-      itTable({ key, cols, rows, sortBy: 'sent', sortDir: -1, per: true, perDefault: 50, perLabel: 'Rows per page', empty: h('p', { class: 'it-none' }, all.length ? `No ${est ? 'estimates' : 'invoices'} match.` : `No ${est ? 'estimates' : 'invoices'} yet.`) }))];
+      itTable({ key, cols, rows, sortBy: 'sent', sortDir: -1, per: true, perDefault: 50, perLabel: 'Rows per page', plain: true, empty: h('p', { class: 'it-none' }, all.length ? `No ${est ? 'estimates' : 'invoices'} match.` : `No ${est ? 'estimates' : 'invoices'} yet.`) }))];
   }
   CL.invoices = () => billList('invoice');
   CL.est = () => billList('estimate');
 
   // Type to find: a search box with a short list of matches under it. Arrow keys move through the list.
-  function finder({ ph, search, row, pick, none, open = false }) {
-    const input = h('input', { type: 'search', placeholder: ph, 'aria-label': ph, autocomplete: 'off' });
-    const drop = h('div', { class: 'iv-drop', role: 'listbox', hidden: true });
+  function finder({ ph, search, row, pick, none, open = false, label = '', required = false }) {
+    const listId = uid('lb');
+    const input = h('input', { type: 'search', placeholder: ph, 'aria-label': label ? null : ph, 'aria-labelledby': label || null, role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': listId, 'aria-required': required ? 'true' : null, autocomplete: 'off' });
+    const drop = h('div', { class: 'iv-drop', role: 'listbox', id: listId, 'aria-label': ph, hidden: true });
+    const setOpen = (on) => { drop.hidden = !on; input.setAttribute('aria-expanded', String(on)); };
     const show = () => {
       const q = input.value.trim().toLowerCase();
-      if (!q && !open) { drop.hidden = true; return; }
+      if (!q && !open) { setOpen(false); return; }
       const hits = search(q).slice(0, 8);
-      drop.replaceChildren(...(hits.length ? hits.map((x) => h('button', { type: 'button', role: 'option', onmousedown: (e) => e.preventDefault(), onclick: () => { input.value = ''; drop.hidden = true; pick(x); } }, ...row(x))) : [h('p', { class: 'iv-none' }, none)]));
-      drop.hidden = false;
+      drop.replaceChildren(...(hits.length ? hits.map((x) => h('button', { type: 'button', role: 'option', tabindex: '-1', onmousedown: (e) => e.preventDefault(), onclick: () => { input.value = ''; setOpen(false); input.focus(); pick(x); } }, ...row(x))) : [h('p', { class: 'iv-none', role: 'status' }, none)]));
+      setOpen(true);
     };
     input.oninput = show; input.onfocus = show;
     const box = h('div', { class: 'iv-find' }, h('div', { class: 'iv-search' }, ic('search', 18), input), drop);
-    box.addEventListener('focusout', (e) => { if (!box.contains(e.relatedTarget)) drop.hidden = true; });
+    box.addEventListener('focusout', (e) => { if (!box.contains(e.relatedTarget)) setOpen(false); });
     box.addEventListener('keydown', (e) => {
       const bs = [...drop.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
       if (e.key === 'ArrowDown' && bs.length && !drop.hidden) { e.preventDefault(); bs[Math.min(bs.length - 1, i + 1)].focus(); }
       else if (e.key === 'ArrowUp' && i >= 0) { e.preventDefault(); (i === 0 ? input : bs[i - 1]).focus(); }
-      else if (e.key === 'Escape' && !drop.hidden) { e.stopPropagation(); drop.hidden = true; input.focus(); }
+      else if (e.key === 'Escape' && !drop.hidden) { e.stopPropagation(); setOpen(false); input.focus(); }
     });
     return box;
   }
   const custLine = (c) => [c.company && c.company !== c.name ? c.company : '', c.email, c.phone].filter(Boolean).join(' · ');
-  const custFinder = (pick) => finder({ ph: 'Search by email, phone or name', none: 'No customers match.', pick, row: (c) => [h('b', {}, c.name || c.company), h('span', {}, custLine(c))],
+  const custFinder = (pick, label) => finder({ ph: 'Search by email, phone or name', none: 'No customers match.', label, required: true, pick, row: (c) => [h('b', {}, c.name || c.company), h('span', {}, custLine(c))],
     search: (q) => { const digits = q.replace(/\D/g, ''); return [...new Map([...(bills?.contacts || []), ...(customers || [])].filter((c) => c.name || c.company).map((c) => [`${String(c.name || c.company).toLowerCase()}|${String(c.email || '').toLowerCase()}`, c])).values()].filter((c) => `${c.name || ''} ${c.company || ''} ${c.email || ''}`.toLowerCase().includes(q) || (digits.length > 2 && String(c.phone || '').replace(/\D/g, '').includes(digits))); } });
   const custCard = (c, clear) => h('div', { class: 'iv-cust' }, h('div', { class: 'iv-custtx' }, h('b', {}, c.name || c.company), custLine(c) && h('span', {}, custLine(c))), h('button', { type: 'button', class: 'iv-x', 'aria-label': 'Remove customer', onclick: clear }, ic('x', 18)));
   const asCustomer = (c) => ({ name: c.name || c.company || '', company: c.company || '', email: c.email || '', phone: c.phone || '', address: c.address || '' });
-  const counter = (el, max) => { const c = h('small', { class: 'iv-count' }, `${el.value.length}/${max} characters`); el.addEventListener('input', () => { c.textContent = `${el.value.length}/${max} characters`; }); return c; };
+  // How many characters are used; it describes its field rather than naming it.
+  const counter = (el, max) => { const c = h('small', { class: 'iv-count', id: uid('cnt') }, `${el.value.length}/${max} characters`); el.setAttribute('aria-describedby', c.id); el.addEventListener('input', () => { c.textContent = `${el.value.length}/${max} characters`; }); return c; };
   // Files on an invoice or a project: picked with the button or dropped on the box, uploaded straight away, listed by name.
   function attachBox({ files, most, each = 0, total = 0, zone, onBusy = () => {} }) {
     const list = h('div', { class: 'iv-files' });
@@ -4515,8 +4533,9 @@ export async function editor(id, mount, title, startTab = '') {
     // Invoice details: who it goes to and when it is due.
     const custSlot = h('div', { class: 'iv-field iv-half' });
     const deliv = h('p', { class: 'iv-to' });
+    const custLab = uid('lab');
     const drawCust = () => {
-      custSlot.replaceChildren(h('span', { class: 'iv-lab' }, 'Select customer*'), v.customer ? custCard(v.customer, () => { v.customer = null; drawCust(); custSlot.querySelector('input')?.focus(); }) : custFinder((c) => { v.customer = asCustomer(c); drawCust(); }));
+      custSlot.replaceChildren(h('span', { class: 'iv-lab', id: custLab }, 'Select customer*'), v.customer ? custCard(v.customer, () => { v.customer = null; drawCust(); custSlot.querySelector('input')?.focus(); }) : custFinder((c) => { v.customer = asCustomer(c); drawCust(); custSlot.querySelector('.iv-x')?.focus(); }, custLab));
       deliv.textContent = v.customer?.email || '';
       sync();
     };
@@ -4536,39 +4555,43 @@ export async function editor(id, mount, title, startTab = '') {
           const price = h('input', { class: 'iv-in', value: (l.price / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Price', oninput: () => { const c = parsePrice(price.value || '0'); price.classList.toggle('bad', c === null); if (c !== null) { l.price = c; upd(); } } });
           return h('div', { class: 'iv-lrow' },
             h('input', { class: 'iv-in', value: l.name, placeholder: 'Item name', 'aria-label': 'Item name', maxlength: 160, oninput: (e) => { l.name = e.target.value; drawTotals(); sync(); } }),
-            h('input', { class: 'iv-in', type: 'number', min: 1, max: 100000, value: l.qty, 'aria-label': 'Quantity', oninput: (e) => { l.qty = Math.max(1, Math.min(100000, Math.round(Number(e.target.value)) || 1)); upd(); } }),
+            h('input', { class: 'iv-in', type: 'number', min: 1, max: 100000, step: 1, value: l.qty, 'aria-label': 'Quantity', oninput: (e) => { l.qty = Math.max(1, Math.min(100000, Math.round(Number(e.target.value)) || 1)); upd(); }, onchange: (e) => { e.target.value = l.qty; } }),
             price,
-            h('label', { class: 'iv-check' }, h('input', { type: 'checkbox', checked: l.taxable !== false, 'aria-label': 'Taxable', onchange: (e) => { l.taxable = e.target.checked; drawTotals(); } })),
+            h('label', { class: 'iv-check' }, h('input', { type: 'checkbox', checked: l.taxable !== false, 'aria-label': 'Taxable', onchange: (e) => { l.taxable = e.target.checked; drawTotals(); } }), h('span', { class: 'iv-chkl', 'aria-hidden': 'true' }, 'Taxable')),
             tot,
-            h('button', { type: 'button', class: 'iv-x', 'aria-label': `Remove ${l.name || 'item'}`, onclick: () => { v.items.splice(i, 1); drawLines(); drawTotals(); sync(); } }, ic('x', 16)));
+            h('button', { type: 'button', class: 'iv-x', 'aria-label': `Remove ${l.name || 'item'}`, onclick: () => { v.items.splice(i, 1); drawLines(); drawTotals(); sync(); saleBody.querySelector('.iv-search input')?.focus(); } }, ic('x', 16)));
         })] : []));
       if (focusLast) linesBox.querySelector('.iv-lrow:last-child input')?.focus();
     };
     const addDisc = () => sheet((close) => {
       const amt = h('input', { inputmode: 'decimal', placeholder: '0.00', 'aria-label': 'Amount' }), err = h('p', { class: 'error', role: 'alert' });
-      const use = (disc) => { b.disc = disc; close(); drawTotals(); };
+      const use = (disc) => { b.disc = disc; close(); drawTotals('disc'); };
       return [h('h2', {}, 'Add order discount'),
         h('div', { class: 'iv-discs' }, discList().map((dd) => h('button', { type: 'button', class: 'iv-disc', onclick: () => use({ type: dd.type === 'amount' ? 'amount' : 'percent', value: dd.value, name: dd.name }) }, h('b', {}, dd.name), h('span', {}, dd.type === 'amount' ? `${money(dd.value)} off` : `${dd.value}% off`)))),
-        h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), err,
-        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } use({ type: 'amount', value: c, name: '' }); } }, 'Add discount'))];
+        h('form', { class: 'stack', onsubmit: (e) => { e.preventDefault(); const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } use({ type: 'amount', value: c, name: '' }); } },
+          h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), err,
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Add discount')))];
     });
     // A service charge is a set amount added to the invoice, untaxed. It is saved as its own line.
     const addCharge = () => sheet((close) => {
-      const amt = h('input', { inputmode: 'decimal', placeholder: '0.00', 'aria-label': 'Amount' }), err = h('p', { class: 'error', role: 'alert' });
-      return [h('h2', {}, 'Add service charge'), h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), err,
-        h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { type: 'button', class: 'btn', onclick: () => { const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } b.charge = { name: 'Service charge', qty: 1, price: c, taxable: false, charge: true }; close(); drawTotals(); } }, 'Add service charge'))];
+      const amt = h('input', { inputmode: 'decimal', placeholder: '0.00', 'aria-label': 'Amount', autofocus: true }), err = h('p', { class: 'error', role: 'alert' });
+      return [h('h2', {}, 'Add service charge'),
+        h('form', { class: 'stack', onsubmit: (e) => { e.preventDefault(); const c = parsePrice(amt.value || ''); if (!c) { err.textContent = 'Enter an amount above zero.'; return; } b.charge = { name: 'Service charge', qty: 1, price: c, taxable: false, charge: true }; close(); drawTotals('charge'); } },
+          h('label', { class: 'field' }, h('span', {}, 'Amount'), amt), err,
+          h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn soft', onclick: close }, 'Cancel'), h('button', { class: 'btn' }, 'Add service charge')))];
     });
-    const drawTotals = () => {
+    const drawTotals = (focus) => {
       syncDisc();
       const t = invoiceTotals(lines(), v.taxRate, v.discount), sub = goods();
-      const link = (label, fn) => h('button', { type: 'button', class: 'iv-link', onclick: fn }, label);
+      const link = (label, fn, k) => h('button', { type: 'button', class: 'iv-link', 'data-k': k, onclick: fn }, label);
       totals.replaceChildren(...[h('div', { class: 'iv-tr' }, h('span', {}, 'Subtotal'), h('span', {}, money(sub))),
         t.discount > 0 && h('div', { class: 'iv-tr' }, h('span', {}, v.discountName ? `Discount (${v.discountName})` : 'Discount'), h('span', {}, `−${money(t.discount)}`)),
-        h('div', { class: 'iv-tr' }, t.discount > 0 ? link('Remove order discount', () => { b.disc = null; drawTotals(); }) : link('Add order discount', addDisc)),
-        h('div', { class: 'iv-tr' }, h('span', {}, 'Tax'), h('span', {}, money(t.tax))),
+        h('div', { class: 'iv-tr' }, t.discount > 0 ? link('Remove order discount', () => { b.disc = null; drawTotals('disc'); }, 'disc') : link('Add order discount', addDisc, 'disc')),
+        h('div', { class: 'iv-tr' }, h('span', {}, v.taxRate ? `Tax (${v.taxRate}%)` : 'Tax'), h('span', {}, money(t.tax))),
         b.charge && h('div', { class: 'iv-tr' }, h('span', {}, 'Service charge'), h('span', {}, money(b.charge.price))),
-        h('div', { class: 'iv-tr' }, b.charge ? link('Remove service charge', () => { b.charge = null; drawTotals(); }) : link('Add service charge', addCharge)),
+        h('div', { class: 'iv-tr' }, b.charge ? link('Remove service charge', () => { b.charge = null; drawTotals('charge'); }, 'charge') : link('Add service charge', addCharge, 'charge')),
         h('div', { class: 'iv-tr iv-total' }, h('span', {}, 'Total'), h('span', {}, money(t.total)))].filter(Boolean));
+      if (focus) totals.querySelector(`[data-k="${focus}"]`)?.focus();
     };
     const quickParts = () => {
       const amt = h('input', { class: 'iv-in', inputmode: 'decimal', placeholder: '$0.00', value: b.quick.amount, 'aria-label': 'Amount', oninput: (e) => { b.quick.amount = e.target.value; amt.classList.toggle('bad', !!e.target.value.trim() && parsePrice(e.target.value) === null); drawTotals(); sync(); } });
@@ -4581,18 +4604,22 @@ export async function editor(id, mount, title, startTab = '') {
         itBtn('Add custom item', { icon: II.plus, onclick: () => { v.items.push({ name: '', qty: 1, price: 0, taxable: true }); drawLines(true); sync(); } })), ...(b.mode === 'quick' ? [] : [linesBox]));
       drawLines(); drawTotals();
     };
-    const seg = h('div', { class: 'iv-seg', role: 'tablist', 'aria-label': 'Sale type' }, [['item', `Itemized ${noun}`], ['quick', 'Quick charge']].map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(b.mode === k), onclick: () => { b.mode = k; for (const x of seg.children) x.setAttribute('aria-selected', String(x.textContent === l)); drawSale(); sync(); } }, l)));
-    const note = h('textarea', { class: 'iv-in iv-note', rows: 2, maxlength: 200, placeholder: 'Add a note', value: v.notes || '', 'aria-label': 'Note', oninput: (e) => { v.notes = e.target.value; } });
+    const seg = h('div', { class: 'iv-seg', role: 'group', 'aria-label': 'Sale type' }, [['item', `Itemized ${noun}`], ['quick', 'Quick charge']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(b.mode === k), onclick: () => { b.mode = k; for (const x of seg.children) x.setAttribute('aria-pressed', String(x.textContent === l)); drawSale(); sync(); } }, l)));
+    const noteMax = (v.notes || '').length > 200 ? 2000 : 200;
+    const note = h('textarea', { class: 'iv-in iv-note', rows: 2, maxlength: noteMax, placeholder: 'Add a note', value: v.notes || '', 'aria-label': 'Note', oninput: (e) => { v.notes = e.target.value; } });
     // Attachments: shown open, as in the photos; the round button folds them away.
     const attBody = h('div', { class: 'iv-attbody', hidden: !b.files }, h('p', { class: 'iv-attp' }, 'Upload up to 3 files ( max total size: 25MB). Supported formats: JPG, PDF, PNG.', h('br'), h('b', {}, 'Avoid uploading files with sensitive personal data.')), attachBox({ files: v.attachments, most: 3, total: 25 * MB, zone: true, onBusy: (n) => { b.uploading += n; sync(); } }));
     const fold = h('button', { type: 'button', class: 'iv-fold', 'aria-expanded': String(b.files), 'aria-label': b.files ? 'Hide attachments' : 'Show attachments', html: b.files ? II.chevU : II.chevD });
     fold.onclick = () => { b.files = !b.files; attBody.hidden = !b.files; fold.setAttribute('aria-expanded', String(b.files)); fold.setAttribute('aria-label', b.files ? 'Hide attachments' : 'Show attachments'); fold.innerHTML = b.files ? II.chevU : II.chevD; };
     // Review & Send: a last look, then send it, or keep it as a draft.
-    const body = () => (syncDisc(), { kind, project: v.project || '', customer: v.customer, items: lines(), notes: v.notes || '', terms: v.terms, due: billDue(v), taxRate: v.taxRate, discount: v.discount, discountName: v.discount ? v.discountName || '' : '', payUrl: v.payUrl || '', attachments: v.attachments });
+    const body = () => (syncDisc(), { kind, project: v.project || '', customer: v.customer, items: lines(), notes: v.notes || '', terms: v.terms, due: billDue(v), taxRate: v.taxRate, discount: v.discount, discountPct: b.disc && b.disc.type === 'percent' ? b.disc.value : 0, discountName: v.discount ? v.discountName || '' : '', payUrl: v.payUrl || '', attachments: v.attachments });
     // One save at a time: a second press waits for the first, so an invoice is never created twice.
     let saving = null;
     const store = () => (saving ||= (v.id ? api('PUT', `/api/sites/${id}/invoices/${v.id}`, body()) : api('POST', `/api/sites/${id}/invoices`, body())).then((r) => { v.id = r.invoice.id; v.status = r.invoice.status; return r; }).finally(() => { saving = null; }));
     review.onclick = () => {
+      // An amount that could not be read stops here, with the box shown.
+      const wrong = saleBody.querySelector('.iv-in.bad');
+      if (wrong) { toast('Check the highlighted amount.', true); wrong.focus(); return; }
       // An item with a price needs a name, or it would be left off.
       const blank = b.mode === 'item' ? v.items.findIndex((l) => !l.name.trim() && l.price > 0) : -1;
       if (blank >= 0) { toast('Give each item a name.', true); linesBox.querySelectorAll('.iv-lrow:not(.iv-lhead)')[blank]?.querySelector('input')?.focus(); return; }
@@ -4603,12 +4630,15 @@ export async function editor(id, mount, title, startTab = '') {
       const t = invoiceTotals(lines(), v.taxRate, v.discount), due = billDue(v), c = v.customer, sent = v.status === 'sent';
       // Sent for the first time with a date already gone, it would be overdue (or expired) the moment it arrives.
       const late = !sent && !!due && due < bizDay();
+      // Sending needs an email address; a customer saved without one can be given one here.
+      const mailOk = () => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email || '');
+      const mailIn = !mailOk() && h('input', { type: 'email', placeholder: 'name@example.com', value: c.email || '', autocomplete: 'email', oninput: (e) => { c.email = e.target.value.trim(); deliv.textContent = c.email; if (!send.dataset.busy) send.disabled = late || !mailOk(); } });
       const names = [...new Set([v.project, ...(projData?.projects || []).map((x) => x.name), ...(bills?.invoices || []).map((x) => x.project)].filter(Boolean))];
       const line = (k, val) => h('div', { class: 'rline' }, h('span', {}, k), h('b', {}, val));
       const back = h('button', { type: 'button', class: 'btn text', onclick: close }, 'Back');
       const keep = h('button', { type: 'button', class: 'btn soft' }, sent ? 'Save changes' : 'Save draft');
-      const send = h('button', { type: 'button', class: 'btn', disabled: late }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : `Send ${noun}`);
-      const lock = (on) => { back.disabled = on; keep.disabled = on; send.disabled = on || late; };
+      const send = h('button', { type: 'button', class: 'btn', disabled: late || !mailOk() }, ic('mail', 16), sent ? (est ? 'Send again' : 'Send reminder') : `Send ${noun}`);
+      const lock = (on) => { back.disabled = on; keep.disabled = on; send.disabled = on || late || !mailOk(); if (on) send.dataset.busy = '1'; else delete send.dataset.busy; };
       keep.onclick = async () => { lock(true); try { setBills(await store()); close(); done(); toast(`${Noun} saved`); } catch (e) { toast(e.message, true); lock(false); } };
       send.onclick = async () => {
         lock(true);
@@ -4622,6 +4652,7 @@ export async function editor(id, mount, title, startTab = '') {
       return [h('h2', {}, `Review ${noun}`),
         h('div', { class: 'bill-lines ro' }, line('Send to', [c.name, c.email].filter(Boolean).join(' · ')), line(est ? 'Valid until' : 'Due date', billDay(due)), line('Total', money(t.total))),
         late && h('p', { class: 'error', role: 'alert' }, est ? 'This date has passed. Choose a later one before sending.' : 'This due date has passed. Choose a later one before sending.'),
+        mailIn && h('label', { class: 'field' }, h('span', {}, 'Customer email'), mailIn),
         names.length > 0 && h('label', { class: 'field' }, h('span', {}, 'Project'), h('select', { onchange: (e) => { v.project = e.target.value; } }, h('option', { value: '' }, 'None'), names.map((n) => h('option', { value: n, selected: v.project === n }, n)))),
         h('div', { class: 'acts' }, back, keep, send)];
     });
@@ -4634,7 +4665,7 @@ export async function editor(id, mount, title, startTab = '') {
         custSlot, h('hr', { class: 'iv-hr' }),
         h('label', { class: 'iv-field iv-half' }, h('span', { class: 'iv-lab' }, est ? 'Valid for' : 'Payment due date'), termSel), dateBox),
       h('section', { class: 'iv-card iv-c-sale' }, h('h2', {}, 'Sale details'), seg, saleBody, h('hr', { class: 'iv-hr' }), totals,
-        h('label', { class: 'iv-field iv-notef' }, h('span', { class: 'iv-lab' }, 'Note'), note), counter(note, 200)),
+        h('label', { class: 'iv-field iv-notef' }, h('span', { class: 'iv-lab' }, 'Note'), note), counter(note, noteMax)),
       h('section', { class: 'iv-card iv-c-del' }, h('h2', {}, `${Noun} delivery`), h('b', { class: 'iv-sub' }, `${Noun} sent to`), deliv),
       h('section', { class: 'iv-card iv-c-att' }, h('div', { class: 'iv-cardhead' }, h('h2', {}, 'Attachments'), fold), attBody),
       h('div', { class: 'iv-end' }, review));
@@ -4653,7 +4684,10 @@ export async function editor(id, mount, title, startTab = '') {
     // A service charge saved on it shows as the service charge again, not as an item.
     const charge = (v.items || []).find((l) => l.charge) || null;
     v.items = (v.items || []).filter((l) => !l.charge);
-    clState.bill = { v, kind, mode: 'item', quick: { amount: '', desc: '' }, files: true, charge, disc: v.discount ? { type: 'amount', value: v.discount, name: v.discountName || '' } : null, uploading: 0 };
+    // A draft or a copy has not gone to the customer yet, so it takes the sales tax rate set now.
+    if (existing && v.status === 'draft') v.taxRate = ordering.taxRate || 0;
+    const disc = v.discountPct ? { type: 'percent', value: v.discountPct, name: v.discountName || '' } : v.discount ? { type: 'amount', value: v.discount, name: v.discountName || '' } : null;
+    clState.bill = { v, kind, mode: 'item', quick: { amount: '', desc: '' }, files: true, charge, disc, uploading: 0 };
     clState.billView = null;
     goTab(kind === 'estimate' ? 'est-edit' : 'inv-edit');
   }
@@ -4665,6 +4699,7 @@ export async function editor(id, mount, title, startTab = '') {
   CL['proj-edit'] = () => {
     const st = clState.proj ||= { p: blankProject() }, p = st.p;
     if (st.view) return [st.view];
+    const custLab = uid('lab'), nameId = uid('in'), typeId = uid('in');
     if (p.customer && !(p.customer.name || p.customer.company)) p.customer = null;
     loadBills(); loadProjects(); loadPeople();
     st.uploading = 0;
@@ -4673,11 +4708,11 @@ export async function editor(id, mount, title, startTab = '') {
     const sync = () => { save.disabled = !(p.customer && p.name.trim() && p.phase) || st.uploading > 0; };
     const custSlot = h('div', { class: 'iv-field iv-half' });
     const pick = (c) => { p.customer = asCustomer(c); drawCust(); };
-    const drawCust = () => { custSlot.replaceChildren(h('span', { class: 'iv-lab' }, 'Select existing customer*'), p.customer ? custCard(p.customer, () => { p.customer = null; drawCust(); custSlot.querySelector('input')?.focus(); }) : custFinder(pick)); sync(); };
-    const nameIn = h('input', { class: 'iv-in', value: p.name, maxlength: 50, placeholder: 'Enter project name', 'aria-required': 'true', oninput: (e) => { p.name = e.target.value; sync(); } });
-    const typeIn = h('input', { class: 'iv-in', value: p.type, maxlength: 50, placeholder: 'Enter project type', oninput: (e) => { p.type = e.target.value; } });
+    const drawCust = () => { custSlot.replaceChildren(h('span', { class: 'iv-lab', id: custLab }, 'Select existing customer*'), p.customer ? custCard(p.customer, () => { p.customer = null; drawCust(); custSlot.querySelector('input')?.focus(); }) : custFinder((c) => { pick(c); custSlot.querySelector('.iv-x')?.focus(); }, custLab)); sync(); };
+    const nameIn = h('input', { class: 'iv-in', id: nameId, value: p.name, maxlength: 50, placeholder: 'Enter project name', 'aria-required': 'true', oninput: (e) => { p.name = e.target.value; sync(); } });
+    const typeIn = h('input', { class: 'iv-in', id: typeId, value: p.type, maxlength: 50, placeholder: 'Enter project type', oninput: (e) => { p.type = e.target.value; } });
     const phaseSel = h('select', { class: 'iv-sel', 'aria-label': 'Phase', 'aria-required': 'true', onchange: (e) => { p.phase = e.target.value; clear.hidden = !p.phase; sync(); } }, h('option', { value: '', disabled: true, hidden: true, selected: !p.phase }, 'Select a phase'), PHASES.map(([k, l]) => h('option', { value: k, selected: p.phase === k }, l)));
-    const clear = h('button', { type: 'button', class: 'iv-clear', 'aria-label': 'Clear phase', hidden: !p.phase, onclick: () => { p.phase = ''; phaseSel.value = ''; clear.hidden = true; sync(); phaseSel.focus(); } }, ic('x', 28));
+    const clear = h('button', { type: 'button', class: 'iv-clear', 'aria-label': 'Clear phase', hidden: !p.phase, onclick: () => { p.phase = ''; phaseSel.value = ''; clear.hidden = true; sync(); phaseSel.focus(); } }, ic('x', 22));
     const startIn = h('input', { class: `iv-in${p.start ? '' : ' empty'}`, type: 'date', value: p.start, onchange: (e) => { p.start = e.target.value; e.target.classList.toggle('empty', !e.target.value); } });
     const endIn = h('input', { class: `iv-in${p.end ? '' : ' empty'}`, type: 'date', value: p.end, onchange: (e) => { p.end = e.target.value; e.target.classList.toggle('empty', !e.target.value); } });
     const notes = h('textarea', { class: 'iv-in', rows: 4, maxlength: 1000, placeholder: 'Briefly describe the purpose of this project', value: p.notes, oninput: (e) => { p.notes = e.target.value; } });
@@ -4696,21 +4731,27 @@ export async function editor(id, mount, title, startTab = '') {
       try { const r = await api('DELETE', `/api/sites/${id}/projects/${p.id}`); projData = { projects: r.projects }; if (bills) bills = { ...bills, invoices: r.invoices }; toast('Project deleted'); leave(); } catch (e) { toast(e.message, true); }
     } : null;
     drawCust();
+    // A saved project lists its invoices and estimates, and starts new ones already filed under it.
+    const filed = p.id && bills ? bills.invoices.filter((x) => x.project === p.name) : [];
+    const startBill = (kind) => openInvoice(null, { ...(p.customer || {}), project: p.name }, kind);
+    const docs = p.id && h('section', { class: 'iv-card iv-c-docs' }, h('div', { class: 'iv-cardhead' }, h('h2', {}, 'Invoices and estimates'), h('div', { class: 'iv-docacts' }, itBtn('Create estimate', { icon: II.plus, onclick: () => startBill('estimate') }), itBtn('Create invoice', { icon: II.plus, onclick: () => startBill('invoice') }))),
+      filed.length ? h('div', { class: 'iv-docs' }, filed.map((x) => h('button', { type: 'button', class: 'iv-doc', onclick: () => openInvoice(x) }, h('b', {}, x.label), h('span', {}, x.customer.name || x.customer.company), h('span', { class: 'iv-st' }, BILL_STATUS[x.kind || 'invoice'][billState(x)]), h('span', { class: 'r' }, money(x.total))))) : h('p', { class: 'iv-none' }, 'None yet.'));
     const view = h('div', { class: 'cl it iv iv-form iv-proj' },
       h('div', { class: 'iv-phead' }, h('h1', { class: 'iv-title' }, p.id ? p.name || 'Project' : 'Create new project'), del && h('button', { type: 'button', class: 'it-cvdel', onclick: del }, h('span', { html: II.bin, 'aria-hidden': 'true' }), 'Delete project')),
       h('p', { class: 'iv-req' }, '*Required'),
       h('section', { class: 'iv-card iv-c-cust' }, h('h2', {}, 'Customer information'), h('div', { class: 'iv-custrow' }, custSlot, h('button', { type: 'button', class: 'it-btn grey', onclick: () => addCustomer(pick) }, h('span', { class: 'it-bic', html: II.plus }), 'Add a new customer instead'))),
       h('section', { class: 'iv-card iv-c-pd' }, h('h2', {}, 'Project details'),
         h('div', { class: 'iv-grid' },
-          h('label', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'Project name*'), nameIn, counter(nameIn, 50)),
+          h('div', { class: 'iv-field' }, h('label', { class: 'iv-lab', for: nameId }, 'Project name*'), nameIn, counter(nameIn, 50)),
           h('div', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'Phase*'), h('div', { class: 'iv-selwrap' }, phaseSel, clear)),
-          h('label', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'Project type'), typeIn, counter(typeIn, 50))),
+          h('div', { class: 'iv-field' }, h('label', { class: 'iv-lab', for: typeId }, 'Project type'), typeIn, counter(typeIn, 50))),
         h('hr', { class: 'iv-hr' }),
         h('div', { class: 'iv-grid' }, h('label', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'Start date (mm/dd/yyyy)'), startIn), h('label', { class: 'iv-field' }, h('span', { class: 'iv-lab' }, 'End date (mm/dd/yyyy)'), endIn)),
         h('label', { class: 'iv-field iv-notes' }, h('span', { class: 'iv-lab' }, 'Notes'), notes), counter(notes, 1000)),
       h('section', { class: 'iv-card iv-c-patt' }, h('h2', {}, 'Attachments'), h('p', { class: 'iv-attp' }, 'Upload up to 10 files (max size per file: 10 MB). Supported formats: JPG, JPEG, PDF, PNG.', h('br'), 'Please refrain from uploading any sensitive personal data or content that is illegal.'), attachBox({ files: p.attachments, most: 10, each: 10 * MB, zone: false, onBusy: (n) => { st.uploading += n; sync(); } })),
+      docs,
       h('div', { class: 'it-foot iv-foot' }, h('button', { type: 'button', class: 'it-btn grey', onclick: leave }, 'Cancel'), save));
-    st.view = view;
+    if (bills || !p.id) st.view = view;
     return [view];
   };
 

@@ -252,6 +252,8 @@ export function openDb(dataDir) {
   // Files attached to an invoice, and its payment terms (Upon receipt, Net 15...), so its due date can follow the day it is sent.
   addColumn('invoices', 'attachments', "TEXT NOT NULL DEFAULT '[]'");
   addColumn('invoices', 'terms', "TEXT NOT NULL DEFAULT ''");
+  // A saved percentage discount is kept as a percentage, so it still fits the items when the invoice is changed.
+  addColumn('invoices', 'discount_pct', 'REAL NOT NULL DEFAULT 0');
   // Whether an upload is a photo or a file attached to an invoice or project: each has its own room.
   addColumn('uploads', 'kind', "TEXT NOT NULL DEFAULT 'image'");
   // Projects: a larger job for one customer. Its invoices and estimates are filed under its name.

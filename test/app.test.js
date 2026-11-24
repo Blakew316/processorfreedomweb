@@ -2042,6 +2042,20 @@ test('invoices and projects keep their files: PDFs upload as files, attachments 
     // A discount bigger than what was sold stops there; the service charge is still owed.
     const capped = (await me('POST', `/api/sites/${site.id}/invoices`, { ...charged, items: [{ name: 'Item', qty: 1, price: 3000 }, { name: 'Service charge', qty: 1, price: 2000, charge: true }], taxRate: 0 })).data.invoice;
     assert.deepEqual([capped.discount, capped.total], [3000, 2000]);
+    // A saved percentage discount stays a percentage: worked out on what was sold (never the service charge), kept when changed.
+    const pctInv = (await me('POST', `/api/sites/${site.id}/invoices`, { ...charged, taxRate: 0, discount: 999999, discountPct: 20, discountName: 'Staff' })).data.invoice;
+    assert.deepEqual([pctInv.discount, pctInv.discountPct, pctInv.discountName, pctInv.total], [2000, 20, 'Staff', 18000]);
+    const pctMore = (await me('PUT', `/api/sites/${site.id}/invoices/${pctInv.id}`, { ...charged, items: [{ name: 'Item', qty: 2, price: 10000 }, charged.items[1]], taxRate: 0, discountPct: 20, discountName: 'Staff' })).data.invoice;
+    assert.deepEqual([pctMore.discount, pctMore.total], [4000, 26000]);
+    // A save from a page that does not know about files or payment terms leaves them as they were.
+    const kept = (await me('POST', `/api/sites/${site.id}/invoices`, { ...body, attachments: [{ url: up.data.url, name: 'Keep.pdf' }] })).data.invoice;
+    const older = (await me('PUT', `/api/sites/${site.id}/invoices/${kept.id}`, { customer: body.customer, items: body.items, due: body.due })).data.invoice;
+    assert.deepEqual([older.terms, older.attachments.map((f) => f.name)], ['net15', ['Keep.pdf']]);
+    // The customer's page lists a service charge after the tax, with the subtotal of what was sold.
+    const pg = await anon('GET', `/invoice/${sc.url.split('/invoice/')[1]}`, null, host);
+    assert.match(pg.data, /<span>Subtotal<\/span><span>\$100\.00<\/span>/);
+    assert.match(pg.data, /<span>Service charge<\/span><span>\$100\.00<\/span>/);
+    assert.ok(!/<td>Service charge<\/td>/.test(pg.data));
     // An estimate becomes an invoice due on receipt: how long the estimate was valid for is not a payment term.
     const quote = (await me('POST', `/api/sites/${site.id}/invoices`, { kind: 'estimate', customer: { name: 'Ann' }, items: [{ name: 'Job', qty: 1, price: 100 }], terms: 'net30', due: '2027-01-01' })).data.invoice;
     const made = (await me('POST', `/api/sites/${site.id}/invoices/${quote.id}/convert`)).data.invoice;

@@ -98,13 +98,26 @@ export function toast(text, bad = false) {
 
 export function sheet(build, cls = '', onClose) {
   let open = true;
+  // Whatever opened the window gets the focus back when it closes, so the keyboard never lands at the top of the page.
+  const opener = document.activeElement;
   // The window eases away rather than vanishing; everything else carries on straight away.
-  const close = () => { if (!open) return; open = false; scrim.classList.add('out'); setTimeout(() => scrim.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); };
-  // Escape closes only the window on top.
-  const onKey = (e) => { if (e.key === 'Escape' && [...document.querySelectorAll('.scrim:not(.out)')].at(-1) === scrim) close(); };
+  const close = () => { if (!open) return; open = false; scrim.classList.add('out'); setTimeout(() => scrim.remove(), 180); document.removeEventListener('keydown', onKey); onClose?.(); if (opener && opener !== document.body && opener.isConnected && !document.querySelector('.scrim:not(.out)')) opener.focus({ preventScroll: true }); };
+  // Escape closes only the window on top, and Tab goes round inside it rather than out to the page behind.
+  const onKey = (e) => {
+    if ([...document.querySelectorAll('.scrim:not(.out)')].at(-1) !== scrim) return;
+    if (e.key === 'Escape') return close();
+    if (e.key !== 'Tab') return;
+    const f = [...box.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')].filter((x) => x.getClientRects().length);
+    if (!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); f.at(-1).focus(); } else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+  };
   const box = h('div', { class: `sheet ${cls}`, role: 'dialog', 'aria-modal': 'true' });
   const scrim = h('div', { class: 'scrim', onmousedown: (e) => e.target === scrim && close() }, box);
   box.append(...[build(close)].flat(Infinity).filter((x) => x != null && x !== false));
+  // The window is named by its heading.
+  const title = box.querySelector('h1, h2, h3');
+  if (title) { title.id ||= `sh-${Math.random().toString(36).slice(2, 9)}`; box.setAttribute('aria-labelledby', title.id); }
   document.body.append(scrim);
   document.addEventListener('keydown', onKey);
   (box.querySelector('[autofocus]') || box.querySelector('button, input'))?.focus();
