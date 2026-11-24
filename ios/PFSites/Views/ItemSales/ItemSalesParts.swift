@@ -51,8 +51,8 @@ struct ItemSalesCalendarShape: Shape {
         let corner = grid.point(1, 3.2)
         path.addRoundedRect(in: CGRect(x: corner.x, y: corner.y, width: 18 * grid.scale, height: 15.6 * grid.scale),
                             cornerSize: CGSize(width: 1.5 * grid.scale, height: 1.5 * grid.scale), style: .circular)
-        path.move(to: grid.point(1, 7.9))
-        path.addLine(to: grid.point(19, 7.9))
+        path.move(to: grid.point(1, 8))
+        path.addLine(to: grid.point(19, 8))
         path.move(to: grid.point(5.8, 0.8))
         path.addLine(to: grid.point(5.8, 5))
         path.move(to: grid.point(14.2, 0.8))
@@ -380,7 +380,7 @@ struct ItemSalesTabs: View {
         Button {} label: {
             VStack(spacing: 8) {
                 // The photo's 16.5 pt (11.7 pt capitals). The words are a little wider than the photo's, so 17 pt either side of
-                // them (the photo's 18.3 pt would make the two tabs 2.6 pt wider than a 375 pt page, and the row would slide
+                // them (the photo's 18.3 pt would make the two tabs a little wider than a 375 pt page, and the row would slide
                 // sideways under a finger). Larger text scrolls sideways.
                 Text(title)
                     .pfFont(16.5, .semibold)
@@ -402,9 +402,8 @@ struct ItemSalesTabs: View {
 }
 
 /// No items in the period: the website's drawing and words (cEmpty with 'look' and NORES in public/js/editor.js), at the photo's
-/// sizes and places: the drawing in the middle of the photo's 226 pt drawing area (which starts 24 pt under the tabs); the title
-/// with the photo's 15 pt capitals (21.6 pt, smaller than the page's heading), its baseline 54 pt under that area; the
-/// sentence's first baseline 50.3 pt under the title's, on 24 pt lines.
+/// sizes and gaps: the drawing in the middle of the photo's 226 pt drawing area (which starts 24 pt under the tabs), the title 33 pt
+/// under that area and the sentence 27 pt under the title.
 struct ItemSalesEmptyState: View {
     /// The height of the photo's drawing area.
     static let artHeight: CGFloat = 226
@@ -415,15 +414,15 @@ struct ItemSalesEmptyState: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.artHeight)
             Text("No results found")
-                .pfFont(21.6, .bold, relativeTo: .title)
+                .pfFont(24.5, .bold, relativeTo: .title)
                 .foregroundStyle(Color.primary)
-                .padding(.top, 33.4)
+                .padding(.top, 33)
             Text(ItemSalesModel.noResults)
                 .pfFont(16.5)
                 .foregroundStyle(Color.primary)
-                .lineSpacing(4.3)
+                .lineSpacing(4)
                 .frame(maxWidth: 300)
-                .padding(.top, 29.2)
+                .padding(.top, 27)
         }
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
@@ -607,7 +606,9 @@ struct ItemSalesMenuRow: View {
 
     var body: some View {
         Button(action: action) {
-            // The photo's places: the icon 18.7 pt in from the card's edge and the words 10 pt after it.
+            // The photo's places: the icon 18.7 pt in from the card's edge and the words 10 pt after it. Nothing follows the
+            // words (the row's own frame keeps them at its left), so "Learn about this report" has the card's width to itself
+            // and stays on one line, as in the photo.
             HStack(spacing: 10) {
                 ItemSalesMenuIconShape(icon: icon)
                     .stroke(enabled ? Color.primary : SettingsLook.greyed, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
@@ -618,7 +619,6 @@ struct ItemSalesMenuRow: View {
                     .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
             }
             .padding(.leading, 18.7)
             .padding(.trailing, 18)

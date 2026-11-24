@@ -56,6 +56,9 @@ enum OfficeCatalog {
         "hours": "Business hours", "alerts": "Alerts and emails", "online": "Online ordering", "outreach": "Customer outreach", "obook": "Online booking",
         "boutreach": "Customer outreach", "design": "Look and feel", "sections": "Home page", "business": "Business info", "domain": "Web address",
         "policies": "Policies", "seo": "Search", "history": "History", "tasks": "Setup tasks", "notes": "Notifications",
+        // Pages opened from a list (a new estimate from the Template Library, a category, a menu): named from the start too.
+        "mod-new": "Add modifier group", "mod-edit": "Modifier group", "menu-view": "Menu", "label-view": "Printer label", "cat-view": "Category",
+        "inv-edit": "Create New Invoice", "est-edit": "Create New Estimate", "proj-edit": "Create new project",
     ]
 }
 

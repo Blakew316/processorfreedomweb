@@ -80,6 +80,7 @@ struct LocationPickerView: View {
                 }
             }
             .buttonStyle(SolidButtonStyle(fill: canContinue ? Theme.blue : Color(.systemGray3), text: .white, radius: 4, height: 46, size: 18.5))
+            .animation(.snappy(duration: 0.2), value: canContinue)
             .disabled(!canContinue || busy)
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -194,6 +195,7 @@ struct LocationPickerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(picked ? Theme.lightBlue : Color.clear)
                 .contentShape(Rectangle())
+                .animation(.snappy(duration: 0.2), value: picked)
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(picked ? .isSelected : [])

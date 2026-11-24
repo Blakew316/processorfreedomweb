@@ -120,6 +120,10 @@ struct TwoStepView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 48)
+                    // A message coming or going, and the Log in button waking up, change smoothly.
+                    .animation(.snappy(duration: 0.25), value: error)
+                    .animation(.snappy(duration: 0.25), value: info)
+                    .animation(.snappy(duration: 0.2), value: ready)
 
                     Spacer(minLength: 40)
                     SignInRegionRow()

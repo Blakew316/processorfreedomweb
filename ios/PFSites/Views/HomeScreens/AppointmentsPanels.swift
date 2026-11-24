@@ -125,7 +125,9 @@ struct AppointmentDayPanelFrame<Content: View>: View {
             }
             .padding(.leading, 17)
             .padding(.trailing, 8)
-            .padding(.top, 5)
+            // 3 pt above the X's 44 pt tap area puts its ring 115 pt down and the line 158 pt down, as in the photos, on the
+            // owner's iPhone (whose bar ends 107 pt down, 3 pt lower than on the 375 pt wide simulator).
+            .padding(.top, 3)
             .padding(.bottom, 4)
             AppointmentDayHairline()
             ScrollView {

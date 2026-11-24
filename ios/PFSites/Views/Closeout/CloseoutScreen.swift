@@ -118,7 +118,7 @@ struct CloseoutScreen: View {
                     .accessibilityAddTraits(.isHeader)
                     .padding(.top, 27)
                 history(open)
-                    .padding(.top, 17.2)
+                    .padding(.top, 16.9)
             }
         } else {
             SettingsA.LoadState(loading: closeout.loading, problem: closeout.loadError) {
@@ -148,12 +148,12 @@ struct CloseoutScreen: View {
                             .accessibilityHidden(true)
                     }
                     .foregroundStyle(SettingsLook.muted)
-                    // A taller place to tap than the words themselves, without moving anything.
-                    .padding(.vertical, 10)
+                    // A taller place to tap than the words themselves (44 pt), without moving anything.
+                    .padding(.vertical, 12.5)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.vertical, -10)
+                .padding(.vertical, -12.5)
                 .accessibilityHint("Shows the open batch")
                 .padding(.top, 32.7)
                 Text(Money.format(open.totals.net))

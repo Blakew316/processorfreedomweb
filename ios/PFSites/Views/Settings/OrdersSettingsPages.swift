@@ -18,6 +18,7 @@ struct OrdersOptionsPage: View {
             .link("Order Receipts", { model.shell.cover = .settingsPage(.orderReceipts) }),
             .text(" page."),
         ], refresh: { await settings.load(siteID: siteID) }) {
+            SettingsA.ReloadProblem(problem: settings.reloadProblem)
             // As in the photo: the first name's baseline 103 pt into the card, and the card ends 16 pt under the last pill.
             SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil), spacing: 27) {
                 if settings.loaded {
@@ -213,6 +214,7 @@ struct OrderTypesPage: View {
         ], refresh: { await settings.load(siteID: siteID) }) {
             // 20 pt between the cards, as in the photos.
             VStack(alignment: .leading, spacing: 20) {
+                SettingsA.ReloadProblem(problem: settings.reloadProblem)
                 customTypes
                 autoAssigned
             }

@@ -1,24 +1,31 @@
 import SwiftUI
 
 /// The four tabs, like the photos: Home, Sale, Orders and More, on the system Liquid Glass tab bar.
-/// Each tab has its own navigation stack, kept in the model, so every tab keeps its place.
+/// Each tab has its own navigation stack, kept in the model, so every tab keeps its place. The photo's icons are all line
+/// drawings, so Home and Sale ask for the plain symbols (a tab bar swaps in the filled ones otherwise), like Orders and More.
 struct MainTabsView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var shell = model.shell
         TabView(selection: $shell.tab) {
-            Tab("Home", systemImage: "house", value: MainTab.home) {
+            Tab(value: MainTab.home) {
                 NavigationStack(path: $shell.home) {
                     HomeView()
                         .navigationDestination(for: Route.self) { route in RouteDestination(route: route) }
                 }
+            } label: {
+                Label("Home", systemImage: "house")
+                    .environment(\.symbolVariants, .none)
             }
-            Tab("Sale", systemImage: "plus.circle", value: MainTab.sale) {
+            Tab(value: MainTab.sale) {
                 NavigationStack(path: $shell.sale) {
                     SaleView()
                         .navigationDestination(for: Route.self) { route in RouteDestination(route: route) }
                 }
+            } label: {
+                Label("Sale", systemImage: "plus.circle")
+                    .environment(\.symbolVariants, .none)
             }
             // The receipt icon from the owner's Clover photo (Assets: OrdersTab, a template so it tints like the others).
             // The Orders list is native (E19); the badge counts the orders still marked new.

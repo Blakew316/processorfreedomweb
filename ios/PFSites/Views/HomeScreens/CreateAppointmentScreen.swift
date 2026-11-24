@@ -148,10 +148,13 @@ struct CreateAppointmentScreen: View {
                     .ignoresSafeArea()
                 }
                 // The customers found come up under the search, so the search goes to the top of the page while it is typed
-                // in: there the keyboard leaves room for them.
+                // in: there the keyboard leaves room for them. It goes up as the search is tapped, and again with the first
+                // letter typed (a short page cannot move until the keyboard is up).
                 .onChange(of: focus) { _, field in
-                    guard field == .search else { return }
-                    withAnimation(.snappy(duration: 0.25)) { reader.scrollTo(Self.searchID, anchor: .top) }
+                    if field == .search { raiseSearch(reader) }
+                }
+                .onChange(of: form.query.isEmpty) { _, empty in
+                    if !empty, focus == .search { raiseSearch(reader) }
                 }
             }
         } else if form.loadError.isEmpty {
@@ -182,6 +185,11 @@ struct CreateAppointmentScreen: View {
     private func pullToRefresh() async {
         guard let business = model.site else { return }
         await form.load(siteID: business.id)
+    }
+
+    /// Moves the customer search to the top of the page.
+    private func raiseSearch(_ reader: ScrollViewProxy) {
+        withAnimation(.snappy(duration: 0.25)) { reader.scrollTo(Self.searchID, anchor: .top) }
     }
 
     /// Reads one of the business's lists again after it could not be read; a second tap waits for the first one's answer.
@@ -690,10 +698,12 @@ struct CreateAppointmentScreen: View {
         }
         guard let business = model.site, !finding else { return }
         finding = true
+        let shownDate = form.date, shownTime = form.time
         Task {
             await form.loadAppointments(business.id)
             finding = false
-            guard !closed else { return }
+            // The screen was left, or a date or time was chosen by hand while the booked times were being read: that stands.
+            guard !closed, form.date == shownDate, form.time == shownTime else { return }
             if form.appointmentsLoaded {
                 found(form.findAvailability())
             } else if !form.appointmentsError.isEmpty {
@@ -1108,7 +1118,9 @@ struct CreateAppointmentScreen: View {
                     // Priced at the time of sale: its price is asked for once this list has gone.
                     nextSheet = .amount(.itemPrice(picked))
                 } else {
+                    // The light tap the Sale screen gives an item added to an order (the keypad gives its own with Done).
                     add { form.addItem(picked) }
+                    Haptics.light()
                 }
                 sheet = nil
             }
@@ -1134,10 +1146,9 @@ struct CreateAppointmentScreen: View {
         }
     }
 
-    /// An item joins the appointment with the light tap the Sale screen gives an item added to an order.
+    /// An item joins the appointment: the lines under it move down to make room.
     private func add(_ line: () -> Void) {
         withAnimation(.snappy(duration: 0.25)) { line() }
-        Haptics.light()
     }
 
     /// Two presentations cannot overlap: what comes next waits for the sheet to finish closing.

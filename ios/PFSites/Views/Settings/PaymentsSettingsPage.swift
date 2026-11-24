@@ -15,6 +15,7 @@ struct PaymentsSettingsPage: View {
         SettingsPage(title: "Payments", heading: "Payments", refresh: { await settings.load(siteID: siteID) }) {
             // 20 pt between the cards, as in the photos.
             VStack(alignment: .leading, spacing: 20) {
+                SettingsA.ReloadProblem(problem: settings.reloadProblem)
                 cashBack
                 cashDiscount
                 rounding

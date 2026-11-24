@@ -73,6 +73,8 @@ struct ItemSalesSyncSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var busy = false
     @State private var problem = ""
+    /// The download on its way, so Cancel can stop it.
+    @State private var job: Task<Void, Never>?
 
     /// The website's three steps, word for word.
     static let steps: [String] = [
@@ -111,7 +113,7 @@ struct ItemSalesSyncSheet: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Button {
-                    Task { await run() }
+                    job = Task { await run() }
                 } label: {
                     if busy {
                         ProgressView().tint(.white)
@@ -130,13 +132,17 @@ struct ItemSalesSyncSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .disabled(busy)
+                    // Cancel always works: it stops a download on its way, so a slow connection never holds the sheet.
+                    Button("Cancel") {
+                        job?.cancel()
+                        dismiss()
+                    }
                 }
             }
         }
         .presentationDetents([.medium, .large])
-        // While the file is being made the sheet stays, so the file is offered when it closes and never later by surprise.
+        // While the file is being made a swipe does not close the sheet (Cancel does, and stops the download), so the file is
+        // offered when the sheet closes and never later by surprise.
         .interactiveDismissDisabled(busy)
     }
 

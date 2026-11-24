@@ -89,12 +89,14 @@ final class Shell {
         }
     }
 
+    /// Pushes a screen onto the current tab. A second tap that lands before the first push has moved the screen does not open
+    /// the same screen twice.
     func push(_ route: Route) {
         switch tab {
-        case .home: home.append(route)
-        case .sale: sale.append(route)
-        case .orders: orders.append(route)
-        case .more: more.append(route)
+        case .home: if home.last != route { home.append(route) }
+        case .sale: if sale.last != route { sale.append(route) }
+        case .orders: if orders.last != route { orders.append(route) }
+        case .more: if more.last != route { more.append(route) }
         }
     }
 

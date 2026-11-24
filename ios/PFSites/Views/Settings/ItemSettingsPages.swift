@@ -325,10 +325,12 @@ private struct SaleSwitchPage: View {
                 TxLoading(problem: settings.problem) { Task { await load() } }
                     .frame(minHeight: 31)
             }
-            if !problem.isEmpty {
-                Text(problem)
+            // What went wrong with a save; or, quietly, that the latest values could not be fetched.
+            let message = problem.isEmpty ? settings.reloadProblem : problem
+            if !message.isEmpty {
+                Text(message)
                     .pfFont(15)
-                    .foregroundStyle(problemIsError ? Theme.error : SettingsLook.muted)
+                    .foregroundStyle(!problem.isEmpty && problemIsError ? Theme.error : SettingsLook.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 16)
                     .transition(.opacity)
@@ -337,6 +339,7 @@ private struct SaleSwitchPage: View {
             TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving, size: 13.5) { save() }
         }
         .animation(.snappy, value: problem)
+        .animation(.snappy, value: settings.reloadProblem)
         .settingsLoads { await load() }
         .refreshable { await load() }
     }

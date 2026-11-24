@@ -144,6 +144,7 @@ struct SignInField<Content: View>: View {
             .frame(minHeight: 48)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(.systemBackground)))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(focused ? Theme.blue : SignInLook.fieldBorder, lineWidth: focused ? 2 : 1))
+            .animation(.snappy(duration: 0.15), value: focused)
     }
 }
 

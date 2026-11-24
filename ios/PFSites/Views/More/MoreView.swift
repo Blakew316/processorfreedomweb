@@ -55,10 +55,11 @@ struct MoreView: View {
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                 }
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Profile, \(model.firstName)")
+            .accessibilityLabel(model.firstName.isEmpty ? "Profile" : "Profile, \(model.firstName)")
             Spacer(minLength: 8)
             Button {
                 model.lock()
@@ -228,8 +229,14 @@ struct MoreView: View {
             Text(title)
                 .pfFont(size, .semibold)
                 .foregroundStyle(Theme.blue)
+                // A taller place to tap than the word itself, without moving anything.
+                .padding(.vertical, 13.5)
+                .padding(.horizontal, 6)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.vertical, -13.5)
+        .padding(.horizontal, -6)
     }
 
     private func toggle(_ key: String) {

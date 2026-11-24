@@ -193,7 +193,7 @@ struct CameraRefusedSheet: View {
                 .accessibilityAddTraits(.isHeader)
             Text("PF Sites uses the camera to scan barcodes. Turn on Camera for PF Sites in Settings.")
                 .pfFont(16)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SettingsLook.muted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)

@@ -89,7 +89,7 @@ struct CloseoutBatchRow: View {
                     .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 CloseoutPill(open: open, greyed: greyed)
-                    .padding(.top, 5.8)
+                    .padding(.top, 6.2)
                 VStack(alignment: .leading, spacing: 7) {
                     Text(kind)
                     Text("Count: \(String(count))")
@@ -111,7 +111,7 @@ struct CloseoutBatchRow: View {
         }
         .padding(.leading, 18)
         .padding(.trailing, 25.3)
-        .padding(.top, 21)
+        .padding(.top, 20.6)
         .padding(.bottom, 18.57)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())

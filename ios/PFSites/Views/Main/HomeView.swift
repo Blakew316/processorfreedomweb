@@ -215,14 +215,14 @@ struct HomeView: View {
             Button {
                 // The tiles with native screens (the owner's Clover photos) open them; the rest open the website's page.
                 switch tile.tab {
-                case "sales": model.shell.home.append(.salesOverview)
-                case "calendar": model.shell.home.append(.appointments)
+                case "sales": model.shell.push(.salesOverview)
+                case "calendar": model.shell.push(.appointments)
                 case "insights": model.shell.cover = .insights
                 case "items": model.shell.cover = .items
                 case "close": model.shell.cover = .closeout
                 case "r-items": model.shell.cover = .itemSales
                 case "tasks": model.shell.cover = .tasks
-                default: model.shell.home.append(.page(tile.tab))
+                default: model.shell.push(.page(tile.tab))
                 }
             } label: {
                 VStack(spacing: 0) {

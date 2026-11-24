@@ -213,7 +213,7 @@ struct OrdersTabView: View {
             VStack(spacing: 14) {
                 Text(orders.loadError)
                     .pfFont(17)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(SettingsLook.muted)
                     .multilineTextAlignment(.center)
                 Button {
                     guard !retrying else { return }

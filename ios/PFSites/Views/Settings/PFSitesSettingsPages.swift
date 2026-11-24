@@ -100,7 +100,7 @@ struct QuickSalePage: View {
     @Environment(AppModel.self) private var model
 
     /// #727272, the photo's grey for the notes under the switches.
-    private static let note = Color(light: UIColor(hex: 0x727272), dark: UIColor(hex: 0x98989D))
+    private static let noteGrey = Color(light: UIColor(hex: 0x727272), dark: UIColor(hex: 0x98989D))
 
     var body: some View {
         // From the photo: the first baseline 52 pt under the bar on 20 pt lines; a switch's name 50 pt under the last of them; its
@@ -119,7 +119,7 @@ struct QuickSalePage: View {
             hairline.padding(.top, 26)
             Text("Not available yet. Use Custom item on the Sale screen to sell an amount.")
                 .pfFont(15)
-                .foregroundStyle(Self.note)
+                .foregroundStyle(Self.noteGrey)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 20)
         } bottom: {
@@ -152,7 +152,7 @@ struct QuickSalePage: View {
             .frame(minHeight: 31)
             Text(note)
                 .pfFont(14)
-                .foregroundStyle(Self.note)
+                .foregroundStyle(Self.noteGrey)
                 .lineSpacing(2.3)
                 .fixedSize(horizontal: false, vertical: true)
                 // Clear of the switch's column, as in the photo.
@@ -256,10 +256,12 @@ struct CarbonCopyReceiptsPage: View {
                 .foregroundStyle(SettingsLook.muted)
                 .padding(.top, 14)
 
-            if !problem.isEmpty {
-                Text(problem)
+            // What went wrong with a save; or, quietly, that the latest address could not be fetched.
+            let message = problem.isEmpty ? settings.reloadProblem : problem
+            if !message.isEmpty {
+                Text(message)
                     .pfFont(15)
-                    .foregroundStyle(problemIsError ? Theme.error : SettingsLook.muted)
+                    .foregroundStyle(!problem.isEmpty && problemIsError ? Theme.error : SettingsLook.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 16)
                     .transition(.opacity)
@@ -268,6 +270,7 @@ struct CarbonCopyReceiptsPage: View {
             TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: changed && valid && !saving, busy: saving, size: 13.5) { save() }
         }
         .animation(.snappy, value: problem)
+        .animation(.snappy, value: settings.reloadProblem)
         .animation(.snappy, value: valid || typing)
         .settingsLoads { await load() }
         .refreshable { await load() }

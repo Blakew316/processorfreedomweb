@@ -196,10 +196,10 @@ struct ItemSalesScreen: View {
                 toggle(.range)
             } label: {
                 // The photo's places: the calendar 14 pt in and the chevron 17.4 pt in from the field's edges, each a little
-                // under the middle of the field (0.8 pt and 0.6 pt); the words start 43 pt in.
+                // under the middle of the field (0.9 pt and 0.6 pt); the words start 43 pt in.
                 HStack(spacing: 9) {
                     ItemSalesCalendarIcon()
-                        .offset(y: 0.8)
+                        .offset(y: 0.9)
                     Text(report.fieldLabel)
                         .pfFont(16.5)
                         .foregroundStyle(Color.primary)

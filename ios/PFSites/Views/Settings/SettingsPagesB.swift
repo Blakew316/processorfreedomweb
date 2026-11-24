@@ -25,6 +25,9 @@ final class TransactionsSettings {
     private(set) var loaded = false
     /// Why the settings could not be loaded. It only shows while there is nothing to show: a failed refresh keeps the values on screen.
     private(set) var problem = ""
+    /// Why the settings could not be loaded again while the page already shows them: said in one quiet line, so values that may
+    /// be out of date are not taken for fresh ones. It goes when a load works.
+    private(set) var reloadProblem = ""
     /// Each load and save takes a number, so an answer that comes back after a newer one never puts older values on screen.
     @ObservationIgnored private var round = 0
 
@@ -43,7 +46,7 @@ final class TransactionsSettings {
             guard mine == round else { return }
             // A 403 is only a message (a team passcode opens one business); a 401 means the session ended: check, then lock.
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            if !loaded { problem = error.message }
+            if loaded { reloadProblem = error.message } else { problem = error.message }
         } catch {
             // Cancelled: the page went away, or is loading again.
         }
@@ -53,6 +56,7 @@ final class TransactionsSettings {
         ordering = site["ordering"]
         businessEmail = site["draft"]["business"]["email"].string.trimmed
         loaded = true
+        reloadProblem = ""
     }
 
     /// Saves a change to the business's ordering settings the way the website does: the latest settings and their fingerprint are

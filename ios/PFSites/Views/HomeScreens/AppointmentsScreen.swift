@@ -175,7 +175,9 @@ struct AppointmentsScreen: View {
             .accessibilityLabel("Create appointment")
         }
         .padding(.horizontal, 16)
-        .padding(.top, 28)
+        // 26 pt under the bar puts the buttons where the photo has them (133 pt down) on the owner's iPhone, whose bar ends
+        // 107 pt down (3 pt lower than on the 375 pt wide simulator).
+        .padding(.top, 26)
         // Room under the buttons, so that cards scrolling up are cut off a little below them, not against them (the day at
         // rest starts where it did: the list has 8 pt less above it).
         .padding(.bottom, 8)
@@ -273,7 +275,7 @@ struct AppointmentsScreen: View {
                     if shown.dayList.isEmpty && shown.loadError.isEmpty {
                         // A day with nothing to show is plain empty space, as in the photo; VoiceOver is told why.
                         Color.clear
-                            .frame(height: 1)
+                            .frame(height: 44)
                             .accessibilityElement()
                             .accessibilityLabel(shown.dayIsFilteredAway ? "No appointments match the filters" : "No appointments")
                     }

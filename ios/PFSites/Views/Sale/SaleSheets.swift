@@ -10,8 +10,8 @@ enum SaleLook {
     static let muted = Color(light: UIColor(hex: 0x5C5C5C), dark: .secondaryLabel)
     /// #727272: an item card's border.
     static let cardBorder = Color(light: UIColor(hex: 0x727272), dark: .systemGray)
-    /// #E5E5E5: the hairlines.
-    static let hairline = Color(light: UIColor(hex: 0xE5E5E5), dark: .systemGray4)
+    /// The hairlines: the app's one hairline colour (#E3E3E3; the photo's measure #E5E5E5).
+    static let hairline = SettingsLook.border
     /// #FBFBFB: the order panel at the bottom.
     static let panel = Color(light: UIColor(hex: 0xFBFBFB), dark: .secondarySystemBackground)
     /// #C7C7C7: disabled buttons and the options button's border.
@@ -135,6 +135,7 @@ struct OrderSheet: View {
                 }
                 ForEach(order.lines) { line in
                     HStack(spacing: 12) {
+                        // The name takes all the room the quantity and the amount leave, so a long name wraps as little as it can.
                         VStack(alignment: .leading, spacing: 2) {
                             Text(line.name)
                                 .pfFont(17, .medium)
@@ -142,7 +143,8 @@ struct OrderSheet: View {
                                 .pfFont(15)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer(minLength: 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityElement(children: .combine)
                         // Each circle is 44 pt to press; the room is taken back outside it, so the row keeps its layout.
                         HStack(spacing: 4) {
                             Button {
@@ -160,7 +162,7 @@ struct OrderSheet: View {
                                 .pfFont(17, .semibold)
                                 .monospacedDigit()
                                 .frame(minWidth: 28)
-                                .accessibilityLabel("\(line.qty)")
+                                .accessibilityLabel("Quantity \(line.qty)")
                             Button {
                                 Haptics.light()
                                 order.change(line, by: 1)

@@ -47,6 +47,8 @@ struct CreateAppointmentAmountSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var cents: Int
     @State private var name = ""
+    /// Done has been pressed: a second press while the sheet is closing does nothing.
+    @State private var finished = false
     @FocusState private var nameFocused: Bool
 
     /// $100,000.00 (parsePrice in shared/core.js).
@@ -197,8 +199,11 @@ struct CreateAppointmentAmountSheet: View {
     }
 
     private func finish() {
-        guard canFinish else { return }
+        guard canFinish, !finished else { return }
+        finished = true
         done(cents, name.trimmed)
+        // The light tap of the Sale screen's keypad when its amount is taken.
+        Haptics.light()
         dismiss()
     }
 }
@@ -239,6 +244,8 @@ struct CreateAppointmentInventorySheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
+    /// An item has been tapped: a second tap while the sheet is closing does nothing.
+    @State private var chosen = false
 
     private var shown: [CreateAppointmentItem] {
         let typed = query.trimmed.lowercased()
@@ -302,11 +309,27 @@ struct CreateAppointmentInventorySheet: View {
             }
             .padding(.horizontal, 32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if items.isEmpty {
+            // A business without items: the Sale screen's words for its own list of them.
+            ContentUnavailableView("No items yet", systemImage: "tag")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(shown) { item in
+                    let found = shown
+                    if found.isEmpty {
+                        // Nothing by that name, said as the Sale screen says it.
+                        Text("No items match \u{201C}\(query.trimmed)\u{201D}.")
+                            .pfFont(17)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                            .padding(.top, 24)
+                    }
+                    ForEach(found) { item in
                         Button {
+                            guard !chosen else { return }
+                            chosen = true
                             pick(item)
                         } label: {
                             HStack(alignment: .firstTextBaseline, spacing: 12) {

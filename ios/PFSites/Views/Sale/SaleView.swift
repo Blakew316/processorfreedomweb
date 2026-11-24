@@ -1,4 +1,6 @@
+import ImageIO
 import SwiftUI
+import UIKit
 
 /// Sale (photos 4 and 5): find items (by name, or with the camera's barcode scanner), build the order, then check out on the
 /// website's own Virtual Terminal.
@@ -161,7 +163,7 @@ struct SaleView: View {
             VStack(spacing: 14) {
                 Text(order.loadError)
                     .pfFont(17)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(SettingsLook.muted)
                     .multilineTextAlignment(.center)
                 Button("Try again") { reload(order) }
                     .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 17))
@@ -183,7 +185,7 @@ struct SaleView: View {
                     if shown.isEmpty {
                         Text("No items match \u{201C}\(order.search.trimmed)\u{201D}.")
                             .pfFont(17)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(SettingsLook.muted)
                             .multilineTextAlignment(.center)
                             .padding(.top, 24)
                     }
@@ -375,28 +377,37 @@ enum KeypadTarget: Identifiable {
 /// light grey square with a picture icon when it has none, so the names stay lined up.
 private struct SaleItemPhoto: View {
     let path: String
+    @Environment(\.displayScale) private var displayScale
+    @State private var picture: UIImage?
+
+    init(path: String) {
+        self.path = path
+        // A photo already fetched is there from the first frame (an item coming back into the list does not blink).
+        _picture = State(initialValue: SaleItemPhotos.kept(path))
+    }
 
     var body: some View {
-        Group {
-            if path.isEmpty {
-                placeholder
-            } else {
-                // The photo fades in over the grey square when it arrives, rather than popping in.
-                AsyncImage(url: Config.url(path), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                    if let image = phase.image {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .transition(.opacity)
-                    } else {
-                        placeholder
-                    }
-                }
+        ZStack {
+            placeholder
+            if let picture {
+                Image(uiImage: picture)
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity)
             }
         }
         .frame(width: 48, height: 48)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .accessibilityHidden(true)
+        .task(id: path) {
+            // A new photo fades in over the grey square when it arrives, rather than popping in.
+            let kept = SaleItemPhotos.kept(path)
+            if picture !== kept { picture = kept }
+            guard kept == nil, !path.isEmpty else { return }
+            if let small = await SaleItemPhotos.fetch(path, side: 48 * displayScale) {
+                withAnimation(.easeOut(duration: 0.2)) { picture = small }
+            }
+        }
     }
 
     private var placeholder: some View {
@@ -406,5 +417,37 @@ private struct SaleItemPhoto: View {
                 .font(.system(size: 18))
                 .foregroundStyle(.tertiary)
         }
+    }
+}
+
+/// The Sale list's item photos, made small (the list shows them 48 pt square) and kept while the app runs. A long list of full-size
+/// photos would fill the phone's memory, and a photo should not be fetched again each time its item comes back into the list.
+private enum SaleItemPhotos {
+    private static let store: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 600
+        return cache
+    }()
+
+    static func kept(_ path: String) -> UIImage? {
+        path.isEmpty ? nil : store.object(forKey: path as NSString)
+    }
+
+    /// Fetches the photo and draws it small: about twice the square's side in pixels, because the square is filled and a wide or
+    /// tall photo needs the extra. Nothing comes back for a file iOS cannot draw (an SVG) or one that could not be fetched.
+    static func fetch(_ path: String, side: CGFloat) async -> UIImage? {
+        guard let (data, response) = try? await URLSession.shared.data(from: Config.url(path)),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(96, side * 2)
+        ]
+        guard let small = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        let image = UIImage(cgImage: small)
+        store.setObject(image, forKey: path as NSString)
+        return image
     }
 }

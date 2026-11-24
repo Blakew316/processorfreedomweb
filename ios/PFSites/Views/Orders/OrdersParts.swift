@@ -9,8 +9,9 @@ enum OrdersLook {
     static let placeholder = Color(light: UIColor(hex: 0x5C5C5C), dark: .secondaryLabel)
     /// #727272: the filter button's border.
     static let buttonBorder = Color(light: UIColor(hex: 0x727272), dark: .systemGray)
-    /// #E5E5E5: the hairlines and the grey band over each day.
-    static let hairline = Color(light: UIColor(hex: 0xE5E5E5), dark: .systemGray4)
+    /// The hairlines: the app's one hairline colour (#E3E3E3; the photo's measure #E5E5E5).
+    static let hairline = SettingsLook.border
+    /// #E5E5E5: the grey band over each day.
     static let band = Color(light: UIColor(hex: 0xE5E5E5), dark: .systemGray5)
     /// #FBFBFB behind the rows.
     static let row = Color(light: UIColor(hex: 0xFBFBFB), dark: .secondarySystemBackground)

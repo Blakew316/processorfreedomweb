@@ -131,6 +131,8 @@ struct LoginView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 94)
+                        // A message coming or going moves the button under it smoothly.
+                        .animation(.snappy(duration: 0.25), value: auth.error)
 
                         Spacer(minLength: 40)
 
