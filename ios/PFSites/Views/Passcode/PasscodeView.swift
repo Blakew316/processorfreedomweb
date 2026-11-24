@@ -20,6 +20,7 @@ struct PasscodeView: View {
     @State private var finished = false
     @State private var shakes: CGFloat = 0
     @State private var faceIDWanted = false
+    @State private var faceIDRunning = false
     @FocusState private var focused: Bool
 
     private enum Stage: Equatable {
@@ -66,7 +67,11 @@ struct PasscodeView: View {
                         .padding(.horizontal, 24)
                         .frame(maxWidth: .infinity, minHeight: 51)
                     if model.biometry != .none {
-                        faceIDControl
+                        if showsBiometricButton {
+                            biometricButton
+                        } else {
+                            faceIDControl
+                        }
                     }
                     if showsSwitchUser {
                         LinkButton(title: "Switch User", size: 15) { switchUser() }
@@ -184,6 +189,8 @@ struct PasscodeView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.vertical, 6)
                 .accessibilityAddTraits(.updatesFrequently)
+        } else {
+            Color.clear.frame(height: 0)
         }
     }
 
@@ -220,6 +227,26 @@ struct PasscodeView: View {
         .accessibilityHint("Takes effect after your passcode.")
     }
 
+    /// On the lock screen with Face ID already on, Apple's Face ID symbol takes the box's place: tapping it unlocks with Face ID.
+    private var showsBiometricButton: Bool {
+        step.purpose == .lock && model.faceIDOn
+    }
+
+    private var biometricButton: some View {
+        Button {
+            Task { await useFaceID() }
+        } label: {
+            Image(systemName: model.biometry.symbol)
+                .font(.system(size: 34, weight: .regular))
+                .foregroundStyle(Theme.blue)
+                .frame(width: 64, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(faceIDRunning || busy || finished)
+        .accessibilityLabel("Unlock with \(model.biometry.name)")
+    }
+
     private var showsSwitchUser: Bool {
         switch step.purpose {
         case .afterSignIn, .lock: return true
@@ -230,37 +257,22 @@ struct PasscodeView: View {
     // MARK: Behaviour
 
     private func appeared() async {
-        // With Face ID on, the lock screen asks for it by itself, once for each time the app locks.
-        if step.purpose == .lock && model.faceIDOn && model.biometry != .none {
-            await tryFaceID()
-        } else {
-            focusSoon()
-        }
+        // Face ID never asks by itself (locking or signing out would be undone the moment this screen appears): the person taps
+        // its symbol when they want it. The number pad comes up meanwhile.
+        focusSoon()
     }
 
-    /// Face ID once, when the app is in front (asking while it is still opening would be cancelled by the system). When the app is
-    /// not in front within 2 seconds (the phone was locked, or another app opened, as it started), the number pad comes up meanwhile,
-    /// and Face ID still asks once the app is in front. This lock's one turn is only taken when Face ID really asks.
-    private func tryFaceID() async {
-        var waited = 0
-        while UIApplication.shared.applicationState != .active {
-            if waited == 20 { focusSoon() }
-            waited += 1
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            if Task.isCancelled || finished { return }
-        }
-        guard !finished, model.takeFaceIDTurn() else {
-            if !finished { focusSoon() }
-            return
-        }
+    /// Face ID when its symbol is tapped. Cancelling, or a face it does not recognise, leaves the lock screen with the number pad.
+    private func useFaceID() async {
+        guard !faceIDRunning, !busy, !finished else { return }
+        faceIDRunning = true
+        defer { faceIDRunning = false }
+        focused = false
         switch await model.unlockWithFaceID() {
         case .unlocked:
             await finish()
-        case .stay:
-            // Cancelled: the lock screen stays as it is; a tap anywhere brings up the number pad.
-            break
-        case .keypad, .hidden:
-            focusSoon()
+        case .stay, .keypad, .hidden:
+            if !finished { focusSoon() }
         case .refused(let result):
             faceIDWanted = model.faceIDOn
             handle(result)
