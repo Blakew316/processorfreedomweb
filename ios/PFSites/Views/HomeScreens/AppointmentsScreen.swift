@@ -13,10 +13,15 @@ struct AppointmentsScreen: View {
     @State private var panel: AppointmentDayPanel? = nil
     @State private var pickingFromTitle = false
     @State private var pickingFromButton = false
-    /// The calendar's choice: noon (GMT) of the day on screen when it opens.
+    /// The calendar's choice: noon of the day on screen when it opens, in the business's time zone.
     @State private var pickerDate = Date()
+    /// The time zone the calendar opened in (the business's), so its own "today" is the business's today and a day tapped reads
+    /// back as that day.
+    @State private var pickerZone = TimeZone.current
     @State private var opened: Opened? = nil
     @State private var toast: String? = nil
+    /// VoiceOver goes back to the round button whose panel has just closed.
+    @AccessibilityFocusState private var returnFocus: AppointmentDayPanel?
 
     private struct Opened: Identifiable {
         let id: String
@@ -74,7 +79,7 @@ struct AppointmentsScreen: View {
         }
         // A day tapped in the calendar shows at once and closes it (the day already on screen changes nothing).
         .onChange(of: pickerDate) { _, picked in
-            let day = AppointmentDayCalendar.day(picked)
+            let day = AppointmentDayCalendar.day(picked, in: pickerZone)
             guard pickingFromTitle || pickingFromButton, day != list.day else { return }
             model.idle.touch()
             list.pick(day)
@@ -134,8 +139,10 @@ struct AppointmentsScreen: View {
             }
             .popover(isPresented: $pickingFromButton) { dayPicker }
             roundButton(.people, label: "Employee(s)", count: shown.employeesShown) { open(.employees) }
+                .accessibilityFocused($returnFocus, equals: .employees)
                 .padding(.leading, 12)
             roundButton(.sliders, label: "Appointment attributes", count: shown.statusesShown) { open(.attributes) }
+                .accessibilityFocused($returnFocus, equals: .attributes)
                 .padding(.leading, 8)
             Button {
                 model.idle.touch()
@@ -187,20 +194,25 @@ struct AppointmentsScreen: View {
         .accessibilityValue(count.map { "\($0) shown" } ?? "")
     }
 
-    /// The calendar opens on the day on screen.
+    /// The calendar opens on the day on screen, on the business's clock.
     private func openCalendar() {
         model.idle.touch()
-        if let shownDate = AppointmentDayCalendar.date(list.day), shownDate != pickerDate { pickerDate = shownDate }
+        let zone = list.zone
+        if zone.identifier != pickerZone.identifier { pickerZone = zone }
+        if let shownDate = AppointmentDayCalendar.date(list.day, in: zone), shownDate != pickerDate { pickerDate = shownDate }
     }
 
-    /// The calendar for choosing the day: from the first day the server sends appointments for (30 days back) onward.
+    /// The calendar for choosing the day, in the business's time zone (its marked "today" is the business's today): from the first
+    /// day the server sends appointments for (30 days back) onward.
     private var dayPicker: some View {
-        let first = list.firstDay.flatMap { AppointmentDayCalendar.date($0) } ?? Date.distantPast
+        let zone = pickerZone
+        let firstNoon = list.firstDay.flatMap { AppointmentDayCalendar.date($0, in: zone) }
+        let first = firstNoon.map { AppointmentDayCalendar.calendar(in: zone).startOfDay(for: $0) } ?? Date.distantPast
         return DatePicker("Day", selection: $pickerDate, in: first..., displayedComponents: .date)
             .datePickerStyle(.graphical)
             .labelsHidden()
             .tint(Theme.blue)
-            .environment(\.timeZone, AppointmentDayCalendar.zone)
+            .environment(\.timeZone, zone)
             .frame(width: 320)
             .padding(12)
             .presentationCompactAdaptation(.popover)
@@ -315,9 +327,20 @@ struct AppointmentsScreen: View {
     private func panelView(_ which: AppointmentDayPanel) -> some View {
         switch which {
         case .employees:
-            AppointmentDayEmployeesPanel(list: list) { panel = nil }
+            AppointmentDayEmployeesPanel(list: list) { closePanel() }
         case .attributes:
-            AppointmentDayAttributesPanel(list: list) { panel = nil }
+            AppointmentDayAttributesPanel(list: list) { closePanel() }
+        }
+    }
+
+    /// Closes the panel; once it has slid away, VoiceOver goes back to the round button that opened it.
+    private func closePanel() {
+        let which = panel
+        panel = nil
+        guard let which else { return }
+        Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            returnFocus = which
         }
     }
 

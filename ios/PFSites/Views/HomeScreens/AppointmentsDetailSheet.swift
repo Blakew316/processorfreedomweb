@@ -103,7 +103,7 @@ struct AppointmentDaySheet: View {
                     HStack(spacing: 10) {
                         AppointmentDayStatusIcon(kind: AppointmentDayStatusIcon.Kind(status))
                         Text(status.title)
-                            .pfFont(16, .medium)
+                            .pfFont(16, .semibold)
                             .foregroundStyle(Color.primary)
                     }
                     .accessibilityElement(children: .combine)
@@ -199,55 +199,72 @@ struct AppointmentDaySheet: View {
         let confirmed = appointment.status == AppointmentStatus.confirmed.rawValue
         return VStack(spacing: 12) {
             if pending {
-                mainButton("Confirm", step: AppointmentStatus.confirmed.rawValue) { change(to: .confirmed) }
+                stepPill("Confirm", step: AppointmentStatus.confirmed.rawValue) { change(to: .confirmed) }
             } else if confirmed {
-                mainButton("Complete", step: AppointmentStatus.completed.rawValue) { change(to: .completed) }
+                stepPill("Complete", step: AppointmentStatus.completed.rawValue) { change(to: .completed) }
             } else {
                 Button("Done") { finish(nil) }
                     .buttonStyle(AppointmentDayPillStyle(kind: .primary))
                     .disabled(working != nil)
             }
             if appointment.payable {
-                Button("Record payment") { choosingTender = true }
-                    .buttonStyle(AppointmentDayPillStyle(kind: .soft))
-                    .disabled(working != nil)
+                stepPill("Record payment", step: "pay", kind: .soft) { choosingTender = true }
             }
             if confirmed && !appointment.paid {
-                Button("No show") { ask(.status(.noshow), appointment) }
-                    .buttonStyle(AppointmentDayPillStyle(kind: .soft))
-                    .disabled(working != nil)
+                stepPill("No show", step: AppointmentStatus.noshow.rawValue, kind: .soft) { ask(.status(.noshow), appointment) }
             }
             if appointment.paid {
-                textButton("Void payment", color: Theme.blue) { ask(.voiding, appointment) }
+                textButton("Void payment", step: "void", color: Theme.blue) { ask(.voiding, appointment) }
             }
             if (pending || confirmed) && !appointment.paid {
-                textButton("Cancel", color: Theme.error) { ask(.status(.cancelled), appointment) }
+                textButton("Cancel", step: AppointmentStatus.cancelled.rawValue, color: Theme.error) { ask(.status(.cancelled), appointment) }
             }
         }
     }
 
-    private func mainButton(_ title: String, step: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            if working == step {
-                ProgressView().tint(Color.white)
+    /// A step as a 48 pt pill. While its step runs it keeps its own colour with a spinner on it (pressing it again does nothing),
+    /// and the other steps wait, pale.
+    private func stepPill(_ title: String, step: String, kind: AppointmentDayPillStyle.Kind = .primary, action: @escaping () -> Void) -> some View {
+        let running = working == step
+        return Button {
+            if working == nil { action() }
+        } label: {
+            if running {
+                ProgressView()
+                    .tint(kind == .primary ? Color.white : Color.primary)
             } else {
                 Text(title)
             }
         }
-        .buttonStyle(AppointmentDayPillStyle(kind: .primary))
-        .disabled(working != nil)
+        .buttonStyle(AppointmentDayPillStyle(kind: kind))
+        .disabled(working != nil && !running)
+        .accessibilityLabel(title)
+        .accessibilityValue(running ? "In progress" : "")
     }
 
-    private func textButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .pfFont(17, .semibold)
-                .foregroundStyle(color)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
+    /// A step in words (Void payment, Cancel), with a spinner in their place while it runs.
+    private func textButton(_ title: String, step: String, color: Color, action: @escaping () -> Void) -> some View {
+        let running = working == step
+        return Button {
+            if working == nil { action() }
+        } label: {
+            ZStack {
+                if running {
+                    ProgressView()
+                        .tint(color)
+                } else {
+                    Text(title)
+                        .pfFont(17, .semibold)
+                        .foregroundStyle(color)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(working != nil)
+        .disabled(working != nil && !running)
+        .accessibilityLabel(title)
+        .accessibilityValue(running ? "In progress" : "")
     }
 
     /// The website's apptConfirm and apptVoid questions.

@@ -25,9 +25,14 @@ final class AppointmentsModel {
     var employees: Set<String>? = nil
     /// The Appointment attributes filter: the statuses shown; nil shows all five.
     var statuses: Set<AppointmentStatus>? = nil
+    /// The business's time zone (site.ordering.timezone). The calendar for choosing the day runs on it, so the day it marks as
+    /// today is the business's today; the phone's own zone until the server has said.
+    var zone: TimeZone = .current
 
     /// Counts the loads and the changes, so an answer that set out before a newer one is never shown over it.
     @ObservationIgnored private var generation = 0
+    /// When the time zone was last read.
+    @ObservationIgnored private var zoneReadAt: Date? = nil
 
     private static var kept: (shell: UUID, model: AppointmentsModel)?
 
@@ -63,6 +68,7 @@ final class AppointmentsModel {
         generation += 1
         let mine = generation
         async let names: Void = loadPeople(siteID: siteID)
+        async let clock: Void = loadZone(siteID: siteID)
         do {
             let answer = try await API.get("/api/sites/\(siteID)/appointments")
             // A newer load or a change made meanwhile has the fresher list.
@@ -92,6 +98,16 @@ final class AppointmentsModel {
             // Cancelled: the screen went away.
         }
         await names
+        await clock
+    }
+
+    /// The business's time zone, from GET /api/sites/<id> (site.ordering.timezone): with the first load, then at most every ten
+    /// minutes, since it seldom changes and that answer carries the whole website. A failed read keeps the zone it had.
+    private func loadZone(siteID: String) async {
+        if let at = zoneReadAt, Date().timeIntervalSince(at) < 600 { return }
+        guard let answer = try? await API.get("/api/sites/\(siteID)") else { return }
+        zoneReadAt = Date()
+        if let found = TimeZone(identifier: answer["site"]["ordering"]["timezone"].string), found.identifier != zone.identifier { zone = found }
     }
 
     /// The names for the Employee(s) filter, in the server's order (the owner first, then the team as they were added). A list
@@ -194,27 +210,37 @@ final class AppointmentsModel {
 }
 
 /// The day view's dates. Days are the server's "2026-11-23" strings on the business's clock, so they are kept as noon in GMT,
-/// where no time zone can move them to another day, and shown in the phone's own way of writing dates and times.
+/// where no time zone can move them to another day, and shown in the phone's own way of writing dates and times. Only the
+/// calendar for choosing the day works in the business's own time zone (AppointmentsModel.zone), so that its "today" is right.
 enum AppointmentDayCalendar {
     static let zone = TimeZone(secondsFromGMT: 0) ?? .current
     /// The website's words for an appointment that names no one on the team (AppointmentsModel.anyAvailable).
     static let anyAvailable = "Any available"
 
-    static var gregorian: Calendar {
+    /// A gregorian calendar in a time zone.
+    static func calendar(in zone: TimeZone) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = zone
         return calendar
     }
 
-    /// Noon of a "2026-11-23" day.
-    static func date(_ day: String) -> Date? {
+    static var gregorian: Calendar { calendar(in: zone) }
+
+    /// Noon (GMT) of a "2026-11-23" day.
+    static func date(_ day: String) -> Date? { date(day, in: zone) }
+
+    /// Noon of a "2026-11-23" day in a time zone.
+    static func date(_ day: String, in zone: TimeZone) -> Date? {
         let parts = day.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
-        return gregorian.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
+        return calendar(in: zone).date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
     }
 
-    static func day(_ date: Date) -> String {
-        let parts = gregorian.dateComponents([.year, .month, .day], from: date)
+    static func day(_ date: Date) -> String { day(date, in: zone) }
+
+    /// The "2026-11-23" day a moment falls on in a time zone.
+    static func day(_ date: Date, in zone: TimeZone) -> String {
+        let parts = calendar(in: zone).dateComponents([.year, .month, .day], from: date)
         return iso(year: parts.year ?? 0, month: parts.month ?? 0, day: parts.day ?? 0)
     }
 
@@ -224,12 +250,7 @@ enum AppointmentDayCalendar {
     }
 
     /// The phone's own today, only until the server has said the business's.
-    static func phoneToday() -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .current
-        let parts = calendar.dateComponents([.year, .month, .day], from: Date())
-        return iso(year: parts.year ?? 0, month: parts.month ?? 0, day: parts.day ?? 0)
-    }
+    static func phoneToday() -> String { day(Date(), in: TimeZone.current) }
 
     /// "2026-11-03".
     private static func iso(year: Int, month: Int, day: Int) -> String {

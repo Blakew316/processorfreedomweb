@@ -11,8 +11,18 @@ import Observation
 /// the others use the server's own range names.
 enum StatsRange: String, CaseIterable, Identifiable {
     case today, yesterday, week, month, last7, last30, last90, custom
+    /// Insights' first period, as in its photo (taken on November 24: "From November 17, 2026, to November 23, 2026", the chart
+    /// Tuesday to Monday): the seven whole days before the business's today. It is not a row of the sheet, which marks Custom with
+    /// its days.
+    case pastWeek
 
     var id: String { rawValue }
+
+    /// The sheet's rows above Custom, in the photo's order.
+    static let rows: [StatsRange] = [.today, .yesterday, .week, .month, .last7, .last30, .last90]
+
+    /// Days chosen on the sheet's Custom row, or Insights' week before today: the sheet marks Custom for both.
+    var isCustomDays: Bool { self == .custom || self == .pastWeek }
 
     var label: String {
         switch self {
@@ -23,7 +33,7 @@ enum StatsRange: String, CaseIterable, Identifiable {
         case .last7: return "Last 7 days"
         case .last30: return "Last 30 days"
         case .last90: return "Last 90 days"
-        case .custom: return "Custom"
+        case .custom, .pastWeek: return "Custom"
         }
     }
 }
@@ -60,13 +70,15 @@ struct StatsTimeFrame: Hashable {
             return (StatsDays.shift(today, by: -89), today)
         case .custom:
             return from <= to ? (from, to) : (to, from)
+        case .pastWeek:
+            return (StatsDays.shift(today, by: -7), StatsDays.shift(today, by: -1))
         }
     }
 
     /// The query for GET /api/sites/<id>/stats (the transactions route takes the same one).
     func query(today: String) -> String {
         switch range {
-        case .last90, .custom:
+        case .last90, .custom, .pastWeek:
             let span = days(today: today)
             return "range=custom&from=\(span.from)&to=\(span.to)"
         default:
@@ -242,16 +254,19 @@ struct StatsPrevious {
     }
 }
 
-/// One hour ("00" to "23") of a one-day period, or one day ("2026-11-17") of a longer one.
+/// One hour ("00" to "23") of a one-day period, or one day ("2026-11-17") of a longer one: its orders (not cancelled), its net
+/// sales (less the refunds of orders made in it), and the money taken in it (every payment the ledger recorded then).
 struct StatsBucket {
     let key: String
     let orders: Int
     let net: Int
+    let collected: Int
 
     init(_ json: JSON) {
         key = json["key"].string
         orders = json["orders"].int
         net = json["net"].int
+        collected = json["collected"].int
     }
 }
 
@@ -360,7 +375,6 @@ struct StatsReport {
     let days: Int
     let hourly: Bool
     let timeZone: TimeZone?
-    let taxRate: Double
     let totals: StatsTotals
     let previous: StatsPrevious
     let series: [StatsBucket]
@@ -382,8 +396,6 @@ struct StatsReport {
         days = max(1, json["days"].int)
         hourly = json["unit"].string == "hour"
         timeZone = TimeZone(identifier: json["timezone"].string)
-        let rate = json["taxRate"]
-        taxRate = (rate.raw as? NSNumber)?.doubleValue ?? Double(rate.string) ?? 0
         totals = StatsTotals(json["totals"])
         previous = StatsPrevious(json["previous"])
         series = json["series"].array.map { StatsBucket($0) }
@@ -503,11 +515,15 @@ struct StatsReport {
         }
         guard series.count > 1 else { return nil }
         var text = "\(dayName(best.key)) was your strongest day, bringing in \(Money.format(best.net))"
-        let idle = series.filter { $0.orders == 0 && $0.net == 0 }
+        // Days with no orders, no refunds of their orders and no money taken. When the period had no refunds at all, nothing
+        // happened on them (the photo's words). Otherwise a refund the days do not show (of an invoice, or of a cancelled order)
+        // could fall on one, so they are only said to have had no sales.
+        let idle = series.filter { $0.orders == 0 && $0.net == 0 && $0.collected == 0 }
+        let quietWords = money.refunds == 0 ? "saw no transaction activity" : "had no sales"
         if idle.count == 1, let day = idle.first {
-            text += ", while \(dayName(day.key)) had no sales"
+            text += ", while \(dayName(day.key)) \(quietWords)"
         } else if idle.count > 1 {
-            text += ", while \(idle.count) days had no sales"
+            text += ", while \(idle.count) days \(quietWords)"
         } else {
             var quiet = best
             for bucket in series where bucket.net < quiet.net { quiet = bucket }
@@ -587,11 +603,6 @@ enum StatsFormat {
         if dollars >= 1_000 { return "\(sign)$\(short(dollars / 1_000))K" }
         return "\(sign)$\(Int(dollars.rounded()))"
     }
-
-    /// "8.25%" for a tax rate.
-    static func rate(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(0...3))) + "%"
-    }
 }
 
 // MARK: - Loading
@@ -621,8 +632,8 @@ final class StatsModel {
 
     init(screen: Screen) {
         self.screen = screen
-        // Sales Overview opens on Today, as in its photo; Insights on the last 7 days, as the website's Insights page does.
-        frame = StatsTimeFrame(range: screen == .insights ? .last7 : .today)
+        // Each opens on its photo's period: Sales Overview on Today; Insights on the seven whole days before today.
+        frame = StatsTimeFrame(range: screen == .insights ? .pastWeek : .today)
     }
 
     /// The numbers for the chosen time frame, or nil while they load.

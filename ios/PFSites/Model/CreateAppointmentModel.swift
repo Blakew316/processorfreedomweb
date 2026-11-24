@@ -177,6 +177,8 @@ enum CreateAppointmentPrice {
                 text = String(chars.filter { $0 != "." && $0 != "," })
             }
         }
+        // ",50" reads as 0.50, as JavaScript's parseFloat reads ".50".
+        if text.hasPrefix(".") { text = "0" + text }
         guard let value = Double(text), value.isFinite else { return nil }
         let cents = jsRound(value * 100)
         guard cents >= 0, cents <= 10_000_000 else { return nil }
@@ -485,11 +487,11 @@ final class CreateAppointmentModel {
     /// The website's findAvail: from the next half hour on the business's clock, every half hour for two weeks, the first time
     /// inside the business hours (a day that closes after midnight runs on into the next) that no appointment starts at.
     /// False when there is none.
-    func findAvailability() -> Bool {
-        let wall = CreateAppointmentClock.wall(in: zone)
+    func findAvailability(at now: Date = Date()) -> Bool {
+        let wall = CreateAppointmentClock.wall(in: zone, at: now)
         guard hours.count == 7, let midnight = CreateAppointmentClock.date(wall.day) else { return false }
-        let now = Int((midnight.timeIntervalSince1970 / 60).rounded()) + wall.minutes
-        let first = Int((Double(now) / 30).rounded(.up)) * 30
+        let current = Int((midnight.timeIntervalSince1970 / 60).rounded()) + wall.minutes
+        let first = Int((Double(current) / 30).rounded(.up)) * 30
         let taken = Set(appointments.map { $0.at })
         for step in 0..<(14 * 48) {
             let slot = Date(timeIntervalSince1970: TimeInterval(first + step * 30) * 60)

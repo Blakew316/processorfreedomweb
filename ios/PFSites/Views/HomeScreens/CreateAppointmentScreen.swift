@@ -841,7 +841,7 @@ struct CreateAppointmentScreen: View {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(past) { appointment in
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text(CreateAppointmentClock.longDay(appointment.day) + " · " + (appointment.service.isEmpty ? "Booking" : appointment.service))
+                            Text(historyLine(appointment))
                                 .pfFont(15)
                                 .foregroundStyle(Color.primary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -855,6 +855,12 @@ struct CreateAppointmentScreen: View {
                 }
             }
         }
+    }
+
+    /// "Tue, Nov 24, 2026 · Haircut", as the website's history lists it.
+    private func historyLine(_ appointment: Appointment) -> String {
+        let service = appointment.service.isEmpty ? "Booking" : appointment.service
+        return CreateAppointmentClock.longDay(appointment.day) + " · " + service
     }
 
     // MARK: The bar at the foot

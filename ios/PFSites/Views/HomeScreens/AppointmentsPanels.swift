@@ -105,6 +105,8 @@ struct AppointmentDayPanelFrame<Content: View>: View {
     let close: () -> Void
     let apply: () -> Void
     @ViewBuilder let content: () -> Content
+    /// The panel is drawn over the day view rather than presented, so VoiceOver is moved to its title once it has slid in.
+    @AccessibilityFocusState private var titleFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -115,6 +117,7 @@ struct AppointmentDayPanelFrame<Content: View>: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                     .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($titleFocused)
                 Spacer(minLength: 8)
                 AppointmentDayCloseButton(action: close)
             }
@@ -141,7 +144,15 @@ struct AppointmentDayPanelFrame<Content: View>: View {
             .padding(.bottom, 12)
         }
         .background(Color(.systemBackground).ignoresSafeArea(edges: .bottom))
+        .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
+        // VoiceOver's two-finger scrub closes the panel, as Cancel does.
+        .accessibilityAction(.escape) { close() }
+        .task {
+            // After the 0.3 s slide-in, so the title is in place to take the focus.
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if !Task.isCancelled { titleFocused = true }
+        }
     }
 }
 
@@ -195,9 +206,10 @@ struct AppointmentDayCheckRow: View {
         }
     }
 
+    /// 16 pt semibold, as the photos' names and statuses measure.
     private var label: some View {
         Text(title)
-            .pfFont(16, .medium)
+            .pfFont(16, .semibold)
             .foregroundStyle(greyed ? SettingsLook.greyed : Color.primary)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)

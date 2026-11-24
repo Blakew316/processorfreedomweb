@@ -246,7 +246,8 @@ struct AppointmentDayCloseButton: View {
 }
 
 /// The 48 pt pills at the foot of the panels and the appointment sheet: grey (Cancel), navy (Show results and the sheet's main
-/// action), and #F9F9F9 with #C4C4C4 words while one cannot be pressed yet. The words are 16 pt medium, as in the photos.
+/// action), and #F9F9F9 with #C4C4C4 words while one cannot be pressed yet. The words are 16 pt semibold, as in the photos (their
+/// stems are 0.119 of the size, between the photos' regular 0.082 and bold 0.143).
 struct AppointmentDayPillStyle: ButtonStyle {
     enum Kind {
         case primary, soft
@@ -267,7 +268,7 @@ private struct AppointmentDayPill<Label: View>: View {
 
     var body: some View {
         label
-            .pfFont(16, .medium)
+            .pfFont(16, .semibold)
             .foregroundStyle(text)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
