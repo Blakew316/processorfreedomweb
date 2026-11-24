@@ -37,7 +37,8 @@ struct NotificationsSheet: View {
     }
 }
 
-/// The 15-minute warning: a glass capsule at the top with the countdown and "Stay logged in".
+/// The 15-minute warning: a glass capsule at the top with the countdown and "Stay logged in". It is shown in its own window above
+/// everything (OverlayWindows), so it tells that window where it is: only the banner takes touches, the rest go to the app.
 struct IdleWarningBanner: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -64,6 +65,14 @@ struct IdleWarningBanner: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
             .modifier(BannerBackground(reduceTransparency: reduceTransparency))
+            .background {
+                GeometryReader { proxy in
+                    let area = proxy.frame(in: .global)
+                    Color.clear
+                        .onAppear { OverlayWindows.shared.setWarningArea(area) }
+                        .onChange(of: area) { _, moved in OverlayWindows.shared.setWarningArea(moved) }
+                }
+            }
             .padding(.horizontal, 12)
             .padding(.top, 6)
             .accessibilityElement(children: .contain)

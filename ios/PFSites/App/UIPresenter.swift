@@ -28,7 +28,6 @@ enum UIPresenter {
             return
         }
         let controller = SFSafariViewController(url: url)
-        controller.preferredControlTintColor = UIColor(named: "BrandBlue")
         controller.dismissButtonStyle = .done
         present(controller)
     }

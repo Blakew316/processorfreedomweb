@@ -84,6 +84,8 @@ final class AppModel {
     @ObservationIgnored private var poller: Task<Void, Never>?
     @ObservationIgnored private var pendingNotification: String?
     @ObservationIgnored private var iconBadge = -1
+    /// What Try again on the loading screen runs: the step after signing in or unlocking that could not reach the server.
+    @ObservationIgnored private var retryStep: (() async -> Void)?
 
     init() {
         biometry = Biometry.current()
@@ -124,51 +126,46 @@ final class AppModel {
     func start() async {
         guard !started else { return }
         started = true
-        await launch()
+        launch()
     }
 
-    func retryLaunch() {
-        launchError = nil
-        Task { await launch() }
-    }
-
-    private func launch() async {
+    /// Every cold start opens locked, like Clover Go (and as Apple advises for apps that show business data): a phone set up
+    /// with a business shows the passcode screen, any other phone shows Welcome. A session left from an earlier run is ended on the
+    /// server and its cookies cleared, in order before the unlock or sign-in that follows, so nothing ever opens on an old session.
+    private func launch() {
         setPhase(.launching)
         showLoading = true
         launchError = nil
-        await loadConfig()
-        // The 15-minute rule survives restarts: a session left alone too long is ended before anything shows.
-        if idle.expired, hasSessionCookie { await endServerSession() }
-        do {
-            let me = try await API.get("/api/me")
-            if let person = User(me["user"]) {
-                user = person
-                remember(person)
-                try await continueSignedIn()
-            } else if let step = lockStep() {
-                setPhase(.passcode(step))
-            } else {
-                goWelcome()
-            }
-        } catch is CancellationError {
-            return
-        } catch {
-            showLaunchError(error)
+        if hasSessionCookie { endSessionInBackground() }
+        if let step = lockStep() { setPhase(.passcode(step)) } else { goWelcome() }
+    }
+
+    /// Try again on the loading screen. Problems only show there after a full sign-in or an unlock (loading the businesses or the
+    /// passcode step failed), so the step that failed runs again, and the passcode step is never skipped.
+    func retryLaunch() {
+        launchError = nil
+        let step = retryStep
+        retryStep = nil
+        Task {
+            if let step { await step() } else { launch() }
         }
     }
 
-    /// The loading screen says what went wrong and offers Try again; it also tries again by itself when the connection returns.
-    func showLaunchError(_ error: Error) {
+    /// The loading screen says what went wrong and offers Try again (which runs `retry`); it also tries again by itself when the
+    /// connection returns.
+    func showLaunchError(_ error: Error, retry: @escaping () async -> Void) {
         setPhase(.launching)
         showLoading = true
         launchError = (error as? APIError)?.message ?? APIError.unreachableMessage
+        retryStep = retry
         NetworkMonitor.shared.whenBackOnline { [weak self] in
             guard let self, self.phase == .launching, self.launchError != nil else { return }
             self.retryLaunch()
         }
     }
 
-    /// Signed in already (the session cookie is still good): straight to the business this phone opens, or ask which one.
+    /// Right after the passcode step that follows a full sign-in: the business this phone now opens (the passcode was just typed
+    /// for it), or the location list again if it is no longer there.
     func continueSignedIn() async throws {
         let list = try await loadSites()
         if list.isEmpty {

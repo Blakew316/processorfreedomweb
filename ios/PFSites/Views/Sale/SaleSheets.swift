@@ -143,6 +143,20 @@ struct PriceKeypadSheet: View {
     private let keys: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["0", "00", "delete"]]
 
     var body: some View {
+        // The keys grow to the photo's 90 pt when there is room and give way on smaller iPhones, so Done always shows. When even
+        // the smallest keys do not fit (the zoomed display of a small iPhone, very large text), the sheet scrolls instead.
+        ViewThatFits(in: .vertical) {
+            form
+            ScrollView { form }
+                .scrollBounceBehavior(.basedOnSize)
+        }
+        // The keyboard for the name covers the keypad instead of squeezing the sheet; Return puts it away.
+        .ignoresSafeArea(.keyboard)
+        .presentationDetents([.large])
+        .background(Color(.systemBackground))
+    }
+
+    private var form: some View {
         VStack(spacing: 0) {
             ZStack {
                 Text(title)
@@ -169,6 +183,7 @@ struct PriceKeypadSheet: View {
             if case .custom = target {
                 TextField("Custom item", text: $name)
                     .pfFont(18)
+                    .submitLabel(.done)
                     .padding(.horizontal, 16)
                     .frame(minHeight: 46)
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color(.systemGray3), lineWidth: 1))
@@ -197,6 +212,8 @@ struct PriceKeypadSheet: View {
                     }
                 }
             }
+            // Offered the room before the space above Done, so the keys only shrink when the screen is really short.
+            .layoutPriority(1)
             Divider()
 
             Spacer(minLength: 16)
@@ -206,8 +223,6 @@ struct PriceKeypadSheet: View {
                 .padding(.horizontal, 34)
                 .padding(.bottom, 20)
         }
-        .presentationDetents([.large])
-        .background(Color(.systemBackground))
     }
 
     private var isCustom: Bool {
@@ -236,7 +251,7 @@ struct PriceKeypadSheet: View {
                 }
             }
             .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, minHeight: 90)
+            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 90)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

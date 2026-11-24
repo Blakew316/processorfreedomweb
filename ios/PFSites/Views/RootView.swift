@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The main window: the dashboard (kept alive under the lock screen, which is its own window above), the sign-in steps over it,
-/// the loading screen over everything, and the 15-minute warning at the top.
+/// and the loading screen over everything. The 15-minute warning has its own window too (OverlayWindows), so sheets cannot hide it.
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
@@ -20,16 +20,10 @@ struct RootView: View {
                     .transition(.opacity)
                     .zIndex(10)
             }
-            if model.idle.warning && model.phase == .ready {
-                IdleWarningBanner()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(20)
-            }
         }
         .background(WindowSpy())
         .animation(.easeInOut(duration: 0.3), value: model.showLoading)
         .animation(.easeInOut(duration: 0.25), value: model.phase)
-        .animation(.spring(duration: 0.35), value: model.idle.warning)
         .task { await model.start() }
         .onChange(of: scenePhase) { _, newPhase in
             model.scenePhaseChanged(newPhase)

@@ -342,12 +342,15 @@ struct PasscodeView: View {
     }
 
     private func forgot() {
-        if step.purpose == .lock {
+        switch step.purpose {
+        case .afterSignIn:
+            // Right after the email and password: they can simply make a new one.
+            move(to: .create)
+        case .lock, .change, .switchTo:
+            // Anywhere else the email and password come first (then a new passcode), so someone holding an unlocked phone for a
+            // moment cannot set a passcode they know and open the app with it later.
             focused = false
             model.forgotPasscode()
-        } else {
-            // Signed in with a live session: they can simply make a new one.
-            move(to: .create)
         }
     }
 

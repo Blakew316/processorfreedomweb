@@ -51,6 +51,12 @@ extension AppModel {
         if !trust.isEmpty { Keychain.saveTrust(trust, for: email) }
         await loadConfig()
         await syncCookiesToWeb()
+        await routeAfterSignIn()
+    }
+
+    /// Where a full sign-in leads (D4): no business yet → make the first one; one → its passcode step straight away;
+    /// several → Choose your primary location, then the passcode step.
+    func routeAfterSignIn() async {
         do {
             let list = try await loadSites()
             switch list.count {
@@ -58,15 +64,24 @@ extension AppModel {
             case 1: await passcodeStep(for: list[0])
             default: setPhase(.choosingLocation)
             }
+        } catch let error as APIError where error.status == 401 {
+            sessionEndedBeforeReady()
         } catch {
-            showLaunchError(error)
+            showLaunchError(error) { [weak self] in await self?.routeAfterSignIn() }
         }
+    }
+
+    /// The session ended before the dashboard opened (a step was left open longer than the server's 16 minutes): sign in again.
+    private func sessionEndedBeforeReady() {
+        user = nil
+        goWelcome(atLogin: true, message: "Your session ended. Please sign in again.")
     }
 
     /// The passcode step for a business after a full sign-in: type the passcode they have there, or make one.
     func passcodeStep(for business: Site) async {
         guard Keychain.device != nil else {
-            // Without a key for this phone (a very old server) there is nothing to set up: straight to the dashboard.
+            // Without a key for this phone (a very old server) there is nothing to set up, so right after the email and password
+            // the dashboard opens; the next lock or cold start asks for the email and password again.
             await enterReady(business)
             return
         }
@@ -75,8 +90,11 @@ extension AppModel {
         if !forgot {
             do {
                 has = try await API.get("/api/app/passcode?site=\(Config.query(business.id))")["has"].bool
+            } catch let error as APIError where error.status == 401 {
+                sessionEndedBeforeReady()
+                return
             } catch {
-                showLaunchError(error)
+                showLaunchError(error) { [weak self] in await self?.passcodeStep(for: business) }
                 return
             }
         }
@@ -96,7 +114,13 @@ extension AppModel {
             showLoading = true
             await enterReady(business)
         } else {
-            do { try await continueSignedIn() } catch { showLaunchError(error) }
+            do {
+                try await continueSignedIn()
+            } catch let error as APIError where error.status == 401 {
+                sessionEndedBeforeReady()
+            } catch {
+                showLaunchError(error) { [weak self] in await self?.passcodeFinished(for: ref) }
+            }
         }
     }
 
@@ -204,8 +228,27 @@ extension AppModel {
         Haptics.light()
         showLoading = true
         let id = unlockedSiteID ?? Keychain.siteID ?? site?.id
+        // The server's flags (Apple push, text codes) for the dashboard: a cold start opens locked without asking for them.
+        await loadConfig()
+        let list: [Site]
+        do {
+            list = try await loadSites()
+        } catch let error as APIError where error.status == 401 {
+            // The new session already ended (signed out everywhere meanwhile): a fresh lock screen (the one showing has finished).
+            unlockedSiteID = nil
+            setPhase(.launching)
+            if let step = lockStep() { setPhase(.passcode(step)) } else { sessionEndedBeforeReady() }
+            return
+        } catch {
+            // After a cold start nothing is known yet about the businesses (a guess could open the wrong screen), so the
+            // loading screen says what went wrong, and Try again carries on from here: the passcode was right.
+            if sites.isEmpty || site == nil {
+                showLaunchError(error) { [weak self] in await self?.finishUnlock() }
+                return
+            }
+            list = sites
+        }
         unlockedSiteID = nil
-        let list = (try? await loadSites()) ?? sites
         guard let business = list.first(where: { $0.id == id }) ?? site ?? list.first else {
             setPhase(.creatingBusiness)
             return

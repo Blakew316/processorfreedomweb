@@ -33,14 +33,25 @@ enum Config {
 
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0" }
 
-    /// Which Apple push service this build's device token belongs to.
-    static var pushEnvironment: String {
-        #if DEBUG
-        return "development"
+    /// Which Apple push service this build's device token belongs to. It follows how the build was signed, not Debug or Release:
+    /// a build installed from Xcode carries a development profile (sandbox tokens, even a Release build), TestFlight and the App
+    /// Store carry no profile at all (production tokens), and an ad hoc profile says production. Telling the server the wrong one
+    /// would make Apple refuse the token, and the server would then forget this phone's notifications without a word.
+    static let pushEnvironment: String = {
+        #if targetEnvironment(simulator)
+        return "development"   // the simulator's tokens are always sandbox ones
         #else
-        return "production"
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url),
+              // The profile is a signed file with its settings inside as a plain XML property list.
+              let start = data.range(of: Data("<?xml".utf8)) ?? data.range(of: Data("<plist".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), options: [], in: start.lowerBound..<data.endIndex),
+              let profile = try? PropertyListSerialization.propertyList(from: data.subdata(in: start.lowerBound..<end.upperBound), options: [], format: nil) as? [String: Any],
+              let entitlements = profile["Entitlements"] as? [String: Any],
+              let environment = entitlements["aps-environment"] as? String else { return "production" }
+        return environment == "development" ? "development" : "production"
         #endif
-    }
+    }()
 
     /// A value made safe to put after ?name= in an address.
     static func query(_ value: String) -> String {
@@ -55,7 +66,6 @@ enum Keys {
     static let name = "pf.name"
     static let email = "pf.email"
     static let faceID = "pf.faceID"
-    static let lastActive = "pf.lastActive"
     static let pushAsked = "pf.pushAsked"
     static let pushWanted = "pf.pushWanted"
     static func notesSeen(_ siteID: String) -> String { "pf.notesSeen.\(siteID)" }

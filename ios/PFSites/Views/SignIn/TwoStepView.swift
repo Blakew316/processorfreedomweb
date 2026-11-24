@@ -282,12 +282,13 @@ struct CodeBoxes: View {
                 .frame(width: 1, height: 1)
                 .opacity(0.02)
                 .accessibilityLabel("Verification code")
-            HStack(spacing: 8) {
-                ForEach(0..<6, id: \.self) { index in
-                    box(index)
-                    if index == 2 {
-                        Spacer().frame(width: 10)
-                    }
+            // Two groups of three: 8 pt between boxes, 18 pt between the 3rd and the 4th, as in the photo.
+            HStack(spacing: 18) {
+                HStack(spacing: 8) {
+                    ForEach(0..<3, id: \.self) { index in box(index) }
+                }
+                HStack(spacing: 8) {
+                    ForEach(3..<6, id: \.self) { index in box(index) }
                 }
             }
             .accessibilityHidden(true)

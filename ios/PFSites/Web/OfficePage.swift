@@ -58,6 +58,9 @@ final class OfficePage: NSObject {
     let siteID: String
     let startPath: String
     let kind: Kind
+    /// The Virtual Terminal opened by the Sale screen's Check out (the only page opened with a hand-off script). When it says the
+    /// sale was recorded, the Sale screen's order is done and is cleared, so it cannot be checked out, and charged, a second time.
+    let carriesSaleOrder: Bool
     let webView: WKWebView
     let refresher = UIRefreshControl()
 
@@ -78,6 +81,7 @@ final class OfficePage: NSObject {
         self.siteID = siteID
         self.startPath = path
         self.kind = kind
+        self.carriesSaleOrder = script != nil
         self.pendingScript = script
         self.webView = WKWebView(frame: .zero, configuration: WebStore.shared.makeConfiguration())
         super.init()
@@ -288,6 +292,8 @@ final class OfficePage: NSObject {
         case "activity": AppModel.shared.idle.touch()
         case "print": printPage(title: json["title"].string)
         case "open": AppModel.shared.openFromWeb(tab: json["tab"].string)
+        // The Virtual Terminal recorded the sale it was handed through PF.sale.
+        case "saleDone": if carriesSaleOrder { AppModel.shared.shell.order.clear() }
         default: break
         }
     }

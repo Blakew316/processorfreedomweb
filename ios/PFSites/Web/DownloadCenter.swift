@@ -95,7 +95,6 @@ final class BrowserController: UIViewController, WKNavigationDelegate {
         if mainFrame, scheme == "http" || scheme == "https", !Config.isOwn(target) {
             decisionHandler(.cancel)
             let safari = SFSafariViewController(url: target)
-            safari.preferredControlTintColor = UIColor(named: "BrandBlue")
             present(safari, animated: true)
             return
         }

@@ -336,7 +336,8 @@ struct SettingsLinkedText: View {
             case .link(let words, _):
                 var link = AttributedString(words)
                 link.link = URL(string: "pfsettings://\(index)")
-                link.underlineStyle = .single
+                // Named in full: with UIKit imported too, `underlineStyle` could be SwiftUI's or UIKit's, and would not compile.
+                link[AttributeScopes.SwiftUIAttributes.UnderlineStyleAttribute.self] = .single
                 link.foregroundColor = Theme.blue
                 out += link
             }

@@ -2,34 +2,29 @@ import Foundation
 import Observation
 
 /// The 15-minute rule, like the website: after 14 minutes without a touch or typing a banner warns, at 15 the app locks
-/// and the session ends. The last activity is kept on the phone, so the rule also holds across the app being closed or killed.
+/// and the session ends. Time is measured with the phone's continuous clock, which keeps counting while the phone sleeps and
+/// cannot be wound back by changing the date and time in Settings. Nothing is kept between runs: a cold start always opens locked.
 /// It only runs while the dashboard is showing, and never for a kitchen login (that screen stays on all day, as on the website).
 @Observable @MainActor
 final class IdleMonitor {
-    static let limit: TimeInterval = 15 * 60
-    static let warnAfter: TimeInterval = 14 * 60
+    static let limit: Duration = .seconds(15 * 60)
+    static let warnAfter: Duration = .seconds(14 * 60)
 
     var warning = false
     var secondsLeft = 60
 
-    @ObservationIgnored private var last: Date
-    @ObservationIgnored private var lastSaved = Date.distantPast
+    /// Not observed: every touch sets it, and no view should redraw for that.
+    @ObservationIgnored private var last = ContinuousClock.now
     @ObservationIgnored private var running = false
     @ObservationIgnored private var ticker: Task<Void, Never>?
 
-    init() {
-        let saved = UserDefaults.standard.double(forKey: Keys.lastActive)
-        last = saved > 0 ? Date(timeIntervalSince1970: saved) : Date()
-    }
-
-    /// Whether the last activity, even from an earlier run of the app, was more than 15 minutes ago.
-    var expired: Bool { Date().timeIntervalSince(last) >= Self.limit }
+    /// Whether the last activity was 15 minutes ago or more (the app may have been in the background, or the phone asleep, since).
+    var expired: Bool { ContinuousClock.now - last >= Self.limit }
 
     /// Every touch anywhere in the app and every keystroke in a web page lands here.
     func touch() {
-        last = Date()
-        if warning { warning = false }
-        if last.timeIntervalSince(lastSaved) > 10 { save() }
+        last = ContinuousClock.now
+        if warning { setWarning(false) }
     }
 
     func stayLoggedIn() { touch() }
@@ -44,12 +39,11 @@ final class IdleMonitor {
     /// Stops counting while the app is locked or signed out.
     func stop() {
         running = false
-        warning = false
+        setWarning(false)
         stopTicker()
     }
 
     func wentToBackground() {
-        save()
         stopTicker()
     }
 
@@ -74,21 +68,25 @@ final class IdleMonitor {
 
     private func tick() {
         guard running else { return }
-        let idle = Date().timeIntervalSince(last)
+        let idle = ContinuousClock.now - last
         if idle >= Self.limit {
-            warning = false
+            setWarning(false)
             AppModel.shared.lock()
         } else if idle >= Self.warnAfter {
-            let left = max(1, Int((Self.limit - idle).rounded(.up)))
-            if secondsLeft != left { secondsLeft = left }
-            if !warning { warning = true }
+            // Whole seconds left, rounded up, so the banner never shows 0:00 before the lock.
+            let left = (Self.limit - idle).components
+            let shown = max(1, Int(left.seconds) + (left.attoseconds > 0 ? 1 : 0))
+            if secondsLeft != shown { secondsLeft = shown }
+            if !warning { setWarning(true) }
         } else if warning {
-            warning = false
+            setWarning(false)
         }
     }
 
-    private func save() {
-        lastSaved = Date()
-        UserDefaults.standard.set(last.timeIntervalSince1970, forKey: Keys.lastActive)
+    /// The banner has its own window above sheets and full-screen pages, so the warning shows whatever is open.
+    private func setWarning(_ on: Bool) {
+        guard warning != on else { return }
+        warning = on
+        if on { OverlayWindows.shared.showIdleWarning() } else { OverlayWindows.shared.hideIdleWarning() }
     }
 }

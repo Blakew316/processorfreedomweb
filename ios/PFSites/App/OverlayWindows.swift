@@ -1,13 +1,15 @@
 import SwiftUI
 import UIKit
 
-/// Two windows that sit above everything the app shows, sheets and Safari pages included:
-/// the lock screen (so the dashboard stays exactly where it was underneath it) and the privacy cover for the app switcher.
+/// Windows that sit above everything the app shows, sheets and Safari pages included: the 15-minute warning (so no sheet or
+/// full-screen page can hide it), the lock screen (so the dashboard stays exactly where it was underneath it) and the privacy cover
+/// for the app switcher.
 @MainActor
 final class OverlayWindows {
     static let shared = OverlayWindows()
 
     private(set) weak var mainWindow: UIWindow?
+    private var warningWindow: BannerWindow?
     private var lockWindow: UIWindow?
     private var coverWindow: UIWindow?
 
@@ -73,5 +75,53 @@ final class OverlayWindows {
         coverWindow = nil
         window.isHidden = true
         window.rootViewController = nil
+    }
+
+    /// The 15-minute warning at the top, above the app and anything open in it (sheets, full-screen pages, Safari) and below the
+    /// lock screen. It never becomes the key window, so typing goes on where it was, and only the banner itself takes touches.
+    func showIdleWarning() {
+        guard warningWindow == nil, let scene else { return }
+        let window = BannerWindow(windowScene: scene)
+        window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1)
+        let host = UIHostingController(rootView: IdleWarningBanner().environment(AppModel.shared).tint(Theme.blue))
+        host.view.backgroundColor = .clear
+        window.rootViewController = host
+        // It comes down from the top as it appears (just fades in with Reduce Motion).
+        host.view.alpha = 0
+        if !UIAccessibility.isReduceMotionEnabled { host.view.transform = CGAffineTransform(translationX: 0, y: -24) }
+        window.isHidden = false
+        warningWindow = window
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+            host.view.alpha = 1
+            host.view.transform = .identity
+        }
+    }
+
+    func hideIdleWarning() {
+        guard let window = warningWindow else { return }
+        warningWindow = nil
+        window.touchArea = .zero
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseIn]) {
+            window.rootViewController?.view.alpha = 0
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 270_000_000)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+    }
+
+    /// Where the banner is, in screen points (the banner reports it as it lays out).
+    func setWarningArea(_ area: CGRect) {
+        warningWindow?.touchArea = area
+    }
+}
+
+/// The warning's window: touches on the banner go to it, every other touch goes to the app underneath as if it were not there.
+final class BannerWindow: UIWindow {
+    var touchArea: CGRect = .zero
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        touchArea.contains(point)
     }
 }
