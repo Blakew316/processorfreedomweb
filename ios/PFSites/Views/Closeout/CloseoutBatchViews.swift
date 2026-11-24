@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The open batch's details, pushed inside the Closeout cover (the website's "Current batch" sheet): "Current batch 12", since when,
-/// its lines, and "Close out batch", which is off while there is nothing in the batch and asks first with the website's words.
-/// Closing out goes back to the list with "Batch closed".
+/// its lines, and "Close out batch", which is off while there is nothing in the batch and asks first ("Close out batch 12?" with the
+/// batch's "Batch total" line). Closing out goes back to the list with "Batch closed".
 struct CloseoutCurrentBatchView: View {
     let closeout: CloseoutModel
     let onClosed: () -> Void
@@ -10,7 +10,7 @@ struct CloseoutCurrentBatchView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var confirming = false
-    /// The batch as it was when "Close out batch" was tapped, for the question's words.
+    /// The batch as it was when "Close out batch" was tapped: the question names it, and only it is closed out.
     @State private var asked: CloseoutOpenBatch?
     @State private var working = false
     @State private var problem: String?
@@ -53,7 +53,7 @@ struct CloseoutCurrentBatchView: View {
         }
         .alert(confirmTitle, isPresented: $confirming) {
             Button("Cancel", role: .cancel) {}
-            Button("Close out") { closeOut() }
+            Button("Close out batch") { closeOut() }
         } message: {
             Text(confirmText)
         }
@@ -111,44 +111,63 @@ struct CloseoutCurrentBatchView: View {
         return "Since \(CloseoutLook.when(since))"
     }
 
-    /// The website's question before closing out: "Close out batch 12?"
+    /// The question before closing out, named after the button: "Close out batch 12?" (the website closes out at once, without one).
     private var confirmTitle: String {
         guard let batch = asked else { return "Close out batch?" }
         return "Close out batch \(String(batch.number))?"
     }
 
-    /// The website's words under it: "$45.00 from 3 payments will be filed under Batch history, and a new batch starts."
+    /// Under it, the batch's own line from the website's batch sheet: "Batch total $45.00".
     private var confirmText: String {
         guard let batch = asked else { return "" }
-        let count = batch.totals.count
-        return "\(Money.format(batch.totals.net)) from \(String(count)) payment\(count == 1 ? "" : "s") will be filed under Batch history, and a new batch starts."
+        return "Batch total \(Money.format(batch.totals.net))"
     }
 
+    /// Closes out the batch the person was asked about. The server closes whatever batch is open when the request arrives, so the
+    /// model checks first that it is still that batch; when it has changed (a payment came in, or it was closed out on the website
+    /// or another phone) nothing is closed and the question is asked again with the batch as it is now.
     private func closeOut() {
-        guard let business = model.site, !working else { return }
+        guard let business = model.site, let batch = asked, !working else { return }
         working = true
         model.idle.touch()
+        let tapped = Date()
         Task {
             do {
-                try await closeout.closeOut(siteID: business.id)
+                if let now = try await closeout.closeOut(batch, siteID: business.id) {
+                    await Self.afterAlert(since: tapped)
+                    working = false
+                    asked = now
+                    confirming = !now.totals.isEmpty
+                    return
+                }
                 working = false
                 Haptics.success()
                 onClosed()
             } catch let error as APIError {
-                working = false
                 Haptics.error()
                 // A 401 is checked (the app locks only if the session really ended); anything else is the server's own words,
                 // a 403 included, and the batch is loaded again so the page shows what is true now.
                 if error.status == 401 {
+                    working = false
                     model.sessionEnded()
                     return
                 }
+                await Self.afterAlert(since: tapped)
+                working = false
                 problem = error.message
                 await reload()
             } catch {
                 // Cancelled: the page went away.
                 working = false
             }
+        }
+    }
+
+    /// Two alerts cannot be up at once: the next one waits until the question's alert has gone, as the Orders tab waits.
+    private static func afterAlert(since tapped: Date) async {
+        let left = 0.45 - Date().timeIntervalSince(tapped)
+        if left > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000))
         }
     }
 

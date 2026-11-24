@@ -42,7 +42,7 @@ struct CloseoutScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Finances")
-                    .pfFont(16, .medium)
+                    .pfFont(16, .semibold)
                     .foregroundStyle(SettingsLook.muted)
                 Text("Closeout")
                     .pfFont(24, .bold, relativeTo: .title)

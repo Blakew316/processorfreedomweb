@@ -17,11 +17,13 @@ enum CloseoutLook {
     static let openFill = Color(light: UIColor(hex: 0xFAE9AD), dark: UIColor(hex: 0xFAE9AD, alpha: 0.24))
     static let openText = Color(light: UIColor(hex: 0x0F0B00), dark: UIColor(hex: 0xFCEFC2))
 
-    /// The page's description: the website's own words on its Closeout page (public/js/editor.js CL.close).
-    static let description = "A batch consists of your transactions from a given time period. Your open batch consists of all transactions since your last closeout."
-    /// The Open batch card's sentence: the website's true sentence about the open batch. Processor Freedom makes no promise about
-    /// when funds are deposited, so the photo's deposit sentence is not used.
-    static let openSentence = "Your open batch consists of all transactions since your last closeout."
+    /// The page's description: the photo's two sentences (the owner asked for the screen to be identical to the photo), then the
+    /// website's own sentence about the open batch (public/js/editor.js CL.close) behind "Show more...". "Show more..." shows only
+    /// when the description runs past three lines; this text needs about five, so the link sits at the end of the third, as in
+    /// the photo.
+    static let description = "Card transactions make up a batch for a given time period. Funds are deposited 1–3 days after each batch closes. Your open batch consists of all transactions since your last closeout."
+    /// The Open batch card's sentence, as in the photo (the owner asked for the screen to be identical to the photo).
+    static let openSentence = "Funds are deposited within 1-3 business days after each closeout event"
 
     /// A moment the way the website's Closeout page writes it (toLocaleString with a short weekday and month, the day, the year,
     /// the hour and the minutes, on the phone's own clock and in its own language): "Mon, Nov 23, 2026, 6:35 PM".
@@ -134,7 +136,7 @@ struct CloseoutRule: View {
 
 /// The page's description (16 pt #4D4D4D, 24 pt lines), clipped at three lines with the brand-blue "Show more..." on its light grey
 /// box at the end of the third line (the photo); opened, the whole text with a brand-blue "Show less" at its end. The link only
-/// shows when the text is longer than three lines.
+/// shows when the text is longer than three lines: a link with nothing behind it would promise more than there is.
 struct CloseoutDescription: View {
     let text: String
 
@@ -202,7 +204,7 @@ struct CloseoutDescription: View {
     }
 
     /// "Show more..." on its #F9F9F9 box (24 pt tall, 10 pt either side of the words, 4 pt in from the right edge), over the end
-    /// of the third line; the line's last letters fade out just before it.
+    /// of the third line, which runs on under it as in the photo: the box and the white 4 pt beside it hide the rest of the line.
     private var showMore: some View {
         Button {
             withAnimation(.snappy) { expanded = true }
@@ -223,13 +225,6 @@ struct CloseoutDescription: View {
         .buttonStyle(.plain)
         .padding(.vertical, -10)
         .accessibilityLabel("Show more")
-        .background(alignment: .leading) {
-            LinearGradient(colors: [CloseoutLook.page.opacity(0), CloseoutLook.page], startPoint: .leading, endPoint: .trailing)
-                .frame(width: 12)
-                .offset(x: -12)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
         .padding(.trailing, 4)
         .background(alignment: .trailing) {
             CloseoutLook.page

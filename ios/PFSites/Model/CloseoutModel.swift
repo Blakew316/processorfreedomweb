@@ -133,11 +133,22 @@ final class CloseoutModel {
         if mine == round { loading = false }
     }
 
-    /// Closes out the open batch (`POST /api/sites/<id>/closeouts`): the server files its totals under the batch history and a new
-    /// batch starts. Then the batches are loaded again. The server's own words come back as the error.
-    func closeOut(siteID: String) async throws {
+    /// Closes out the open batch the person was asked about (`POST /api/sites/<id>/closeouts`): the server files its totals under the
+    /// batch history and a new batch starts, then the batches are loaded again. The request names no batch, so the server closes
+    /// whatever batch is open when it arrives: the batches are loaded first, and when the open batch is no longer the one asked
+    /// about (a payment came in, or it was closed out on the website or another phone) nothing is closed and the open batch as it
+    /// is now comes back, to be asked about again. nil means it was closed out. The server's own words come back as the error.
+    func closeOut(_ asked: CloseoutOpenBatch, siteID: String) async throws -> CloseoutOpenBatch? {
+        let answer = try await API.get("/api/sites/\(siteID)/closeouts")
+        guard answer["open"].isObject else { throw APIError(status: 0, message: "Something went wrong. Please try again.") }
+        let now = CloseoutOpenBatch(answer["open"])
+        if now != asked {
+            await load(siteID: siteID)
+            return now
+        }
         try await API.post("/api/sites/\(siteID)/closeouts")
         await load(siteID: siteID)
+        return nil
     }
 
     /// A closed batch as the latest load has it, or nil once it has left the latest 200.
