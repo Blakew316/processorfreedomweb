@@ -28,7 +28,7 @@ final class OverlayWindows {
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
         Appearance.apply(to: window)
-        let host = UIHostingController(rootView: LockScreen().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large))
+        let host = UIHostingController(rootView: LockScreen().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large).environment(\.legibilityWeight, .regular))
         host.view.backgroundColor = .systemBackground
         window.rootViewController = host
         window.makeKeyAndVisible()
@@ -74,7 +74,7 @@ final class OverlayWindows {
         let window = UIWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 2)
         Appearance.apply(to: window)
-        let host = UIHostingController(rootView: PrivacyCover().dynamicTypeSize(...DynamicTypeSize.large))
+        let host = UIHostingController(rootView: PrivacyCover().dynamicTypeSize(...DynamicTypeSize.large).environment(\.legibilityWeight, .regular))
         host.view.backgroundColor = .systemBackground
         window.rootViewController = host
         window.isHidden = false
@@ -102,7 +102,7 @@ final class OverlayWindows {
         let window = BannerWindow(windowScene: scene)
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue - 1)
         Appearance.apply(to: window)
-        let host = UIHostingController(rootView: IdleWarningBanner().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large))
+        let host = UIHostingController(rootView: IdleWarningBanner().environment(AppModel.shared).tint(Theme.blue).dynamicTypeSize(...DynamicTypeSize.large).environment(\.legibilityWeight, .regular))
         host.view.backgroundColor = .clear
         window.rootViewController = host
         // It comes down from the top as it appears (just fades in with Reduce Motion).

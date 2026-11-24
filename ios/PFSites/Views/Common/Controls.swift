@@ -21,7 +21,8 @@ struct SolidButtonStyle: ButtonStyle {
     }
 }
 
-/// A boxed text field like the website's log in form: grey border, blue and thicker while typing in it.
+/// A boxed text field: grey border, and while typing in it a thicker one in the navy (white in dark mode) that stands for
+/// Clover's dark green focus ring, as in the owner's photos.
 struct BoxField<Content: View>: View {
     var focused: Bool
     var height: CGFloat = 49
@@ -33,7 +34,7 @@ struct BoxField<Content: View>: View {
             .padding(.horizontal, 16)
             .frame(minHeight: height)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(.systemBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(focused ? Theme.blue : Color(.systemGray3), lineWidth: focused ? 2 : 1))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(focused ? Theme.ink : Color(.systemGray3), lineWidth: focused ? 2 : 1))
     }
 }
 

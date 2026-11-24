@@ -155,8 +155,9 @@ struct SettingsCloseBar: ToolbarContent {
     }
 }
 
-/// The grey panel behind a full-screen page's cards: only its top-left corner is rounded, and on a short page it still reaches
-/// down to 60 pt above the home indicator's strip, as in the photos (white below it).
+/// The grey panel behind a full-screen page's cards: only its top-left corner is rounded (a 24 pt quarter circle, measured on
+/// the photos), and on a short page it still reaches down to 60 pt above the home indicator's strip, as in the photos (white
+/// below it).
 struct SettingsPanel: ViewModifier {
     func body(content: Content) -> some View {
         ZStack(alignment: .top) {
@@ -164,7 +165,7 @@ struct SettingsPanel: ViewModifier {
                 .containerRelativeFrame(.vertical) { length, _ in max(0, length - 60) }
             content
         }
-        .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
+        .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 24, style: .circular))
     }
 }
 
@@ -256,7 +257,8 @@ enum SettingsPencil {
     }
 }
 
-/// A white card with a 1 pt border and 20 pt corners. The title is 20 pt bold; the pencil sits at the top right.
+/// A white card with a 1 pt border and 24 pt corners (plain quarter circles: the photos' corners fit one within a pixel).
+/// The title is 20 pt bold; the pencil sits at the top right.
 /// Beside the pencil in its grey circle the title is centred on the circle, which starts 13 pt into the card (the photos).
 struct SettingsCard<Content: View>: View {
     var title: String? = nil
@@ -285,9 +287,9 @@ struct SettingsCard<Content: View>: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(SettingsLook.card, in: RoundedRectangle(cornerRadius: 24, style: .circular))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .circular)
                 .strokeBorder(SettingsLook.border, lineWidth: 1)
         }
     }

@@ -122,7 +122,7 @@ struct InvoicesEstimatesPage: View {
                         .accessibilityHidden(true)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .circular))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)

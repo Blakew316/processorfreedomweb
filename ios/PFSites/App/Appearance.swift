@@ -41,8 +41,13 @@ enum Appearance {
     }
 
     /// Gives one window the chosen look; the lock, privacy and idle windows call this as they are made.
+    /// It also holds the window to the two things the app keeps whatever the phone's Accessibility settings say, as Clover Go
+    /// does (its own typeface takes no notice of them): the standard text size at most, and no Bold Text. Set on the window,
+    /// they reach everything shown in it (sheets, full-screen pages, alerts, the bars), not only the screen at its root.
     static func apply(to window: UIWindow) {
         window.overrideUserInterfaceStyle = choice.style
+        window.maximumContentSizeCategory = .large
+        window.traitOverrides.legibilityWeight = .regular
     }
 
     static func applyToAllWindows() {
