@@ -146,6 +146,12 @@ struct CloseoutDescription: View {
 
     private var longer: Bool { fullHeight > shortHeight + 1 }
 
+    /// The text before its first blank line (the whole text when it has none).
+    private var firstParagraph: String {
+        guard let range = text.range(of: "\n\n") else { return text }
+        return String(text[..<range.lowerBound])
+    }
+
     var body: some View {
         Group {
             if expanded && longer {
@@ -160,7 +166,8 @@ struct CloseoutDescription: View {
                         withAnimation(.snappy) { expanded = false }
                     }
             } else {
-                Text(text)
+                // Closed, only the first paragraph shows, so the third line ends on whole words with no "…" before the link.
+                Text(longer ? firstParagraph : text)
                     .modifier(CloseoutDescriptionStyle(lines: 3))
                     // On the third line's baseline, whatever the text size.
                     .overlay(alignment: Alignment(horizontal: .trailing, vertical: .lastTextBaseline)) {

@@ -83,14 +83,22 @@ struct ItemSalesScreen: View {
             .navigationTitle("Items sales report")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // The photo's bare black X, its centre 28 pt from the edge: no glass circle behind it.
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(Color.primary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .offset(x: -10)
                     .accessibilityLabel("Close")
                 }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .principal) {
                     Text("Items sales report")
                         .pfFont(19, .bold, relativeTo: .headline)
@@ -139,7 +147,6 @@ struct ItemSalesScreen: View {
             .background(SettingsLook.page, in: UnevenRoundedRectangle(topLeadingRadius: 20, style: .continuous))
         }
         .background(Color(.systemBackground))
-        .scrollEdgeEffectStyle(.hard, for: .top)
         .scrollDisabled(popup != nil)
         .refreshable { await pullToRefresh() }
         .onGeometryChange(for: CGFloat.self) { proxy in
