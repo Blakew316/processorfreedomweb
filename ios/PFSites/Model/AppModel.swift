@@ -327,11 +327,18 @@ final class AppModel {
         } else {
             hideLoading()
         }
-        showReadyNotice()
         // A notification tapped while the app was locked opens its page now, before anything that waits on the server.
         if let path = pendingNotification {
             pendingNotification = nil
             openNotification(path: path)
+        }
+        // Words kept for the dashboard are said now. When the notification has just asked for a step of its own (another
+        // business's passcode) or closed a sheet, they wait until that is up: two presentations cannot go up at once, and the
+        // words would have held the step back.
+        if shell.cover == nil, shell.sheet == nil, shell.afterSheet == nil {
+            showReadyNotice()
+        } else if readyNotice != nil {
+            showReadyNotice(after: 1.2)
         }
         await sendPushAddress()
         // Only while this dashboard is still the one showing: the app may have locked or gone back to Log in while the address
