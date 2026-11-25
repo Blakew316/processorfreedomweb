@@ -68,11 +68,11 @@ extension AppModel {
         var fresh: DeviceKey?
         let id = answer["device"]["id"].string, secret = answer["device"]["secret"].string
         if !id.isEmpty, !secret.isEmpty {
-            let key = DeviceKey(id: id, secret: secret)
-            // The new key is the phone's from now (the passcode step needs it); the earlier one is only given up when the
-            // sign-in is made final, so walking away leaves the phone as it was.
-            Keychain.saveDevice(key)
-            fresh = key
+            // The new key is only held here until the sign-in is made final: it becomes the phone's key in the same step
+            // that gives the earlier one up. Walking away, or the app being closed while the businesses are read, then
+            // leaves the phone exactly as it was (a new key saved beside the earlier person's business and Face ID gave
+            // the next launch a lock screen that could not open).
+            fresh = DeviceKey(id: id, secret: secret)
         }
         signInUndone = false
         pendingSignIn = PendingSignIn(asked: asked, attempt: attempt, mayLeave: mayLeave, person: person, email: email,
@@ -117,29 +117,27 @@ extension AppModel {
             : !person.id.isEmpty && lastID != person.id
         if someoneElse { defaults.set(false, forKey: Keys.pushWanted) }
         remember(person)
-        // The phone's earlier key (an earlier sign-in, or another person) is given up without ending the new session, and what
-        // belonged to it goes too: its Face ID secret and the business it opened.
-        if let fresh = pending.freshKey, let old = pending.oldKey, old.id != fresh.id {
-            Task { _ = try? await API.send("POST", "/api/app/signout", body: ["device": old.id, "secret": old.secret], cookies: false) }
-            Keychain.delete("bio")
-            Keychain.delete("site")
-            setFaceIDFlag(false)
-            // The old key's notification address goes with it; the new key's is sent when the dashboard opens.
-            pushSent = false
+        if let fresh = pending.freshKey {
+            Keychain.saveDevice(fresh)
+            // The phone's earlier key (an earlier sign-in, or another person) is given up without ending the new session, and
+            // what belonged to it goes too: its Face ID secret and the business it opened.
+            if let old = pending.oldKey, old.id != fresh.id {
+                Task { _ = try? await API.send("POST", "/api/app/signout", body: ["device": old.id, "secret": old.secret], cookies: false) }
+                Keychain.delete("bio")
+                Keychain.delete("site")
+                setFaceIDFlag(false)
+                // The old key's notification address goes with it; the new key's is sent when the dashboard opens.
+                pushSent = false
+            }
         }
         if !pending.trust.isEmpty { Keychain.saveTrust(pending.trust, for: pending.email) }
     }
 
-    /// The person walked away: the phone is put back as it was (its earlier key, who was signed in, the businesses listed), and
-    /// the session and key the server made are given up.
+    /// The person walked away: who was signed in and the businesses listed are put back (the phone's own key was never
+    /// touched), and the session and key the server made are given up.
     private func undoSignIn(_ pending: PendingSignIn) {
         signInUndone = true
-        if let fresh = pending.freshKey {
-            if let old = pending.oldKey { Keychain.saveDevice(old) } else { Keychain.delete("device") }
-            endAbandonedSignIn(id: fresh.id, secret: fresh.secret)
-        } else {
-            endAbandonedSignIn(id: "", secret: "")
-        }
+        endAbandonedSignIn(id: pending.freshKey?.id ?? "", secret: pending.freshKey?.secret ?? "")
         user = pending.previousUser
         sessionLimited = pending.previousLimited
         sites = pending.previousSites
@@ -180,7 +178,8 @@ extension AppModel {
 
     /// The passcode step for a business after a full sign-in: type the passcode they have there, or make one.
     func passcodeStep(for business: Site) async {
-        guard Keychain.device != nil else {
+        // A key for this phone: the one a sign-in in flight is holding, or the one it already has.
+        guard pendingSignIn?.freshKey != nil || Keychain.device != nil else {
             // Without a key for this phone (a very old server) there is nothing to set up, so right after the email and password
             // the dashboard opens; the next lock or cold start asks for the email and password again.
             guard signInGoesOn() else { return }

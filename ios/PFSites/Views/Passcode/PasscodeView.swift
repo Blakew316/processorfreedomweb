@@ -423,6 +423,11 @@ struct PasscodeView: View {
         // The server forgot this phone at that very moment: the app has already gone to Log in, which says so. (When it was
         // only the session that ended, the step finishes as usual and the lock follows once that is confirmed.)
         if case .left = change, model.phase != .ready { return }
+        // A ticked "Enable Face ID" that could not be turned on says so on the dashboard (the passcode was right, so nothing
+        // holds the person here). The words are kept before the step goes on: the dashboard says them as it opens, also when
+        // the loading screen comes first, and a return to the sign-in screens on the way drops them. Without this the box
+        // was simply unticked again at the next lock, with no word why.
+        if case .failed(let message) = change { model.readyNotice = message }
         switch step.purpose {
         case .afterSignIn:
             await model.passcodeFinished(for: step.site)
@@ -431,13 +436,9 @@ struct PasscodeView: View {
         case .switchTo, .change:
             onDone?()
         }
-        // A ticked "Enable Face ID" that could not be turned on says so on the dashboard (the passcode was right, so nothing holds
-        // the person here): at once, after this step has slid away when it is over the dashboard (another business's passcode,
-        // Change passcode), or when the dashboard next opens if the loading screen comes first. Without this the box was simply
-        // unticked again at the next lock, with no word why.
-        if case .failed(let message) = change {
-            model.sayWhenReady(message, after: onDone != nil ? 0.9 : 0)
-        }
+        // Over the dashboard (another business's passcode, Change passcode) this step is still sliding away: the words wait
+        // for it. Anywhere else the dashboard has said them already, and this finds nothing left to say.
+        if case .failed = change { model.showReadyNotice(after: onDone != nil ? 0.9 : 0) }
     }
 
     /// A passcode or Face ID is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot

@@ -134,7 +134,7 @@ final class AppModel {
     @ObservationIgnored var pendingSignIn: PendingSignIn?
     /// The last accepted sign-in was undone because the person had walked away from it.
     @ObservationIgnored var signInUndone = false
-    /// Words kept for the dashboard (see `sayWhenReady`).
+    /// Words kept for the dashboard (see `showReadyNotice(after:)`).
     @ObservationIgnored var readyNotice: String?
     /// The logout that runs when the app locks. Unlocking and signing in wait for it, so it can never clear the new session's cookie.
     @ObservationIgnored var endingSession: Task<Void, Never>?
@@ -572,11 +572,11 @@ final class AppModel {
         shell.sheet = .locations
     }
 
-    /// Words for the person that belong on the dashboard (a ticked "Enable Face ID" that could not be turned on): said at once
-    /// when it is showing, after `wait` seconds when a step over it is still sliding away, or kept until it next opens (the
-    /// loading screen may come first, with its own Try again). They go with any return to the sign-in screens.
-    func sayWhenReady(_ words: String, after wait: Double = 0) {
-        readyNotice = words
+    /// Words for the person that belong on the dashboard (a ticked "Enable Face ID" that could not be turned on) are kept in
+    /// `readyNotice` before the step that opens it goes on, so a return to the sign-in screens on the way clears them and they
+    /// never reach someone else. They are said as the dashboard opens (`enterReady`), or by this after `wait` seconds when a
+    /// step over the dashboard is still sliding away.
+    func showReadyNotice(after wait: Double) {
         Task {
             if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
             showReadyNotice()
