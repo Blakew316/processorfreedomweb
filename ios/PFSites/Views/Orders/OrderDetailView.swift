@@ -57,6 +57,9 @@ struct OrderDetailView: View {
             }
         }
         .background(SettingsLook.page)
+        // What scrolls under the top bar is cut off cleanly at the bar's edge, as in the photos and on the Settings pages: nothing of
+        // the page shows through the bar.
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .navigationTitle(order.map { "Order #\(String($0.number))" } ?? "Order")
         .navigationSubtitle((model.site?.name ?? "").uppercased())
         .navigationBarTitleDisplayMode(.inline)

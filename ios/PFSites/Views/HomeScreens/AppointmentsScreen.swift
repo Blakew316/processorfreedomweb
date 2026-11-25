@@ -63,6 +63,9 @@ struct AppointmentsScreen: View {
         }
         .animation(.snappy(duration: 0.3), value: panel)
         .background(Color(.systemBackground))
+        // What scrolls under the top bar is cut off cleanly at the bar's edge, as in the photos and on the Settings pages: nothing of
+        // the page shows through the bar.
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .navigationTitle("Appointments")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
