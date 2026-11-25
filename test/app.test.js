@@ -3773,3 +3773,41 @@ test('addresses shared with the main site: unset they change nothing; set, only 
     assert.equal((await get(named, '/', { host: 'nobody.pfsites.test' })).status, 404);
   } finally { stop(named); }
 });
+
+test('a texted code is tied to the address it was asked for at: the back office\'s own name in a browser there, the app\'s address otherwise', async () => {
+  const s = await appServer({ env: { CANONICAL_HOST: 'sites.main.test' } });
+  const realNow = Date.now;
+  let shift = 0;
+  Date.now = () => realNow() + shift;
+  // The name on the last line of a text, and the code beside it.
+  const tied = (text) => text.body.match(/\n\n@(\S+) #(\d{6})$/).slice(1);
+  const office = () => ({ host: 'sites.main.test', ...newIp() });
+  const who = { email: 'tie@app.test', password: 'long-enough-pw' };
+  try {
+    const web = client();
+    await web('POST', '/api/auth/signup', who, office());
+    await web('PUT', '/api/me', { phone: '(903) 555-0177' }, office());
+    assert.equal((await web('POST', '/api/me/sms/setup', { password: who.password }, office())).status, 200);
+    let [name, code] = tied(s.texts.at(-1));
+    assert.equal(name, 'sites.main.test', 'set up in a browser at the back office');
+    assert.equal((await web('POST', '/api/me/sms/enable', { code }, office())).data.user.textCodes, true);
+
+    // Signing in from a browser at the back office: the code is offered on that page, and signs in there.
+    shift += 31000;
+    const browser = client();
+    let r = await browser('POST', '/api/auth/login', who, office());
+    assert.deepEqual([r.status, r.data.sent], [401, true]);
+    [name, code] = tied(s.texts.at(-1));
+    assert.equal(name, 'sites.main.test');
+    assert.equal((await browser('POST', '/api/auth/login', { ...who, code }, office())).status, 200);
+
+    // The iPhone app asks at the app's address, so its codes stay tied to that, exactly as before the back office moved.
+    shift += 31000;
+    const iphone = client();
+    r = await iphone('POST', '/api/auth/login', { ...who, device: { name: 'iPhone' } }, newIp());
+    assert.deepEqual([r.status, r.data.sent], [401, true]);
+    [name, code] = tied(s.texts.at(-1));
+    assert.equal(name, 'app.pfsites.test');
+    assert.equal((await iphone('POST', '/api/auth/login', { ...who, code, device: { name: 'iPhone' } }, newIp())).status, 200);
+  } finally { Date.now = realNow; s.stop(); }
+});
