@@ -20,6 +20,7 @@ struct ItemEditorPage: View {
     @State private var askingToLeave = false
     @State private var afterLeaving: (() -> Void)?
     @State private var message: String?
+    @State private var reveal = ItemsReveal()
     @State private var choosingPhoto = false
     @State private var photoPick: PhotosPickerItem?
     @State private var loadingPhoto = false
@@ -52,11 +53,17 @@ struct ItemEditorPage: View {
                     .disabled(editor.saving || deleting)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                // Save is always in reach, the field it refused may be far up the page: it is brought into view.
-                .onChange(of: refusals) { _, _ in
+                // Save is always in reach, the field it refused may be far up the page, in a card that was folded: the card
+                // opens, then the field is brought into view (a field of a folded card is not on the page to scroll to).
+                .onChange(of: refusals) { _, round in
                     guard let field = editor.firstProblem else { return }
-                    withAnimation(.snappy) { reader.scrollTo(field, anchor: .center) }
+                    reveal = ItemsReveal(card: Self.card(of: field), round: round)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 150_000_000)
+                        withAnimation(.snappy) { reader.scrollTo(field, anchor: .center) }
+                    }
                 }
+                .environment(\.itemsReveal, reveal)
             }
             ItemsHairline()
             bottomBar
@@ -67,6 +74,10 @@ struct ItemEditorPage: View {
         .modifier(ItemsCoverBar(close: { leave(then: close) }, busy: editor.saving || deleting))
         // Typing is not a touch on the screen: it counts for the 15-minute rule too, as on Create appointment.
         .onChange(of: editor.draft) { _, _ in model.idle.touch() }
+        // The app locked (the session had ended): "Please sign in to continue." is not left up for after the passcode.
+        .onChange(of: model.phase) { _, now in
+            if now != .ready { message = nil }
+        }
         // The item settings came after a new item was opened: it starts where the website's Add item would put it.
         .onChange(of: items.settingsAsked) { _, asked in
             if asked { editor.startCategory(items.categoryNames.last ?? "Menu") }
@@ -270,6 +281,17 @@ struct ItemEditorPage: View {
         }
     }
 
+    /// The card each field is in, by its title.
+    private static func card(of field: ItemEditorField) -> String {
+        switch field {
+        case .name, .price, .desc: return "Details"
+        case .sale: return "Sale"
+        case .cost: return "Cost"
+        case .code, .stock, .restock: return "Item tracking"
+        case .optionName, .optionChoices: return "Options"
+        }
+    }
+
     private func delete() {
         let asked = Date()
         deleting = true
@@ -314,7 +336,9 @@ struct ItemEditorPage: View {
             if let data {
                 problem = await editor.setPhoto(data, model: model)
             } else {
-                problem = "Choose an image file."
+                // The photo itself could not be fetched (its original is in iCloud and the phone is offline, for example):
+                // that is not the same as choosing something that is not a picture.
+                problem = "We could not load that photo. Check your connection and try again."
             }
             if let problem {
                 Haptics.error()

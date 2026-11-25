@@ -187,6 +187,24 @@ struct ItemsSlidersIcon: View {
     }
 }
 
+/// A card to unfold now. The editor names the card that holds the field a save was refused for, so the reason is never left
+/// inside a card the person folded; `round` counts the refusals, so the same card can be asked for again.
+struct ItemsReveal: Equatable {
+    var card = ""
+    var round = 0
+}
+
+private struct ItemsRevealKey: EnvironmentKey {
+    static let defaultValue = ItemsReveal()
+}
+
+extension EnvironmentValues {
+    var itemsReveal: ItemsReveal {
+        get { self[ItemsRevealKey.self] }
+        set { self[ItemsRevealKey.self] = newValue }
+    }
+}
+
 /// The round grey ⋮ button (48 pt) that opens a menu.
 struct ItemsKebab<Items: View>: View {
     var label = "More actions"
@@ -698,6 +716,7 @@ struct ItemsCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     @State private var open = true
+    @Environment(\.itemsReveal) private var reveal
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -738,6 +757,9 @@ struct ItemsCard<Content: View>: View {
             if open {
                 content()
             }
+        }
+        .onChange(of: reveal) { _, asked in
+            if asked.card == title { open = true }
         }
         // 17 pt from the card's edge to its hairlines, fields and tables on both sides, as in the photos.
         .padding(.horizontal, 17)

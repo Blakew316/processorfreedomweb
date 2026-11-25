@@ -315,6 +315,8 @@ struct CarbonCopyReceiptsPage: View {
         let wasLoaded = settings.loaded
         await settings.load(siteID: siteID)
         guard settings.loaded, !saving else { return }
+        // A save's message does not outlive a load that worked (the connection is back, or the app was unlocked again).
+        if settings.reloadProblem.isEmpty { problem = "" }
         // What is typed stays while it differs from what was saved; otherwise the field follows the server.
         if !wasLoaded || email.trimmed == before { email = settings.notifyEmail }
     }
@@ -338,16 +340,19 @@ struct CarbonCopyReceiptsPage: View {
                 Haptics.success()
                 email = settings.notifyEmail
                 savedNote = true
+                AccessibilityNotification.Announcement("Saved").post()
                 try? await Task.sleep(nanoseconds: 1_600_000_000)
                 savedNote = false
             case .stale(let message):
                 email = settings.notifyEmail
                 problem = message
                 problemIsError = false
+                AccessibilityNotification.Announcement(message).post()
             case .failed(let message):
                 Haptics.error()
                 problem = message
                 problemIsError = true
+                AccessibilityNotification.Announcement(message).post()
             }
         }
     }

@@ -268,9 +268,11 @@ final class ItemsModel {
         guard mine == round else { return }
         if let site, site["site"].isObject {
             settings = ItemsSettings(site: site["site"])
+            // Only once they have really come: without them the editor still works, with the items' own categories, and asks
+            // again when it opens instead of saying the business has no modifier groups or labels.
+            settingsAsked = true
+            dropGoneCategories()
         }
-        // Asked and answered, even with no: without them the editor still works, with the items' own categories.
-        if !Task.isCancelled { settingsAsked = true }
         loading = false
     }
 
@@ -288,7 +290,17 @@ final class ItemsModel {
         items = answer["items"].array.compactMap { CatalogItem($0) }
         let ids = Set(items.map(\.id))
         selection = selection.intersection(ids)
+        dropGoneCategories()
         loaded = true
+    }
+
+    /// A filter by a category that no longer exists goes with it (its last item was moved, or the menu was replaced): the
+    /// panel lists only the categories there are, so it could not be unticked, and the list said "No items found" with
+    /// nothing ticked.
+    private func dropGoneCategories() {
+        guard !filter.cats.isEmpty else { return }
+        let kept = filter.cats.intersection(categoryNames)
+        if kept != filter.cats { filter.cats = kept }
     }
 
     func showToast(_ text: String) {
@@ -320,9 +332,13 @@ final class ItemsModel {
             return nil
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
+            // No answer came, but the change may have reached the server: the list is read again, so it shows what is true
+            // before the same change is made a second time (a price raised twice, a list imported twice).
+            if error.status == 0 { await load(model) }
             return error.message
         } catch {
             // Never said to have worked when no answer came.
+            await load(model)
             return APIError.unreachableMessage
         }
     }
@@ -337,8 +353,11 @@ final class ItemsModel {
             return .success(max(0, answer["imported"].int))
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
+            // As in `bulk`: with no answer, the list is read again before the import is tried a second time.
+            if error.status == 0 { await load(model) }
             return .failure(error)
         } catch {
+            await load(model)
             return .failure(APIError(status: 0, message: APIError.unreachableMessage))
         }
     }

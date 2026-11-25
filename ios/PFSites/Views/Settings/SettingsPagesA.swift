@@ -58,7 +58,15 @@ extension SettingsA {
                     WebScreen(tab: tab)
                 }
                 .onChange(of: tab) { old, new in
-                    if old != nil && new == nil { closed() }
+                    guard old != nil, new == nil else { return }
+                    closed()
+                    // The website saves a change a moment after it is made (up to a second later), and the page that was just
+                    // left stays alive for that. Loading only at once could show the old value as if nothing had been saved,
+                    // so it is loaded once more when that save has had time to land; the later answer wins.
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        if tab == nil { closed() }
+                    }
                 }
         }
     }

@@ -180,10 +180,12 @@ private struct CustomizeOrdersSheet: View {
                 start = Values(group: settings.groupItems, notes: settings.allowNotes, stay: settings.stayInCategory)
                 note = message
                 noteIsError = false
+                AccessibilityNotification.Announcement(message).post()
             case .failed(let message):
                 Haptics.error()
                 note = message
                 noteIsError = true
+                AccessibilityNotification.Announcement(message).post()
             }
         }
     }

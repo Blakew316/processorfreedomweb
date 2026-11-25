@@ -184,6 +184,10 @@ struct ItemsListPage: View {
         } message: {
             Text(items.selection.count == 1 ? "It is removed from your menu straight away. Past orders are kept." : "They are removed from your menu straight away. Past orders are kept.")
         }
+        // The app locked (the session had ended): "Please sign in to continue." is not left up for after the passcode.
+        .onChange(of: model.phase) { _, now in
+            if now != .ready { message = nil }
+        }
         .alert(message ?? "", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK", role: .cancel) {}
         }
@@ -621,6 +625,14 @@ struct ItemsListPage: View {
     private func read(_ url: URL, picked: Date) {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
+        // A file far past what can be imported is not read at all: reading and sorting it would freeze the app, and the server
+        // would refuse it anyway, in these words. (64 MB is the most an Excel workbook is read at; 1.5 MB the most text the
+        // server takes.)
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard size <= 64 * 1024 * 1024 else {
+            say("That is too large to upload.", after: picked, wait: 0.6)
+            return
+        }
         guard let data = try? Data(contentsOf: url) else {
             say("We could not read that file.", after: picked, wait: 0.6)
             return
@@ -638,6 +650,10 @@ struct ItemsListPage: View {
             say("That is an older Excel file (.xls), or one protected with a password. Remove the password, or save it as .xlsx or CSV, and choose it again.", after: picked, wait: 0.6)
             return
         } else {
+            guard data.count <= 1_500_000 else {
+                say("That is too large to upload.", after: picked, wait: 0.6)
+                return
+            }
             text = ItemsCSV.text(from: data)
         }
         let plan = ItemsImportPlan(fileName: url.lastPathComponent, csv: text, reading: ItemsCSV.read(text))

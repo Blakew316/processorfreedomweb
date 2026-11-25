@@ -256,6 +256,8 @@ final class ItemEditorModel {
         saving = true
         defer { saving = false }
         let wanted = draft
+        // The items there were before a new one was sent, to find it again if its answer never comes.
+        var known: Set<String>?
         do {
             let savedID: String
             if let id = itemID {
@@ -265,6 +267,7 @@ final class ItemEditorModel {
                 savedID = id
             } else {
                 let before = Set(items.items.map(\.id))
+                known = before
                 let answer = try await API.post("/api/sites/\(business.id)/menu", payload)
                 items.take(answer)
                 // The new item is the one the list did not have; the server adds it at the end.
@@ -302,10 +305,21 @@ final class ItemEditorModel {
                 stockProblem = error.message
                 return (false, nil)
             }
+            if error.status == 0 { await findUnanswered(model, items: items, known: known, name: wanted.name) }
             return (false, place(error.message))
         } catch {
             return (false, nil)
         }
+    }
+
+    /// A new item was sent and no answer came: it may have been made all the same. The list is read again, and an item that is
+    /// there now, was not before and has the name just sent is the one this page made, so trying again changes that item
+    /// instead of making a second copy of it.
+    private func findUnanswered(_ model: AppModel, items: ItemsModel, known: Set<String>?, name: String) async {
+        guard itemID == nil, let known else { return }
+        await items.load(model)
+        let made = items.items.filter { !known.contains($0.id) && $0.name == name.trimmed }
+        if made.count == 1, let item = made.first { adopt(item.id, items: items, keepDraft: true) }
     }
 
     /// From here on this editor is for the saved item, so trying again never sends an old stock count or a second new item. With

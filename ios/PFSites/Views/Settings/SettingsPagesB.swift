@@ -92,6 +92,8 @@ final class TransactionsSettings {
         } catch let error as APIError {
             if error.status == 412 {
                 await load(siteID: siteID)
+                // The latest settings could not be fetched: say why, and leave what the person chose on screen.
+                if !reloadProblem.isEmpty { return .failed(reloadProblem) }
                 return .stale(Self.staleMessage)
             }
             if error.status == 401 { AppModel.shared.sessionEnded() }
@@ -464,7 +466,13 @@ extension View {
             WebScreen(tab: tab, keepsBack: keepsBack)
         }
         .onChange(of: tab.wrappedValue) { old, new in
-            if old != nil, new == nil { closed?() }
+            guard old != nil, new == nil, let closed else { return }
+            closed()
+            // Once more when the website's own save, sent a moment after the change, has had time to land (see SettingsA.WebPages).
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if tab.wrappedValue == nil { closed() }
+            }
         }
     }
 

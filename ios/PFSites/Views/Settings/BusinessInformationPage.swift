@@ -32,7 +32,12 @@ struct BusinessInformationPage: View {
             // The first card starts 50 pt under the name's baseline, as it does under the photo's last line there.
             .padding(.top, 24)
             .modifier(SettingsA.WebPages(tab: $openTab) {
-                Task { await loader.load(model) }
+                Task {
+                    await loader.load(model)
+                    // A new business name shows at once on the other pages too (they take it from the app's own list, which
+                    // is otherwise read once a minute).
+                    _ = try? await model.loadSites()
+                }
             })
         }
         .settingsLoads { await loader.load(model) }
