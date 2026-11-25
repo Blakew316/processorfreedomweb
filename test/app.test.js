@@ -377,9 +377,13 @@ test('ordering: build from an item list, take an order, track stock, send emails
     assert.equal(r.status, 409);
     assert.match(r.data.error, /now ready/);
     assert.equal((await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((x) => x.id === order.id).status, 'ready');
-    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready', from: 'new' })).status, 200);
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready', from: 'new' })).status, 200, 'already ready: nothing to move, nothing to refuse');
     await new Promise((x) => setTimeout(x, 20));
     assert.equal(sent.length, 2);
+    // The request every button now makes: the status the screen showed is the true one, and the order moves on.
+    r = await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'completed', from: 'ready' });
+    assert.deepEqual([r.status, r.data.order.status], [200, 'completed']);
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready', from: 'confirmed' })).status, 409, 'and not back again from a screen that is behind');
     assert.equal((await client()('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' })).status, 401);
     r = await place({ ...who, method: 'curbside', vehicle: 'Blue Tacoma', items: [{ id: churros.id, qty: 10 }] });
     assert.equal(r.data.number, 1002);

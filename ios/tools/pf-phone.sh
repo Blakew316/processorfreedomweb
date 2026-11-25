@@ -45,9 +45,10 @@ try:
     devices = json.load(open(sys.argv[1]))["result"]["devices"]
 except Exception:
     devices = []
-found = []
+found, waiting = [], []
 for device in devices:
     hardware = device.get("hardwareProperties", {})
+    connection = device.get("connectionProperties", {})
     udid = hardware.get("udid") or ""
     name = (device.get("deviceProperties", {}).get("name") or "")
     # A real phone's UDID is 8 and 16 hex digits; a simulator's is a UUID.
@@ -56,8 +57,13 @@ for device in devices:
     if wanted:
         if wanted in (udid.lower(), name.lower()):
             found.append(udid)
-    elif device.get("connectionProperties", {}).get("tunnelState") == "connected":
+    elif connection.get("tunnelState") == "connected":
         found.append(udid)
+    elif connection.get("tunnelState") == "disconnected" and connection.get("pairingState") == "paired":
+        # Paired and within reach, with no connection open yet (Xcode is closed): installing opens one.
+        waiting.append(udid)
+if not found:
+    found = waiting
 print(found[0] if len(found) == 1 else ("MANY" if found else "NONE"))
 PY
 )
@@ -80,7 +86,11 @@ if [ "$NEW" != "$(cat "$WORK/.commit" 2>/dev/null)" ]; then
   TMP=$(mktemp -d /tmp/pf-phone-src.XXXXXX)
   git archive FETCH_HEAD ios | tar -x -C "$TMP" --strip-components=1 || { note "FAILED: could not unpack $NEW"; rm -rf "$TMP"; exit 1; }
   mkdir -p "$WORK"
-  rsync -rlpc --delete --exclude '.commit' --exclude '.built' --exclude '.installed-*' "$TMP/" "$WORK/" >> "$LOG" 2>&1
+  if ! rsync -rlpc --delete --exclude '.commit' --exclude '.built' "$TMP/" "$WORK/" >> "$LOG" 2>&1; then
+    # Never build a half-copied folder under the new commit's name.
+    rm -rf "$TMP"; rm -f "$WORK/.commit" "$WORK/.built"
+    note "FAILED: could not copy $NEW into the build folder"; exit 1
+  fi
   rm -rf "$TMP"
   echo "$NEW" > "$WORK/.commit"
 fi
@@ -94,14 +104,17 @@ if [ "$NEW" != "$(cat "$WORK/.built" 2>/dev/null)" ] || [ ! -d "$APP" ]; then
   echo "$NEW" > "$WORK/.built"
 fi
 
-if [ "$NEW" = "$(cat "$WORK/.installed-$PHONE" 2>/dev/null)" ]; then
+# What this script last put on this phone: one note per phone, whatever the branch, so going back to a branch that has not
+# moved since installs it again instead of taking the phone to have it still.
+ON_PHONE="$REPO/ios/build/.on-phone-$PHONE"
+if [ "$NEW" = "$(cat "$ON_PHONE" 2>/dev/null)" ]; then
   note "OK $NEW is already on the phone"; exit 0
 fi
 note "INSTALLING $NEW"
 if ! xcrun devicectl device install app --device "$PHONE" "$APP" >> "$LOG" 2>&1; then
   note "NOT INSTALLED: $NEW is built, the phone did not take it (locked, asleep or off the network?)"; exit 3
 fi
-echo "$NEW" > "$WORK/.installed-$PHONE"
+echo "$NEW" > "$ON_PHONE"
 if xcrun devicectl device process launch --device "$PHONE" --terminate-existing com.processorfreedomsites.app >> "$LOG" 2>&1; then
   note "OK $NEW installed and opened"
 else
