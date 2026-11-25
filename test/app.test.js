@@ -3718,3 +3718,58 @@ test('Apple push: a key set up only halfway is named in the log, with what is mi
   const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' });
   assert.deepEqual(startup({ ...team, ...prodKey, APNS_SANDBOX_KEY_ID: 'SANDBOXKID', APNS_SANDBOX_KEY: rsa }), [true, ['The sandbox Apple push key could not be used, so the production key signs in its place: APNS_SANDBOX_KEY is not the P-256 key Apple gives out.']]);
 });
+
+test('addresses shared with the main site: unset they change nothing; set, only browser page visits are sent on', async () => {
+  const make = (env) => {
+    const d = mkdtempSync(join(tmpdir(), 'pfsites-addr-'));
+    const a = createApp({ dataDir: d, env: { SITES_DOMAIN: 'pfsites.test', APP_URL: 'http://app.pfsites.test', TRUST_PROXY: '1', ...env }, mailer: { enabled: false, send: async () => {} } });
+    const s = createServer(a);
+    return new Promise((r) => s.listen(0, () => r({ s, a, d, url: `http://127.0.0.1:${s.address().port}` })));
+  };
+  const get = (srv, path, { host = 'app.pfsites.test', agent, cookie, method = 'GET' } = {}) => fetch(srv.url + path, { method, redirect: 'manual', headers: { 'X-Forwarded-Host': host, ...(agent ? { 'User-Agent': agent } : {}), ...(cookie ? { Cookie: cookie } : {}) } });
+  const stop = (srv) => { srv.s.close(); srv.a.close(); rmSync(srv.d, { recursive: true, force: true }); };
+
+  // Nothing set: the public page and the sign-in page are served here, as always.
+  const plain = await make({});
+  try {
+    assert.equal((await get(plain, '/')).status, 200);
+    assert.equal((await get(plain, '/login')).status, 200);
+  } finally { stop(plain); }
+
+  // The public page lives on the main site.
+  const moved = await make({ MAIN_SITE_URL: 'https://www.main.test/' });
+  try {
+    const home = await get(moved, '/');
+    assert.equal(home.status, 302);
+    assert.equal(home.headers.get('location'), 'https://www.main.test/pf-sites');
+    // Signing in, signing up and every other page stay here.
+    assert.equal((await get(moved, '/login')).status, 200);
+    assert.equal((await get(moved, '/signup?name=Harbor')).status, 200);
+    assert.equal((await get(moved, '/faq')).status, 200);
+    // Someone who is signed in is not sent away, and neither is the iPhone app.
+    assert.equal((await get(moved, '/', { cookie: 'pf_session=anything' })).status, 200);
+    assert.equal((await get(moved, '/', { agent: 'Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 PFSitesApp/1.0' })).status, 200);
+    // The API is never redirected.
+    assert.equal((await get(moved, '/api/sites')).status, 401);
+  } finally { stop(moved); }
+
+  // A setting that is not an https address is ignored.
+  const wrong = await make({ MAIN_SITE_URL: 'javascript:alert(1)' });
+  try { assert.equal((await get(wrong, '/')).status, 200); } finally { stop(wrong); }
+
+  // The back office has a new name: browser page visits on the old name go there; everything else answers where it is.
+  const named = await make({ CANONICAL_HOST: 'sites.main.test', EXTRA_APP_HOSTS: 'office.old.test' });
+  try {
+    const login = await get(named, '/login?next=1');
+    assert.equal(login.status, 302);
+    assert.equal(login.headers.get('location'), 'https://sites.main.test/login?next=1');
+    assert.equal((await get(named, '/app', { host: 'office.old.test' })).headers.get('location'), 'https://sites.main.test/app');
+    assert.equal((await get(named, '/login', { host: 'sites.main.test' })).status, 200);
+    assert.equal((await get(named, '/login', { agent: 'PFSitesApp/1.0' })).status, 200);
+    assert.equal((await get(named, '/api/sites')).status, 401);
+    assert.equal((await get(named, '/healthz')).status, 200);
+    assert.equal((await get(named, '/assets/app.css')).status, 200);
+    // A customer's site on its own address is not touched.
+    assert.equal((await get(named, '/', { host: 'nobody.pfsites.test' })).status, 404);
+  } finally { stop(named); }
+});
