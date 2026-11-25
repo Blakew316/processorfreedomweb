@@ -48,6 +48,7 @@ struct SaleView: View {
                             .frame(width: 36, height: 44)
                             .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal, -8)
                     .accessibilityLabel("Clear search")
                 }
@@ -270,7 +271,7 @@ struct SaleView: View {
                 } label: {
                     // 44 pt tall to press; the room is taken back outside it, so the words stay where they are.
                     Text("View order")
-                        .pfFont(17)
+                        .pfFont(17, .semibold)
                         .foregroundStyle(empty ? SaleLook.disabled : Theme.blue)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 12)

@@ -73,6 +73,7 @@ struct OrdersTabView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal, -12)
                     .accessibilityLabel("Clear search")
                 }

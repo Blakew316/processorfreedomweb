@@ -132,7 +132,7 @@ struct CreateAppointmentAmountSheet: View {
                 // The amount under it is read with the question.
                 .accessibilityHidden(true)
             Text(Money.format(cents))
-                .pfFont(48, .light, relativeTo: .largeTitle)
+                .pfFont(48, .regular, relativeTo: .largeTitle)
                 .foregroundStyle(cents == 0 ? CreateAppointmentLook.zeroAmount : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

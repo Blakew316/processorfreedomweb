@@ -15,7 +15,7 @@ enum SaleLook {
     /// #FBFBFB: the order panel at the bottom.
     static let panel = Color(light: UIColor(hex: 0xFBFBFB), dark: .secondarySystemBackground)
     /// #C7C7C7: disabled buttons and the options button's border.
-    static let disabled = Color(.systemGray3)
+    static let disabled = Color(light: UIColor(hex: 0xC7C7C7), dark: .systemGray3)
     /// #78787D: the options button's dots.
     static let dots = Color(light: UIColor(hex: 0x78787D), dark: .systemGray)
     /// #373737: the price while it is still $0.00.
@@ -204,6 +204,9 @@ struct OrderSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        // Solid, like the app's other sheets: at half height the system's sheet is see-through, and the blue Check out button
+        // and the Orders badge behind it showed as coloured bands across the rows.
+        .presentationBackground(Color(.systemGroupedBackground))
     }
 }
 
@@ -286,8 +289,9 @@ struct PriceKeypadSheet: View {
             Text("What is the price?")
                 .pfFont(15)
                 .padding(.top, isCustom ? 24 : 44)
+            // Regular weight: the photo's figures have full strokes and wide zeros (light drew them thin and fainter).
             Text(Money.format(cents))
-                .pfFont(48, .light, relativeTo: .largeTitle)
+                .pfFont(48, .regular, relativeTo: .largeTitle)
                 .foregroundStyle(cents == 0 ? SaleLook.zeroAmount : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

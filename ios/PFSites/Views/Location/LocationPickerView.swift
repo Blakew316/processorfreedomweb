@@ -282,6 +282,7 @@ struct LocationSearchField: View {
                         .padding(12)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .padding(-12)
                 .accessibilityLabel("Clear search")
             }
