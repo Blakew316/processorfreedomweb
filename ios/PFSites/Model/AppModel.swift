@@ -373,6 +373,21 @@ final class AppModel {
         notesDot = false
     }
 
+    /// A notification tapped before the dashboard was showing is opened as it opens. When the dashboard closes for someone else
+    /// (Switch User, Log out) it is forgotten: it was not theirs.
+    func forgetPendingNotification() {
+        pendingNotification = nil
+    }
+
+    /// iOS only shows the app icon's count once notifications are allowed, and ignores a count sent before that. So when they
+    /// become allowed the count is sent again (otherwise the icon would stay empty until the number of new orders changed):
+    /// now when the dashboard is showing, or else as it next opens. Never from the lock screen, where the count is not known
+    /// and sending one would wipe the icon's.
+    func sendIconBadgeAgain() {
+        iconBadge = -1
+        if phase == .ready { setOrdersBadge(ordersBadge) }
+    }
+
     /// The Orders tab badge and the app icon badge: the count of new orders (the same count the website's menu badge uses).
     func setOrdersBadge(_ count: Int) {
         let value = max(0, count)
@@ -457,11 +472,15 @@ final class AppModel {
         }
     }
 
-    /// A full-screen step over the dashboard; one presentation at a time, so a sheet that is up closes first.
+    /// A full-screen step over the dashboard; one presentation at a time, so a sheet that is up closes first. A full-screen
+    /// page that is already open (the item editor, a Settings page) is never swapped out from under the person: the step waits
+    /// until they have closed it themselves, with its own "discard changes?" where it has one.
     private func present(_ cover: ShellCover) {
         if shell.sheet != nil {
             shell.afterSheet = cover
             shell.sheet = nil
+        } else if let showing = shell.cover, !showing.isSwitch {
+            shell.afterCover = cover
         } else {
             shell.cover = cover
         }

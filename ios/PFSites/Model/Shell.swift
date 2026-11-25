@@ -37,6 +37,12 @@ enum ShellCover: Identifiable {
     case itemSales                      // Home → Items sales report, full screen with an X like the owner's photos
     case tasks                          // Home → Setup tasks: the Tasks screen, full screen with an X like the owner's photo
 
+    /// The passcode step for another business (a newer one simply takes an older one's place).
+    var isSwitch: Bool {
+        if case .switchTo = self { return true }
+        return false
+    }
+
     var id: String {
         switch self {
         case .switchTo(let site): return "switch-\(site.id)"
@@ -65,6 +71,8 @@ final class Shell {
     var cover: ShellCover? = nil
     /// A step to show once the open sheet has finished closing (two presentations cannot overlap).
     @ObservationIgnored var afterSheet: ShellCover?
+    /// A step to show once the full-screen page that is open has been closed by the person (see `AppModel.present`).
+    @ObservationIgnored var afterCover: ShellCover?
     /// A page to open on the current tab once the open sheet has finished closing (a choice in the Notifications sheet).
     @ObservationIgnored var afterSheetTab: String?
     /// The tab to open once a notification's business has been switched to.

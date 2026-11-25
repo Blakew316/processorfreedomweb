@@ -108,6 +108,9 @@ extension AppModel {
                 // again would be refused again, so Log in says why, instead of a Try again that can never work. (Asked too
                 // often, or too slow, is not a no: those keep Try again.)
                 sessionEndedBeforeReady(error.message)
+                // The session the sign-in just opened is still open on the server: it ends too, as on every other way back to
+                // Log in from a live session.
+                endSessionInBackground()
                 return
             } catch {
                 showLaunchError(error) { [weak self] in await self?.passcodeStep(for: business) }
@@ -459,6 +462,9 @@ extension AppModel {
         // still on its way is stopped first.
         DownloadCenter.shared.cancelAll()
         DownloadCenter.clearOldFiles()
+        // Neither does a notification they tapped before the dashboard was showing, nor the count on the app's icon.
+        forgetPendingNotification()
+        setOrdersBadge(0)
         shellAlive = false
         shell = Shell()
         shellID = UUID()

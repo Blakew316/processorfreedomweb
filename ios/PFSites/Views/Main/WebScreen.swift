@@ -46,6 +46,12 @@ struct WebScreen: View {
                 page = OfficePage(siteID: business.id, path: Config.sitePath(business.id, tab), script: script)
             }
         }
+        .onDisappear {
+            // The Profile page is where two-step sign-in is turned on and the password changed, and both make the server
+            // forget every phone's key, this one's too, and its notification address with it. Sending the address again as
+            // the page is left finds that out at once (the server says so), instead of at the next lock.
+            if tab == "profile" { Task { await model.uploadPushTokenIfWanted() } }
+        }
     }
 
     /// A page opened from a list (a category, a menu, an invoice) goes back to its list inside the page.

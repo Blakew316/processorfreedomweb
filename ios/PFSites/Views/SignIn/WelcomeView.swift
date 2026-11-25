@@ -16,6 +16,11 @@ struct WelcomeFlow: View {
                 }
         }
         .tint(Theme.blue)
+        // Back on Welcome, the password typed on Log in is forgotten: left in the form, anyone who picked the phone up later
+        // could open Log in again and read it with the eye button.
+        .onChange(of: auth.path) { _, path in
+            if path.isEmpty, !auth.password.isEmpty { auth.password = "" }
+        }
     }
 }
 

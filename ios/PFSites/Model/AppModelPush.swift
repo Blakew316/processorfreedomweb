@@ -13,8 +13,11 @@ extension AppModel {
     func refreshPushStatus() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         let status = settings.authorizationStatus
+        let allowedBefore = pushAuthorized
         pushAuthorized = status == .authorized || status == .provisional || status == .ephemeral
         pushDenied = status == .denied
+        // Just allowed (the first-time question, or iOS Settings): the icon's count can be shown from now.
+        if pushAuthorized && !allowedBefore { sendIconBadgeAgain() }
     }
 
     /// At launch: when notifications are on, ask iOS for the current device token (it can change), which is then sent again.
@@ -63,7 +66,9 @@ extension AppModel {
             break
         }
         UserDefaults.standard.set(true, forKey: Keys.pushAsked)
+        let wantedBefore = pushWanted
         UserDefaults.standard.set(true, forKey: Keys.pushWanted)
+        if !pushAuthorized { sendIconBadgeAgain() }
         pushAuthorized = true
         pushDenied = false
         if let token = pushToken, await uploadToken(token) { return true }
@@ -71,9 +76,15 @@ extension AppModel {
         UIApplication.shared.registerForRemoteNotifications()
         // iOS answers with the token in a moment (didRegisterForRemoteNotifications); wait up to 10 seconds for it to be sent.
         for _ in 0..<40 {
-            if let sent = tokenSent { return sent }
+            if let sent = tokenSent {
+                if !sent { UserDefaults.standard.set(wantedBefore, forKey: Keys.pushWanted) }
+                return sent
+            }
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
+        // It could not be turned on, and the person was told so: the wish is not kept, or the next time the dashboard opened
+        // notifications would turn themselves on with nobody having asked again.
+        UserDefaults.standard.set(wantedBefore, forKey: Keys.pushWanted)
         return false
     }
 
@@ -157,8 +168,15 @@ extension AppModel {
             try await API.post("/api/app/push", ["device": key.id, "secret": key.secret, "token": token, "env": Config.pushEnvironment])
             pushSent = true
             return true
-        } catch let error as APIError where error.status == 400 || error.signIn {
-            // Refused (an address the server cannot use), or the server forgot this phone and its address with it.
+        } catch let error as APIError where error.signIn {
+            // The server forgot this phone and its address with it (two-step sign-in was turned on, the password was changed,
+            // "sign out everywhere"): no notification can reach it until it signs in again. While the dashboard is showing
+            // that is said now, on Log in, instead of being found out at the next lock with new-order alerts missed meanwhile.
+            pushSent = false
+            if phase == .ready { deviceForgotten(error.message) }
+            return false
+        } catch let error as APIError where error.status == 400 {
+            // Refused: an address the server cannot use.
             pushSent = false
             return false
         } catch {
