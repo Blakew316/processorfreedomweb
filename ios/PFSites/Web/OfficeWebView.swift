@@ -52,7 +52,8 @@ struct WebPageView: View {
         OfficeWebView(page: page)
             .ignoresSafeArea(.keyboard)
             // The page's own ground runs on under it, down to the bottom of the screen (the web view stops at the safe area).
-            .background(Theme.webGround)
+            // Downwards only: what is behind the top bar, the page strip and a sheet's title row is not repainted.
+            .background(Theme.webGround, ignoresSafeAreaEdges: .bottom)
             .overlay {
                 if let failure = page.failure {
                     OfflineView(failure: failure) { page.retry() }

@@ -290,7 +290,7 @@ final class OfficePage: NSObject {
         overlay = nil
         guard let host = webView.superview else { return }
         let cover = UIView(frame: webView.frame)
-        cover.backgroundColor = .systemBackground
+        cover.backgroundColor = Theme.webGroundUI
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         host.addSubview(cover)
         overlay = cover

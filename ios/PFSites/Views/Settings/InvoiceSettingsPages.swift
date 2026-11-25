@@ -197,13 +197,12 @@ private struct TemplateLibraryView: View {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 20, weight: .bold))
                             .rotationEffect(.degrees(90))
-                            .foregroundStyle(Color.primary)
+                            .foregroundStyle(SettingsLook.greyed)
                             .frame(width: 48, height: 48)
-                            .background(SettingsLook.border, in: Circle())
+                            .background(SettingsLook.border.opacity(0.4), in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ItemsBareStyle())
                     .disabled(true)
-                    .opacity(0.4)
                     .accessibilityLabel("More template options")
                     .accessibilityValue("Not available yet")
                 }

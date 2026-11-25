@@ -28,7 +28,7 @@ enum CreateAppointmentLook {
     /// Clover's dark green ring round the field being typed in, as navy (white in dark mode).
     static let focus = Theme.ink
     /// #373737: the keypad's amount while it is still $0.00, as on the Sale screen's keypad.
-    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: .secondaryLabel)
+    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: UIColor(hex: 0xC8C8C8))
     /// 6.33 pt (the photos' 19 px) between a field's name and its box.
     static let labelGap: CGFloat = 6.33
     /// The corners of the photos' cards are quarter circles of 24 pt, and those of a service's card inside one of 25 pt (both

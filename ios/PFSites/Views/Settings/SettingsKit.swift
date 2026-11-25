@@ -308,16 +308,17 @@ struct SettingsCard<Content: View>: View {
             EmptyView()
         case .circle(let action):
             Button { action?() } label: {
+                // Without an action: the greyed colour on a paler circle. Not the plain style with a fade on top of it, which
+                // faded the button twice and left it a different grey from the other greyed pencils.
                 Image(systemName: "pencil")
                     .font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(action == nil ? SettingsLook.greyed : Color.primary)
                     .frame(width: 48, height: 48)
-                    .background(SettingsLook.border, in: Circle())
+                    .background(SettingsLook.border.opacity(action == nil ? 0.4 : 1), in: Circle())
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ItemsBareStyle())
             .disabled(action == nil)
-            .opacity(action == nil ? 0.4 : 1)
             .padding(.top, -7)
             .accessibilityLabel(title.map { "Edit \($0)" } ?? "Edit")
             .accessibilityValue(action == nil ? "Not available yet" : "")

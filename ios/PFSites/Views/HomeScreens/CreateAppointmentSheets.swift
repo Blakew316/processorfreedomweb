@@ -227,7 +227,7 @@ private struct CreateAppointmentDoneStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .pfFont(14, .medium)
-            .foregroundStyle(Color.white)
+            .foregroundStyle(on ? Color.white : Theme.offLabel)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(on ? Theme.blue : Color(.systemGray3)))
             .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))

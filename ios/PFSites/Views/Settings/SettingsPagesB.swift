@@ -345,7 +345,8 @@ struct TxBullet<Content: View>: View {
     }
 }
 
-/// The 48 pt round buttons of the photos (search, add, more). Without an action they are greyed (40%) and do nothing.
+/// The 48 pt round buttons of the photos (search, add, more). Without an action they are greyed (the greyed colour, or the
+/// button's own colours on a circle at 40%) and do nothing.
 struct TxCircleButton: View {
     let symbol: String
     var fill: Color = SettingsLook.border
@@ -358,14 +359,14 @@ struct TxCircleButton: View {
         Button { action?() } label: {
             Image(systemName: symbol)
                 .font(.system(size: size, weight: .regular))
-                .foregroundStyle(tint)
+                .foregroundStyle(action == nil && tint == .primary ? SettingsLook.greyed : tint)
                 .frame(width: 48, height: 48)
-                .background(fill, in: Circle())
+                .background(fill.opacity(action == nil ? 0.4 : 1), in: Circle())
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        // Greyed once (see SettingsCard's round pencil): the plain style would fade it a second time.
+        .buttonStyle(ItemsBareStyle())
         .disabled(action == nil)
-        .opacity(action == nil ? 0.4 : 1)
         .accessibilityLabel(label)
         .accessibilityValue(action == nil ? "Not available yet" : "")
     }
