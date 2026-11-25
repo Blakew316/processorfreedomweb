@@ -38,9 +38,8 @@ export const svg = (inner, size = 22) => (/stroke-width="32"|scale\(32\)/.test(i
   ? `<svg viewBox="0 0 512 512" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">${inner}</svg>`
   : `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`);
 
-/* Light or dark. Light unless the person chooses otherwise; inside the iPhone app, always the iPhone's own setting, like the app's screens. */
-const appShell = document.documentElement.classList.contains('pf-app');
-export const getTheme = () => { if (appShell) return 'auto'; try { return localStorage.getItem('pf-theme') || 'light'; } catch { return 'light'; } };
+/* Light or dark: always the device's own setting, in a browser as in the iPhone app. */
+export const getTheme = () => 'auto';
 // iPhone paints the status-bar area from the page colour, so it is kept the same colour as the bar at the top.
 // That way the top bar runs right up under the clock and battery with no grey or foggy band above it.
 export function syncTopColor() {
@@ -55,16 +54,17 @@ export function syncTopColor() {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', c);
   document.documentElement.style.backgroundColor = c;
 }
-export function setTheme(t) {
-  if (appShell) t = 'auto';
-  else try { localStorage.setItem('pf-theme', t); } catch { /* ignore */ }
-  document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
+/* Light or dark follows the device setting, in a browser as in the iPhone app. There is no switch: the whole site,
+   Processor Freedom's pages included, is one theme, and a choice kept on one part of it would split a page in two. */
+export function followDevice() {
+  document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   syncTopColor();
-  document.querySelectorAll('.theme-btn').forEach((b) => b.replaceChildren(ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18)));
 }
-// The iPhone can switch between light and dark while a page is open (at sunset, or from Control Center): follow it straight away.
-if (appShell) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTheme('auto'));
-export const themeButton = () => h('button', { class: 'icon-btn theme-btn', title: 'Switch between light and dark', 'aria-label': 'Switch between light and dark', onclick: () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark') }, ic(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon', 18));
+export const setTheme = () => followDevice();
+// A page that still holds an older copy of the other scripts asks for the switch that used to be here: it gets nothing.
+export const themeButton = () => null;
+// The device can switch while a page is open (at sunset, or from Control Center): follow it straight away.
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', followDevice);
 
 export const LOGO = '<img src="/assets/logo.svg" alt="" width="28" height="28">';
 

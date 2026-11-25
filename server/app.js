@@ -164,8 +164,19 @@ export function createApp(options = {}) {
   // Links that go out by email always point at our own address, never at whatever address the request claimed.
   const FIXED_ORIGIN = APP_URL || String(env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
   if (mailer.enabled && !FIXED_ORIGIN) throw new Error('Email is switched on, so set APP_URL to this service\'s public address (for example https://sites.example.com). Emailed links are built from it, never from the address a request names.');
+  // Addresses for sharing one brand with the main site (processorfreedom.com). All three are optional, and unset they change nothing.
+  //   MAIN_SITE_URL    PF Sites' public page lives on the main site: a browser visit to "/" that is not signed in goes to
+  //                    <MAIN_SITE_URL>/pf-sites. The two services never call each other; this is a plain redirect.
+  //   CANONICAL_HOST   The name the back office now lives at. Browser visits to the sign-in, sign-up and back office pages on
+  //                    this service's other names are sent there. The API, customer sites and the iPhone app are left alone.
+  //   EXTRA_APP_HOSTS  More names that are this service itself (comma separated), so no merchant can claim one as a domain.
+  const MAIN_SITE = (() => { try { const u = new URL(String(env.MAIN_SITE_URL || '')); return u.protocol === 'https:' ? u.origin : ''; } catch { return ''; } })();
+  const CANONICAL_HOST = cleanDomain(String(env.CANONICAL_HOST || '')).replace(/^www\./, '');
+  const EXTRA_HOSTS = String(env.EXTRA_APP_HOSTS || '').split(/[\s,]+/).filter(Boolean);
+  // The iPhone app's own pages name the app in their user agent. They are never sent to another address.
+  const fromApp = (req) => /\bPFSitesApp\//.test(String(req.headers['user-agent'] || ''));
   // The service's own addresses. None of them can be claimed as a merchant's domain or answered with a merchant's site.
-  const OWN_HOSTS = [...new Set([APP_HOST, FIXED_ORIGIN.replace(/^https?:\/\//, ''), env.RENDER_EXTERNAL_HOSTNAME, env.CNAME_TARGET, SITES_DOMAIN]
+  const OWN_HOSTS = [...new Set([APP_HOST, FIXED_ORIGIN.replace(/^https?:\/\//, ''), env.RENDER_EXTERNAL_HOSTNAME, env.CNAME_TARGET, SITES_DOMAIN, CANONICAL_HOST, ...EXTRA_HOSTS]
     .map((x) => cleanDomain(String(x || '')).replace(/^www\./, '')).filter(Boolean))];
   const ownHost = (host) => { const h = String(host || '').split(':')[0].toLowerCase().replace(/^www\./, ''); return !!h && OWN_HOSTS.some((o) => h === o || h.endsWith(`.${o}`)); };
 
@@ -3182,6 +3193,14 @@ export function createApp(options = {}) {
     if (path === '/robots.txt') return send(res, 200, `User-agent: *\nDisallow: /app\nDisallow: /api\nDisallow: /preview\nSitemap: ${appOrigin(req)}/sitemap.xml\n`, { 'Content-Type': 'text/plain' });
     if (path === '/sitemap.xml') return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${['/', '/faq', '/contact', '/privacy', '/terms', '/signup'].map((u) => `<url><loc>${esc(appOrigin(req))}${u}</loc></url>`).join('')}</urlset>`, { 'Content-Type': 'application/xml' });
     if (path === '/' || /^\/(login|signup|forgot|reset|faq|privacy|terms|contact|app(\/.*)?)$/.test(path)) {
+      if ((method === 'GET' || method === 'HEAD') && !fromApp(req)) {
+        const host = hostOf(req).split(':')[0].replace(/^www\./, '');
+        // Moved: a browser on one of this service's other names is sent to the name it lives at now. Render's own
+        // address is left to answer, so its checks keep seeing this service.
+        if (CANONICAL_HOST && host !== CANONICAL_HOST && host !== String(env.RENDER_EXTERNAL_HOSTNAME || '').toLowerCase()) return redirect(res, `https://${CANONICAL_HOST}${req.url.startsWith('/') ? req.url : path}`);
+        // The public page is on the main site: a visitor who is not signed in is sent there.
+        if (path === '/' && MAIN_SITE && !cookie(req, 'pf_session')) return redirect(res, `${MAIN_SITE}/pf-sites`);
+      }
       // Link previews need absolute image addresses, so the shell is filled in per request.
       shell ??= await fs.readFile(join(ROOT, 'public', 'index.html'), 'utf8');
       // The home page arrives with its first frame already drawn, so there is something to look at before the scripts run.

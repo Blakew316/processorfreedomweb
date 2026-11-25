@@ -1,5 +1,5 @@
 import { ORDER_METHODS, readyLabel, slotLabel, money } from '/shared/core.js';
-import { h, api, go, toast, ic, announceOrders, setAlerts, alertsOn, printTicket, themeButton } from './ui.js';
+import { h, api, go, toast, ic, announceOrders, setAlerts, alertsOn, printTicket } from './ui.js';
 
 /* A large-type screen for the counter or kitchen tablet: active orders only, one tap to move each along. */
 export async function kitchen(id, mount, title) {
@@ -45,7 +45,7 @@ export async function kitchen(id, mount, title) {
   const labels = site.ordering.labels || [];
   const stations = labels.length ? h('select', { class: 'k-station', 'aria-label': 'Station', onchange: (e) => { station = e.target.value; draw(); } }, h('option', { value: '' }, 'All stations'), labels.map((l) => h('option', { value: l }, l))) : null;
   const sound = h('button', { class: 'btn soft', onclick: () => { setAlerts(!alertsOn()); sound.replaceChildren(ic('bell', 16), alertsOn() ? 'Sound on' : 'Sound off'); } }, ic('bell', 16), alertsOn() ? 'Sound on' : 'Sound off');
-  mount(h('div', { class: 'k' }, h('header', { class: 'k-top' }, h('button', { class: 'btn soft k-back', onclick: () => go(site.role === 'kitchen' ? '/app' : `/app/site/${id}?tab=orders`) }, ic('back', 16), site.role === 'kitchen' ? 'My sites' : 'Back office'), h('img', { src: '/assets/logo.svg', alt: '', width: 30, height: 30, style: 'border-radius:9px' }), h('b', {}, site.name), clock, h('span', { class: 'grow' }), stations, punch, themeButton(), sound), grid));
+  mount(h('div', { class: 'k' }, h('header', { class: 'k-top' }, h('button', { class: 'btn soft k-back', onclick: () => go(site.role === 'kitchen' ? '/app' : `/app/site/${id}?tab=orders`) }, ic('back', 16), site.role === 'kitchen' ? 'My sites' : 'Back office'), h('img', { src: '/assets/logo.svg', alt: '', width: 30, height: 30, style: 'border-radius:9px' }), h('b', {}, site.name), clock, h('span', { class: 'grow' }), stations, punch, sound), grid));
   load();
   const timer = setInterval(load, 10000);
   return () => clearInterval(timer);

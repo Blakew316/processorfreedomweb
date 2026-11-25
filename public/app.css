@@ -5935,3 +5935,32 @@ html.pf-app input,html.pf-app textarea,html.pf-app [contenteditable],html.pf-app
   html.pf-app body:has(>.pf-print)>:not(.pf-print){display:none!important}
   html.pf-app body>.pf-print{display:block!important;background:#fff;color:#000}
 }
+
+/* ============================================================================================================
+   One theme with processorfreedom.com (the public site, the console and PF Sites share type, buttons and logo).
+   Browser only: html.pf-app is the iPhone app's own pages, which keep their look.
+   ============================================================================================================ */
+@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url(/assets/fonts/inter-latin-ext.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url(/assets/fonts/inter-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+html:not(.pf-app){--font:"Inter",-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+
+/* Buttons: a pale tint with navy lettering in light, a dark tint with light lettering in dark. No slab. */
+html:not(.pf-app) .btn:not(.line):not(.danger):not(.text):not(.soft):not(:disabled),html:not(.pf-app) .lg-go{background:#e4ecfa!important;color:#0a1f44!important;box-shadow:inset 0 0 0 1px rgba(10,31,68,.12)!important}
+html:not(.pf-app) .btn:not(.line):not(.danger):not(.text):not(.soft):not(:disabled) svg,html:not(.pf-app) .lg-go svg{color:#0a1f44!important}
+html:not(.pf-app) .btn:not(.line):not(.danger):not(.text):not(.soft):not(:disabled):hover,html:not(.pf-app) .lg-go:hover{background:#d7e3f8!important;opacity:1}
+html:not(.pf-app)[data-theme=dark] .btn:not(.line):not(.danger):not(.text):not(.soft):not(:disabled),html:not(.pf-app)[data-theme=dark] .lg-go{background:#1b2439!important;color:#f5f5f7!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)!important}
+html:not(.pf-app)[data-theme=dark] .btn:not(.line):not(.danger):not(.text):not(.soft):not(:disabled) svg,html:not(.pf-app)[data-theme=dark] .lg-go svg{color:#f5f5f7!important}
+html:not(.pf-app)[data-theme=dark] .btn:not(.line):not(.danger):not(.text):not(.soft):not(:disabled):hover,html:not(.pf-app)[data-theme=dark] .lg-go:hover{background:#232e48!important}
+
+/* The back office's other filled buttons (Add category, Create new invoice and the like) take the same quiet style. */
+html:not(.pf-app) .it-btn.fill:not(:disabled),html:not(.pf-app) .c2-add,html:not(.pf-app) .obh-ok,html:not(.pf-app) .tk-btn{background:#e4ecfa!important;color:#0a1f44!important;box-shadow:inset 0 0 0 1px rgba(10,31,68,.12)!important}
+html:not(.pf-app) .it-btn.fill:not(:disabled):hover,html:not(.pf-app) .c2-add:hover,html:not(.pf-app) .obh-ok:hover,html:not(.pf-app) .tk-btn:hover{background:#d7e3f8!important}
+html:not(.pf-app)[data-theme=dark] .it-btn.fill:not(:disabled),html:not(.pf-app)[data-theme=dark] .c2-add,html:not(.pf-app)[data-theme=dark] .obh-ok,html:not(.pf-app)[data-theme=dark] .tk-btn{background:#1b2439!important;color:#f5f5f7!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)!important}
+html:not(.pf-app)[data-theme=dark] .it-btn.fill:not(:disabled):hover,html:not(.pf-app)[data-theme=dark] .c2-add:hover,html:not(.pf-app)[data-theme=dark] .obh-ok:hover,html:not(.pf-app)[data-theme=dark] .tk-btn:hover{background:#232e48!important}
+
+/* The sign-up box at the foot of the public page keeps its white field in dark (its button lettering used to vanish). */
+html[data-theme=dark] .l-close .namer .box{background:rgba(255,255,255,.96);outline-color:transparent}
+html[data-theme=dark] .l-close .namer input{color:#10141b}
+/* The three notes floating over the public page's preview stay readable in dark. */
+html[data-theme=dark] .float{background:rgba(28,28,30,.92);border-color:rgba(255,255,255,.14)}
+html.pf-app[data-theme=dark] .l-close .namer .btn{color:#fff!important}
