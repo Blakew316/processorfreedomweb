@@ -417,7 +417,8 @@ struct AppointmentDaySheet: View {
     }
 
     /// The number to dial: its digits, with a leading +. It stops where the number does, at a letter ("ext 5", "x12"), a comma,
-    /// a semicolon or a slash, so an extension or a second number written after it is not dialled as part of the first.
+    /// a semicolon, a slash, # or * (what the phone pad offers for an extension), so an extension or a second number written
+    /// after it is not dialled as part of the first.
     private func phoneURL(_ phone: String) -> URL? {
         var digits = ""
         for character in phone.trimmed {
@@ -425,7 +426,7 @@ struct AppointmentDaySheet: View {
                 digits.append(character)
             } else if character == "+" && digits.isEmpty {
                 digits.append(character)
-            } else if character.isLetter || character == "," || character == ";" || character == "/" {
+            } else if character.isLetter || ",;/#*".contains(character) {
                 if digits.contains(where: { $0.isNumber }) { break }
             }
         }
