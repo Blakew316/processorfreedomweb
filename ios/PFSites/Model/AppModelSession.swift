@@ -350,6 +350,12 @@ extension AppModel {
         idle.stop()
         stopPolling()
         WebStore.shared.blankAll()
+        // A step that was waiting for a full-screen page to be closed does not outlast the lock: it would come up long after
+        // the tap that asked for it, to whoever unlocks the phone.
+        if shell.afterCover != nil {
+            shell.afterCover = nil
+            shell.pendingTab = nil
+        }
         if let step = lockStep() {
             setPhase(.passcode(step))
         } else {

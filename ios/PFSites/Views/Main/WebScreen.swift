@@ -9,7 +9,6 @@ struct WebScreen: View {
     /// there, instead of a button to the website's own parent list.
     var keepsBack = false
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     @State private var page: OfficePage?
 
     var body: some View {
@@ -33,9 +32,9 @@ struct WebScreen: View {
             if hasParent, let page {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        // A page that could not load cannot take the person back to its list (nothing is running in it), and
-                        // this button stands where the system's would be: it then leaves the screen, as that one does.
-                        if page.failure != nil { dismiss() } else { page.back() }
+                        // The button always leads to the page's list. A page that could not load has nothing running in it to
+                        // go back with, so the list is then loaded by its address instead of the tap doing nothing.
+                        if page.failure != nil { page.load(Config.sitePath(page.siteID, page.parent)) } else { page.back() }
                     } label: {
                         Label(page.parentTitle.isEmpty ? "Back" : page.parentTitle, systemImage: "chevron.backward")
                             .labelStyle(.titleAndIcon)

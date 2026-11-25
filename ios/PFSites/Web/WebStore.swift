@@ -59,9 +59,15 @@ final class WebStore {
     }
 
     /// The page on screen that was opened on this website page shows it again, when its own page strip has moved on to another.
+    /// A page opened from its list (an invoice or a customer being written) is left as it is: what was typed there lives only
+    /// on the page, and nobody asked for it to be thrown away.
     func showAgain(_ tab: String) {
         guard let page = live.first(where: { $0.isOnScreen && $0.kind == .office && $0.startPath == Config.sitePath($0.siteID, tab) }) else { return }
-        if page.tab != tab || page.failure != nil { page.go(tab) }
+        if page.failure != nil {
+            page.go(tab)
+        } else if page.tab != tab, page.parent.isEmpty, !page.tab.hasSuffix("-new"), !page.tab.hasSuffix("-edit") {
+            page.go(tab)
+        }
     }
 
     /// Pages that were turned away to the website's log in page and have not loaded since.

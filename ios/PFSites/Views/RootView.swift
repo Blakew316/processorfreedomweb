@@ -111,8 +111,9 @@ struct ShellView: View {
             if let business = shell.switchAfterCover {
                 shell.switchAfterCover = nil
                 model.switchSite(to: business)
-            } else if let next = shell.afterCover {
-                // A step that waited for this page to be closed (another business's passcode step, from a notification).
+            } else if let next = shell.afterCover, shell.cover == nil {
+                // A step that waited for this page to be closed (another business's passcode step, from a notification). Not
+                // when another page was asked for from the one that closed: that page comes up, and the step goes on waiting.
                 shell.afterCover = nil
                 shell.cover = next
             }
