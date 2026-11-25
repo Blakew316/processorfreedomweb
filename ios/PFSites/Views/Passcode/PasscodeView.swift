@@ -476,6 +476,6 @@ struct PasscodeCloseButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Close")
+        .accessibilityLabel("Cancel")
     }
 }
