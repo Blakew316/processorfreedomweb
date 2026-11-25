@@ -19,7 +19,9 @@ an online ordering website, types their business name, picks a template, uploads
 - **Inbox**: messages from each site's contact form.
 - **Menu and inventory**: upload an Excel (.xlsx, .xls) or CSV file of items (a template is provided) and the menu is built from it. Item names and prices are
   required; category, description, stock and photo link are optional. Column order and header names are flexible, and files without
-  a header row work too. Each item can have a photo, be hidden, or have its stock counted down to sold out.
+  a header row work too. A file sent to replace the menu makes the menu what the file says, but an item it names again (the same product
+  code, or else the same name) stays the same item and keeps what the file has no column for: its options, sale, colour, photo and
+  whether it is hidden. Each item can have a photo, be hidden, or have its stock counted down to sold out.
 - **Online ordering**: pickup, curbside and delivery, each with its own settings (ready time, instructions, delivery fee, minimum and
   area), sales tax, tips and order notes. Customers get an order page with a cart and a status page that updates as the order moves.
 - **Items (inventory)**: a full-width list with search, filters and totals. Clicking an item opens a pop-up editor for its photo,
