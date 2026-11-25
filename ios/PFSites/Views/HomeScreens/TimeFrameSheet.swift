@@ -243,6 +243,16 @@ struct TimeFrameSheet: View {
                 .pfFont(15.5, .semibold)
                 .padding(.horizontal, 18)
                 .frame(minHeight: 60)
+            if latestEnd < todayDate {
+                // A start more than two years back: the end date was moved and cannot reach today. Said in words, so a range
+                // meant as "from then until now" is not applied short without anyone noticing.
+                Text("The longest range is two years, so the end date cannot be later than this.")
+                    .pfFont(13)
+                    .foregroundStyle(SettingsLook.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 4)
+            }
             Button("Apply", action: apply)
                 .buttonStyle(SolidButtonStyle(radius: 8, height: 48, size: 17))
                 .padding(.horizontal, 18)
