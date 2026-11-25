@@ -33,7 +33,12 @@ struct JSON {
     var int: Int {
         let value: Any = raw ?? NSNull()
         if let number = value as? NSNumber { return number.intValue }
-        if let text = value as? String { return Int(text) ?? Int(Double(text) ?? 0) }
+        if let text = value as? String {
+            if let whole = Int(text) { return whole }
+            // "12.0" reads as 12. Text that is not a number at all ("nan", "infinity") or is too large to hold ("1e30") reads as 0:
+            // converting it would stop the app, every time the answer that carries it is read.
+            if let number = Double(text), number.isFinite, abs(number) < 9.0e18 { return Int(number) }
+        }
         return 0
     }
 

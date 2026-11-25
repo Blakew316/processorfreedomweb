@@ -47,7 +47,8 @@ struct AppSecurityView: View {
 
                 notificationsRow
 
-                SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
+                // A value under its title, drawn like the photo's value rows beside it (Inactivity timeout, Appearance).
+                SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, enabled: true) {
                     model.shell.push(.page("profile"))
                 }
 
@@ -80,12 +81,16 @@ struct AppSecurityView: View {
             faceIDBusy = true
             faceIDProblem = ""
             Task {
-                await model.applyFaceID(wanted)
+                let outcome = await model.applyFaceID(wanted)
                 faceIDBusy = false
-                if model.faceIDOn != wanted {
-                    // Turning it on did not go through: the server could not be reached, or Face ID did not answer.
+                // Turning it on did not go through, and the row says why in the words that fit: the server's own, the
+                // connection, or Face ID itself. A question the person turned away themselves is not an error, and when the
+                // server forgot this phone the app is already on its way to Log in, which says so.
+                if case .failed(let message) = outcome {
                     Haptics.error()
-                    faceIDProblem = "\(model.biometry.name) could not be turned on. Try again."
+                    faceIDProblem = message
+                    // VoiceOver hears why the switch went back: the words appear under the row and are not come across.
+                    AccessibilityNotification.Announcement(message).post()
                 }
                 faceIDWanted = model.faceIDOn
             }
@@ -98,10 +103,15 @@ struct AppSecurityView: View {
                 let done = wanted ? await model.requestPush() : await model.disablePush()
                 await model.refreshPushStatus()
                 pushBusy = false
-                // Refused in iOS has its own row ("Off in iOS Settings"); anything else is the server not answering.
+                // Refused in iOS has its own row ("Off in iOS Settings"); anything else is the server refusing or not answering.
                 if !done, !model.pushDenied, model.pushOn != wanted {
                     Haptics.error()
-                    pushProblem = "Notifications could not be turned \(wanted ? "on" : "off"). Check your connection and try again."
+                    // The server's own words when it answered and said no (asked too often, say): "check your connection"
+                    // would send the person looking in the wrong place.
+                    let refusal = wanted ? model.pushRefusal : ""
+                    let message = refusal.isEmpty ? "Notifications could not be turned \(wanted ? "on" : "off"). Check your connection and try again." : refusal
+                    pushProblem = message
+                    AccessibilityNotification.Announcement(message).post()
                 }
                 pushWanted = model.pushOn
             }
@@ -131,10 +141,10 @@ struct AppSecurityView: View {
     private var notificationsRow: some View {
         if !model.config.appPush {
             // The server cannot send Apple push yet.
-            SettingsRowView(title: "Notifications", subtitle: "Not available yet", small: true, enabled: false) {}
+            SettingsRowView(title: "Notifications", subtitle: "Not available yet", enabled: false) {}
         } else if model.pushDenied {
             // Refused in iOS: only iOS Settings can turn them back on.
-            SettingsRowView(title: "Notifications", subtitle: "Off in iOS Settings", small: true, enabled: true) {
+            SettingsRowView(title: "Notifications", subtitle: "Off in iOS Settings", enabled: true) {
                 UIPresenter.openNotificationSettings()
             }
         } else {
@@ -159,6 +169,8 @@ struct AppSecurityView: View {
                     .tint(Theme.blue)
                     .disabled(busy || greyed)
                     .padding(.top, 16)
+                    // A switch that can never be turned says why, instead of only reading as dimmed.
+                    .modifier(GreyedSwitchValue(greyed: greyed))
             }
             .padding(.leading, 24)
             .padding(.trailing, 15)
@@ -299,5 +311,20 @@ struct AppSecurityView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// VoiceOver's words for a switch that can never be turned, the app's words for what Processor Freedom does not do yet. A working
+/// switch keeps its own "on" and "off".
+private struct GreyedSwitchValue: ViewModifier {
+    let greyed: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if greyed {
+            content.accessibilityValue("Off, not available yet")
+        } else {
+            content
+        }
     }
 }

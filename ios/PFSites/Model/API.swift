@@ -8,7 +8,6 @@ struct APIError: Error, LocalizedError {
     var data = JSON(nil)
 
     var errorDescription: String? { message }
-    var offline: Bool { status == 0 }
     var twoFactor: Bool { data["twoFactor"].bool }
     var methods: [String] { data["methods"].array.map { $0.string }.filter { !$0.isEmpty } }
     var phone: String { data["phone"].string }
@@ -47,7 +46,12 @@ enum API {
         request.httpShouldHandleCookies = cookies
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
-            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            // A body that cannot be written as JSON (a number that is not a number, say) is refused here: handing it to the
+            // encoder would stop the app instead of failing the request.
+            guard JSONSerialization.isValidJSONObject(body), let data = try? JSONSerialization.data(withJSONObject: body) else {
+                throw APIError(status: 0, message: "Something went wrong. Please try again.")
+            }
+            request.httpBody = data
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         // The service restarts for a few seconds when it is updated: wait that out quietly, as the website does.
@@ -70,16 +74,22 @@ enum API {
                 throw APIError(status: 0, message: words(for: error))
             }
             let status = (result.1 as? HTTPURLResponse)?.statusCode ?? 0
-            let restarting = status == 502 || status == 503 || status == 504
-            if restarting, attempt < waits.count {
-                try? await Task.sleep(nanoseconds: waits[attempt] * 1_000_000)
-                attempt += 1
-                continue
-            }
             let json = JSON(data: result.0)
             if (200..<300).contains(status) { return json }
-            if restarting { throw APIError(status: status, message: APIError.restartingMessage) }
             let text = json["error"].string
+            // A 502, 503 or 504 with none of our own words in it comes from the gateway in front of the service while the service
+            // restarts. With our words in it, it is the service's own answer (a text message that could not be sent, uploads
+            // switched off): shown as it is, with its flags, and never asked again.
+            if text.isEmpty, status == 502 || status == 503 || status == 504 {
+                // A read is always worth another try. A change is only sent again when the gateway could not reach the service
+                // (502, 503); after a time-out (504) the service may already be doing it, and a second copy would do it twice.
+                if attempt < waits.count, method == "GET" || status != 504 {
+                    try? await Task.sleep(nanoseconds: waits[attempt] * 1_000_000)
+                    attempt += 1
+                    continue
+                }
+                throw APIError(status: status, message: APIError.restartingMessage)
+            }
             throw APIError(status: status, message: text.isEmpty ? "Something went wrong. Please try again." : text, data: json)
         }
     }

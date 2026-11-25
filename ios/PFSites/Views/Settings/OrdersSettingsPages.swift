@@ -20,7 +20,8 @@ struct OrdersOptionsPage: View {
         ], refresh: { await settings.load(siteID: siteID) }) {
             SettingsA.ReloadProblem(problem: settings.reloadProblem)
             // As in the photo: the first name's baseline 103 pt into the card, and the card ends 16 pt under the last pill.
-            SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil), spacing: 27) {
+            SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil),
+                         pencilOff: settings.problem.isEmpty ? "Loading" : "Could not load", spacing: 27) {
                 if settings.loaded {
                     grid
                         .padding(.bottom, -3.5)
@@ -145,6 +146,8 @@ private struct CustomizeOrdersSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        // Solid, like the app's other sheets: at half height the system's sheet let the page's blue pills show through it.
+        .presentationBackground(Color(.systemGroupedBackground))
         .interactiveDismissDisabled(saving)
     }
 
@@ -178,10 +181,12 @@ private struct CustomizeOrdersSheet: View {
                 start = Values(group: settings.groupItems, notes: settings.allowNotes, stay: settings.stayInCategory)
                 note = message
                 noteIsError = false
+                AccessibilityNotification.Announcement(message).post()
             case .failed(let message):
                 Haptics.error()
                 note = message
                 noteIsError = true
+                AccessibilityNotification.Announcement(message).post()
             }
         }
     }
@@ -250,7 +255,8 @@ struct OrderTypesPage: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .padding(.vertical, 19)
-            .background(SettingsLook.page)
+            // A shade off the card, as in the photo; the page's own colour is black in dark mode, a hole in the card.
+            .background(Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x242426)))
             .padding(.bottom, -3)
         }
     }

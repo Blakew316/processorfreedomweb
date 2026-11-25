@@ -37,6 +37,12 @@ enum ShellCover: Identifiable {
     case itemSales                      // Home → Items sales report, full screen with an X like the owner's photos
     case tasks                          // Home → Setup tasks: the Tasks screen, full screen with an X like the owner's photo
 
+    /// The passcode step for another business (a newer one simply takes an older one's place).
+    var isSwitch: Bool {
+        if case .switchTo = self { return true }
+        return false
+    }
+
     var id: String {
         switch self {
         case .switchTo(let site): return "switch-\(site.id)"
@@ -65,6 +71,8 @@ final class Shell {
     var cover: ShellCover? = nil
     /// A step to show once the open sheet has finished closing (two presentations cannot overlap).
     @ObservationIgnored var afterSheet: ShellCover?
+    /// A step to show once the full-screen page that is open has been closed by the person (see `AppModel.present`).
+    @ObservationIgnored var afterCover: ShellCover?
     /// A page to open on the current tab once the open sheet has finished closing (a choice in the Notifications sheet).
     @ObservationIgnored var afterSheetTab: String?
     /// The tab to open once a notification's business has been switched to.
@@ -80,23 +88,43 @@ final class Shell {
     /// The Orders tab's list, kept here so an order opened from it is a page of the tab's stack (a notification pops back to the list).
     let orderList = OrdersModel()
 
-    func popToRoot(_ which: MainTab) {
-        switch which {
-        case .home: home = []
-        case .sale: sale = []
-        case .orders: orders = []
-        case .more: more = []
+    /// The last screen pushed and when, to tell a second tap from a later request for the same screen.
+    @ObservationIgnored private var lastPush: (route: Route, tab: MainTab, at: Date)?
+
+    /// Pushes a screen onto the current tab. The screen already on top is never opened a second time over itself: a second tap
+    /// that lands before the first push has moved the screen does nothing, and the same screen asked for again later (a
+    /// notification for the web page already showing, whose own page strip may have moved on) asks that page to show it again.
+    func push(_ route: Route) {
+        let now = Date()
+        let secondTap = lastPush.map { $0.route == route && $0.tab == tab && now.timeIntervalSince($0.at) < 0.7 } ?? false
+        if secondTap { return }
+        lastPush = (route, tab, now)
+        let top: Route?
+        switch tab {
+        case .home: top = home.last
+        case .sale: top = sale.last
+        case .orders: top = orders.last
+        case .more: top = more.last
+        }
+        if top == route {
+            if case .page(let id) = route { WebStore.shared.showAgain(id) }
+            return
+        }
+        switch tab {
+        case .home: home.append(route)
+        case .sale: sale.append(route)
+        case .orders: orders.append(route)
+        case .more: more.append(route)
         }
     }
 
-    /// Pushes a screen onto the current tab. A second tap that lands before the first push has moved the screen does not open
-    /// the same screen twice.
-    func push(_ route: Route) {
+    /// The page on top of the tab that is showing (nil on the tab's own first screen).
+    var topRoute: Route? {
         switch tab {
-        case .home: if home.last != route { home.append(route) }
-        case .sale: if sale.last != route { sale.append(route) }
-        case .orders: if orders.last != route { orders.append(route) }
-        case .more: if more.last != route { more.append(route) }
+        case .home: return home.last
+        case .sale: return sale.last
+        case .orders: return orders.last
+        case .more: return more.last
         }
     }
 

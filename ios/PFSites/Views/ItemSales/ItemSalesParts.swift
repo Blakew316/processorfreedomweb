@@ -396,7 +396,8 @@ struct ItemSalesTabs: View {
             .fixedSize()
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // Not the plain style: it fades a button that cannot be used, and the greyed tab's words are grey already.
+        .buttonStyle(ItemsBareStyle())
         .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }

@@ -65,8 +65,12 @@ enum Config {
 enum Keys {
     static let name = "pf.name"
     static let email = "pf.email"
+    /// The account last signed in on this phone (its id, which stays the same when the person changes their email).
+    static let userID = "pf.userID"
     static let faceID = "pf.faceID"
     static let pushAsked = "pf.pushAsked"
     static let pushWanted = "pf.pushWanted"
     static func notesSeen(_ siteID: String) -> String { "pf.notesSeen.\(siteID)" }
+    /// A business's time zone as last read (ordering.timezone), so its "today" is right from the first moment next time.
+    static func zone(_ siteID: String) -> String { "pf.zone.\(siteID)" }
 }

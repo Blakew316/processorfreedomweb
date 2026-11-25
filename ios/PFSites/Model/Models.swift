@@ -6,7 +6,6 @@ struct User: Equatable {
     var email = ""
     var name = ""
     var phone = ""
-    var admin = false
     var twoFactor = false
     var textCodes = false
 
@@ -18,7 +17,6 @@ struct User: Equatable {
         email = json["email"].string
         name = json["name"].string
         phone = json["phone"].string
-        admin = json["admin"].bool
         twoFactor = json["twoFactor"].bool
         textCodes = json["textCodes"].bool
     }
@@ -73,7 +71,6 @@ struct SiteRef: Hashable {
 
 /// What the server can do right now.
 struct AppConfig: Equatable {
-    var smsEnabled = false
     var appPush = false
 }
 

@@ -8,10 +8,14 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var sales: TodaySales?
     @State private var salesProblem = ""
+    /// Counts the taps on Try again: each one starts the reading (and its every-minute refresh) afresh.
+    @State private var salesRetry = 0
 
     private struct TodaySales {
         let net: Int
         let orders: Int
+        /// When it was read, so an amount from an earlier day is never left up as today's.
+        let readAt: Date
     }
 
     private struct SalesKey: Hashable {
@@ -19,6 +23,7 @@ struct HomeView: View {
         let active: Bool
         let ready: Bool
         let site: String
+        let retry: Int
     }
 
     /// Tiles side by side are as tall as each other (a two-line name like "Items and services" makes its whole row taller), and a
@@ -68,8 +73,12 @@ struct HomeView: View {
         .refreshable { await refresh() }
         .background(Color(.systemBackground))
         .tabHeader("Home")
-        .task(id: SalesKey(shown: model.shell.salesAllowed && model.shell.salesShown, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
+        .task(id: SalesKey(shown: model.shell.salesAllowed && model.shell.salesShown, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "", retry: salesRetry)) {
             await keepSalesFresh()
+        }
+        // VoiceOver reads out why the amount could not be read: the words take the spinner's place on the card.
+        .onChange(of: salesProblem) { _, message in
+            if !message.isEmpty { AccessibilityNotification.Announcement(message).post() }
         }
     }
 
@@ -133,7 +142,12 @@ struct HomeView: View {
                             .pfFont(15)
                             .foregroundStyle(.white.opacity(0.8))
                             .fixedSize(horizontal: false, vertical: true)
-                        cardButton("Try again") { Task { await loadSales() } }
+                        // Starts the reading again, with its every-minute refresh (a single read would leave the amount it
+                        // gets standing still until Home is left and opened again).
+                        cardButton("Try again") {
+                            salesProblem = ""
+                            salesRetry += 1
+                        }
                     }
                 }
             } else {
@@ -160,29 +174,33 @@ struct HomeView: View {
     }
 
     /// Reads today's sales now and then every minute, while they are shown and Home is on screen in an open, unlocked app: a sale
-    /// taken on the website or another phone shows up here, and after midnight the amount is the new day's. It stops on a failure
-    /// with nothing to show (the card then says why and offers Try again).
+    /// taken on the website or another phone shows up here, and after midnight the amount is the new day's. After a failure with
+    /// nothing to show the card says why and offers Try again, and the reading goes on being tried each minute behind that
+    /// message (quietly, so the message does not blink): the amount comes back by itself when the connection does.
     private func keepSalesFresh() async {
         let shell = model.shell
         guard shell.salesAllowed, shell.salesShown, scenePhase == .active, model.phase == .ready else { return }
+        var first = true
         while !Task.isCancelled {
-            let read = await loadSales()
-            if !read && sales == nil { return }
+            await loadSales(quiet: !first)
+            first = false
             try? await Task.sleep(nanoseconds: 60_000_000_000)
         }
     }
 
     /// True when the amount was read. While it is being read for the first time the card shows a spinner (no amount and no
-    /// problem yet); a reading that fails while an amount is up leaves that amount (the next reading replaces it).
+    /// problem yet); a reading that fails while an amount is up leaves that amount (the next reading replaces it). `quiet` is
+    /// the every-minute reading: it leaves a message that is showing where it is until it has an amount to put in its place.
     @discardableResult
-    private func loadSales() async -> Bool {
+    private func loadSales(quiet: Bool = false) async -> Bool {
         guard let business = model.site else { return false }
-        salesProblem = ""
+        if !quiet { salesProblem = "" }
         do {
             let answer = try await API.get("/api/sites/\(business.id)/stats?range=today")
             // Hidden while the answer was on its way: it is not kept.
             guard model.shell.salesShown else { return false }
-            sales = TodaySales(net: answer["totals"]["net"].int, orders: answer["totals"]["orders"].int)
+            sales = TodaySales(net: answer["totals"]["net"].int, orders: answer["totals"]["orders"].int, readAt: Date())
+            salesProblem = ""
             return true
         } catch let error as APIError {
             if error.forbidden {
@@ -194,6 +212,8 @@ struct HomeView: View {
                 // A plain 401 means the session ended (signed out everywhere, or the server dropped it): check, then lock. Once
                 // the app is open again the amount is read afresh; until then the card keeps a way to try again.
                 if error.sessionEnded { model.sessionEnded() }
+                // An amount read on an earlier day is not today's: it goes, and the card says why there is none.
+                if let shown = sales, !Calendar.current.isDateInToday(shown.readAt) { sales = nil }
                 if sales == nil { salesProblem = error.message }
             }
         } catch {

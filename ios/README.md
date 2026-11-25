@@ -14,6 +14,14 @@ The PF Sites app is the Processor Freedom back office on iPhone. It signs in lik
 
 The app talks to the live site, https://processorfreedomsites.com. To try it in the simulator against a local server, edit the scheme (Product › Scheme › Edit Scheme › Run › Arguments) and turn on the argument `-PFBaseURL http://localhost:8080` (debug builds only; use the port your local server prints).
 
+## Put a branch on an iPhone without opening Xcode
+
+`ios/tools/pf-phone.sh [branch] [phone name or UDID]` fetches a branch from GitHub, builds it in a private copy under `ios/build/` (the checkout itself is never touched, so work in progress in it is safe), installs it on the iPhone and opens it. Without a branch it takes the repository's default branch; without a phone it takes the one iPhone that is connected (by cable or on the same network, unlocked, and trusting this Mac). It needs what step 2 above sets up: Xcode signed in to the team. A second run compiles only what changed, and a commit already on the phone is left alone.
+
+The result is one line in `/tmp/pf-phone.status` (for example `OK 1a2b3c4 installed and opened`), with the full output in `/tmp/pf-phone.log`. To run it in the background: `(nohup ios/tools/pf-phone.sh >/dev/null 2>&1 &)`.
+
+It runs when someone runs it. Nothing in the repository starts it by itself; to have the phone follow a branch, run it on a schedule you choose (a launchd agent or a cron line on the Mac), or after each push.
+
 ## Images
 
 The asset catalog has the colours and these images (to change one, replace the file of the same name in `ios/PFSites/Assets.xcassets`):

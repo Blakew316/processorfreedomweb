@@ -15,11 +15,12 @@ enum SaleLook {
     /// #FBFBFB: the order panel at the bottom.
     static let panel = Color(light: UIColor(hex: 0xFBFBFB), dark: .secondarySystemBackground)
     /// #C7C7C7: disabled buttons and the options button's border.
-    static let disabled = Color(.systemGray3)
+    static let disabled = Color(light: UIColor(hex: 0xC7C7C7), dark: .systemGray3)
     /// #78787D: the options button's dots.
     static let dots = Color(light: UIColor(hex: 0x78787D), dark: .systemGray)
-    /// #373737: the price while it is still $0.00.
-    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: .secondaryLabel)
+    /// #373737: the price while it is still $0.00 (nearly full strength, in dark mode too: the secondary grey made it look
+    /// greyed out there).
+    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: UIColor(hex: 0xC8C8C8))
 }
 
 /// A 1 pt line across the screen.
@@ -180,6 +181,7 @@ struct OrderSheet: View {
                         Text(Money.format(line.total))
                             .pfFont(17, .semibold)
                             .frame(minWidth: 80, alignment: .trailing)
+                            .accessibilityLabel("Line total \(Money.format(line.total))")
                     }
                     .padding(.vertical, 4)
                 }
@@ -191,6 +193,7 @@ struct OrderSheet: View {
                         Text(Money.format(order.total)).pfFont(20, .bold)
                     }
                     .padding(.vertical, 6)
+                    .accessibilityElement(children: .combine)
                 }
             }
             .listStyle(.insetGrouped)
@@ -203,6 +206,9 @@ struct OrderSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        // Solid, like the app's other sheets: at half height the system's sheet is see-through, and the blue Check out button
+        // and the Orders badge behind it showed as coloured bands across the rows.
+        .presentationBackground(Color(.systemGroupedBackground))
     }
 }
 
@@ -272,6 +278,7 @@ struct PriceKeypadSheet: View {
                         .foregroundStyle(.secondary)
                     BoxField(focused: nameFocused) {
                         TextField("Custom item", text: $name)
+                            .accessibilityLabel(needsName ? "Name, required" : "Name")
                             .focused($nameFocused)
                             .submitLabel(.done)
                             .textInputAutocapitalization(.sentences)
@@ -284,8 +291,9 @@ struct PriceKeypadSheet: View {
             Text("What is the price?")
                 .pfFont(15)
                 .padding(.top, isCustom ? 24 : 44)
+            // Regular weight: the photo's figures have full strokes and wide zeros (light drew them thin and fainter).
             Text(Money.format(cents))
-                .pfFont(48, .light, relativeTo: .largeTitle)
+                .pfFont(48, .regular, relativeTo: .largeTitle)
                 .foregroundStyle(cents == 0 ? SaleLook.zeroAmount : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -371,6 +379,8 @@ struct PriceKeypadSheet: View {
         // A key that would go past $999,999.99 does nothing.
         guard value <= Money.most else { return }
         withAnimation(.snappy(duration: 0.15)) { cents = value }
+        // VoiceOver says only the key; the amount it makes is said too, so it need not be gone back to after every key.
+        if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: Money.format(value)) }
     }
 
     private func done() {
@@ -398,7 +408,7 @@ private struct KeypadDoneStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .pfFont(14, .medium)
-            .foregroundStyle(.white)
+            .foregroundStyle(on ? Color.white : Theme.offLabel)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(on ? Theme.blue : SaleLook.disabled))
             .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))

@@ -275,7 +275,8 @@ struct ItemSalesScreen: View {
                 .frame(width: 30, height: 44)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // Not the plain style: it fades a button that cannot be used, and the greyed › is grey already.
+        .buttonStyle(ItemsBareStyle())
         .disabled(!enabled)
         .accessibilityLabel(later ? "Later" : "Earlier")
     }
@@ -428,8 +429,12 @@ struct ItemSalesScreen: View {
             guard let made = try await report.quickBooksFile(siteID: siteID, siteName: siteName) else {
                 return "No payments in this period to send to QuickBooks."
             }
-            // The sheet stays while the file is made; if it went anyway (Cancel), the file is not kept to pop up later.
-            guard syncOpen, !Task.isCancelled else { return nil }
+            // The sheet stays while the file is made; if it went anyway (Cancel), the file is not kept to pop up later, nor
+            // left on the phone: it holds the period's payments, with customers' names.
+            guard syncOpen, !Task.isCancelled else {
+                DownloadCenter.remove(made.file)
+                return nil
+            }
             fileToOffer = made.file
             syncOpen = false
             Haptics.success()
@@ -437,8 +442,12 @@ struct ItemSalesScreen: View {
             show(String(made.count) + " transaction" + plural + " ready for QuickBooks")
             return nil
         } catch let error as APIError {
-            // Signed out everywhere, or the server ended the session: the app checks, then locks. A 403 is only a message.
-            if error.status == 401 { model.sessionEnded() }
+            // Signed out everywhere, or the server ended the session: the app checks, then locks, and nothing is written in
+            // the sheet to be read after the passcode. A 403 is only a message.
+            if error.status == 401 {
+                model.sessionEnded()
+                return nil
+            }
             return error.message
         } catch is CancellationError {
             return nil
@@ -470,12 +479,14 @@ struct ItemSalesScreen: View {
     /// asked for first; the periods worked out here need the business's calendar before their days are asked for.
     private func load() async {
         guard scenePhase == .active, model.phase == .ready, !siteID.isEmpty else { return }
+        // A refresh that fails while rows are showing (back in the app with no connection) says so, as a pulled one does:
+        // otherwise the old rows stay as if they were current.
         if report.choices.period.serverKey != nil {
-            await report.load(siteID: siteID)
+            if let words = await report.load(siteID: siteID) { show(words) }
             await report.loadSite(siteID: siteID)
         } else {
             await report.loadSite(siteID: siteID)
-            await report.load(siteID: siteID)
+            if let words = await report.load(siteID: siteID) { show(words) }
         }
     }
 

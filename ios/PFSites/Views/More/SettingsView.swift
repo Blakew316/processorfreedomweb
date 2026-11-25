@@ -81,7 +81,11 @@ struct SettingsGroupView: View {
 struct SettingsListScreen<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content
+    @Environment(AppModel.self) private var model
     @State private var query = ""
+    /// The page this list is (nil on a tab's own first screen), noted as a search starts: while the field is being typed in,
+    /// this list is the page on top.
+    @State private var home: Route?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -94,12 +98,19 @@ struct SettingsListScreen<Content: View>: View {
                     if query.trimmed.isEmpty {
                         content()
                     } else {
-                        SettingsSearchResults(query: query.trimmed)
+                        SettingsSearchResults(query: query.trimmed, home: home) {
+                            // The keyboard goes too: left up, it covered the lower rows the search was emptied to show.
+                            query = ""
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
                     }
                 }
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
+        }
+        .onChange(of: query.trimmed.isEmpty) { _, empty in
+            if !empty { home = model.shell.topRoute }
         }
         .background(Color(.systemBackground))
         .navigationTitle(title)
@@ -196,6 +207,10 @@ struct SettingsListSeparator: View {
 /// Search across every Settings row and sub-row: a flat list, each match with its card's name in small grey type.
 struct SettingsSearchResults: View {
     let query: String
+    /// The page these results are on (nil on a tab's own first screen).
+    let home: Route?
+    /// Empties the search field, so the list's own rows show again.
+    let clear: () -> Void
     @Environment(AppModel.self) private var model
 
     private struct Match: Identifiable {
@@ -216,8 +231,18 @@ struct SettingsSearchResults: View {
                 .padding(.vertical, 17)
         }
         ForEach(found) { match in
-            SettingsRowView(title: match.title, subtitle: match.card, small: true, enabled: match.enabled, action: match.open)
+            SettingsRowView(title: match.title, subtitle: match.card, small: true, enabled: match.enabled) { choose(match) }
         }
+    }
+
+    /// Opens a match. When it leads to the very list these results are on ("Face ID" or "Log out" typed on App security and
+    /// privacy, a group's own name typed inside that group), nothing can open: the search is emptied instead, so the row the
+    /// person asked for shows. (The tap used to do nothing at all, with the results left up over the row.)
+    private func choose(_ match: Match) {
+        let shell = model.shell
+        let before = shell.topRoute
+        match.open()
+        if before == home, shell.topRoute == home, shell.cover == nil, shell.sheet == nil { clear() }
     }
 
     private var matches: [Match] {
@@ -317,39 +342,53 @@ struct SettingsRowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Button {
-                if enabled { action() }
-            } label: {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: small ? 4 : 7) {
-                        Text(title)
-                            .pfFont(17.5, .semibold)
-                            .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
-                        if !subtitle.isEmpty {
-                            Text(subtitle)
-                                .pfFont(small ? 14 : 17.5)
-                                .foregroundStyle(enabled ? (small ? Color.secondary : Color.primary) : SettingsLook.greyed)
-                        }
-                    }
-                    .multilineTextAlignment(.leading)
-                    Spacer(minLength: 8)
-                    if enabled {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.primary)
-                            .accessibilityHidden(true)
-                    }
-                }
-                .padding(.leading, 24)
-                .padding(.trailing, 30)
-                .padding(.vertical, 17)
-                .frame(maxWidth: .infinity, minHeight: 55.33, alignment: .leading)
-                .contentShape(Rectangle())
+            if enabled {
+                Button(action: action) { label }
+                    .buttonStyle(.plain)
+            } else {
+                // Drawn as it is, never as a button that cannot be pressed: that fades it a second time, to half the grey the
+                // app's other greyed rows have (More's Card Reader), and to almost nothing in dark mode.
+                label
+                    .accessibilityElement(children: .combine)
+                    // A search match's second line is only the name of its card, so it is said there too; a row whose own
+                    // second line already says why (Notifications' "Not available yet") is left as it reads.
+                    .accessibilityValue(subtitle.isEmpty || small ? "Not available yet" : "")
             }
-            .buttonStyle(.plain)
-            .disabled(!enabled)
-            .accessibilityValue(enabled ? "" : "Not available yet")
             SettingsListSeparator(inset: !plainLine)
         }
+    }
+
+    /// A row with a value under its title (Profile and the name) has its chevron level with the title, as in the photos; the
+    /// small grey second line of search results keeps the chevron in the middle of the row.
+    private var label: some View {
+        let valueRow = !subtitle.isEmpty && !small
+        return HStack(alignment: valueRow ? .top : .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: small ? 4 : 7) {
+                Text(title)
+                    .pfFont(17.5, .semibold)
+                    .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .pfFont(small ? 14 : 17.5)
+                        .foregroundStyle(enabled ? (small ? Color.secondary : Color.primary) : SettingsLook.greyed)
+                }
+            }
+            .multilineTextAlignment(.leading)
+            Spacer(minLength: 8)
+            if enabled {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+                    // On a value row: in the middle of the title's 21 pt line, as App security's value rows place it.
+                    .frame(height: valueRow ? 21 : nil)
+                    .padding(.top, valueRow ? 1 : 0)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.leading, 24)
+        .padding(.trailing, 30)
+        .padding(.vertical, 17)
+        .frame(maxWidth: .infinity, minHeight: 55.33, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }

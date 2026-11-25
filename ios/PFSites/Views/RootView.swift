@@ -12,12 +12,15 @@ struct RootView: View {
             if model.shellAlive && model.site != nil {
                 ShellView()
                     .id(model.shellID)
-                    .accessibilityHidden(model.phase != .ready)
+                    // Not for VoiceOver while it is covered: by a sign-in step, or by the loading screen (which takes every touch
+                    // but, without this, left the dashboard's tabs and rows under it readable and pressable by VoiceOver).
+                    .accessibilityHidden(model.phase != .ready || model.showLoading)
                     // Logging out, Switch User or Forgot passcode from the lock screen: the dashboard goes at once, never fading
                     // into view as the lock screen comes off it.
                     .transition(model.isLocked ? .identity : .opacity)
             }
             phaseContent
+                .accessibilityHidden(model.showLoading)
             if model.showLoading {
                 LoadingView()
                     .transition(.opacity)
@@ -108,6 +111,11 @@ struct ShellView: View {
             if let business = shell.switchAfterCover {
                 shell.switchAfterCover = nil
                 model.switchSite(to: business)
+            } else if let next = shell.afterCover, shell.cover == nil {
+                // A step that waited for this page to be closed (another business's passcode step, from a notification). Not
+                // when another page was asked for from the one that closed: that page comes up, and the step goes on waiting.
+                shell.afterCover = nil
+                shell.cover = next
             }
         }) { cover in
             switch cover {

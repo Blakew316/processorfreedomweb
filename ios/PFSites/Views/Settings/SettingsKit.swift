@@ -14,15 +14,21 @@ enum SettingsLook {
     static let muted = Color(light: UIColor(hex: 0x4D4D4D), dark: UIColor(hex: 0xAEAEB2))
     /// An "On" pill: light blue with navy text (Clover's light green with dark green text, rebranded).
     static let onFill = Color(light: UIColor(hex: 0xE8F1FC), dark: UIColor(hex: 0x1D4F9E, alpha: 0.32))
+    /// The stronger "On" of the Inventory photo (Clover's #D2EECF there against #EEF9EC on the Orders pages), rebranded.
+    static let onFillStrong = Color(light: UIColor(hex: 0xCFE0F7), dark: UIColor(hex: 0x1D4F9E, alpha: 0.45))
     static let onText = Color(light: UIColor(hex: 0x0A1F44), dark: .white)
     /// An "Off" pill: #F9F9F9 with #2E2E2E text, as in the photos.
     static let offFill = Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x2C2C2E))
     static let offText = Color(light: UIColor(hex: 0x2E2E2E), dark: UIColor(hex: 0xD1D1D6))
     /// Rows and values for things Processor Freedom does not do yet.
     static let greyed = Color(.tertiaryLabel)
+    /// Added between the lines of a card title that runs onto two: they are 28 pt apart in the photos, and the 20 pt bold
+    /// title's own lines are 24.3 pt apart.
+    static let titleLineSpacing: CGFloat = 3.67
 }
 
-/// Which full-screen Settings page to show (presented over everything with `ShellCover.settingsPage`).
+/// A native Settings page: shown full screen over everything with `ShellCover.settingsPage`, or pushed onto the tab with
+/// `Route.settingsPage`.
 enum SettingsPageID: String, Identifiable, CaseIterable {
     // Settings → About your business, and Services and appointments
     case businessInformation, closeoutSettings, appointmentBooking
@@ -66,7 +72,8 @@ struct SettingsPageHost: View {
 
 /// The full-screen Settings page from the photos: a bare X at the top left and the page name bold in the middle of the bar,
 /// then a light grey panel (only its top-left corner rounded, like Clover's) holding white cards.
-/// Pages under Transactions also start with a "← Settings" link (it closes the page, like the X) and a large heading.
+/// Some pages (Orders, Order receipts, Order types, Inventory) also start with a "← Settings" link (it closes the page, like
+/// the X) and a large heading.
 /// It has its own navigation stack, so a page can push a back-office web page inside it.
 /// Measured from the photos, from the bar's lower edge: the link's middle 33 pt down; a heading's baseline 42 pt down (96 when
 /// the link is above it); a description's first baseline 28 pt under the heading's, on 24 pt lines; and the first card 26 pt
@@ -239,11 +246,10 @@ private struct SettingsRefresh: ViewModifier {
     }
 }
 
-/// The edit button at a card's top right: Clover's plain pencil (Appointment booking, Payments) or a pencil in a 48 pt grey circle
-/// (Orders Options). Without an action it is drawn at 40% and does nothing: nothing there can be changed yet.
+/// The edit button at a card's top right: a pencil in a 48 pt grey circle (Orders Options, Order receipts, Inventory). Without an
+/// action it is drawn at 40% and does nothing: nothing there can be changed yet.
 enum SettingsPencil {
     case none
-    case plain(action: (() -> Void)?)
     case circle(action: (() -> Void)?)
 
     var shows: Bool {
@@ -263,22 +269,28 @@ enum SettingsPencil {
 struct SettingsCard<Content: View>: View {
     var title: String? = nil
     var pencil: SettingsPencil = .none
+    /// What VoiceOver hears on a pencil that cannot be pressed: the app's words for what Processor Freedom does not have yet,
+    /// unless the page gives its own ("Loading", while the settings the pencil edits are still being read).
+    var pencilOff = "Not available yet"
     var spacing: CGFloat = 24
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
             if title != nil || pencil.shows {
-                HStack(alignment: .top, spacing: 12) {
+                // The title may run to within 12 pt of the pencil, as in the photo (13 pt there). A gap on each side of the
+                // spacer as well made that 32 pt, and "Customize order receipts" broke onto two lines where the photo has one.
+                HStack(alignment: .top, spacing: 0) {
                     if let title {
                         Text(title)
                             .pfFont(20, .bold, relativeTo: .title3)
                             .foregroundStyle(Color.primary)
+                            .lineSpacing(SettingsLook.titleLineSpacing)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isHeader)
                             .padding(.top, pencil.isCircle ? 6 : 0)
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 12)
                     pencilButton
                 }
             }
@@ -299,36 +311,22 @@ struct SettingsCard<Content: View>: View {
         switch pencil {
         case .none:
             EmptyView()
-        case .plain(let action):
-            Button { action?() } label: {
-                Image(systemName: "pencil")
-                    .font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(action == nil)
-            .opacity(action == nil ? 0.4 : 1)
-            .padding(.top, -10)
-            .padding(.trailing, -12)
-            .accessibilityLabel(title.map { "Edit \($0)" } ?? "Edit")
-            .accessibilityValue(action == nil ? "Not available yet" : "")
         case .circle(let action):
             Button { action?() } label: {
+                // Without an action: the greyed colour on a paler circle. Not the plain style with a fade on top of it, which
+                // faded the button twice and left it a different grey from the other greyed pencils.
                 Image(systemName: "pencil")
                     .font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color.primary)
+                    .foregroundStyle(action == nil ? SettingsLook.greyed : Color.primary)
                     .frame(width: 48, height: 48)
-                    .background(SettingsLook.border, in: Circle())
+                    .background(SettingsLook.border.opacity(action == nil ? 0.4 : 1), in: Circle())
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ItemsBareStyle())
             .disabled(action == nil)
-            .opacity(action == nil ? 0.4 : 1)
             .padding(.top, -7)
             .accessibilityLabel(title.map { "Edit \($0)" } ?? "Edit")
-            .accessibilityValue(action == nil ? "Not available yet" : "")
+            .accessibilityValue(action == nil ? pencilOff : "")
         }
     }
 }
@@ -364,40 +362,20 @@ struct SettingsValueRow: View {
     }
 }
 
-/// The On / Off capsule from the Orders Options photo.
-struct OnOffPill: View {
-    let on: Bool
-    var greyed = false
-
-    var body: some View {
-        Text(on ? "On" : "Off")
-            .pfFont(16, .medium)
-            .foregroundStyle(greyed ? SettingsLook.greyed : (on ? SettingsLook.onText : SettingsLook.offText))
-            .padding(.horizontal, 13)
-            .padding(.vertical, 6)
-            .background(greyed ? SettingsLook.offFill : (on ? SettingsLook.onFill : SettingsLook.offFill), in: Capsule())
-            .accessibilityLabel(on ? "On" : "Off")
-    }
-}
-
-/// A light blue tag (the Order types photo): the ways of ordering that are turned on.
-struct SettingsTag: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .pfFont(16, .medium)
-            .foregroundStyle(SettingsLook.onText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(SettingsLook.onFill, in: Capsule())
-    }
-}
-
-/// A piece of a description: plain text, or an underlined blue link that runs an action.
+/// A piece of a description: plain text, or a blue link that runs an action. Most links are underlined in the photos; two on
+/// Business information ("payment receipts" and the privacy act) are blue without a line, which is `plainLink`.
 enum SettingsTextPart {
     case text(String)
     case link(String, () -> Void)
+    case plainLink(String, () -> Void)
+
+    /// What a link runs when it is tapped (nil for plain text).
+    var action: (() -> Void)? {
+        switch self {
+        case .text: return nil
+        case .link(_, let run), .plainLink(_, let run): return run
+        }
+    }
 }
 
 /// A muted paragraph with links in it, like "… in the Order Receipts page." in the photos: 16 pt on 24 pt lines.
@@ -417,7 +395,7 @@ struct SettingsLinkedText: View {
             .fixedSize(horizontal: false, vertical: true)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "pfsettings", let index = Int(url.host() ?? ""), parts.indices.contains(index),
-                      case .link(_, let run) = parts[index] else { return .discarded }
+                      let run = parts[index].action else { return .discarded }
                 run()
                 return .handled
             })
@@ -434,6 +412,11 @@ struct SettingsLinkedText: View {
                 link.link = URL(string: "pfsettings://\(index)")
                 // Named in full: with UIKit imported too, `underlineStyle` could be SwiftUI's or UIKit's, and would not compile.
                 link[AttributeScopes.SwiftUIAttributes.UnderlineStyleAttribute.self] = .single
+                link.foregroundColor = Theme.blue
+                out += link
+            case .plainLink(let words, _):
+                var link = AttributedString(words)
+                link.link = URL(string: "pfsettings://\(index)")
                 link.foregroundColor = Theme.blue
                 out += link
             }

@@ -40,6 +40,13 @@ final class TransactionsSettings {
         do {
             let answer = try await API.get("/api/sites/\(siteID)")
             guard mine == round else { return }
+            // An answer without the business in it is not its settings: taking it would show every switch at its default as
+            // if that were what the business has.
+            guard answer["site"].isObject else {
+                let words = "Something went wrong. Please try again."
+                if loaded { reloadProblem = words } else { problem = words }
+                return
+            }
             apply(answer["site"])
             problem = ""
         } catch let error as APIError {
@@ -67,6 +74,9 @@ final class TransactionsSettings {
     func saveOrdering(siteID: String, unchanged: ((JSON) -> Bool)? = nil, change: (inout [String: Any]) -> Void) async -> SaveResult {
         do {
             let site = try await API.get("/api/sites/\(siteID)")["site"]
+            // An answer without the business in it says nothing about its settings: nothing is saved over it and nothing is shown
+            // from it (it is not "changed on another device" either).
+            guard site.isObject else { return .failed("Something went wrong. Please try again.") }
             if let unchanged, !unchanged(site["ordering"]) {
                 round += 1
                 apply(site)
@@ -82,6 +92,8 @@ final class TransactionsSettings {
         } catch let error as APIError {
             if error.status == 412 {
                 await load(siteID: siteID)
+                // The latest settings could not be fetched: say why, and leave what the person chose on screen.
+                if !reloadProblem.isEmpty { return .failed(reloadProblem) }
                 return .stale(Self.staleMessage)
             }
             if error.status == 401 { AppModel.shared.sessionEnded() }
@@ -163,6 +175,7 @@ struct TxCardHeading<Accessory: View>: View {
                 Text(title)
                     .pfFont(20, .bold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
+                    .lineSpacing(SettingsLook.titleLineSpacing)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                 if !note.isEmpty {
@@ -184,23 +197,23 @@ extension TxCardHeading where Accessory == EmptyView {
     }
 }
 
-/// Clover's plain pencil at a card's top right. Nothing on these pages can be changed from the app yet, so it is greyed (40%) and
-/// does nothing.
+/// Clover's plain pencil at a card's top right. Nothing on these pages can be changed from the app yet, so it is greyed (the
+/// one grey of everything that is not available, as on the other Settings pages) and does nothing. The photos' pencil is
+/// 19 to 20 pt across on Payments and Payment receipts, which is this symbol at 25.
 struct TxPencil: View {
     let card: String
-    var size: CGFloat = 19
+    var size: CGFloat = 25
 
     var body: some View {
         Button {} label: {
             Image(systemName: "pencil")
                 .font(.system(size: size, weight: .regular))
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(SettingsLook.greyed)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ItemsBareStyle())
         .disabled(true)
-        .opacity(0.4)
         .accessibilityLabel("Edit \(card)")
         .accessibilityValue("Not available yet")
     }
@@ -257,12 +270,6 @@ extension TxSettingRow where Below == TxValue {
     }
 }
 
-extension TxSettingRow where Below == EmptyView {
-    init(label: String, note: String? = nil, greyed: Bool = false, style: TxRowStyle = .payments) {
-        self.init(label: label, note: note, greyed: greyed, style: style) { EmptyView() }
-    }
-}
-
 /// A setting's value. The Payments photos print values in black; Invoices and estimates and the Orders pages in the muted grey.
 struct TxValue: View {
     let text: String
@@ -279,8 +286,8 @@ struct TxValue: View {
 }
 
 /// A pill with any word in it ("On", "Off", "Disabled"), measured from the photos: 14 pt medium text, about 14 pt of space either
-/// side of it and 32 pt tall. `solid` is the darker grey (#E3E3E3) of the Payments photos; the Orders and receipts photos use the
-/// lighter #F9F9F9.
+/// side of it and 32 pt tall. `solid` is the darker grey (#E3E3E3) of the Payments photos, and with it the stronger "On" of the
+/// Inventory photo; the Orders and receipts photos use the lighter #F9F9F9.
 struct TxPill: View {
     let text: String
     var on = false
@@ -288,12 +295,13 @@ struct TxPill: View {
     var solid = false
 
     var body: some View {
+        // Semibold, as the photos' pills are (their strokes are a step heavier than medium).
         Text(text)
-            .pfFont(14, .medium)
+            .pfFont(14, .semibold)
             .foregroundStyle(greyed ? SettingsLook.greyed : (on ? SettingsLook.onText : SettingsLook.offText))
             .padding(.horizontal, 13.5)
             .padding(.vertical, 7.5)
-            .background(on && !greyed ? SettingsLook.onFill : (solid ? SettingsLook.border : SettingsLook.offFill), in: Capsule())
+            .background(on && !greyed ? (solid ? SettingsLook.onFillStrong : SettingsLook.onFill) : (solid ? SettingsLook.border : SettingsLook.offFill), in: Capsule())
             .accessibilityLabel(text)
     }
 }
@@ -311,7 +319,7 @@ struct TxTag: View {
 
     var body: some View {
         Text(text)
-            .pfFont(14, .medium)
+            .pfFont(14, .semibold)
             .foregroundStyle(SettingsLook.onText)
             .padding(.horizontal, 13.5)
             .padding(.vertical, 7.5)
@@ -337,7 +345,8 @@ struct TxBullet<Content: View>: View {
     }
 }
 
-/// The 48 pt round buttons of the photos (search, add, more). Without an action they are greyed (40%) and do nothing.
+/// The 48 pt round buttons of the photos (search, add, more). Without an action they are greyed (the greyed colour, or the
+/// button's own colours on a circle at 40%) and do nothing.
 struct TxCircleButton: View {
     let symbol: String
     var fill: Color = SettingsLook.border
@@ -350,14 +359,14 @@ struct TxCircleButton: View {
         Button { action?() } label: {
             Image(systemName: symbol)
                 .font(.system(size: size, weight: .regular))
-                .foregroundStyle(tint)
+                .foregroundStyle(action == nil && tint == .primary ? SettingsLook.greyed : tint)
                 .frame(width: 48, height: 48)
-                .background(fill, in: Circle())
+                .background(fill.opacity(action == nil ? 0.4 : 1), in: Circle())
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        // Greyed once (see SettingsCard's round pencil): the plain style would fade it a second time.
+        .buttonStyle(ItemsBareStyle())
         .disabled(action == nil)
-        .opacity(action == nil ? 0.4 : 1)
         .accessibilityLabel(label)
         .accessibilityValue(action == nil ? "Not available yet" : "")
     }
@@ -458,7 +467,13 @@ extension View {
             WebScreen(tab: tab, keepsBack: keepsBack)
         }
         .onChange(of: tab.wrappedValue) { old, new in
-            if old != nil, new == nil { closed?() }
+            guard old != nil, new == nil, let closed else { return }
+            closed()
+            // Once more when the website's own save, sent a moment after the change, has had time to land (see SettingsA.WebPages).
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if tab.wrappedValue == nil { closed() }
+            }
         }
     }
 
@@ -562,6 +577,8 @@ struct TxSaveButton: View {
     let enabled: Bool
     var busy = false
     var size: CGFloat = 18
+    /// Why it cannot be pressed, for VoiceOver, when that is not simply that nothing was changed ("Enter a valid email address").
+    var offReason = ""
     let action: () -> Void
 
     var body: some View {
@@ -572,9 +589,9 @@ struct TxSaveButton: View {
                 Text(title)
             }
         }
-        .buttonStyle(SolidButtonStyle(fill: enabled || busy ? Theme.blue : Color(.systemGray3), text: .white, radius: 6, height: 44, size: size))
+        .buttonStyle(SolidButtonStyle(fill: enabled || busy ? Theme.blue : Color(.systemGray3), text: enabled || busy ? .white : Theme.offLabel, radius: 6, height: 44, size: size))
         .disabled(!enabled || busy)
         .accessibilityLabel(title)
-        .accessibilityValue(busy ? "Saving" : (enabled ? "" : "Nothing to save"))
+        .accessibilityValue(busy ? "Saving" : (enabled ? "" : (offReason.isEmpty ? "Nothing to save" : offReason)))
     }
 }

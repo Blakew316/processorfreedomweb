@@ -72,7 +72,8 @@ enum WebRouter {
             UIPresenter.safari(url)
             return
         }
-        guard !scheme.isEmpty, scheme != "about", scheme != "javascript" else { return }
+        // Mail, phone and text links, the only other kinds the back office makes. Nothing else a page asks for opens another app.
+        guard UIPresenter.appSchemes.contains(scheme) else { return }
         UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 }
@@ -113,6 +114,7 @@ extension OfficePage: WKNavigationDelegate, WKUIDelegate {
             }
         case .signedOut:
             decisionHandler(.cancel)
+            sentToLogin()
             AppModel.shared.sessionEnded()
         case .outside:
             decisionHandler(.cancel)
@@ -148,11 +150,11 @@ extension OfficePage: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
-        download.delegate = DownloadCenter.shared
+        DownloadCenter.shared.take(download)
     }
 
     func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
-        download.delegate = DownloadCenter.shared
+        DownloadCenter.shared.take(download)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

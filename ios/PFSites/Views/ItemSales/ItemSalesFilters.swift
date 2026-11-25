@@ -306,7 +306,8 @@ struct ItemSalesRadioRow: View {
             .frame(maxWidth: .infinity, minHeight: 42)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // Not the plain style: it fades a row that cannot be chosen, and a greyed row is grey already.
+        .buttonStyle(ItemsBareStyle())
         .disabled(!enabled)
         .accessibilityAddTraits(chosen ? .isSelected : [])
         .accessibilityValue(enabled ? "" : "Not available yet")

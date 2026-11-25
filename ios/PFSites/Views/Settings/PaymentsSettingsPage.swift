@@ -30,9 +30,12 @@ struct PaymentsSettingsPage: View {
         .settingsLoads { await settings.load(siteID: siteID) }
     }
 
+    /// Between a card's heading and its first setting on this page: the photos have the first name 90 pt under the card's edge.
+    private static let headingGap = TxLook.headingGap - 2.3
+
     /// A card with its title and greyed pencil, then its settings 37 pt apart. `extraBottom` is room some photos leave under the last one.
     private func card<Rows: View>(_ title: String, extraBottom: CGFloat = 0, @ViewBuilder rows: @escaping () -> Rows) -> some View {
-        SettingsCard(spacing: TxLook.headingGap) {
+        SettingsCard(spacing: Self.headingGap) {
             TxCardHeading(title: title) { TxPencil(card: title) }
             VStack(alignment: .leading, spacing: TxLook.rowGap) {
                 rows()
@@ -49,13 +52,13 @@ struct PaymentsSettingsPage: View {
 
     private var cashBack: some View {
         // The photo puts the pill 25 pt under the name's baseline and leaves 37 pt under it: the card is 198 pt tall.
-        card("Cash back", extraBottom: 4) {
+        card("Cash back", extraBottom: 5.6) {
             TxSettingRow(label: "Cash back (on card readers)", greyed: true) { off().padding(.top, 12) }
         }
     }
 
     private var cashDiscount: some View {
-        SettingsCard(spacing: TxLook.headingGap) {
+        SettingsCard(spacing: Self.headingGap) {
             TxCardHeading(title: "Cash Discount") {
                 Button {} label: {
                     Text("Enable")
@@ -65,7 +68,8 @@ struct PaymentsSettingsPage: View {
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                // Not the plain style: it fades a button that cannot be used, and the word is grey already.
+                .buttonStyle(ItemsBareStyle())
                 .disabled(true)
                 .accessibilityLabel("Enable Cash Discount")
                 .accessibilityValue("Not available yet")
@@ -80,16 +84,17 @@ struct PaymentsSettingsPage: View {
                     .fixedSize(horizontal: false, vertical: true)
                 TxValue(text: "Not available yet", greyed: true)
             }
-            .padding(.bottom, TxLook.extraBottom + 22)
+            .padding(.bottom, TxLook.extraBottom + 24.6)
         }
     }
 
     private var rounding: some View {
-        SettingsCard(spacing: TxLook.headingGap) {
+        // From the photo: the name 122 pt under the card's edge, the pill's word 35 pt under the name's top, and the card 207 pt tall.
+        SettingsCard(spacing: TxLook.headingGap - 1.3) {
             TxCardHeading(title: "Rounding", note: [.text("Round transaction totals at checkout")]) { TxPencil(card: "Rounding") }
             // Processor Freedom never rounds totals.
-            TxSettingRow(label: "Enable rounding", greyed: true) { off("Disabled") }
-                .padding(.bottom, TxLook.extraBottom)
+            TxSettingRow(label: "Enable rounding", greyed: true) { off("Disabled").padding(.top, -2.7) }
+                .padding(.bottom, TxLook.extraBottom - 2.7)
         }
     }
 
@@ -100,6 +105,7 @@ struct PaymentsSettingsPage: View {
                 .foregroundStyle(SettingsLook.muted)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
+            // The photo's bullet is 47 pt under the paragraph's last line, closer than two settings are.
             TxBullet(greyed: true) {
                 VStack(alignment: .leading, spacing: TxRowStyle.payments.gap) {
                     Text("PF Sites")
@@ -114,6 +120,7 @@ struct PaymentsSettingsPage: View {
                 }
                 .accessibilityElement(children: .combine)
             }
+            .padding(.top, -8.3)
             Text("No card devices are connected yet.")
                 .pfFont(16)
                 .foregroundStyle(SettingsLook.greyed)
@@ -131,7 +138,8 @@ struct PaymentsSettingsPage: View {
     }
 
     private var paymentThreshold: some View {
-        card("Payment threshold") {
+        // The photo leaves 54 pt under the pill: the card is 368 pt tall.
+        card("Payment threshold", extraBottom: 11.3) {
             TxSettingRow(label: "Payment threshold amount", value: most)
             // The photo's bullet sits about 50 pt under the amount.
             TxBullet(greyed: true) {
@@ -177,7 +185,7 @@ struct PaymentsSettingsPage: View {
     }
 
     private var trackReasons: some View {
-        SettingsCard(spacing: TxLook.headingGap) {
+        SettingsCard(spacing: Self.headingGap) {
             TxCardHeading(title: "Track reasons for voids, refunds and exchanges") { TxPencil(card: "Track reasons for voids, refunds and exchanges") }
             VStack(alignment: .leading, spacing: TxRowStyle.payments.gap) {
                 Text("Capture the reasons why your employees voided payments or issued refunds.")

@@ -199,8 +199,8 @@ enum ItemSalesFormat {
 }
 
 /// CSV files the way the website writes them (saveSheetFile in public/js/ui.js): a byte-order mark, every cell in quotes, lines
-/// ending CR LF. Each goes in its own folder in the same temporary Downloads folder as the app's other downloads, which the app
-/// clears on its next launch, so the file keeps its name and never overwrites another.
+/// ending CR LF. Each goes in its own folder in the same temporary Downloads folder as the app's other downloads (removed when its
+/// share sheet closes, and with the rest when the dashboard closes), so the file keeps its name and never overwrites another.
 enum ItemSalesFile {
     static func csv(_ rows: [[String]]) -> String {
         "\u{FEFF}" + rows.map { row in
@@ -209,10 +209,7 @@ enum ItemSalesFile {
     }
 
     static func write(name: String, rows: [[String]]) throws -> URL {
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Downloads", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try DownloadCenter.newFolder()
         let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-").trimmed
         let file = folder.appendingPathComponent(String((cleaned.isEmpty ? "report" : cleaned).prefix(116)) + ".csv")
         try Data(csv(rows).utf8).write(to: file, options: .atomic)
@@ -224,8 +221,8 @@ enum ItemSalesFile {
 /// worked out like the website's Item sales report (public/js/editor.js CL['r-items']), with its periods, ‹ and › and order type.
 @Observable @MainActor
 final class ItemSalesModel {
-    /// The website's sentence under "No results found" on this report (NORES in public/js/editor.js).
-    static let noResults = "Try again with a different timeframe, filters or search criteria."
+    /// The website's sentence under "No results found" on this report (NORES2 in public/js/editor.js), as in the photo.
+    static let noResults = "Try again with a different timeframe, filter, and search combination."
     /// The website's name for this report and its words about it (nameOf('r-items') and ABOUT['r-items'] in public/js/editor.js).
     static let aboutTitle = "Item and Service sales"
     static let about = "How many of each item sold and what it brought in."
@@ -431,7 +428,7 @@ final class ItemSalesModel {
             guard asked == query else { return nil }
             // Signed out everywhere, or the server ended the session: the app checks, then locks. A 403 is only a message.
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            if error.status != 403 && shownQuery == asked { return error.message }
+            if error.status != 403 && shownQuery == asked { return error.status == 401 ? nil : error.message }
             rows = []
             shownQuery = nil
             forbidden = error.status == 403

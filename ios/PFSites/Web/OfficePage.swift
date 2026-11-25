@@ -80,10 +80,19 @@ final class OfficePage: NSObject {
     @ObservationIgnored private var pendingScript: String?
     /// The hand-off is tried again once, on the next report, if the website answered false (its page was not ready for it).
     @ObservationIgnored private var scriptTries = 0
+    /// The hand-off itself, kept for a page the app loads again (see `armHandOff`).
+    private let handOff: String?
+    /// The Virtual Terminal said the sale it was handed is recorded: it is never handed over again.
+    @ObservationIgnored private var saleRecorded = false
     /// The business the page last said it shows (the nav message's site), so another business's order count is never shown here.
     @ObservationIgnored private var reportedSite = ""
     /// Blank windows the page opened (window.open with no address yet), kept until we see where they go.
     @ObservationIgnored var catchers: [PopupCatcher] = []
+    /// How many times in a row this page was sent to the website's log in page. When the session turns out to be fine, the page
+    /// is loaded again with the cookie handed over afresh, but not for ever: after two tries it is left alone.
+    @ObservationIgnored private(set) var loginBounces = 0
+    /// When the page last left the screen (another tab, a screen pushed over it, the app put away), until it is shown again.
+    @ObservationIgnored private var leftAt: Date?
 
     init(siteID: String, path: String, kind: Kind = .office, script: String? = nil) {
         self.siteID = siteID
@@ -91,6 +100,7 @@ final class OfficePage: NSObject {
         self.kind = kind
         self.carriesSaleOrder = script != nil
         self.pendingScript = script
+        self.handOff = script
         self.webView = WKWebView(frame: .zero, configuration: WebStore.shared.makeConfiguration())
         super.init()
         let proxy = ScriptProxy(page: self)
@@ -102,8 +112,8 @@ final class OfficePage: NSObject {
         webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
         webView.isOpaque = false
-        webView.backgroundColor = .systemBackground
-        webView.scrollView.backgroundColor = .systemBackground
+        webView.backgroundColor = Theme.webGroundUI
+        webView.scrollView.backgroundColor = Theme.webGroundUI
         // The web view sits inside the safe area, below the bars, so nothing is hidden under them and nothing fogs over content.
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.topEdgeEffect.style = .hard
@@ -146,8 +156,21 @@ final class OfficePage: NSObject {
         refreshIfStale()
     }
 
+    /// The page went off screen, or the app was put away: the time is noted, for `refreshIfStale`.
+    func left() {
+        if leftAt == nil { leftAt = Date() }
+    }
+
+    /// Back on screen after more than two minutes away, the page loads fresh data. It is the time away that counts, not how
+    /// long the page has been open: someone who has spent ten minutes on a page and looks at another tab for a moment comes
+    /// back to it as it was. And a page opened from a list (an invoice, an estimate, a customer being written) is never
+    /// loaded again by itself: what was typed there is only kept on the page, and the website cannot tell the app about a
+    /// field that is no longer being typed in.
     func refreshIfStale() {
-        guard let last = lastLoaded, Date().timeIntervalSince(last) > 120, failure == nil, !closed else { return }
+        guard let away = leftAt else { return }
+        leftAt = nil
+        guard lastLoaded != nil, Date().timeIntervalSince(away) > 120, failure == nil, !closed else { return }
+        guard parent.isEmpty, !tab.hasSuffix("-new"), !tab.hasSuffix("-edit") else { return }
         webView.evaluateJavaScript("!!(window.PF && window.PF.busy && window.PF.busy())") { [weak self] result, _ in
             guard let self, (result as? Bool) != true else { return }
             self.reload()
@@ -163,17 +186,42 @@ final class OfficePage: NSObject {
         }
         coverWithSnapshot(spinner: false)
         loading = true
+        armHandOff()
         webView.reload()
     }
 
-    /// Try again after a failure: the last page that loaded, or the page this one started on.
+    /// Try again after a failure: the page that was last showing, or the page this one started on.
     func retry() {
         retryTask?.cancel()
+        armHandOff()
         load(url: lastGoodURL ?? Config.url(startPath))
+    }
+
+    /// The page opened by Check out is about to be loaded again by the app itself (after unlocking, a pull to refresh, two
+    /// minutes away, iOS taking the page's memory back): the order is handed over again when it reports in. The website keeps
+    /// the handed sale only in the page's memory, so the terminal used to come back at $0.00 with no note, on a screen that is
+    /// still the checkout of that order. Nothing typed can be overwritten by this: a fresh load has already thrown it away.
+    /// Only while the page is still on the Virtual Terminal (the hand-off would bring it back there from any other page),
+    /// and never once the sale is recorded.
+    private func armHandOff() {
+        guard let handOff, !saleRecorded, tab == "sale" else { return }
+        pendingScript = handOff
+        scriptTries = 0
     }
 
     func networkCameBack() {
         if failure == .offline || failure == .unreachable { retry() }
+    }
+
+    /// The page tried to go to the website's log in page (the app has its own, so that page is never shown).
+    func sentToLogin() {
+        loginBounces += 1
+    }
+
+    /// The session is fine after all (see `AppModel.sessionEnded`): the page that was turned away loads again.
+    func retryAfterLoginBounce() {
+        guard loginBounces > 0, loginBounces <= 2, !closed else { return }
+        retry()
     }
 
     // MARK: Moving around the page (the page strip, the back button)
@@ -217,6 +265,7 @@ final class OfficePage: NSObject {
                 } else {
                     self.coverWithSnapshot(spinner: true)
                     self.loading = true
+                    self.armHandOff()
                     self.webView.reload()
                 }
             }
@@ -261,7 +310,7 @@ final class OfficePage: NSObject {
         overlay = nil
         guard let host = webView.superview else { return }
         let cover = UIView(frame: webView.frame)
-        cover.backgroundColor = .systemBackground
+        cover.backgroundColor = Theme.webGroundUI
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         host.addSubview(cover)
         overlay = cover
@@ -283,10 +332,11 @@ final class OfficePage: NSObject {
 
     // MARK: Messages from the page
 
-    /// Only the page itself (the main frame, on our own address) may talk to the app.
+    /// Only the page itself (the main frame, on our own address: the same scheme, host and port) may talk to the app.
     private func trusted(_ message: WKScriptMessage) -> Bool {
         let origin = message.frameInfo.securityOrigin
-        return message.frameInfo.isMainFrame && origin.host.lowercased() == Config.host && origin.port == (Config.baseURL.port ?? 0)
+        return message.frameInfo.isMainFrame && origin.`protocol`.lowercased() == (Config.baseURL.scheme?.lowercased() ?? "https")
+            && origin.host.lowercased() == Config.host && origin.port == (Config.baseURL.port ?? 0)
     }
 
     func received(_ message: WKScriptMessage) {
@@ -297,14 +347,21 @@ final class OfficePage: NSObject {
         case "ready": reportedReady(path: json["path"].string)
         // The count of new orders, for the business this page belongs to (the kitchen screen and the create page have no say).
         case "badge": if (kind == .office || kind == .sheet) && (reportedSite.isEmpty || reportedSite == siteID) { AppModel.shared.setOrdersBadge(json["orders"].int) }
-        case "signedOut": AppModel.shared.sessionEnded()
+        case "signedOut":
+            // The website says so with a message when it is running inside the app (it clears itself and does not move).
+            sentToLogin()
+            AppModel.shared.sessionEnded()
         case "activity": AppModel.shared.idle.touch()
         case "print": printPage(title: json["title"].string)
         // The Setup tasks and Notifications pages hand their choice to the app, which opens it natively.
         case "open": AppModel.shared.openFromWeb(tab: json["tab"].string)
         // The Virtual Terminal recorded the sale it was handed through PF.sale. The website does not send this yet (its Complete
         // Payment button cannot record a sale), so until it does the Sale order is only cleared with Clear order.
-        case "saleDone": if carriesSaleOrder { AppModel.shared.shell.order.clear() }
+        case "saleDone":
+            if carriesSaleOrder {
+                saleRecorded = true
+                AppModel.shared.shell.order.clear()
+            }
         default: break
         }
     }
@@ -346,8 +403,9 @@ final class OfficePage: NSObject {
         let site = json["site"].string
         if kind == .office || kind == .sheet, !site.isEmpty, !siteID.isEmpty, site != siteID {
             // The website moved this page into another business's back office by itself: the app changes business its own way
-            // (with that business's passcode step), and this page goes back to where it started.
-            reportedSite = ""
+            // (with that business's passcode step), and this page goes back to where it started. Until it reports its own
+            // business again, the other one's order count is not taken for this one's.
+            reportedSite = site
             load(startPath)
             AppModel.shared.openBusinessFromWeb(id: site, tab: json["tab"].string)
             return
@@ -376,6 +434,10 @@ final class OfficePage: NSObject {
         loading = false
         failure = nil
         lastLoaded = Date()
+        loginBounces = 0
+        // The website moves between its pages without loading anew, so where it is now is noted each time it reports in: Try
+        // again, and the reload after iOS took the page's memory back, return to this page and not to the first one opened.
+        noteLoaded(webView.url)
         retryTask?.cancel()
         fadeOverlay()
         endRefreshing()
@@ -415,16 +477,33 @@ final class OfficePage: NSObject {
         }
     }
 
+    /// Remembers where the page is, for Try again and the reload after iOS took its memory back. Only a back-office address is
+    /// kept, and for a dashboard page only one of its own business: never a file's address (loading it again would start a
+    /// download) and never another business's (loading it again would change business).
     func noteLoaded(_ url: URL?) {
-        if let url, Config.isOwn(url) { lastGoodURL = url }
+        guard let url, Config.isOwn(url) else { return }
+        let parts = url.path.split(separator: "/").map(String.init)
+        guard parts.first == "app" else { return }
+        if kind == .office || kind == .sheet {
+            guard parts.count >= 3, parts[1] == "site", parts[2] == siteID else { return }
+        }
+        lastGoodURL = url
     }
 
-    /// A page that finished loading but never reported in (a plain server page) still stops the spinner and the picture.
+    /// A page that finished loading but never reported in (a plain server page) still stops the spinner and the picture. A
+    /// page the website is running in has only not reported yet (its data is still on its way on a slow connection): the
+    /// spinner and the picture stay for it, up to 8 seconds, instead of giving way to a blank page.
     func finishedWithoutReport() {
         guard loading else { return }
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard let self, self.loading, self.failure == nil else { return }
+            guard !self.closed else { return }
+            let running = (try? await self.webView.evaluateJavaScript("!!window.PF")) as? Bool ?? false
+            if running {
+                try? await Task.sleep(nanoseconds: 6_800_000_000)
+                guard !self.closed, self.loading, self.failure == nil else { return }
+            }
             self.loading = false
             self.fadeOverlay()
             self.endRefreshing()
@@ -457,7 +536,7 @@ final class OfficePage: NSObject {
     /// Downloads a file of ours (an attachment) and offers it to save or share.
     func download(_ url: URL) {
         webView.startDownload(using: URLRequest(url: url)) { download in
-            download.delegate = DownloadCenter.shared
+            DownloadCenter.shared.take(download)
         }
     }
 

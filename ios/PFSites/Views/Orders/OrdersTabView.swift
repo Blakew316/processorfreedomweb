@@ -24,13 +24,24 @@ struct OrdersTabView: View {
     var body: some View {
         let days = orders.days
         // The list is showing (not the spinner or the message), with at least one day's band under the tabs.
-        let banded = orders.loaded && (orders.loadError.isEmpty || !orders.orders.isEmpty) && !days.isEmpty
+        let banded = orders.loaded && (orders.tabSettled || !orders.loadError.isEmpty) && (orders.loadError.isEmpty || !orders.orders.isEmpty) && !days.isEmpty
         VStack(spacing: 0) {
             searchRow
             OrdersHairline()
             dateRow
             OrdersHairline()
             tabsRow(lined: !banded)
+            if !orders.refreshProblem.isEmpty, orders.loaded, !orders.orders.isEmpty {
+                // The last refresh failed: the orders below are the last ones that came, and may be out of date.
+                Text("\(orders.refreshProblem) The orders below may be out of date.")
+                    .pfFont(14)
+                    .foregroundStyle(SettingsLook.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                OrdersHairline()
+            }
             content(days)
         }
         .background(Color(.systemBackground))
@@ -73,6 +84,7 @@ struct OrdersTabView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal, -12)
                     .accessibilityLabel("Clear search")
                 }
@@ -125,9 +137,10 @@ struct OrdersTabView: View {
                     }
                 }
             } label: {
+                // The same link as on Sales Overview, semibold as the photos have it on both screens.
                 Text(list.range.label)
                     .underline()
-                    .pfFont(15)
+                    .pfFont(15, .semibold)
                     .foregroundStyle(Theme.blue)
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
@@ -184,7 +197,7 @@ struct OrdersTabView: View {
         let on = orders.tab == tab
         return Button {
             tabTapped = true
-            orders.tabChosen = true
+            orders.tabPicked()
             guard !on else { return }
             // The light tap the app gives when moving between the pages of a section.
             Haptics.light()
@@ -204,7 +217,9 @@ struct OrdersTabView: View {
 
     @ViewBuilder
     private func content(_ days: [OrderDay]) -> some View {
-        if !orders.loaded && orders.loadError.isEmpty {
+        // The wait shows until the list is in and its first tab is settled (a moment later at most), so the list is never drawn
+        // on Closed and then swapped for Open under the person's finger.
+        if (!orders.loaded || !orders.tabSettled) && orders.loadError.isEmpty {
             Spacer()
             ProgressView().controlSize(.large).tint(Theme.blue)
             Spacer()
@@ -247,6 +262,16 @@ struct OrdersTabView: View {
                         } header: {
                             band(day)
                         }
+                    }
+                    if orders.periodIsCutShort {
+                        Text("Only the latest 300 orders are shown here. Older orders in this period are on the website.")
+                            .pfFont(14)
+                            .foregroundStyle(SettingsLook.muted)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 18)
                     }
                 }
             }

@@ -84,6 +84,9 @@ final class SaleModel {
     var showImages = false
 
     @ObservationIgnored private var loadedAt: Date?
+    /// When the items were last asked for, whether or not the answer came: after a failed look the scanner uses what it has for
+    /// the next 30 seconds instead of asking, and waiting, again at every scan.
+    @ObservationIgnored private var triedAt: Date?
     @ObservationIgnored private var loadedSite = ""
     /// Each item's product code as the scanner compares it, to the item's id.
     @ObservationIgnored private var codeIndex: [String: String] = [:]
@@ -94,6 +97,9 @@ final class SaleModel {
 
     var total: Int { lines.reduce(0) { $0 + $1.total } }
     var isEmpty: Bool { lines.isEmpty }
+    /// Whether the order can go to the Virtual Terminal: something in it, with an amount the terminal takes (it refuses $0.00
+    /// and anything above the most one payment can be, and used to open empty for those).
+    var payable: Bool { !lines.isEmpty && total > 0 && total <= Money.most }
 
     /// Categories in the order the items come in (the website's menu order), each with its item count.
     var categories: [CategoryCount] {
@@ -182,6 +188,7 @@ final class SaleModel {
             category = nil
             codeIndex = [:]
             codesByItem = [:]
+            triedAt = nil
         }
         loadedSite = siteID
         loading = items.isEmpty
@@ -203,10 +210,12 @@ final class SaleModel {
             codesByItem = byItem
             loadError = ""
             loadedAt = Date()
+            triedAt = nil
             if let chosen = category, !items.contains(where: { $0.category == chosen }) { category = nil }
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
             if items.isEmpty { loadError = error.message }
+            triedAt = Date()
         } catch {
             // Cancelled: the screen went away.
         }
@@ -269,7 +278,11 @@ final class SaleModel {
         let key = ProductCode.normalize(raw)
         let shownCode = raw.trimmed
         guard !key.isEmpty else { return .notFound(shownCode) }
-        if loadedSite != siteID || loadedAt.map({ Date().timeIntervalSince($0) >= 30 }) ?? true {
+        let stale = loadedSite != siteID || loadedAt.map({ Date().timeIntervalSince($0) >= 30 }) ?? true
+        // A reload that failed moments ago is not tried again with every scan, as long as there are items to scan against.
+        // With none (the list never loaded), each scan asks again: the connection may be back.
+        let justTried = !items.isEmpty && loadedSite == siteID && (triedAt.map({ Date().timeIntervalSince($0) < 30 }) ?? false)
+        if stale && !justTried {
             await loadItems(siteID: siteID)
             // The scanner was closed while the items were on their way: nothing is added behind the person's back.
             if Task.isCancelled { return .failed("") }

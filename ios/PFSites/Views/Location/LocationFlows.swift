@@ -81,6 +81,10 @@ struct SwitchPasscodeView: View {
             }
         }
         .task { await load() }
+        // VoiceOver reads the message out: it takes the spinner's place and would not be come across by itself.
+        .onChange(of: problem) { _, message in
+            if !message.isEmpty { AccessibilityNotification.Announcement(message).post() }
+        }
     }
 
     private func cancel() {

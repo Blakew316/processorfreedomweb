@@ -83,8 +83,8 @@ struct InvoicesEstimatesPage: View {
     var body: some View {
         // The photo has no "← Settings" link on this page: the heading comes first.
         SettingsPage(title: "Invoices and estimates", heading: "Invoices and estimates") {
-            // 20 pt between the cards, as in the photos.
-            VStack(alignment: .leading, spacing: 20) {
+            // 24 pt between the cards, as in this page's photo (the other Settings pages have 20).
+            VStack(alignment: .leading, spacing: 24) {
                 conversion
                 templates
                 converted
@@ -98,15 +98,18 @@ struct InvoicesEstimatesPage: View {
 
     private var conversion: some View {
         SettingsCard(spacing: TxLook.headingGap) {
+            // This page's photo has its pencil cards' titles 5 pt lower than the other pages', and 5 pt less under the last line.
             TxCardHeading(title: "Estimate to invoice conversion", note: [.text("How an estimate becomes an invoice.")]) {
-                TxPencil(card: "Estimate to invoice conversion", size: 17)
+                TxPencil(card: "Estimate to invoice conversion", size: 21)
             }
+            .padding(.top, 5)
             VStack(alignment: .leading, spacing: TxLook.rowGap) {
                 TxSettingRow(label: "Conversion",
                              value: "The estimate itself becomes a draft invoice, due on receipt, when you choose Convert to invoice.", muted: true)
                 TxSettingRow(label: "Automate accepted estimate to invoice conversion",
                              value: "Estimates are converted by hand. Customers can't accept an estimate online yet, so nothing is converted automatically.", muted: true)
             }
+            .padding(.bottom, -5)
         }
     }
 
@@ -115,12 +118,16 @@ struct InvoicesEstimatesPage: View {
         Button { library = true } label: {
             SettingsCard {
                 TxCardHeading(title: "Templates", note: [.text("Start an invoice or estimate from a template.")]) {
+                    // The photo's chevron: 11 pt tall, its left edge in line with the pencils of the cards above and below.
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 17, weight: .regular))
+                        .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(Color.primary)
-                        .frame(width: 44, height: 44)
+                        .padding(.leading, 14)
+                        .frame(width: 44, height: 44, alignment: .leading)
                         .accessibilityHidden(true)
                 }
+                // 106 pt tall, as in the photo.
+                .padding(.bottom, -4)
             }
             .contentShape(RoundedRectangle(cornerRadius: 24, style: .circular))
         }
@@ -132,12 +139,14 @@ struct InvoicesEstimatesPage: View {
     private var converted: some View {
         SettingsCard(spacing: TxLook.headingGap) {
             TxCardHeading(title: "Converted estimate management") {
-                TxPencil(card: "Converted estimate management", size: 17)
+                TxPencil(card: "Converted estimate management", size: 21)
             }
+            .padding(.top, 5)
             TxSettingRow(label: "Sync estimates and invoices",
                          note: "Converting turns the estimate into the invoice, so there is no separate estimate to keep in sync.") {
                 TxValue(text: "Not available yet", greyed: true)
             }
+            .padding(.bottom, -5)
         }
     }
 }
@@ -188,13 +197,12 @@ private struct TemplateLibraryView: View {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 20, weight: .bold))
                             .rotationEffect(.degrees(90))
-                            .foregroundStyle(Color.primary)
+                            .foregroundStyle(SettingsLook.greyed)
                             .frame(width: 48, height: 48)
-                            .background(SettingsLook.border, in: Circle())
+                            .background(SettingsLook.border.opacity(0.4), in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ItemsBareStyle())
                     .disabled(true)
-                    .opacity(0.4)
                     .accessibilityLabel("More template options")
                     .accessibilityValue("Not available yet")
                 }

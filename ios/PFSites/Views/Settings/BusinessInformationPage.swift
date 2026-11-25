@@ -14,7 +14,7 @@ struct BusinessInformationPage: View {
         // The name under the heading is the one the app already knows until the page has loaded, so nothing moves when it does.
         let name = (info?.name ?? model.site?.name ?? "").trimmed
         SettingsPage(title: "Business information", heading: "Business information",
-                     intro: name.isEmpty ? [] : [SettingsTextPart.text(name.uppercased())], introSize: 17.5,
+                     intro: name.isEmpty ? [] : [SettingsTextPart.text(name.uppercased())], introSize: 16,
                      refresh: { await loader.load(model) }) {
             VStack(alignment: .leading, spacing: 24) {
                 if let info {
@@ -32,7 +32,12 @@ struct BusinessInformationPage: View {
             // The first card starts 50 pt under the name's baseline, as it does under the photo's last line there.
             .padding(.top, 24)
             .modifier(SettingsA.WebPages(tab: $openTab) {
-                Task { await loader.load(model) }
+                Task {
+                    await loader.load(model)
+                    // A new business name shows at once on the other pages too (they take it from the app's own list, which
+                    // is otherwise read once a minute).
+                    _ = try? await model.loadSites()
+                }
             })
         }
         .settingsLoads { await loader.load(model) }
@@ -127,7 +132,7 @@ struct BusinessInformationPage: View {
                 .padding(.top, Self.titleLift)
             SettingsA.Note(parts: [
                 .text("This information appears on "),
-                .link("payment receipts", { model.shell.cover = .settingsPage(.paymentReceipts) }),
+                .plainLink("payment receipts", { model.shell.cover = .settingsPage(.paymentReceipts) }),
                 .text(" and your website. It may or may not be the same as your billing and tax-related business information."),
             ])
                 .padding(.top, 16)
@@ -172,7 +177,7 @@ struct BusinessInformationPage: View {
         return SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Logo")
                 .padding(.top, Self.titleLift)
-            SettingsA.WithButton(button: SettingsA.EditButton(symbol: has ? "pencil" : "plus", size: has ? 25 : 20, label: has ? "Change the logo" : "Add a logo", action: open), trailing: 8) {
+            SettingsA.WithButton(button: SettingsA.EditButton(symbol: has ? "pencil" : "plus", size: has ? 25 : 20, label: has ? "Change the logo" : "Add a logo", action: open), trailing: 8, lift: 17, gap: 24) {
                 SettingsA.Note(parts: [.text("Your logo appears on your website and order pages.")])
             }
             .padding(.top, 16)
@@ -234,10 +239,10 @@ struct BusinessInformationPage: View {
         return SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Privacy policy")
                 .padding(.top, Self.titleLift)
-            SettingsA.WithButton(button: SettingsA.EditButton(symbol: on ? "pencil" : "plus", size: on ? 25 : 20, label: on ? "Edit privacy policy" : "Add a privacy policy", action: { openTab = "policies" }), trailing: 8) {
+            SettingsA.WithButton(button: SettingsA.EditButton(symbol: on ? "pencil" : "plus", size: on ? 25 : 20, label: on ? "Edit privacy policy" : "Add a privacy policy", action: { openTab = "policies" }), trailing: 8, lift: 17, gap: 24) {
                 SettingsA.Note(parts: [
                     .text("Learn how to stay compliant with the "),
-                    .link("California Consumer Privacy Act (CCPA)", { UIPresenter.safari(Self.ccpa) }),
+                    .plainLink("California Consumer Privacy Act (CCPA)", { UIPresenter.safari(Self.ccpa) }),
                     .text(" and include your own privacy policy on your website."),
                 ])
             }

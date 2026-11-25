@@ -35,9 +35,44 @@ final class WebStore {
 
     func reloadAll() { live.forEach { $0.reload() } }
     func blankAll() { live.forEach { $0.blank() } }
-    func closeAll() { live.forEach { $0.close() } }
+    func closeAll() {
+        live.forEach { $0.close() }
+        leaving.removeAll()
+    }
     func networkCameBack() { live.forEach { $0.networkCameBack() } }
     func refreshVisibleIfStale() { live.filter { $0.isOnScreen }.forEach { $0.refreshIfStale() } }
+    /// The app is being put away: the pages on screen note the time, to know how long they were away when it comes back.
+    func visibleLeft() { live.filter { $0.isOnScreen }.forEach { $0.left() } }
+
+    /// Pages whose screen has just gone away are kept a few seconds more. A change made on a page is saved a moment after it
+    /// is made; a page let go the instant Back is tapped took its unsaved change with it.
+    private var leaving: [ObjectIdentifier: (page: OfficePage, stamp: UUID)] = [:]
+
+    func holdBriefly(_ page: OfficePage) {
+        let id = ObjectIdentifier(page)
+        let stamp = UUID()
+        leaving[id] = (page, stamp)
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if self?.leaving[id]?.stamp == stamp { self?.leaving.removeValue(forKey: id) }
+        }
+    }
+
+    /// The page on screen that was opened on this website page shows it again, when its own page strip has moved on to another.
+    /// A page opened from its list (an invoice or a customer being written) is left as it is: what was typed there lives only
+    /// on the page, and nobody asked for it to be thrown away.
+    func showAgain(_ tab: String) {
+        guard let page = live.first(where: { $0.isOnScreen && $0.kind == .office && $0.startPath == Config.sitePath($0.siteID, tab) }) else { return }
+        if page.failure != nil {
+            page.go(tab)
+        } else if page.tab != tab, page.parent.isEmpty, !page.tab.hasSuffix("-new"), !page.tab.hasSuffix("-edit") {
+            page.go(tab)
+        }
+    }
+
+    /// Pages that were turned away to the website's log in page and have not loaded since.
+    var hasPagesSentToLogin: Bool { live.contains { $0.loginBounces > 0 } }
+    func retryPagesSentToLogin() { live.forEach { $0.retryAfterLoginBounce() } }
 }
 
 /// Hands messages from a page to its OfficePage. The web view's content controller holds this proxy strongly and the proxy holds

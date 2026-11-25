@@ -81,7 +81,6 @@ struct CustomerOrder: Identifiable, Hashable {
     /// Open orders are still being made; closed ones are completed or cancelled.
     var isOpen: Bool { status == "new" || status == "confirmed" || status == "ready" }
     var isPaid: Bool { paidAt != nil }
-    var isCancelled: Bool { status == "cancelled" }
     /// What is paid at the counter: the total, less what a gift card paid when ordering.
     var due: Int { total - gift }
 
@@ -230,6 +229,9 @@ final class OrdersModel {
     var orders: [CustomerOrder] = []
     var loaded = false
     var loadError = ""
+    /// Why the last refresh failed while a list was already showing. The list stays, with one quiet line over it, so orders that
+    /// may be out of date are never taken for the latest (staff watch this list for new orders). It goes when a refresh works.
+    private(set) var refreshProblem = ""
     var timeZone: TimeZone = TimeZone(identifier: "America/Chicago") ?? .current
     var range: OrdersRange = .today
     var tab: OrdersTab = .closed
@@ -244,8 +246,15 @@ final class OrdersModel {
     private(set) var today = ""
 
     /// Once the person picks a tab it stays; until then the first load opens Open when there is something to do.
-    @ObservationIgnored var tabChosen = false
+    @ObservationIgnored private(set) var tabChosen = false
+    /// The first tab is settled (chosen by the app, or tapped by the person). The list is not drawn before that, so it never
+    /// shows on one tab and jumps to the other.
+    private(set) var tabSettled = false
     @ObservationIgnored private var siteLoadedAt: Date?
+    /// The short wait for the business's time zone before the first tab is chosen without it.
+    @ObservationIgnored private var zoneWait: Task<Void, Never>?
+    /// The time zone this phone remembered for the business was taken up (once).
+    @ObservationIgnored private var zoneLookedUp = false
     /// Counts the lists asked for, the last one shown and the orders changed on this phone, so a list that left the server before a
     /// newer one, or before a change made here, never replaces what is newer.
     @ObservationIgnored private var asked = 0
@@ -262,7 +271,18 @@ final class OrdersModel {
 
     // MARK: Loading
 
+    /// The business's time zone as this phone last read it, taken up before anything is worked out from "today". It is what
+    /// the first tab is chosen with when the read that refreshes it fails or is slow (Chicago's day, before); a fresh read
+    /// that arrives in time still decides, so a time zone changed on the website since is not chosen wrongly.
+    private func takeRememberedZone(_ siteID: String) {
+        guard !zoneLookedUp else { return }
+        zoneLookedUp = true
+        guard siteLoadedAt == nil, let name = UserDefaults.standard.string(forKey: Keys.zone(siteID)), let found = TimeZone(identifier: name) else { return }
+        if found.identifier != timeZone.identifier { timeZone = found }
+    }
+
     func load(siteID: String) async {
+        takeRememberedZone(siteID)
         markDay()
         asked += 1
         let ticket = asked
@@ -280,15 +300,14 @@ final class OrdersModel {
             if list != orders { orders = list }
             if !loaded { loaded = true }
             if !loadError.isEmpty { loadError = "" }
-            if !tabChosen {
-                tabChosen = true
-                tab = counts().open > 0 ? .open : .closed
-            }
+            if !refreshProblem.isEmpty { refreshProblem = "" }
+            settleFirstTab()
             AppModel.shared.setOrdersBadge(list.filter { $0.status == "new" }.count)
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
             // A failed refresh keeps the list it had; the message shows when there is nothing to show, or when this login may not see it.
             if ticket > shown, !loaded || error.status == 403 { loadError = error.message }
+            if ticket > shown, loaded, error.status != 401, error.status != 403 { refreshProblem = error.message }
         } catch {
             // Cancelled: the screen went away.
         }
@@ -302,11 +321,59 @@ final class OrdersModel {
 
     /// The business's time zone (ordering.timezone), so "Today" is the business's today. Read again at most once a minute.
     func loadSite(siteID: String, force: Bool = false) async {
+        takeRememberedZone(siteID)
         if !force, let at = siteLoadedAt, Date().timeIntervalSince(at) < 60 { return }
-        guard let answer = try? await API.get("/api/sites/\(siteID)") else { return }
+        guard let answer = try? await API.get("/api/sites/\(siteID)") else {
+            // It could not be read (not merely given up because the screen went away): the first tab is chosen with the day
+            // the app has, rather than waited for.
+            if !Task.isCancelled { chooseFirstTab() }
+            return
+        }
         siteLoadedAt = Date()
         let zone = answer["site"]["ordering"]["timezone"].string
-        if let found = TimeZone(identifier: zone), found.identifier != timeZone.identifier { timeZone = found }
+        if let found = TimeZone(identifier: zone) {
+            if found.identifier != timeZone.identifier { timeZone = found }
+            UserDefaults.standard.set(found.identifier, forKey: Keys.zone(siteID))
+        }
+        chooseFirstTab()
+    }
+
+    /// The person tapped a tab: it stays, and nothing is chosen for them any more.
+    func tabPicked() {
+        tabChosen = true
+        zoneWait?.cancel()
+        zoneWait = nil
+        if !tabSettled { tabSettled = true }
+    }
+
+    /// The list is in: the first tab is chosen now when the business's time zone has been read, and otherwise once it arrives,
+    /// for at most a second (it is asked for beside the list and usually lands with it). After that second, or when the read
+    /// fails, the choice is made with the time zone the phone remembered for the business. With Chicago's day, a business elsewhere,
+    /// in the hours when its day and Chicago's differ, settled on Closed with open orders waiting under "Open (2)".
+    private func settleFirstTab() {
+        guard !tabChosen else { return }
+        if siteLoadedAt != nil {
+            chooseFirstTab()
+            return
+        }
+        guard zoneWait == nil else { return }
+        zoneWait = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.zoneWait = nil
+            self?.chooseFirstTab()
+        }
+    }
+
+    /// The first tab, chosen once the list is in: Open when there is something to do today, else Closed.
+    private func chooseFirstTab() {
+        guard !tabChosen, loaded else { return }
+        zoneWait?.cancel()
+        zoneWait = nil
+        tabChosen = true
+        let first: OrdersTab = counts().open > 0 ? .open : .closed
+        if tab != first { tab = first }
+        if !tabSettled { tabSettled = true }
     }
 
     func replace(_ fresh: CustomerOrder) {
@@ -324,16 +391,21 @@ final class OrdersModel {
     // MARK: Actions (the website's order sheet)
 
     /// Moves an order to its next status, or cancels it. The server checks it again (a payment recorded first must be refunded).
-    func setStatus(_ order: CustomerOrder, to status: String, siteID: String) async throws -> CustomerOrder {
-        let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)", ["status": status])
+    /// `from` is the status this phone showed: when the order has moved on since (another phone, the website), the server
+    /// refuses with its own words and the list loads again, instead of an old screen moving a finished order backwards.
+    /// A change that was asked about first (Cancel order) gives the status the order had when the question was put.
+    func setStatus(_ order: CustomerOrder, to status: String, from shown: String? = nil, siteID: String) async throws -> CustomerOrder {
+        let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)", ["status": status, "from": shown ?? order.status])
         guard let fresh = CustomerOrder(answer["order"]) else { throw APIError(status: 0, message: "Something went wrong. Please try again.") }
         replace(fresh)
         return fresh
     }
 
     /// Records a payment taken at the counter (nothing is charged by this). A gift card needs its code: it pays from its balance.
+    /// The app only offers this for an order with no payment, and says so (`unpaid`): if the order was paid elsewhere in the
+    /// meantime the server refuses, instead of taking this as a change of how it was paid.
     func recordPayment(_ order: CustomerOrder, tender: String, giftCode: String? = nil, siteID: String) async throws -> CustomerOrder {
-        var body: [String: Any] = ["method": tender]
+        var body: [String: Any] = ["method": tender, "unpaid": true]
         if let giftCode { body["giftCode"] = giftCode }
         let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)/payment", body)
         guard let fresh = CustomerOrder(answer["order"]) else { throw APIError(status: 0, message: "Something went wrong. Please try again.") }
@@ -360,6 +432,13 @@ final class OrdersModel {
         }
         let last = range == .yesterday ? first : today
         return (first, calendar.date(byAdding: .day, value: 1, to: last) ?? last.addingTimeInterval(86_400))
+    }
+
+    /// The server sends the 300 newest orders. When that many came and the chosen period reaches back past the oldest of them,
+    /// the period has older orders this list does not hold: the list says so instead of looking complete.
+    var periodIsCutShort: Bool {
+        guard orders.count >= 300, let oldest = orders.map(\.createdAt).min() else { return false }
+        return span().start < oldest
     }
 
     var inRange: [CustomerOrder] {

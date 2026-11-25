@@ -36,6 +36,30 @@ final class AppointmentsModel {
 
     private static var kept: (shell: UUID, model: AppointmentsModel)?
 
+    /// The dashboard closed (Log out, Switch User): the customers' names, phone numbers and notes read for the person who was
+    /// using it are let go, instead of staying in memory until Calendar is next opened.
+    static func forget() {
+        kept = nil
+    }
+
+    /// Words for the day view to show when Create appointment has closed: "Appointment created", or why a save that was
+    /// still on its way when the form was left did not work. Only while they are news (half a minute).
+    private(set) var note: String?
+    @ObservationIgnored private var noteAt: Date?
+
+    func leave(note text: String) {
+        noteAt = Date()
+        note = text
+    }
+
+    func takeNote() -> String? {
+        guard let text = note else { return nil }
+        let fresh = noteAt.map { Date().timeIntervalSince($0) < 30 } ?? false
+        note = nil
+        noteAt = nil
+        return fresh ? text : nil
+    }
+
     /// The model of the business open now: the same one while its Shell lives, a new one after that.
     static func forShell(_ shell: UUID) -> AppointmentsModel {
         if let kept, kept.shell == shell { return kept.model }
@@ -64,9 +88,13 @@ final class AppointmentsModel {
 
     // MARK: Loading
 
-    func load(siteID: String) async {
+    /// Gives back the server's words when a refresh fails while a day is already showing: the day stays, and a pulled refresh
+    /// says why it is not fresh, instead of just ending its spinner.
+    @discardableResult
+    func load(siteID: String) async -> String? {
         generation += 1
         let mine = generation
+        var words: String? = nil
         async let names: Void = loadPeople(siteID: siteID)
         async let clock: Void = loadZone(siteID: siteID)
         do {
@@ -95,6 +123,8 @@ final class AppointmentsModel {
                 } else if !loaded {
                     // A failed refresh keeps the list it had; the message shows when there is nothing yet.
                     loadError = error.message
+                } else if error.status != 401 {
+                    words = error.message
                 }
             }
         } catch {
@@ -102,6 +132,7 @@ final class AppointmentsModel {
         }
         await names
         await clock
+        return words
     }
 
     /// Try again after the first load did not work: the message gives way to the spinner while it loads.

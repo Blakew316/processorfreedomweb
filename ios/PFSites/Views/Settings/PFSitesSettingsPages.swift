@@ -137,8 +137,9 @@ struct QuickSalePage: View {
     private func row(_ label: String, note: String) -> some View {
         VStack(alignment: .leading, spacing: 6.33) {
             HStack(spacing: 12) {
+                // A size under the paragraph above, as in the photo.
                 Text(label)
-                    .pfFont(16)
+                    .pfFont(15)
                     .foregroundStyle(SettingsLook.greyed)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityHidden(true)
@@ -198,7 +199,8 @@ struct CarbonCopyReceiptsPage: View {
         TxPlainPage(margin: 17, top: 9.67, barBottom: 11) {
             Text("Carbon copy receipts")
                 .pfFont(20, .bold, relativeTo: .title2)
-                .foregroundStyle(Color.primary)
+                // The photo's dark slate, as on Invoice number.
+                .foregroundStyle(SettingsA.value)
                 .accessibilityAddTraits(.isHeader)
             Text("We email a copy of every new order, booking request and the daily summary to the address below.")
                 .pfFont(16)
@@ -267,7 +269,11 @@ struct CarbonCopyReceiptsPage: View {
                     .transition(.opacity)
             }
         } bottom: {
-            TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: changed && valid && !saving, busy: saving, size: 13.5) { save() }
+            // "Saved" only while nothing has been changed since: with a new change waiting, the button says what it will do.
+            // A changed address that is not a whole one yet: VoiceOver hears that, not "Nothing to save" (the line under the
+            // field only shows once the keyboard is away).
+            TxSaveButton(title: savedNote && !changed ? "Saved" : "Save", enabled: changed && valid && !saving, busy: saving, size: 13.5,
+                         offReason: changed && !valid ? "Enter a valid email address" : "") { save() }
         }
         .animation(.snappy, value: problem)
         .animation(.snappy, value: settings.reloadProblem)
@@ -312,6 +318,8 @@ struct CarbonCopyReceiptsPage: View {
         let wasLoaded = settings.loaded
         await settings.load(siteID: siteID)
         guard settings.loaded, !saving else { return }
+        // A save's message does not outlive a load that worked (the connection is back, or the app was unlocked again).
+        if settings.reloadProblem.isEmpty { problem = "" }
         // What is typed stays while it differs from what was saved; otherwise the field follows the server.
         if !wasLoaded || email.trimmed == before { email = settings.notifyEmail }
     }
@@ -335,16 +343,19 @@ struct CarbonCopyReceiptsPage: View {
                 Haptics.success()
                 email = settings.notifyEmail
                 savedNote = true
+                AccessibilityNotification.Announcement("Saved").post()
                 try? await Task.sleep(nanoseconds: 1_600_000_000)
                 savedNote = false
             case .stale(let message):
                 email = settings.notifyEmail
                 problem = message
                 problemIsError = false
+                AccessibilityNotification.Announcement(message).post()
             case .failed(let message):
                 Haptics.error()
                 problem = message
                 problemIsError = true
+                AccessibilityNotification.Announcement(message).post()
             }
         }
     }

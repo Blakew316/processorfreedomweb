@@ -130,6 +130,10 @@ struct ItemsImportSheet: View {
                 Button("Done") { quantityFocused = false }
             }
         }
+        // The app locked (the session had ended): "Please sign in to continue." is not left up for after the passcode.
+        .onChange(of: model.phase) { _, now in
+            if now != .ready { problem = nil }
+        }
         .alert(problem ?? "", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
         }
@@ -212,8 +216,15 @@ struct ItemsImportSheet: View {
                 dismiss()
             case .failure(let error):
                 Haptics.error()
-                failed = replace
-                problem = error.message
+                if error.status == ItemsModel.checkStatus {
+                    // No answer came, and the list has been read again: the sheet goes, so the list is looked at before
+                    // the file is sent a second time. The list says why.
+                    items.notice = error.message
+                    dismiss()
+                } else {
+                    failed = replace
+                    problem = error.message
+                }
             }
         }
     }

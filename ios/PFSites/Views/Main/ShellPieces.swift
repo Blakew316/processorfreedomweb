@@ -28,11 +28,12 @@ struct NotificationsSheet: View {
             if page == nil, let business = model.site {
                 page = OfficePage(siteID: business.id, path: Config.sitePath(business.id, "notes"), kind: .sheet)
             }
-            model.markNotesSeen()
         }
         .onDisappear {
+            // Seen only if the page came up: opened with no connection, the notifications were not seen, and the bell keeps
+            // its dot for them.
+            if page?.lastLoaded != nil { model.markNotesSeen() }
             page?.close()
-            model.markNotesSeen()
         }
     }
 }
@@ -54,6 +55,8 @@ struct IdleWarningBanner: View {
                     .pfFont(15)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
+                    // In words for VoiceOver: "0:45" would be read out as a time of day.
+                    .accessibilityLabel("For your security, you'll be logged out in \(left >= 60 ? "1 minute" : left == 1 ? "1 second" : "\(left) seconds")")
                     .accessibilityAddTraits(.updatesFrequently)
                 Spacer(minLength: 4)
                 Button {

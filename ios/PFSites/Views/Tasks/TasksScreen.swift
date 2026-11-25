@@ -39,7 +39,8 @@ struct TasksScreen: View {
                 VStack(alignment: .leading, spacing: 0) {
                     task(title: "Get ready to take payments",
                          text: "Add items, set default taxes, and configure other important settings.", first: true) {
-                        actionButton("Begin") { path.append("tasks") }
+                        // A second tap that lands before the checklist has slid in does not open it twice.
+                        actionButton("Begin") { if path.isEmpty { path.append("tasks") } }
                     }
                     if live == false && !notNow {
                         task(title: "Create a branded website",

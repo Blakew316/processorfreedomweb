@@ -371,7 +371,7 @@ export function createApp(options = {}) {
   };
   function insertItems(siteId, items, startStock = DEFAULT_STOCK) {
     let sort = (db.get('SELECT MAX(sort) AS m FROM menu_items WHERE site_id = ?', siteId).m || 0) + 1;
-    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, restock, options, sort, cost, variable, code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, it.restock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++, Number.isInteger(it.cost) && it.cost >= 0 ? Math.min(100_000_00, it.cost) : null, it.variable === true || it.variable === 1 ? 1 : 0, cleanCode(it.code));
+    for (const it of items) db.run('INSERT INTO menu_items (id, site_id, category, name, price, description, image, available, taxable, sale, stock, restock, options, sort, cost, variable, code, mods, label, revclass, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', it.id || newId(), siteId, it.category, it.name, it.price, it.description ?? it.desc ?? '', safeImg(it.image), it.available === false || it.available === 0 ? 0 : 1, it.taxable === false || it.taxable === 0 ? 0 : 1, it.sale || 0, it.stock ?? startStock, it.restock ?? null, typeof it.options === 'string' ? it.options : JSON.stringify(cleanOptions(it.options)), sort++, Number.isInteger(it.cost) && it.cost >= 0 ? Math.min(100_000_00, it.cost) : null, it.variable === true || it.variable === 1 ? 1 : 0, cleanCode(it.code), typeof it.mods === 'string' ? it.mods : null, str(it.label, 40), str(it.revclass, 40), str(it.color, 9));
   }
   // A promo code is either one the merchant created or an unused loyalty reward.
   function promoFor(site, ordering, code) {
@@ -1732,7 +1732,16 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/sites/:id/appointments', async (req, res, p) => {
     const { site } = ownSite(req, p.id, 'kitchen');
-    json(res, 201, { appointment: makeAppt(site, orderingOf(site), await readJson(req), false) });
+    const b = await readJson(req);
+    // A caller can name its save (the iPhone app does). When the answer to a save is lost on the way back and the same save is sent
+    // again, the appointment it already made is returned instead of a second one being booked. Nothing between this check and the
+    // insert waits, so two copies arriving together cannot both get past it.
+    const key = str(b.key, 64).trim();
+    const made = key && db.get('SELECT * FROM appointments WHERE site_id = ? AND client_key = ?', site.id, key);
+    if (made) return json(res, 200, { appointment: toAppt(made) });
+    const appointment = makeAppt(site, orderingOf(site), b, false);
+    if (key) db.run('UPDATE appointments SET client_key = ? WHERE id = ?', key, appointment.id);
+    json(res, 201, { appointment });
   });
   route('POST', '/api/sites/:id/appointments/:appt', async (req, res, p) => {
     const { site } = ownSite(req, p.id, 'kitchen');
@@ -2069,6 +2078,9 @@ export function createApp(options = {}) {
       const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
       // A cancelled order has given its money back, so a payment recorded from a screen that had not caught up is refused.
       if (o.status === 'cancelled') bad(409, 'This order was cancelled, so no payment can be recorded for it.');
+      // The caller's screen showed the order unpaid (the iPhone app's Record payment): once it has been paid elsewhere, the payment is
+      // refused instead of being taken as a change of how it was paid. The back office's own change of tender does not say this.
+      if (b.unpaid === true && o.paid_at) bad(409, `This order was already paid by ${String(o.paid_method || 'Other').toLowerCase()} on another screen. Check it before recording anything else.`);
       if (role === 'kitchen' && o.paid_at && method !== o.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
       if (method === 'Gift card' && !o.paid_at) {
         // Paid at the counter with a gift card: the card has to cover what is due, and pays it now.
@@ -2280,10 +2292,53 @@ export function createApp(options = {}) {
     if (!adding.length) bad(400, skipped[0]?.reason || 'No items were found in the file.');
     const existing = b.replace ? 0 : db.get('SELECT COUNT(*) AS n FROM menu_items WHERE site_id = ?', site.id).n;
     const room = Math.max(0, 1000 - existing);
+    let going = adding.slice(0, room);
+    if (b.replace) {
+      // Replacing makes the menu what the file says: items it does not name go, new ones are added. An item it names again (the same
+      // product code, or else the same name) is still that item, so it keeps its id and everything the file has no column for: its
+      // sale, options and sizes, modifier groups, colour, daily refill, label and revenue class, an uploaded photo, and whether it is
+      // hidden. Otherwise downloading the item list, changing a few prices in a spreadsheet and sending it back would quietly strip
+      // all of that from every item.
+      const has = new Set(Array.isArray(b.items) ? ['category', 'name', 'price', 'desc'] : parsed.columns || []);
+      const low = (v) => String(v || '').trim().toLowerCase();
+      const byCode = new Map(), byPlace = new Map(), byName = new Map(), used = new Set();
+      const put = (map, key, row) => { if (!map.has(key)) map.set(key, []); map.get(key).push(row); };
+      for (const row of db.all('SELECT * FROM menu_items WHERE site_id = ? ORDER BY sort, rowid', site.id)) {
+        const key = normalizeCode(row.code);
+        if (key) put(byCode, key, row);
+        put(byPlace, `${low(row.category)}\n${low(row.name)}`, row);
+        put(byName, low(row.name), row);
+      }
+      const free = (list) => (list || []).filter((row) => !used.has(row.id));
+      const before = (it) => {
+        const key = normalizeCode(it.code), sameName = free(byName.get(low(it.name)));
+        // By name alone only when one item has that name (its category was changed in the file).
+        const row = (key && free(byCode.get(key))[0]) || free(byPlace.get(`${low(it.category)}\n${low(it.name)}`))[0] || (sameName.length === 1 ? sameName[0] : undefined);
+        if (row) used.add(row.id);
+        return row;
+      };
+      going = going.map((it) => {
+        const row = before(it);
+        if (!row) return it;
+        return {
+          ...it, id: row.id,
+          category: has.has('category') ? it.category : row.category,
+          desc: has.has('desc') ? it.desc : row.description,
+          image: it.image || row.image,
+          available: has.has('available') ? it.available : !!row.available,
+          taxable: has.has('taxable') ? it.taxable : row.taxable !== 0,
+          cost: has.has('cost') ? it.cost : row.cost,
+          variable: has.has('variable') ? it.variable : it.variable || !!row.variable,
+          code: has.has('code') || has.has('sku') ? it.code : row.code,
+          stock: it.stock ?? row.stock ?? undefined,
+          sale: row.sale || 0, restock: row.restock ?? null, options: row.options || '[]', mods: row.mods, label: row.label, revclass: row.revclass, color: row.color,
+        };
+      });
+    }
     db.raw.exec('BEGIN');
     try {
       if (b.replace) db.run('DELETE FROM menu_items WHERE site_id = ?', site.id);
-      insertItems(site.id, adding.slice(0, room), b.startStock === undefined ? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.startStock)) || 0)));
+      insertItems(site.id, going, b.startStock === undefined ? DEFAULT_STOCK : Math.max(0, Math.min(999999, Math.round(Number(b.startStock)) || 0)));
       db.raw.exec('COMMIT');
     } catch (e) { db.raw.exec('ROLLBACK'); throw e; }
     json(res, 200, { imported: Math.min(room, adding.length), skipped, items: menuOf(site.id) });
@@ -2685,12 +2740,18 @@ export function createApp(options = {}) {
 
   route('POST', '/api/sites/:id/orders/:order', async (req, res, p) => {
     const { site, user } = ownSite(req, p.id, 'kitchen');
-    const status = str((await readJson(req)).status, 20);
+    const body = await readJson(req);
+    const status = str(body.status, 20);
+    // The status the screen showed when the button was pressed, when the caller says.
+    const from = str(body.from, 20);
     if (!Object.hasOwn(ORDER_STATUSES, status)) bad(400, 'Unknown status.');
     // Read now the body is here, and changed only from the status read, so two taps on Cancel can never return the stock twice.
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     if (status !== row.status) {
       if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
+      // The order moved on since that screen was drawn (another phone, the kitchen screen): an old screen does not move it again,
+      // which could take a completed order back to confirmed and email the customer a second time.
+      if (Object.hasOwn(ORDER_STATUSES, from) && from !== row.status) bad(409, `This order changed on another screen: it is now ${ORDER_STATUSES[row.status].toLowerCase()}. Check it, then try again.`);
       const by = staffName(site, user), byId = user.id, now = Date.now();
       // Money taken at the counter is refunded first, so the books never keep a payment for an order that did not happen.
       // A gift card is given back by cancelling.
@@ -3020,6 +3081,16 @@ export function createApp(options = {}) {
         if (!(start <= end) || start >= buf.length) { send(res, 416, '', { 'Content-Range': `bytes */${buf.length}` }); return true; }
         send(res, 206, buf.subarray(start, end + 1), { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${buf.length}`, ...headers });
         return true;
+      }
+      // A fingerprint of the file as it is now. A browser that already has the file (and every back-office page inside the iPhone
+      // app, which loads the scripts and styles afresh each time it opens) asks "still this one?" and gets a short yes instead of
+      // the whole file again. Files sent with no-cache are asked about on every load, so a new build is still picked up at once.
+      // (Not for very large files: they are asked for in pieces, above.)
+      if (buf.length <= 2_000_000) {
+        const tag = `W/"${createHash('sha1').update(buf).digest('base64url').slice(0, 22)}"`;
+        const asked = String(res.req.headers['if-none-match'] || '');
+        if (asked.split(',').some((t) => t.trim() === tag)) { send(res, 304, '', { ETag: tag, Vary: 'Accept-Encoding', ...headers }); return true; }
+        headers = { ETag: tag, ...headers };
       }
       // Text files travel compressed. The squeezed copy is kept, so the work is done once per file.
       if (/^(text\/|application\/(json|xml|manifest\+json)|image\/svg)/.test(type) && buf.length > 1400 && /\bgzip\b/.test(String(res.req.headers['accept-encoding'] || ''))) {

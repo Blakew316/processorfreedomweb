@@ -81,6 +81,11 @@ struct AppointmentsScreen: View {
                 started = true
                 list.startOnToday()
             }
+            if let note = list.takeNote() { show(note) }
+        }
+        // Words left by Create appointment after this screen was already back (a save that failed once the form was left).
+        .onChange(of: list.note) { _, _ in
+            if let note = list.takeNote() { show(note) }
         }
         // Runs each time the day view comes into sight (also back from Create appointment), and again when the app comes back.
         .task(id: PollKey(active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
@@ -285,7 +290,7 @@ struct AppointmentsScreen: View {
                 .padding(.bottom, 32)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .refreshable { await refresh() }
+            .refreshable { await refresh(pulled: true) }
         }
     }
 
@@ -376,15 +381,19 @@ struct AppointmentsScreen: View {
     private func poll() async {
         guard scenePhase == .active, model.phase == .ready, let business = model.site else { return }
         let shown = list
+        // The first read after coming back takes an earlier failure's message away while it tries again.
+        await shown.retry(siteID: business.id)
         while !Task.isCancelled {
-            await shown.load(siteID: business.id)
             try? await Task.sleep(nanoseconds: 60_000_000_000)
+            guard !Task.isCancelled else { return }
+            await shown.load(siteID: business.id)
         }
     }
 
-    private func refresh() async {
+    /// A pulled refresh that fails says why, so a day that could not be read again is not taken for the latest.
+    private func refresh(pulled: Bool = false) async {
         guard let business = model.site else { return }
-        await list.load(siteID: business.id)
+        if let words = await list.load(siteID: business.id), pulled { show(words) }
     }
 
     private func retry() async {

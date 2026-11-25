@@ -149,7 +149,7 @@ struct ScannerSurface: View {
     private func take(_ codes: [String], fresh: Bool) {
         let now = Date()
         for code in codes {
-            let isNew = gate.pass(code, at: now)
+            let isNew = gate.pass(code, at: now, held: paused)
             if fresh && isNew && !paused { onRead(code) }
         }
     }

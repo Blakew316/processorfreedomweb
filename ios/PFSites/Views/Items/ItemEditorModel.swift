@@ -129,6 +129,11 @@ final class ItemEditorModel {
         return nil
     }
 
+    /// That field's message, for VoiceOver to say when a save is refused.
+    var firstProblemText: String {
+        [nameProblem, priceProblem, costProblem, codeProblem, stockProblem].first { !$0.isEmpty } ?? ""
+    }
+
     /// What customers pay while a sale is on, in the website's words (or how to have no sale).
     var saleLine: String {
         guard draft.sale > 0, let price = ItemsMoney.parse(draft.priceText) else { return "Leave empty for no sale." }
@@ -246,11 +251,29 @@ final class ItemEditorModel {
     /// Saves the item. True when everything was saved; otherwise what went wrong is shown by the field it is about, or given back
     /// for a message when it is about none of them.
     func save(_ model: AppModel, items: ItemsModel) async -> (saved: Bool, message: String?) {
-        guard !saving, let business = model.site else { return (false, nil) }
-        guard var payload = body() else { return (false, nil) }
+        guard !saving, model.site != nil else { return (false, nil) }
         saving = true
         defer { saving = false }
+        // A new item sent a moment ago got no answer, and the list could not be read then: it is looked for now, before
+        // anything is sent again. Without the list nothing is sent, so the item is never made a second time unseen.
+        if itemID == nil, let pending = unanswered {
+            guard await items.reread(model) else { return (false, ItemsModel.notChecked) }
+            unanswered = nil
+            adoptMade(pending, items: items)
+        }
+        return await send(model, items: items)
+    }
+
+    /// A new item that was sent and got no answer, for when the list could not be read straight afterwards: the items there
+    /// were before it, and its name.
+    @ObservationIgnored private var unanswered: (known: Set<String>, name: String)?
+
+    private func send(_ model: AppModel, items: ItemsModel) async -> (saved: Bool, message: String?) {
+        guard let business = model.site else { return (false, nil) }
+        guard var payload = body() else { return (false, nil) }
         let wanted = draft
+        // The items there were before a new one was sent, to find it again if its answer never comes.
+        var known: Set<String>?
         do {
             let savedID: String
             if let id = itemID {
@@ -260,6 +283,7 @@ final class ItemEditorModel {
                 savedID = id
             } else {
                 let before = Set(items.items.map(\.id))
+                known = before
                 let answer = try await API.post("/api/sites/\(business.id)/menu", payload)
                 items.take(answer)
                 // The new item is the one the list did not have; the server adds it at the end.
@@ -297,10 +321,33 @@ final class ItemEditorModel {
                 stockProblem = error.message
                 return (false, nil)
             }
+            // A new item was sent and no answer came: it may have been made all the same. The list is read again (briefly).
+            if error.status == 0, itemID == nil, let known {
+                let pending = (known: known, name: wanted.name.trimmed)
+                if await items.reread(model) {
+                    // It is there: the rest of the save (modifier groups, a label, the colour) goes on from that item, and
+                    // the page closes on "Item added" as if the answer had come.
+                    if adoptMade(pending, items: items) { return await send(model, items: items) }
+                } else {
+                    // Not known yet: the next Save looks before it sends anything.
+                    unanswered = pending
+                }
+            }
             return (false, place(error.message))
         } catch {
             return (false, nil)
         }
+    }
+
+    /// An item that is in the list now, was not before the save, and has the name that was sent is the one this page made:
+    /// from here on Save changes that item instead of making a second copy of it. False when there is no such item, or more
+    /// than one.
+    @discardableResult
+    private func adoptMade(_ pending: (known: Set<String>, name: String), items: ItemsModel) -> Bool {
+        let made = items.items.filter { !pending.known.contains($0.id) && $0.name == pending.name }
+        guard made.count == 1, let item = made.first else { return false }
+        adopt(item.id, items: items, keepDraft: true)
+        return itemID == item.id
     }
 
     /// From here on this editor is for the saved item, so trying again never sends an old stock count or a second new item. With

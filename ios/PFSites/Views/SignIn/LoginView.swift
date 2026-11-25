@@ -16,6 +16,16 @@ struct LoginView: View {
 
     /// The Log in button with the space under it, for bringing it above the keyboard.
     private static let buttonID = "log-in-button"
+    private static let pageSpace = "log-in-page"
+    /// The photo's 94 pt between the brand row and "Log in", and the least it closes up to while the keyboard is up.
+    private static let fullGap: CGFloat = 94
+    private static let leastGap: CGFloat = 28
+    /// That gap now. With the keyboard up on a phone too short to show the Log in button above it, the gap closes by what is
+    /// missing, so the button comes into view and the brand row stays where it is. (The page used to be scrolled up instead,
+    /// which parked the brand row inside the top bar, where it showed through as a smear behind the back button and the title.)
+    @State private var gap: CGFloat = LoginView.fullGap
+    /// The bottom of the Log in button with the space under it, measured in the page.
+    @State private var buttonBottom: CGFloat = 0
 
     var body: some View {
         @Bindable var auth = model.auth
@@ -29,9 +39,9 @@ struct LoginView: View {
                             .padding(.leading, 16)
 
                         VStack(alignment: .leading, spacing: 0) {
-                            if !auth.note.isEmpty {
+                            if !note.isEmpty {
                                 // After "Forgot passcode?" or the like: what happens after signing in.
-                                Text(auth.note)
+                                Text(note)
                                     .pfFont(15)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -44,6 +54,7 @@ struct LoginView: View {
                             Text("Email")
                                 .pfFont(14.2)
                                 .padding(.top, 19)
+                                .accessibilityHidden(true)
                             SignInField(focused: focus == .email) {
                                 TextField("", text: $auth.email)
                                     .textContentType(.username)
@@ -60,6 +71,7 @@ struct LoginView: View {
                             Text("Password")
                                 .pfFont(14.2)
                                 .padding(.top, 19)
+                                .accessibilityHidden(true)
                             SignInField(focused: focus == .password) {
                                 HStack(spacing: 8) {
                                     Group {
@@ -101,7 +113,6 @@ struct LoginView: View {
                                     .foregroundStyle(Theme.error)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .padding(.top, 10)
-                                    .accessibilityAddTraits(.updatesFrequently)
                             }
 
                             Button {
@@ -119,6 +130,7 @@ struct LoginView: View {
                             .padding(.top, 20)
                             .padding(.bottom, 12)
                             .id(Self.buttonID)
+                            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.pageSpace)).maxY } action: { buttonBottom = $0 }
 
                             Text("New user or forgot your password?")
                                 .pfFont(16.1)
@@ -130,9 +142,10 @@ struct LoginView: View {
                             .padding(.top, 3)
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 94)
+                        .padding(.top, gap)
                         // A message coming or going moves the button under it smoothly.
                         .animation(.snappy(duration: 0.25), value: auth.error)
+                        .animation(.snappy(duration: 0.25), value: note)
 
                         Spacer(minLength: 40)
 
@@ -148,10 +161,19 @@ struct LoginView: View {
                         }
                     }
                     .frame(minHeight: geometry.size.height)
+                    .coordinateSpace(.named(Self.pageSpace))
                 }
                 .scrollDismissesKeyboard(.interactively)
-                // Once the keyboard is up for a field, the Log in button is brought above it as well, so the next step is never
-                // under the keyboard (on a phone tall enough to show it already, nothing moves).
+                // The keyboard came or went, a message moved the button, or a field was left: the gap is worked out again.
+                .onChange(of: geometry.size.height) { _, visible in settle(visible) }
+                .onChange(of: buttonBottom) { _, _ in settle(geometry.size.height) }
+                .onChange(of: focus) { _, _ in settle(geometry.size.height) }
+                // A password shown while it is typed goes to the server exactly as typed: iOS's smart punctuation (curly quotes,
+                // a dash for two hyphens) is switched off for that field once it is the one being typed in.
+                .onChange(of: focus) { _, _ in typePlainly() }
+                .onChange(of: showPassword) { _, _ in typePlainly() }
+                // On a phone too short even for that, the rest is done by scrolling, once the keyboard is up (on a phone tall
+                // enough to show the button already, nothing moves).
                 .onChange(of: focus) { _, field in
                     guard field != nil else { return }
                     Task {
@@ -173,11 +195,52 @@ struct LoginView: View {
                 focus = .email
             }
         }
+        // Why the app came back to Log in ("Your session ended. Please sign in again.", "Sign in again on this device.", the
+        // line after "Forgot passcode?") arrives together with the screen, so VoiceOver is told once the screen has settled:
+        // an announcement made while the screen is still changing is lost under it.
+        .task {
+            let words = model.auth.error.isEmpty ? note : model.auth.error
+            guard !words.isEmpty else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard (model.auth.error.isEmpty ? note : model.auth.error) == words else { return }
+            AccessibilityNotification.Announcement(words).post()
+        }
+    }
+
+    /// The line above the form. "After you sign in, you'll make a new passcode." is for the person who tapped "Forgot
+    /// passcode?": once another email is typed it no longer holds (that person types the passcode they have), so it goes.
+    private var note: String {
+        let auth = model.auth
+        if auth.forgotPasscode, !auth.forgot(for: auth.email) { return "" }
+        return auth.note
+    }
+
+    /// See `PlainTyping`. The field takes over as the one being typed in a moment after the eye is tapped or the field is
+    /// touched, so it is looked for then, and once more a little later.
+    private func typePlainly() {
+        guard showPassword, focus == .password else { return }
+        Task {
+            for wait: UInt64 in [120_000_000, 400_000_000] {
+                try? await Task.sleep(nanoseconds: wait)
+                guard showPassword, focus == .password else { return }
+                PlainTyping.applyToFieldInUse()
+            }
+        }
     }
 
     private var canSubmit: Bool {
         let auth = model.auth
         return !auth.busy && !auth.email.trimmed.isEmpty && !auth.password.isEmpty
+    }
+
+    /// Closes the gap above "Log in" by what the Log in button lacks to show above the keyboard, and opens it again when the
+    /// keyboard has gone. `visible` is the page's height on screen, which the keyboard shortens.
+    private func settle(_ visible: CGFloat) {
+        guard buttonBottom > 0, visible > 0 else { return }
+        let rest = buttonBottom - gap
+        let wanted = focus == nil ? Self.fullGap : min(Self.fullGap, max(Self.leastGap, visible - rest))
+        guard abs(wanted - gap) > 0.5 else { return }
+        withAnimation(.snappy(duration: 0.25)) { gap = wanted }
     }
 
     private func logIn() {
@@ -192,13 +255,24 @@ struct LoginView: View {
             let outcome = await model.logIn(email: email, password: password)
             auth.busy = false
             switch outcome {
-            case .success:
+            case .success, .left:
                 break
             case .needsCode(let error):
                 auth.took(error)
+                // "Enter the code we texted you" is a plain 401. Anything else with the code step's flags is a refusal (the text
+                // could not be sent, or one was asked for too soon): the code step says so, where the ways to get a code are,
+                // instead of reading as if a code were on its way.
+                auth.codeProblem = error.status == 401 ? "" : error.message
                 // Only from this screen: if it was left with Back while the answer was on its way, the code step is not
                 // pushed onto Welcome.
-                if auth.path.last == .login { auth.path.append(.twoStep) }
+                if auth.path.last == .login {
+                    // The code step sends this password again with the code. The field here is emptied, so coming back from
+                    // that step (Cancel) does not leave a password the server has just accepted waiting behind the eye button.
+                    auth.sentPassword = password
+                    auth.password = ""
+                    showPassword = false
+                    auth.path.append(.twoStep)
+                }
             case .failed(let message):
                 auth.error = message
                 Haptics.error()

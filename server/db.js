@@ -205,6 +205,8 @@ export function openDb(dataDir) {
   // What part of an appointment was taxed, and at what rate, so the Taxes report shows it as it was charged.
   addColumn('appointments', 'taxable', 'INTEGER');
   addColumn('appointments', 'tax_rate', 'REAL');
+  // The name a caller gave its save, so the same save sent twice (its first answer was lost) makes one appointment.
+  addColumn('appointments', 'client_key', "TEXT NOT NULL DEFAULT ''");
   // An invoice's ledger rows keep the taxable part of its sales and its rate, so a later change to the invoice never restates a
   // reported day. Rows written before this was kept take them once from the invoice as it is now, rounded the same either side of zero.
   addColumn('money_log', 'taxable', 'INTEGER');

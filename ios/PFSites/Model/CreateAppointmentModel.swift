@@ -247,6 +247,9 @@ final class CreateAppointmentModel {
     /// The owner and the team, by the names the business knows them by.
     var people: [String] = []
     var customers: [CreateAppointmentCustomer] = []
+    /// The customers have been read at least once. Until then a search that shows nothing only means the list is not here yet,
+    /// which looked exactly like "no such customer": staff then added a saved customer again as new.
+    var customersLoaded = false
     var customersError = ""
     /// Reading the customers again may work (the phone was offline, the server was busy); false when this login may not read them.
     var customersRetry = false
@@ -283,6 +286,9 @@ final class CreateAppointmentModel {
     /// The appointment is on the server: this form is finished, and nothing can send it a second time.
     var saved = false
 
+    /// The name of this form's save. The server makes one appointment for it however often it arrives, so pressing Save again
+    /// after an answer that never came back (a dropped connection, a gateway time-out) cannot book the appointment twice.
+    @ObservationIgnored private let saveKey = UUID().uuidString
     /// A date or time that came with the screen, was picked, or was found stays; otherwise they follow the business's clock.
     @ObservationIgnored private var dateChosen = false
     @ObservationIgnored private var timeChosen = false
@@ -348,7 +354,9 @@ final class CreateAppointmentModel {
             let rate = (ordering["taxRate"].raw as? NSNumber)?.doubleValue ?? Double(ordering["taxRate"].string) ?? 0
             if rate != taxRate { taxRate = rate.isFinite ? rate : 0 }
             if let business = TimeZone(identifier: ordering["timezone"].string), business.identifier != zone.identifier { zone = business }
-            fillClock()
+            // Once, when the business's clock is first known. A later reload (back from another app, an unlock, a pull) leaves
+            // the date and time as the person last saw them, instead of moving them on to the next half hour unseen.
+            if !siteLoaded { fillClock() }
             if !siteLoaded { siteLoaded = true }
             if !loadError.isEmpty { loadError = "" }
         } catch let error as APIError {
@@ -373,7 +381,14 @@ final class CreateAppointmentModel {
         if names != people { people = names }
     }
 
-    /// The customers to search. Also what Try again under the search runs.
+    /// Try again under the search, after the customers could not be read: the message goes and the wait shows until the answer
+    /// comes (the old message used to stay up while it tried, so offline the tap looked dead).
+    func reloadCustomers(_ siteID: String) async {
+        if !customersLoaded, !customersError.isEmpty { customersError = "" }
+        await loadCustomers(siteID)
+    }
+
+    /// The customers to search.
     func loadCustomers(_ siteID: String) async {
         do {
             let answer = try await API.get("/api/sites/\(siteID)/customers")
@@ -382,10 +397,13 @@ final class CreateAppointmentModel {
             }
             if list != customers { customers = list }
             if !customersError.isEmpty { customersError = "" }
+            if !customersLoaded { customersLoaded = true }
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            // The website treats a list it cannot read as no customers; the server's words show under the search.
-            if customers.isEmpty {
+            // The website treats a list it cannot read as no customers; the server's words show under the search. Only while
+            // no list has been read: one read before stays as it is, an empty one too (a business with no customers yet used to
+            // get the message after a failed refresh, and a Try again that could not show its wait).
+            if !customersLoaded {
                 customersError = error.message
                 // A 403 is this login's answer, and the same every time.
                 customersRetry = !error.forbidden
@@ -410,6 +428,13 @@ final class CreateAppointmentModel {
         } catch {
             // Cancelled: the screen went away.
         }
+    }
+
+    /// Try again in Appointment History, after the appointments could not be read: the wait shows until the answer comes
+    /// (a failure puts the server's words back).
+    func reloadAppointments(_ siteID: String) async {
+        if !appointmentsLoaded, !appointmentsError.isEmpty { appointmentsError = "" }
+        await loadAppointments(siteID)
     }
 
     /// Try again in Add inventory item, after the items could not be read: the wait shows until the answer comes.
@@ -595,16 +620,22 @@ final class CreateAppointmentModel {
     /// Services are taxed, and so are items unless their sales tax is off.
     var taxedSubtotal: Int { servicesSum + lines.reduce(0) { $0 + ($1.taxable ? $1.price * $1.qty : 0) } }
 
+    /// The discount as it counts: never more than the subtotal. It is checked against the subtotal when it is entered, but an
+    /// item or a service taken away afterwards, or a price lowered, can leave less than the discount to take it from. It then
+    /// counted in full and ate the service charge as well ($40.00 less $100.00 plus $15.00 came to $0.00, not $15.00). What
+    /// was typed is kept, and counts in full again once the subtotal covers it.
+    var discountApplied: Int { max(0, min(discount, subtotal)) }
+
     /// What is taxed after the discount, which is shared across what is taxed and what is not.
     var taxable: Int {
         let sub = subtotal, taxed = taxedSubtotal
-        let share = sub != 0 ? CreateAppointmentPrice.roundToInt(Double(discount * taxed) / Double(sub)) : 0
+        let share = sub != 0 ? CreateAppointmentPrice.roundToInt(Double(discountApplied * taxed) / Double(sub)) : 0
         return max(0, taxed - share)
     }
 
     var tax: Int { CreateAppointmentPrice.roundToInt(Double(taxable) * taxRate / 100) }
 
-    var total: Int { max(0, subtotal - discount + charge + tax) }
+    var total: Int { max(0, subtotal - discountApplied + charge + tax) }
 
     /// The discount can be at most the subtotal; the website's message when more was asked for.
     func setDiscount(_ cents: Int) -> String? {
@@ -636,7 +667,8 @@ final class CreateAppointmentModel {
 
     /// The website's ready(): a customer, a service, a date and a time.
     var ready: Bool {
-        let who = customer != nil || (newCustomer && (!firstName.isEmpty || !lastName.isEmpty))
+        // A name of spaces only is no name (the server would refuse it).
+        let who = customer != nil || (newCustomer && (!firstName.trimmed.isEmpty || !lastName.trimmed.isEmpty))
         return who && services.contains { !$0.name.trimmed.isEmpty } && !date.isEmpty && !time.isEmpty
     }
 
@@ -674,6 +706,7 @@ final class CreateAppointmentModel {
             "total": total,
             "tax": tax,
             "taxable": taxable,
+            "key": saveKey,
         ]
         do {
             if customer == nil {

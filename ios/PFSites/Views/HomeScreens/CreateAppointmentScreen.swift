@@ -329,11 +329,19 @@ struct CreateAppointmentScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if form.customersRetry {
                     CreateAppointmentLink(title: "Try again", underlined: false) {
-                        retry { await form.loadCustomers($0) }
+                        retry { await form.reloadCustomers($0) }
                     }
                 }
             }
             .padding(.top, 10)
+        } else if !form.query.isEmpty && !form.customersLoaded {
+            // The list is still being read: the wait, as Appointment History shows it, instead of the nothing that "no such
+            // customer" also looks like.
+            ProgressView()
+                .tint(Theme.blue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 12)
+                .accessibilityLabel("Loading customers")
         }
     }
 
@@ -376,17 +384,18 @@ struct CreateAppointmentScreen: View {
     private var newCustomerFields: some View {
         @Bindable var draft = form
         return VStack(alignment: .leading, spacing: 0) {
-            typedField("First name", text: $draft.firstName, field: .firstName, kind: .givenName, keyboard: .default, capitals: .words)
-            typedField("Last name", text: $draft.lastName, field: .lastName, kind: .familyName, keyboard: .default, capitals: .words)
+            typedField("First name", text: $draft.firstName, field: .firstName, next: .lastName, kind: .givenName, keyboard: .default, capitals: .words)
+            typedField("Last name", text: $draft.lastName, field: .lastName, next: .email, kind: .familyName, keyboard: .default, capitals: .words)
                 .padding(.top, 24.67)
-            typedField("Email address", text: $draft.email, field: .email, kind: .emailAddress, keyboard: .emailAddress, capitals: .never)
+            typedField("Email address", text: $draft.email, field: .email, next: .phone, kind: .emailAddress, keyboard: .emailAddress, capitals: .never)
                 .padding(.top, 24.67)
-            typedField("Phone number", text: $draft.phone, field: .phone, kind: .telephoneNumber, keyboard: .phonePad, capitals: .never)
+            typedField("Phone number", text: $draft.phone, field: .phone, next: nil, kind: .telephoneNumber, keyboard: .phonePad, capitals: .never)
                 .padding(.top, 24.67)
         }
     }
 
-    private func typedField(_ label: String, text: Binding<String>, field: CreateAppointmentFocus, kind: UITextContentType, keyboard: UIKeyboardType, capitals: TextInputAutocapitalization) -> some View {
+    /// `next` is the field the keyboard's Next goes to (the keyboard closes after the last one).
+    private func typedField(_ label: String, text: Binding<String>, field: CreateAppointmentFocus, next: CreateAppointmentFocus?, kind: UITextContentType, keyboard: UIKeyboardType, capitals: TextInputAutocapitalization) -> some View {
         VStack(alignment: .leading, spacing: CreateAppointmentLook.labelGap) {
             CreateAppointmentLabel(text: label)
             TextField("", text: text)
@@ -396,6 +405,8 @@ struct CreateAppointmentScreen: View {
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(capitals)
                 .autocorrectionDisabled()
+                .submitLabel(next == nil ? .done : .next)
+                .onSubmit { focus = next }
                 .focused($focus, equals: field)
                 .accessibilityLabel(label)
                 .padding(.horizontal, CreateAppointmentFieldBox.inset)
@@ -574,6 +585,7 @@ struct CreateAppointmentScreen: View {
                     findAvailability()
                 }
                 .disabled(finding)
+                .accessibilityValue(finding ? "In progress" : "")
             }
             .padding(.top, 35.67)
 
@@ -717,6 +729,9 @@ struct CreateAppointmentScreen: View {
     private func found(_ time: Bool) {
         if time {
             Haptics.light()
+            // The date and time fields further down changed without a word: VoiceOver is told which time was found.
+            let words = "Next open time: \(CreateAppointmentClock.longDay(form.date)), \(CreateAppointmentClock.clock(form.time))"
+            AccessibilityNotification.Announcement(words).post()
         } else {
             Haptics.error()
             say(CreateAppointmentModel.noOpenTimes)
@@ -898,10 +913,10 @@ struct CreateAppointmentScreen: View {
                     sheet = .amount(.discount)
                 }
                 Spacer(minLength: 8)
-                Text("-" + Money.format(form.discount))
+                Text("-" + Money.format(form.discountApplied))
                     .pfFont(16)
                     .foregroundStyle(CreateAppointmentLook.red)
-                    .accessibilityLabel("Discount \(Money.format(form.discount))")
+                    .accessibilityLabel("Discount \(Money.format(form.discountApplied))")
             }
             .padding(.top, 13.67)
             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -1000,7 +1015,7 @@ struct CreateAppointmentScreen: View {
                             .foregroundStyle(SettingsLook.muted)
                             .fixedSize(horizontal: false, vertical: true)
                         CreateAppointmentLink(title: "Try again", underlined: false) {
-                            retry { await form.loadAppointments($0) }
+                            retry { await form.reloadAppointments($0) }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1091,13 +1106,24 @@ struct CreateAppointmentScreen: View {
         model.idle.touch()
         Task {
             do {
-                // Saved after the screen was left with Back: the appointment stands, and nothing else is closed.
-                if try await form.save(siteID: business.id), !closed {
-                    Haptics.success()
-                    dismiss()
+                let day = AppointmentsModel.forShell(model.shellID)
+                if try await form.save(siteID: business.id) {
+                    // The day view says so, in the website's words: the form opens on today whatever day was showing, so
+                    // without them a booking for another day closes onto a day with nothing new on it.
+                    day.leave(note: "Appointment created")
+                    // Saved after the screen was left with Back: the appointment stands, and nothing else is closed.
+                    if !closed {
+                        Haptics.success()
+                        dismiss()
+                    }
                 }
             } catch let error as APIError {
-                guard !closed else { return }
+                guard !closed else {
+                    // Left with Back before the answer came: the day view says why the appointment was not made, instead
+                    // of nothing saying so anywhere. (A session that ended is said by the lock screen.)
+                    if error.status != 401 { AppointmentsModel.forShell(model.shellID).leave(note: error.message) }
+                    return
+                }
                 Haptics.error()
                 problem = error.message
             } catch {
@@ -1136,7 +1162,7 @@ struct CreateAppointmentScreen: View {
                     add { form.addCustom(name: name, price: cents) }
                 }
             case .discount:
-                CreateAppointmentAmountSheet(title: "Order discount", question: "Amount off", allowsZero: true, start: form.discount) { cents, _ in
+                CreateAppointmentAmountSheet(title: "Order discount", question: "Amount off", allowsZero: true, start: form.discountApplied) { cents, _ in
                     if let message = form.setDiscount(cents) { pendingProblem = message }
                 }
             case .charge:

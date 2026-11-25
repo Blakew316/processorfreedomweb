@@ -12,6 +12,8 @@ struct OrderDetailView: View {
     @State private var working = false
     @State private var problem: String?
     @State private var confirmCancel = false
+    /// The order's status when "Cancel order?" was put.
+    @State private var cancelAsked: String?
     @State private var choosingTender = false
     @State private var askingGiftCode = false
     @State private var giftCode = ""
@@ -72,7 +74,7 @@ struct OrderDetailView: View {
         }
         .alert(cancelTitle, isPresented: $confirmCancel) {
             Button("Cancel", role: .cancel) {}
-            Button("Cancel order", role: .destructive) { change(to: "cancelled") }
+            Button("Cancel order", role: .destructive) { change(to: "cancelled", asked: cancelAsked) }
         } message: {
             Text(cancelText)
         }
@@ -103,6 +105,8 @@ struct OrderDetailView: View {
                 let code = giftCode.trimmed
                 if !code.isEmpty { pay("Gift card", giftCode: code) }
             }
+            // Without a code there is nothing to pay with: the button waits, instead of closing the question and doing nothing.
+            .disabled(giftCode.trimmed.isEmpty)
             Button("Cancel", role: .cancel) {}
         }
         .alert(problem ?? "", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
@@ -277,6 +281,9 @@ struct OrderDetailView: View {
             }
             if order.canCancel {
                 Button {
+                    // The order as the question is put: the answer is about that order, not about whatever it has become
+                    // on another screen while the question was up.
+                    cancelAsked = order.status
                     confirmCancel = true
                 } label: {
                     // The whole 44 pt row is the button, not only its words.
@@ -336,18 +343,22 @@ struct OrderDetailView: View {
 
     // MARK: Talking to the server
 
-    private func change(to status: String) {
+    /// `asked` is the status the order had when a question about this change was put (Cancel order): the server then refuses
+    /// when the order has moved on since, as it does for a stale screen, instead of cancelling an order completed meanwhile.
+    private func change(to status: String, asked: String? = nil) {
         guard let order, let business = model.site, !working else { return }
         working = true
         model.idle.touch()
+        let tapped = Date()
         Task {
             do {
-                let fresh = try await orders.setStatus(order, to: status, siteID: business.id)
+                let fresh = try await orders.setStatus(order, to: status, from: asked, siteID: business.id)
                 snapshot = fresh
                 Haptics.success()
                 // A cancelled order puts its stock back, so the Sale screen loads the items again next time.
                 if status == "cancelled" { model.shell.order.invalidate() }
             } catch let error as APIError {
+                await Self.settled(since: tapped)
                 failed(error)
             } catch {
                 // Cancelled: the screen went away.
@@ -358,8 +369,11 @@ struct OrderDetailView: View {
 
     private func pay(_ tender: String, giftCode: String? = nil) {
         guard let order, let business = model.site, !working else { return }
+        // Paid on another screen while the tender list was up: there is nothing left to record, and the page shows it paid.
+        guard order.canRecordPayment else { return }
         working = true
         model.idle.touch()
+        let tapped = Date()
         Task {
             do {
                 let fresh = try await orders.recordPayment(order, tender: tender, giftCode: giftCode, siteID: business.id)
@@ -367,12 +381,21 @@ struct OrderDetailView: View {
                 Haptics.success()
                 show("#\(String(fresh.number)) paid by \(tender.lowercased())")
             } catch let error as APIError {
+                await Self.settled(since: tapped)
                 failed(error)
             } catch {
                 // Cancelled: the screen went away.
             }
             working = false
         }
+    }
+
+    /// Two alerts cannot be up at once: a refusal that follows an alert's own button (Cancel order, a tender, the gift card's Pay)
+    /// waits until that alert has gone, as Closeout and Items wait. A quick answer from the server used to arrive while the
+    /// first alert was still closing, and its message was never shown.
+    private static func settled(since tapped: Date) async {
+        let left = min(0.45, 0.45 - Date().timeIntervalSince(tapped))
+        if left > 0 { try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000)) }
     }
 
     /// The server's own words. A 401 is checked (and locks only if the session really ended); a 403 or a conflict is a message,
@@ -418,7 +441,12 @@ struct OrderDetailView: View {
     private func mailURL(_ email: String) -> URL? {
         let address = email.trimmed
         guard address.contains("@") else { return nil }
-        if let url = URL(string: "mailto:\(address)") { return url }
-        return address.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed).flatMap { URL(string: "mailto:\($0)") }
+        // The address comes from whoever placed the order. Written into the link as it is, an "address" such as
+        // a@b.co?cc=someone&body=... would open Mail with a second recipient and a message already in it; as the link's path,
+        // every ?, & and # is part of the address and nothing more.
+        var link = URLComponents()
+        link.scheme = "mailto"
+        link.path = address
+        return link.url
     }
 }

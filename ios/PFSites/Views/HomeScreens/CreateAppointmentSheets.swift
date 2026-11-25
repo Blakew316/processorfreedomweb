@@ -113,6 +113,7 @@ struct CreateAppointmentAmountSheet: View {
                     Text("Item name")
                         .pfFont(15, .medium)
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     BoxField(focused: nameFocused) {
                         TextField("", text: $name)
                             .focused($nameFocused)
@@ -128,8 +129,10 @@ struct CreateAppointmentAmountSheet: View {
             Text(question)
                 .pfFont(15)
                 .padding(.top, asksName ? 24 : 44)
+                // The amount under it is read with the question.
+                .accessibilityHidden(true)
             Text(Money.format(cents))
-                .pfFont(48, .light, relativeTo: .largeTitle)
+                .pfFont(48, .regular, relativeTo: .largeTitle)
                 .foregroundStyle(cents == 0 ? CreateAppointmentLook.zeroAmount : Color.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -224,7 +227,7 @@ private struct CreateAppointmentDoneStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .pfFont(14, .medium)
-            .foregroundStyle(Color.white)
+            .foregroundStyle(on ? Color.white : Theme.offLabel)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(on ? Theme.blue : Color(.systemGray3)))
             .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))

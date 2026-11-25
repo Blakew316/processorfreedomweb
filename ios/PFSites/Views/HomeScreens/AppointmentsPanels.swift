@@ -184,7 +184,6 @@ struct AppointmentDayCheckRow: View {
         .accessibilityLabel(title)
         // A greyed row is said the way the rest of the app says what Processor Freedom does not do yet.
         .accessibilityValue(greyed ? "Not available yet" : (on ? "Checked" : "Not checked"))
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     @ViewBuilder

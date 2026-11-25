@@ -10,6 +10,8 @@ struct WebScreen: View {
     var keepsBack = false
     @Environment(AppModel.self) private var model
     @State private var page: OfficePage?
+    /// The Profile page was shown on this screen, whichever page it was opened on (the web Settings pages link to it).
+    @State private var sawProfile = false
 
     var body: some View {
         Group {
@@ -32,11 +34,15 @@ struct WebScreen: View {
             if hasParent, let page {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        page.back()
+                        // The button always leads to the page's list. A page that could not load has nothing running in it to
+                        // go back with, so the list is then loaded by its address instead of the tap doing nothing.
+                        if page.failure != nil { page.load(Config.sitePath(page.siteID, page.parent)) } else { page.back() }
                     } label: {
                         Label(page.parentTitle.isEmpty ? "Back" : page.parentTitle, systemImage: "chevron.backward")
                             .labelStyle(.titleAndIcon)
                     }
+                    // Spoken only: with the list's name as its title, nothing said the button goes back.
+                    .accessibilityHint(page.parentTitle.isEmpty ? "" : "Goes back to \(page.parentTitle).")
                 }
             }
         }
@@ -45,6 +51,19 @@ struct WebScreen: View {
             if page == nil, let business = model.site {
                 page = OfficePage(siteID: business.id, path: Config.sitePath(business.id, tab), script: script)
             }
+        }
+        .onChange(of: page?.tab ?? "") { _, showing in
+            if showing == "profile" { sawProfile = true }
+        }
+        .onDisappear {
+            // The Profile page is where two-step sign-in is turned on and the password changed, and both make the server
+            // forget every phone's key, this one's too, and its notification address with it. Sending the address again as
+            // the page is left finds that out at once (the server says so), instead of at the next lock. That holds when the
+            // Profile page was reached from another page of this screen too ("Edit your profile" on the web Settings pages).
+            if tab == "profile" || sawProfile { Task { await model.uploadPushTokenIfWanted() } }
+            // A change made on the page is saved a moment after it is made: the page is kept a few seconds after its screen
+            // has gone, so going Back straight after a change does not take the change with it.
+            if let page { WebStore.shared.holdBriefly(page) }
         }
     }
 

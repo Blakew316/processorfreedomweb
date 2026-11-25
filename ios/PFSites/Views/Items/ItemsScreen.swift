@@ -19,13 +19,13 @@ struct ItemsScreen: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ItemsListPage(items: items, path: $path, close: { dismiss() })
+            ItemsListPage(items: items, path: $path, close: { close() })
                 .navigationDestination(for: ItemsRoute.self) { route in
                     switch route {
                     case .edit(let id):
-                        ItemEditorPage(items: items, itemID: id, close: { dismiss() }, openMenus: { openMenus() })
+                        ItemEditorPage(items: items, itemID: id, close: { close() }, openMenus: { openMenus() })
                     case .add:
-                        ItemEditorPage(items: items, itemID: nil, close: { dismiss() }, openMenus: { openMenus() })
+                        ItemEditorPage(items: items, itemID: nil, close: { close() }, openMenus: { openMenus() })
                     case .web(let tab):
                         WebScreen(tab: tab)
                     }
@@ -36,6 +36,15 @@ struct ItemsScreen: View {
             // Back from a page: anything changed there (the Menus page, the item settings) shows here.
             if new.count < old.count { Task { await items.load(model) } }
         }
+        // Items was closed some other way than its X: a change still on its way says what went wrong another way too.
+        .onDisappear { if items.closedAt == nil { items.closedAt = Date() } }
+    }
+
+    /// The X: the closing is noted as it starts, not when the cover has finished sliding away, so a change whose answer lands
+    /// during the slide is not set on the page that is going (see ItemsListPage.run).
+    private func close() {
+        items.closedAt = Date()
+        dismiss()
     }
 
     /// The website's Menus page over the editor, once: a second tap before it has slid in opens nothing more.
@@ -156,7 +165,7 @@ struct ItemsListPage: View {
         }
         // Typing is not a touch on the screen: it counts for the 15-minute rule too, as on the Sale screen.
         .onChange(of: items.search) { _, _ in model.idle.touch() }
-        .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText]) { result in
+        .fileImporter(isPresented: $choosingFile, allowedContentTypes: Self.listFileTypes) { result in
             let picked = Date()
             switch result {
             case .success(let url):
@@ -165,7 +174,13 @@ struct ItemsListPage: View {
                 say("We could not read that file.", after: picked, wait: 0.6)
             }
         }
-        .sheet(item: $importPlan) { plan in
+        .sheet(item: $importPlan, onDismiss: {
+            // Words the import sheet left for the list, said once the sheet has gone (two presentations cannot overlap).
+            if let text = items.notice {
+                items.notice = nil
+                if model.phase == .ready { message = text }
+            }
+        }) { plan in
             ItemsImportSheet(plan: plan, items: items)
                 .environment(model)
         }
@@ -182,7 +197,11 @@ struct ItemsListPage: View {
             Button("Delete", role: .destructive) { deleteChosen() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("They are removed from your menu straight away. Past orders are kept.")
+            Text(items.selection.count == 1 ? "It is removed from your menu straight away. Past orders are kept." : "They are removed from your menu straight away. Past orders are kept.")
+        }
+        // The app locked (the session had ended): "Please sign in to continue." is not left up for after the passcode.
+        .onChange(of: model.phase) { _, now in
+            if now != .ready { message = nil }
         }
         .alert(message ?? "", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK", role: .cancel) {}
@@ -332,7 +351,7 @@ struct ItemsListPage: View {
                 .foregroundStyle(ItemsLook.rowGrey)
                 .accessibilityHidden(true)
             TextField("Search items", text: Bindable(items).search, prompt: Text("Search items").foregroundStyle(ItemsLook.searchHint))
-                .pfFont(17)
+                .pfFont(16)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
@@ -413,7 +432,7 @@ struct ItemsListPage: View {
                     }
                     if items.searching {
                         Text("All results")
-                            .pfFont(16.5, .bold)
+                            .pfFont(16.5, .semibold)
                             .foregroundStyle(Color.primary)
                             .padding(.leading, 14)
                             .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
@@ -476,7 +495,7 @@ struct ItemsListPage: View {
             HStack(spacing: 13) {
                 ItemsCheckbox(on: all)
                 Text("Select all")
-                    .pfFont(17, .bold)
+                    .pfFont(17, .semibold)
                     .foregroundStyle(Color.primary)
                 Spacer(minLength: 0)
             }
@@ -539,7 +558,17 @@ struct ItemsListPage: View {
             if let problem {
                 Haptics.error()
                 await ItemsAlerts.settled(since: asked)
-                message = problem
+                // Not under the lock screen: the app may have locked while the alert before this one was going away.
+                if let closedAt = items.closedAt {
+                    // Items was closed with its X while the change was on its way (it may even be open again, as another
+                    // page): the words are still said, over whatever is showing, once the cover has finished sliding away.
+                    // Set on the page that has gone they were never seen, and the person left believing the items were
+                    // changed or deleted.
+                    await ItemsAlerts.settled(since: closedAt, wait: 0.7)
+                    if model.phase == .ready { UIPresenter.message(problem) }
+                } else if model.phase == .ready {
+                    message = problem
+                }
             } else {
                 Haptics.success()
                 items.showToast(note)
@@ -553,7 +582,7 @@ struct ItemsListPage: View {
         Haptics.error()
         Task {
             await ItemsAlerts.settled(since: asked, wait: wait)
-            message = text
+            if model.phase == .ready { message = text }
         }
     }
 
@@ -613,16 +642,45 @@ struct ItemsListPage: View {
         }
     }
 
+    /// The files an item list can come from: CSV, tab-separated or plain text, and Excel workbooks (.xlsx), as on the website.
+    private static let listFileTypes: [UTType] = [.commaSeparatedText, .tabSeparatedText, .plainText] + [UTType(filenameExtension: "xlsx")].compactMap { $0 }
+
     /// An item list chosen in Files: read the way the server will read it, then the import sheet says what it found, once the
     /// file picker has finished closing (a sheet cannot come up while another is still going away).
     private func read(_ url: URL, picked: Date) {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
+        // A file far past what can be imported is not read at all: reading and sorting it would freeze the app, and the server
+        // would refuse it anyway, in these words. (64 MB is the most an Excel workbook is read at; 1.5 MB the most text the
+        // server takes.)
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard size <= 64 * 1024 * 1024 else {
+            say("That is too large to upload.", after: picked, wait: 0.6)
+            return
+        }
         guard let data = try? Data(contentsOf: url) else {
             say("We could not read that file.", after: picked, wait: 0.6)
             return
         }
-        let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252) ?? String(decoding: data, as: UTF8.self)
+        // An Excel workbook is turned into the same text a CSV file holds; from there the two are read alike.
+        let text: String
+        if ItemsXLSX.looksLikeWorkbook(data) {
+            guard let sheet = ItemsXLSX.csv(from: data) else {
+                say("We could not read that Excel file. Save it as CSV and choose it again.", after: picked, wait: 0.6)
+                return
+            }
+            text = sheet
+        } else if ItemsXLSX.looksLikeOldExcel(data) {
+            // An .xls file, or a workbook saved with a password (Excel keeps those in the old container too).
+            say("That is an older Excel file (.xls), or one protected with a password. Remove the password, or save it as .xlsx or CSV, and choose it again.", after: picked, wait: 0.6)
+            return
+        } else {
+            guard data.count <= 1_500_000 else {
+                say("That is too large to upload.", after: picked, wait: 0.6)
+                return
+            }
+            text = ItemsCSV.text(from: data)
+        }
         let plan = ItemsImportPlan(fileName: url.lastPathComponent, csv: text, reading: ItemsCSV.read(text))
         Task {
             await ItemsAlerts.settled(since: picked, wait: 0.6)
@@ -631,7 +689,7 @@ struct ItemsListPage: View {
     }
 }
 
-/// A row of the list, as in the photos: the bold name (two lines at most), "Item name: …" and "Price: …" in grey, a chevron; while
+/// A row of the list, as in the photos: the semibold name (two lines at most), "Item name: …" and "Price: …" in grey, a chevron; while
 /// selecting, a checkbox on the left instead of the chevron.
 struct ItemsListRow: View {
     let item: CatalogItem
@@ -646,7 +704,7 @@ struct ItemsListRow: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text(item.name)
-                    .pfFont(17, .bold)
+                    .pfFont(17, .semibold)
                     .foregroundStyle(Color.primary)
                     .lineLimit(2)
                     .lineSpacing(3.7)

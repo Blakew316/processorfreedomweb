@@ -5,7 +5,7 @@ import UIKit
 /// with Clover's green rebranded to Processor Freedom's blue.
 enum OrdersLook {
     /// #5C5C5C: the search field's border and its placeholder.
-    static let fieldBorder = Color(light: UIColor(hex: 0x5C5C5C), dark: .systemGray)
+    static let fieldBorder = Color(light: UIColor(hex: 0x5C5C5C), dark: UIColor(hex: 0x9C9CA1))
     static let placeholder = Color(light: UIColor(hex: 0x5C5C5C), dark: .secondaryLabel)
     /// #727272: the filter button's border.
     static let buttonBorder = Color(light: UIColor(hex: 0x727272), dark: .systemGray)

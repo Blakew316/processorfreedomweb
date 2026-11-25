@@ -101,7 +101,8 @@ struct ItemsPillStyle: ButtonStyle {
     var kind: Kind = .grey
     var width: CGFloat? = nil
     var height: CGFloat = 48
-    var size: CGFloat = 17
+    /// 16 pt, as the photos' "Select" and "Cancel" are.
+    var size: CGFloat = 16
     var weight: Font.Weight = .regular
     /// What a brand-blue pill shows behind its greyed words while it cannot be used (nothing for Save, as in the photos).
     var disabledFill: Color = .clear
@@ -183,6 +184,24 @@ struct ItemsSlidersIcon: View {
         }
         .frame(width: 18, height: 19)
         .accessibilityHidden(true)
+    }
+}
+
+/// A card to unfold now. The editor names the card that holds the field a save was refused for, so the reason is never left
+/// inside a card the person folded; `round` counts the refusals, so the same card can be asked for again.
+struct ItemsReveal: Equatable {
+    var card = ""
+    var round = 0
+}
+
+private struct ItemsRevealKey: EnvironmentKey {
+    static let defaultValue = ItemsReveal()
+}
+
+extension EnvironmentValues {
+    var itemsReveal: ItemsReveal {
+        get { self[ItemsRevealKey.self] }
+        set { self[ItemsRevealKey.self] = newValue }
     }
 }
 
@@ -599,7 +618,6 @@ struct ItemsField<Field: View, Trailing: View>: View {
                     .pfFont(14)
                     .foregroundStyle(Theme.error)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.updatesFrequently)
             } else if let note {
                 Text(note)
                     .pfFont(14)
@@ -698,6 +716,7 @@ struct ItemsCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     @State private var open = true
+    @Environment(\.itemsReveal) private var reveal
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -739,6 +758,9 @@ struct ItemsCard<Content: View>: View {
                 content()
             }
         }
+        .onChange(of: reveal) { _, asked in
+            if asked.card == title { open = true }
+        }
         // 17 pt from the card's edge to its hairlines, fields and tables on both sides, as in the photos.
         .padding(.horizontal, 17)
         // The title's baseline 39 pt under the card's top edge (21.4 + the 17.6 pt ascender); the Menus card's 44 pt.
@@ -759,7 +781,7 @@ struct ItemsCard<Content: View>: View {
     /// sits over the row's end, centred on the title, with its 44 pt tap area making nothing taller.
     private func titleRow(chevron show: Bool) -> some View {
         Text(title)
-            .pfFont(18.5, .bold, relativeTo: .title3)
+            .pfFont(18.5, .semibold, relativeTo: .title3)
             .foregroundStyle(titleColor)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
@@ -808,7 +830,8 @@ struct ItemsCard<Content: View>: View {
 enum ItemsAlerts {
     static func settled(since asked: Date?, wait: Double = 0.45) async {
         guard let asked else { return }
-        let left = wait - Date().timeIntervalSince(asked)
+        // Never longer than the wait itself, whatever the clock did meanwhile.
+        let left = min(wait, wait - Date().timeIntervalSince(asked))
         if left > 0 {
             try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000))
         }

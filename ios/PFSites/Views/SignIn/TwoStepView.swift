@@ -30,6 +30,8 @@ struct TwoStepView: View {
         let start: Mode = AppModel.shared.auth.startsWithText ? .text : .app
         _mode = State(initialValue: start)
         _lastCodeMode = State(initialValue: start)
+        // Why no code is on its way, when Log in was told so (shown where a wrong code's message shows).
+        _error = State(initialValue: AppModel.shared.auth.codeProblem)
     }
 
     var body: some View {
@@ -104,6 +106,9 @@ struct TwoStepView: View {
                         .padding(.top, 29)
 
                         Button("Cancel") {
+                            // Not while a code is being checked: the server spends the code as it says yes (a recovery code is
+                            // gone for good), so the answer is waited for, as the passcode screen waits for its own.
+                            guard !busy else { return }
                             dismiss()
                         }
                         .buttonStyle(SignInPillStyle(fill: SignInLook.cancelFill, text: .primary))
@@ -138,10 +143,20 @@ struct TwoStepView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { SignInBarTitle() }
         .onAppear {
+            // Said once: coming back to this screen does not bring an old refusal back, and VoiceOver hears it as it arrives.
+            let told = model.auth.codeProblem
+            if !told.isEmpty {
+                model.auth.codeProblem = ""
+                UIAccessibility.post(notification: .announcement, argument: told)
+            }
             Task {
                 try? await Task.sleep(nanoseconds: 450_000_000)
                 focusEntry()
             }
+        }
+        // Typing a recovery code clears what was said about the last try, as typing a 6-digit code does.
+        .onChange(of: recovery) { _, newValue in
+            if !newValue.isEmpty && !error.isEmpty { error = "" }
         }
         .onChange(of: code) { _, newValue in
             let digits = newValue.digits(limit: 6)
@@ -180,28 +195,33 @@ struct TwoStepView: View {
     @ViewBuilder
     private func troubleLinks(_ auth: AuthFlow) -> some View {
         if mode == .text {
-            LinkButton(title: "Resend verification code", size: 16) { resend() }
+            LinkButton(title: "Resend verification code", size: 16, reach: Self.linkReach) { resend() }
             if auth.methods.contains("app") {
-                LinkButton(title: "Use your authenticator app instead", size: 16) { switchTo(.app) }
+                LinkButton(title: "Use your authenticator app instead", size: 16, reach: Self.linkReach) { switchTo(.app) }
             }
         } else if mode == .app {
             if auth.methods.contains("text") {
-                LinkButton(title: "Text me a code instead", size: 16) { resend() }
+                LinkButton(title: "Text me a code instead", size: 16, reach: Self.linkReach) { resend() }
             }
         }
         if mode == .recovery {
-            LinkButton(title: "Use a 6-digit code instead", size: 16) { switchTo(lastCodeMode) }
+            LinkButton(title: "Use a 6-digit code instead", size: 16, reach: Self.linkReach) { switchTo(lastCodeMode) }
         } else {
-            LinkButton(title: "Use a recovery code instead", size: 16) { switchTo(.recovery) }
+            LinkButton(title: "Use a recovery code instead", size: 16, reach: Self.linkReach) { switchTo(.recovery) }
         }
     }
 
     // MARK: Actions
 
+    /// These links are stacked 14 pt apart, so each reaches 7 pt above and below its words: the tap areas meet half way and never
+    /// overlap (with the usual 12 pt, a tap just under one link opened the link below it).
+    private static let linkReach: CGFloat = 7
+
     private var entered: String { mode == .recovery ? recovery.trimmed : code }
 
     private var ready: Bool {
-        guard !busy else { return false }
+        // Not while a code is being checked, nor while a new one is being asked for (that would be two sign-ins at once).
+        guard !busy, !resending else { return false }
         if mode == .recovery { return recovery.filter { $0.isLetter || $0.isNumber }.count >= 10 }
         return code.count == 6
     }
@@ -230,10 +250,10 @@ struct TwoStepView: View {
         info = ""
         let value = entered
         Task {
-            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.password, code: value, remember: remember)
+            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.sentPassword, code: value, remember: remember)
             busy = false
             switch outcome {
-            case .success:
+            case .success, .left:
                 break
             case .needsCode(let problem):
                 auth.took(problem)
@@ -263,10 +283,10 @@ struct TwoStepView: View {
         error = ""
         info = ""
         Task {
-            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.password, sendText: true)
+            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.sentPassword, sendText: true)
             resending = false
             switch outcome {
-            case .success:
+            case .success, .left:
                 break
             case .needsCode(let answer):
                 auth.took(answer)
@@ -373,6 +393,7 @@ struct CheckRowSmall: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.white)
+                            .accessibilityHidden(true)
                     }
                 }
                 .frame(width: 16, height: 16)
@@ -390,6 +411,5 @@ struct CheckRowSmall: View {
         .buttonStyle(.plain)
         .padding(.vertical, -12)
         .accessibilityValue(on ? "Checked" : "Not checked")
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }

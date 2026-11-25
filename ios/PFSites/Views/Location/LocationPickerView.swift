@@ -79,7 +79,7 @@ struct LocationPickerView: View {
                     Text(style == .signIn ? "Continue" : "Save")
                 }
             }
-            .buttonStyle(SolidButtonStyle(fill: canContinue ? Theme.blue : Color(.systemGray3), text: .white, radius: 4, height: 46, size: 18.5))
+            .buttonStyle(SolidButtonStyle(fill: canContinue ? Theme.blue : Color(.systemGray3), text: canContinue ? .white : Theme.offLabel, radius: 4, height: 46, size: 18.5))
             .animation(.snappy(duration: 0.2), value: canContinue)
             .disabled(!canContinue || busy)
             .padding(.horizontal, 16)
@@ -152,9 +152,20 @@ struct LocationPickerView: View {
     }
 
     private var shown: [Site] {
-        let words = query.trimmed
+        let words = Self.plain(query.trimmed)
         guard !words.isEmpty else { return sites }
-        return sites.filter { $0.name.localizedCaseInsensitiveContains(words) || $0.street.localizedCaseInsensitiveContains(words) }
+        // The name, the street, and the line the row shows under the name (a business with no street shows its web address).
+        return sites.filter { Self.plain("\($0.name)\n\($0.street)\n\($0.placeLine)").contains(words) }
+    }
+
+    /// Text made plain for the search: small letters, no accents, and straight quotes. The iPhone types a curly apostrophe, so
+    /// "joe's" never found "Joe's Pizza" saved with a straight one, and "cafe" never found "Café Roma".
+    private static func plain(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current)
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
     }
 
     @ViewBuilder
@@ -257,12 +268,13 @@ struct LocationAddress: View {
     }
 }
 
-/// The location search (both photos): #EEEEEE with 4 pt corners, 48 pt tall, the magnifying glass 10 pt in, then the prompt in grey.
+/// The location search (both photos): #EEEEEE with 4 pt corners, 48 pt tall, the magnifying glass 10 pt in, then the prompt in
+/// grey 14 pt after it. The symbol brings 2 to 3 pt of its own space on each side, which the numbers below take off.
 struct LocationSearchField: View {
     @Binding var text: String
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 11.3) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 17))
                 .foregroundStyle(.primary)
@@ -281,11 +293,13 @@ struct LocationSearchField: View {
                         .padding(12)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .padding(-12)
                 .accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.leading, 8)
+        .padding(.trailing, 10)
         .frame(minHeight: 48)
         .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(SignInLook.searchFill))
     }

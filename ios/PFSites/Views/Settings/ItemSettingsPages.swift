@@ -157,8 +157,9 @@ private struct StockTrackingSheet: View {
                         .lineSpacing(7)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                // A size down from the name above it, as in the photo (capitals 10 pt tall there against the name's 11).
                 Text(note)
-                    .pfFont(15)
+                    .pfFont(13.6)
                     .foregroundStyle(SettingsLook.greyed)
                     .lineSpacing(4.4)
                     .fixedSize(horizontal: false, vertical: true)
@@ -336,10 +337,16 @@ private struct SaleSwitchPage: View {
                     .transition(.opacity)
             }
         } bottom: {
-            TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving, size: 13.5) { save() }
+            // "Saved" only while nothing has been changed since: with a new change waiting, the button says what it will do.
+            TxSaveButton(title: savedNote && on == shown ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving, size: 13.5) { save() }
         }
         .animation(.snappy, value: problem)
         .animation(.snappy, value: settings.reloadProblem)
+        // Put back to what is saved, there is nothing left to save and nothing left to say about a save.
+        .onChange(of: on) { _, now in
+            // Only a failed save's words: "changed on another device" is set as the switch goes back, and has to stay.
+            if now == shown, !saving, problemIsError { problem = "" }
+        }
         .settingsLoads { await load() }
         .refreshable { await load() }
     }
@@ -352,6 +359,8 @@ private struct SaleSwitchPage: View {
         let wasLoaded = settings.loaded
         await settings.load(siteID: siteID)
         guard settings.loaded, !saving else { return }
+        // A save's message does not outlive a load that worked (the connection is back, or the app was unlocked again).
+        if settings.reloadProblem.isEmpty { problem = "" }
         let latest = value(in: settings.ordering)
         // What the person switched stays while it differs from what was saved; otherwise the switch follows the server.
         if !wasLoaded || on == before { on = latest }
@@ -380,6 +389,7 @@ private struct SaleSwitchPage: View {
                 on = now
                 apply(model.shell.order, now)
                 savedNote = true
+                AccessibilityNotification.Announcement("Saved").post()
                 try? await Task.sleep(nanoseconds: 1_600_000_000)
                 savedNote = false
             case .stale(let message):
@@ -388,10 +398,12 @@ private struct SaleSwitchPage: View {
                 on = now
                 problem = message
                 problemIsError = false
+                AccessibilityNotification.Announcement(message).post()
             case .failed(let message):
                 Haptics.error()
                 problem = message
                 problemIsError = true
+                AccessibilityNotification.Announcement(message).post()
             }
         }
     }

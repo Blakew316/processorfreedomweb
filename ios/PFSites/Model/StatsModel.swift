@@ -472,7 +472,7 @@ struct StatsReport {
             }
         } else {
             said.append("\(when) your business generated total net sales of \(Money.format(t.net)) across "
-                        + "\(StatsFormat.count(t.orders, "order", "orders")), with an average order value of \(Money.format(t.average)).")
+                        + "\(StatsFormat.count(t.orders, "order", "orders")), resulting in an average order value of \(Money.format(t.average)).")
             said.append(refundsAndDiscounts)
             if let busiest { said.append(busiest) }
             if let bestSeller { said.append(bestSeller) }
@@ -677,6 +677,10 @@ final class StatsModel {
         return StatsDays.today(in: .current)
     }
 
+    /// How many reads have set out, and the latest of them whose answer was used (see `load`).
+    @ObservationIgnored private var begun = 0
+    @ObservationIgnored private var used = 0
+
     /// The chosen period is the business's today alone (Today, or a custom day that is today): its numbers change as sales come
     /// in, so the screens read them again every minute while they show. Longer periods are read when the screen appears, when the
     /// time frame changes and on pull, since each read of one carries up to 2,000 of its orders.
@@ -693,6 +697,11 @@ final class StatsModel {
     /// message that is showing where it is instead of putting the spinner back every minute.
     func load(siteID: String, full: Bool = true) async {
         let asked = frame
+        // Reads can overlap (the once-a-minute refresh, a pull, coming back to the screen). Each takes a number, and an answer or
+        // a failure is only used when nothing that set out after it has been used already: a slow older read never puts its
+        // numbers, or its "could not reach the server", over fresher ones.
+        begun += 1
+        let mine = begun
         // Trying again shows the spinner in the message's place until the answer comes, so the tap is seen to do something. A
         // login that may not see sales keeps its message: the answer would be the same.
         if full, report?.key != asked.key, problemKey == asked.key, !problemIsFinal {
@@ -711,7 +720,8 @@ final class StatsModel {
         do {
             let answer = try await API.get("/api/sites/\(siteID)/stats?\(query)")
             // The numbers show as soon as they arrive; the ledger only adds the Refunds card's count under them.
-            if asked == frame {
+            if asked == frame, mine > used {
+                used = mine
                 let fresh = StatsReport(answer, key: asked.key)
                 if let found = fresh.timeZone, found.identifier != zone?.identifier { zone = found }
                 report = fresh
@@ -722,7 +732,7 @@ final class StatsModel {
                 staleKey = ""
             }
         } catch let error as APIError {
-            guard asked == frame else { return }
+            guard asked == frame, mine > used else { return }
             // Signed out everywhere, or the session ended: the app checks, then locks.
             if error.status == 401 { AppModel.shared.sessionEnded() }
             if error.status == 403 { report = nil }
@@ -781,5 +791,12 @@ final class StatsChoices {
         let made = StatsModel(screen: screen)
         models[screen] = made
         return made
+    }
+
+    /// The dashboard closed (Log out, Switch User): the reports read for the person who was using it are let go, instead of
+    /// staying in memory until someone next opens Sales Overview or Insights.
+    func reset() {
+        models = [:]
+        shellID = nil
     }
 }

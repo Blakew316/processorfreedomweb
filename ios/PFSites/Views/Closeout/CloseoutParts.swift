@@ -11,8 +11,8 @@ enum CloseoutLook {
     static let detail = Color(light: UIColor(hex: 0x727272), dark: .secondaryLabel)
     /// #F5F5F5: a batch row while it is pressed.
     static let pressed = Color(light: UIColor(hex: 0xF5F5F5), dark: .systemGray6)
-    /// #F9F9F9: the box behind "Show more...".
-    static let moreFill = Color(light: UIColor(hex: 0xF9F9F9), dark: .systemGray6)
+    /// #F9F9F9: the box behind "Show more...", barely off the page (in dark mode too: a grey box there read as a button).
+    static let moreFill = Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x0D0D0E))
     /// #FAE9AD with #0F0B00 words: the "Open" pill.
     static let openFill = Color(light: UIColor(hex: 0xFAE9AD), dark: UIColor(hex: 0xFAE9AD, alpha: 0.24))
     static let openText = Color(light: UIColor(hex: 0x0F0B00), dark: UIColor(hex: 0xFCEFC2))
@@ -30,7 +30,9 @@ enum CloseoutLook {
     /// clock (ordering.timezone), like the times of the Orders tab, so a batch reads the same wherever the phone is.
     static func when(_ date: Date, in zone: TimeZone) -> String {
         let day = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated).month(.abbreviated).day().year())
-        let time = date.formatted(Date.FormatStyle(timeZone: zone).hour().minute())
+        // An ordinary space before AM and PM, as in the photo and on the Orders tab: the system writes a narrow one, which
+        // reads as "11:11AM".
+        let time = date.formatted(Date.FormatStyle(timeZone: zone).hour().minute()).replacingOccurrences(of: "\u{202F}", with: " ")
         return "\(day), \(time)"
     }
 }

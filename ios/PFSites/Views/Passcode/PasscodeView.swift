@@ -100,9 +100,8 @@ struct PasscodeView: View {
                 .accessibilityValue("\(code.count) of 4 digits entered")
         }
         .contentShape(Rectangle())
-        .onTapGesture { if !finished { focused = true } }
+        .onTapGesture { if !finished && !faceIDRunning { focused = true } }
         .onAppear { faceIDWanted = model.faceIDOn }
-        // Ends with the screen, so a Face ID attempt still waiting for the app to come to the front never outlives it.
         .task { await appeared() }
         .onChange(of: code) { _, newValue in typed(newValue) }
     }
@@ -133,6 +132,7 @@ struct PasscodeView: View {
                     HStack(spacing: 6.3) {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                             .font(.system(size: 17))
+                            .accessibilityHidden(true)
                         Text("Log out")
                             .pfFont(18.4, .semibold)
                     }
@@ -192,8 +192,9 @@ struct PasscodeView: View {
     @ViewBuilder
     private var feedback: some View {
         // The spinner stays after a right passcode too, while what comes next is made ready (Face ID being set up, the
-        // dashboard's data): the screen never just sits there with its dots filled.
-        if busy || finished {
+        // dashboard's data): the screen never just sits there with its dots filled. It shows while Face ID is with the server
+        // as well, when the number pad is down and the ways off this screen wait.
+        if busy || finished || faceIDRunning {
             ProgressView().tint(Theme.blue)
         } else if !problem.isEmpty {
             Text(problem)
@@ -202,7 +203,6 @@ struct PasscodeView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.vertical, 6)
-                .accessibilityAddTraits(.updatesFrequently)
         } else {
             Color.clear.frame(height: 0)
         }
@@ -225,6 +225,7 @@ struct PasscodeView: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.white)
+                            .accessibilityHidden(true)
                     }
                 }
                 .frame(width: 20, height: 20)
@@ -286,10 +287,13 @@ struct PasscodeView: View {
         faceIDRunning = true
         defer { faceIDRunning = false }
         focused = false
+        // Digits that slip in while Face ID is up are never sent, so they are not left showing as filled dots afterwards.
+        let typedBefore = code
         switch await model.unlockWithFaceID() {
         case .unlocked:
             await finish()
         case .stay, .keypad, .hidden:
+            if code != typedBefore { code = typedBefore }
             if !finished { focusSoon() }
         case .refused(let result):
             faceIDWanted = model.faceIDOn
@@ -302,7 +306,7 @@ struct PasscodeView: View {
     private func focusSoon() {
         Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
-            if !finished { focused = true }
+            if !finished && !faceIDRunning { focused = true }
         }
     }
 
@@ -312,7 +316,7 @@ struct PasscodeView: View {
             code = digits
             return
         }
-        guard !busy, !finished else { return }
+        guard !busy, !finished, !faceIDRunning else { return }
         if digits.count == 1 && !problem.isEmpty { problem = "" }
         if digits.count == 4 {
             Task { await submit(digits) }
@@ -411,10 +415,19 @@ struct PasscodeView: View {
     }
 
     private func finish() async {
+        guard !finished else { return }
         finished = true
         focused = false
         Haptics.light()
-        await model.applyFaceID(faceIDWanted)
+        let change = await model.applyFaceID(faceIDWanted)
+        // The server forgot this phone at that very moment: the app has already gone to Log in, which says so. (When it was
+        // only the session that ended, the step finishes as usual and the lock follows once that is confirmed.)
+        if case .left = change, model.phase != .ready { return }
+        // A ticked "Enable Face ID" that could not be turned on says so on the dashboard (the passcode was right, so nothing
+        // holds the person here). The words are kept before the step goes on: the dashboard says them as it opens, also when
+        // the loading screen comes first, and a return to the sign-in screens on the way drops them. Without this the box
+        // was simply unticked again at the next lock, with no word why.
+        if case .failed(let message) = change { model.readyNotice = message }
         switch step.purpose {
         case .afterSignIn:
             await model.passcodeFinished(for: step.site)
@@ -423,12 +436,16 @@ struct PasscodeView: View {
         case .switchTo, .change:
             onDone?()
         }
+        // Over the dashboard (another business's passcode, Change passcode) this step is still sliding away: the words wait
+        // for it. Anywhere else the dashboard says them itself as it opens (`enterReady`), at the moment that suits what
+        // else it is putting up.
+        if case .failed = change, onDone != nil { model.showReadyNotice(after: 0.9) }
     }
 
-    /// A passcode is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot passcode?,
-    /// the X) wait for the answer, so it never lands after the person has gone somewhere else. It is never long: the request
-    /// gives up by itself.
-    private var working: Bool { busy || finished }
+    /// A passcode or Face ID is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot
+    /// passcode?, the X) and the number pad wait for the answer, so it never lands after the person has gone somewhere else and
+    /// a second unlock is never sent beside it. It is never long: the request gives up by itself.
+    private var working: Bool { busy || finished || faceIDRunning }
 
     private func forgot() {
         guard !working else { return }

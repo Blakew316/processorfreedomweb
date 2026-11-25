@@ -58,7 +58,15 @@ extension SettingsA {
                     WebScreen(tab: tab)
                 }
                 .onChange(of: tab) { old, new in
-                    if old != nil && new == nil { closed() }
+                    guard old != nil, new == nil else { return }
+                    closed()
+                    // The website saves a change a moment after it is made (up to a second later), and the page that was just
+                    // left stays alive for that. Loading only at once could show the old value as if nothing had been saved,
+                    // so it is loaded once more when that save has had time to land; the later answer wins.
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        if tab == nil { closed() }
+                    }
                 }
         }
     }
@@ -123,7 +131,9 @@ extension SettingsA {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // Not the plain style: it fades a button that cannot be used, and a greyed pencil is grey already (faded twice it
+            // was almost invisible, and fainter than the greyed pencils of the other Settings pages).
+            .buttonStyle(ItemsBareStyle())
             .disabled(action == nil)
             .accessibilityLabel(label)
             .accessibilityValue(action == nil ? "Not available yet" : "")
@@ -135,13 +145,19 @@ extension SettingsA {
     struct WithButton<Content: View>: View {
         let button: EditButton
         var trailing: CGFloat = 0
+        /// How far above the middle the button is drawn, and the room between the words and it. Beside the three-line
+        /// descriptions of Business information the photos have the button 17 pt above the middle and the words ending 12 pt
+        /// sooner; nothing else in the card moves for it.
+        var lift: CGFloat = 0
+        var gap: CGFloat = 12
         @ViewBuilder let content: () -> Content
 
         var body: some View {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: gap) {
                 content()
                     .frame(maxWidth: .infinity, alignment: .leading)
                 button
+                    .offset(y: -lift)
                     .padding(.trailing, trailing)
             }
         }
@@ -155,6 +171,7 @@ extension SettingsA {
             Text(text)
                 .pfFont(20, .bold, relativeTo: .title3)
                 .foregroundStyle(Color.primary)
+                .lineSpacing(SettingsLook.titleLineSpacing)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
         }

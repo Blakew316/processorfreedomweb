@@ -15,6 +15,11 @@ struct TimeFrameSheet: View {
     @State private var customOpen = false
     /// Counts the taps that open Custom, so the list scrolls to show its dates.
     @State private var revealCustom = 0
+    /// Whether Custom's dates can be seen: the sheet can open with them already open below the last row in view.
+    @State private var datesInView = false
+    /// A tap on Custom brought its dates up instead of closing them. Only once: if the dates were in view after all, the next
+    /// tap closes them as usual, so Custom can always be closed.
+    @State private var broughtUp = false
     @State private var start = Date()
     @State private var end = Date()
 
@@ -28,6 +33,22 @@ struct TimeFrameSheet: View {
     @ScaledMetric(relativeTo: .body) private var calendarSize: CGFloat = 13.4
 
     private static let customID = "customDates"
+    private static let endID = "listEnd"
+    /// The height of the list on screen, and of its rows with Custom's dates.
+    @State private var listHeight: CGFloat = 0
+    @State private var rowsHeight: CGFloat = 0
+
+    /// Added under Custom's dates. The rows are 90 pt each; when the dates are brought into view the list scrolls to its end,
+    /// and by anything but a whole number of rows the row at the top is sliced through its words right under the title (the
+    /// title and the row's name then read as one block). With this the scroll ends on a row's top edge. Nothing is added while
+    /// the list is short enough not to scroll, and nothing changes at rest.
+    private var landing: CGFloat {
+        guard customOpen, listHeight > 0, rowsHeight > 0 else { return 0 }
+        let scrolls = rowsHeight + 24 - listHeight
+        guard scrolls > 0 else { return 0 }
+        let past = scrolls.truncatingRemainder(dividingBy: 90)
+        return past < 0.5 ? 0 : 90 - past
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,23 +65,32 @@ struct TimeFrameSheet: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(StatsRange.rows) { range in
-                            presetRow(range)
-                            separator
+                        VStack(spacing: 0) {
+                            ForEach(StatsRange.rows) { range in
+                                presetRow(range)
+                                separator
+                            }
+                            customRow
+                            if customOpen {
+                                customDates
+                                    .id(TimeFrameSheet.customID)
+                                    .transition(.opacity)
+                                    .onScrollVisibilityChange(threshold: 0.2) { datesInView = $0 }
+                            }
                         }
-                        customRow
-                        if customOpen {
-                            customDates
-                                .id(TimeFrameSheet.customID)
-                                .transition(.opacity)
-                        }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
+                        // The room under the last row or under Apply: 24 pt, and with Custom's dates open as much more as makes
+                        // the list, scrolled to its end, start exactly at a row's top edge (see `landing`).
+                        Color.clear
+                            .frame(height: 24 + landing)
+                            .id(TimeFrameSheet.endID)
                     }
-                    .padding(.bottom, 24)
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
                 .onChange(of: revealCustom) { _, _ in
                     Task {
                         try? await Task.sleep(nanoseconds: 300_000_000)
-                        withAnimation(.snappy) { proxy.scrollTo(TimeFrameSheet.customID, anchor: .bottom) }
+                        withAnimation(.snappy) { proxy.scrollTo(TimeFrameSheet.endID, anchor: .bottom) }
                     }
                 }
             }
@@ -119,8 +149,15 @@ struct TimeFrameSheet: View {
         let on = chosen.range.isCustomDays
         let span = chosen.days(today: today)
         return Button {
+            // Open, but below what is in view: the tap brings the dates up instead of closing them unseen.
+            if customOpen && !datesInView && !broughtUp {
+                broughtUp = true
+                revealCustom += 1
+                return
+            }
+            broughtUp = false
             withAnimation(.snappy) { customOpen.toggle() }
-            if customOpen { revealCustom += 1 }
+            if customOpen { revealCustom += 1 } else { datesInView = false }
         } label: {
             HStack(alignment: .center, spacing: 0) {
                 HStack(spacing: 16) {
@@ -145,7 +182,7 @@ struct TimeFrameSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
-        .accessibilityHint(customOpen ? "Hides the dates" : "Shows a start and end date")
+        .accessibilityHint(customOpen && datesInView ? "Hides the dates" : "Shows a start and end date")
     }
 
     /// The days on the right: the date (or first and last day) semibold, the hours under it; brand blue on the chosen row.
@@ -206,6 +243,16 @@ struct TimeFrameSheet: View {
                 .pfFont(15.5, .semibold)
                 .padding(.horizontal, 18)
                 .frame(minHeight: 60)
+            if latestEnd < todayDate {
+                // A start more than two years back: the end date was moved and cannot reach today. Said in words, so a range
+                // meant as "from then until now" is not applied short without anyone noticing.
+                Text("The longest range is two years, so the end date cannot be later than this.")
+                    .pfFont(13)
+                    .foregroundStyle(SettingsLook.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 4)
+            }
             Button("Apply", action: apply)
                 .buttonStyle(SolidButtonStyle(radius: 8, height: 48, size: 17))
                 .padding(.horizontal, 18)

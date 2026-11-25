@@ -371,6 +371,19 @@ test('ordering: build from an item list, take an order, track stock, send emails
     await new Promise((x) => setTimeout(x, 20));
     assert.deepEqual(sent.map((m) => m.subject.split(' · ')[0]), ['Your order is confirmed', 'Your order is on its way']);
     assert.match((await anon('GET', `/order/${order.token}`, null, host)).data, /on its way/);
+    // A screen that still shows the order as new cannot move it back to confirmed (and email the customer again); a screen that
+    // shows what is true can move it on, and a caller that does not say what it showed is served as before.
+    r = await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'confirmed', from: 'new' });
+    assert.equal(r.status, 409);
+    assert.match(r.data.error, /now ready/);
+    assert.equal((await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((x) => x.id === order.id).status, 'ready');
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready', from: 'new' })).status, 200, 'already ready: nothing to move, nothing to refuse');
+    await new Promise((x) => setTimeout(x, 20));
+    assert.equal(sent.length, 2);
+    // The request every button now makes: the status the screen showed is the true one, and the order moves on.
+    r = await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'completed', from: 'ready' });
+    assert.deepEqual([r.status, r.data.order.status], [200, 'completed']);
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready', from: 'confirmed' })).status, 409, 'and not back again from a screen that is behind');
     assert.equal((await client()('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' })).status, 401);
     r = await place({ ...who, method: 'curbside', vehicle: 'Blue Tacoma', items: [{ id: churros.id, qty: 10 }] });
     assert.equal(r.data.number, 1002);
@@ -868,6 +881,11 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     assert.deepEqual([ana.orders, ana.spent, ana.favourite], [2, 0, 'Taco']);
     const anaOrder = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((o) => o.email.toLowerCase() === 'ana@example.com');
     await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { method: 'Cash' });
+    // A screen that still showed the order unpaid cannot change how it was paid by recording "its" payment: it is told, and nothing moves.
+    const late = await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { method: 'Card', unpaid: true });
+    assert.equal(late.status, 409);
+    assert.match(late.data.error, /already paid by cash/);
+    assert.equal((await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((o) => o.id === anaOrder.id).paidMethod, 'Cash');
     await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { refund: 100 });
     people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
     ana = people.find((c) => c.email === 'ana@example.com');
@@ -1265,7 +1283,10 @@ test('gift cards, recurring payments, customer import, projects', async () => {
     assert.deepEqual([invs.length, invs[0].status, invs[0].total, invs[0].items[0].name], [1, 'sent', 5500, 'Office lunch']);
     assert.ok(sent.some((m) => m.to === 'dana@acme.test' && /Invoice INV-1001/.test(m.subject)));
     plans = (await me('GET', `/api/sites/${site.id}/plans`)).data.plans;
-    assert.ok(plans[0].nextDate > new Date().toISOString().slice(0, 10) && plans[0].billed === 5500);
+    // The next date is worked out in the business's time zone, where it is still yesterday for a few hours each evening: on
+    // those evenings the next date can be the very date UTC already shows, so "not before it" is the comparison that always
+    // holds (the "not billed twice" check below is what proves the plan moved on).
+    assert.ok(plans[0].nextDate >= new Date().toISOString().slice(0, 10) && plans[0].billed === 5500);
     app6.tick(Date.now());
     assert.equal((await me('GET', `/api/sites/${site.id}/invoices`)).data.invoices.length, 1, 'not billed twice');
     // A monthly plan from the 31st stays on the 31st, or the month's last day, so no month is skipped. Bad schedules are refused.
@@ -1317,6 +1338,15 @@ test('online booking, appointments, shifts and the time clock', async () => {
     await new Promise((r) => setTimeout(r, 20));
     assert.ok(sent.some((m) => m.to === 'ana@example.com' && /confirmed/.test(m.subject)));
     assert.equal((await me('POST', `/api/sites/${site.id}/appointments`, { serviceName: 'Walk-in', date: day, time: '18:30', name: 'Bo' })).data.appointment.status, 'confirmed', 'staff can add one even when the slot is full');
+    // A save that names itself can be sent again when its answer was lost: the same appointment comes back, and none is added.
+    const named = { serviceName: 'Walk-in', date: day, time: '19:30', name: 'Cy', key: 'save-7f3a' };
+    const first = await me('POST', `/api/sites/${site.id}/appointments`, named);
+    const again = await me('POST', `/api/sites/${site.id}/appointments`, named);
+    assert.deepEqual([first.status, again.status, again.data.appointment.id], [201, 200, first.data.appointment.id]);
+    assert.equal((await me('GET', `/api/sites/${site.id}/appointments`)).data.appointments.filter((a) => a.name === 'Cy').length, 1);
+    // Another save, another name: a second appointment at the same time is still allowed for staff.
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments`, { ...named, key: 'save-9b1c' })).status, 201);
+    assert.equal((await me('GET', `/api/sites/${site.id}/appointments`)).data.appointments.filter((a) => a.name === 'Cy').length, 2);
 
     assert.equal((await me('POST', `/api/sites/${site.id}/shifts`, { name: 'Bea', day, start: '9', finish: '17:00' })).status, 400);
     await me('POST', `/api/sites/${site.id}/shifts`, { name: 'Bea', day, start: '09:00', finish: '17:00' });
@@ -3369,6 +3399,24 @@ test('product codes: kept as typed, matched the way a scanner reads them, never 
   } finally { s.stop(); }
 });
 
+test('scripts and styles carry a fingerprint, and one a browser already has is not sent again', async () => {
+  const anon = client();
+  const first = await anon('GET', '/shared/core.js');
+  const tag = first.headers.get('etag');
+  assert.equal(first.status, 200);
+  assert.match(tag, /^W\/"[\w-]{22}"$/);
+  assert.equal(first.headers.get('cache-control'), 'no-cache', 'still asked about on every load, so a new build is picked up at once');
+  assert.ok(first.data.length > 10000);
+  // The browser has it: a short yes, with nothing in it.
+  const again = await anon('GET', '/shared/core.js', null, { headers: { 'If-None-Match': tag } });
+  assert.deepEqual([again.status, again.data, again.headers.get('etag')], [304, '', tag]);
+  // It has an older copy, or several: the file is sent when none of them is this one, and not sent when one is.
+  assert.equal((await anon('GET', '/shared/core.js', null, { headers: { 'If-None-Match': 'W/"0000000000000000000000"' } })).status, 200);
+  assert.equal((await anon('GET', '/shared/core.js', null, { headers: { 'If-None-Match': `W/"0000000000000000000000", ${tag}` } })).status, 304);
+  // Each file has its own.
+  assert.notEqual((await anon('GET', '/assets/js/ui.js')).headers.get('etag'), tag);
+});
+
 test('a variable-price item that never had a price is not made a fixed one at $0.00, in one edit or many', async () => {
   const s = await appServer();
   try {
@@ -3404,6 +3452,53 @@ test('a variable-price item that never had a price is not made a fixed one at $0
     r = await me('PUT', `${S}/menu/${salmon.id}`, { variable: false, price: 0 });
     assert.deepEqual([r.status, r.data.items[1].variable, r.data.items[1].price], [200, false, 0]);
     assert.deepEqual(await offered(), [bagel.id, salmon.id, cheese.id, tray.id]);
+  } finally { s.stop(); }
+});
+
+test('replacing the menu from a file keeps an item\'s id and what the file has no column for', async () => {
+  const core = await import('../shared/core.js');
+  assert.deepEqual(core.parseMenuCsv('Category,Item name,Price,Stock\nFood,Taco,1,5').columns.sort(), ['category', 'name', 'price', 'stock']);
+  assert.deepEqual(core.parseMenuCsv('Taco,1.00\nSoda,2.00').columns.sort(), ['name', 'price'], 'a list with no header row');
+  const s = await appServer();
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'replace@shop.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Replace Cafe', template: 'order', kind: 'ordering', csv: 'Category,Item,Price,Description\nFood,Taco,10.00,Crispy\nFood,Burrito,12.00,Big\nDrinks,Soda,2.00,Cold' })).data.site;
+    const S = `/api/sites/${site.id}`;
+    const [taco, burrito, soda] = (await me('GET', `${S}/menu`)).data.items;
+    // What only the back office sets: sizes, a daily refill, a sale, a colour, a label, a revenue class, and hiding an item.
+    const sizes = [{ name: 'Size', required: true, choices: [{ name: 'Regular', price: 0 }, { name: 'Large', price: 200 }] }];
+    assert.equal((await me('PUT', `${S}/menu/${taco.id}`, { options: sizes, restock: 40, stock: 7, stockWas: taco.stock })).status, 200);
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [taco.id], set: { sale: 25, color: '#FF8800', label: 'Grill', revclass: 'Food rev' } })).status, 200);
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [soda.id], set: { available: false } })).status, 200);
+
+    // The item list as it is downloaded (it has no column for any of those), sent back with one price changed, one item left out and
+    // one added: the usual change-it-in-a-spreadsheet round trip.
+    const head = 'Category,Item name,Price,Cost,Description,Stock,Taxable,Price type,Product code\n';
+    let r = await me('POST', `${S}/menu/import`, { replace: true, csv: `${head}Food,Taco,11.00,,Crispy,7,yes,Fixed,\nDrinks,Soda,2.00,,Cold,100,yes,Fixed,\nFood,Nachos,8.00,,,50,yes,Fixed,\n` });
+    assert.deepEqual([r.status, r.data.imported, r.data.items.map((x) => x.name)], [200, 3, ['Taco', 'Soda', 'Nachos']], 'the menu is what the file says: Burrito is gone');
+    let [t, so, n] = r.data.items;
+    assert.deepEqual([t.id, t.price, t.sale, t.color, t.restock, t.label, t.revclass, t.stock, t.desc], [taco.id, 1100, 25, '#ff8800', 40, 'Grill', 'Food rev', 7, 'Crispy'], 'Taco is still the same item, with its new price');
+    assert.deepEqual(t.options.map((o) => [o.name, o.choices.map((c) => c.name)]), [['Size', ['Regular', 'Large']]], 'its sizes are kept');
+    assert.deepEqual([so.id, so.available, so.stock], [soda.id, false, 100], 'a hidden item stays hidden: the file has no column that says');
+    assert.deepEqual([n.sale, n.options, n.available, n.color, n.stock], [0, [], true, '', 50], 'a new item starts plain');
+    assert.ok(![taco.id, burrito.id, soda.id].includes(n.id));
+
+    // A bare list of names and prices changes the prices and nothing else: descriptions, categories and counts stay.
+    r = await me('POST', `${S}/menu/import`, { replace: true, csv: 'Item,Price\nTaco,9.00\nSoda,2.50\n' });
+    [t, so] = r.data.items;
+    assert.deepEqual([r.data.items.length, t.id, t.price, t.category, t.desc, t.stock, t.sale], [2, taco.id, 900, 'Food', 'Crispy', 7, 25]);
+    assert.deepEqual([so.id, so.price, so.category, so.desc, so.available], [soda.id, 250, 'Drinks', 'Cold', false]);
+
+    // A column the file does have is the file's to say: an empty description clears it, and "no" hides the item.
+    r = await me('POST', `${S}/menu/import`, { replace: true, csv: 'Category,Item,Price,Description,Available\nFood,Taco,9.00,,no\nSides,Soda,2.50,Colder,yes\n' });
+    [t, so] = r.data.items;
+    assert.deepEqual([t.id, t.desc, t.available, t.sale], [taco.id, '', false, 25]);
+    assert.deepEqual([so.id, so.category, so.desc, so.available], [soda.id, 'Sides', 'Colder', true], 'found by its name alone when its category changed');
+
+    // Adding to the menu (not replacing) is as before: nothing on the menu is touched, and the new row is a new item.
+    r = await me('POST', `${S}/menu/import`, { csv: 'Item,Price\nTaco,1.00\n' });
+    assert.deepEqual(r.data.items.map((x) => [x.name, x.price, x.id === taco.id]), [['Taco', 900, true], ['Soda', 250, false], ['Taco', 100, false]]);
   } finally { s.stop(); }
 });
 

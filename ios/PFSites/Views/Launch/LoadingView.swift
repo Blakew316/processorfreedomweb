@@ -27,6 +27,18 @@ struct LoadingView: View {
             }
         }
         .ignoresSafeArea()
+        // VoiceOver reads the message out: it takes the spinner's place and would not be come across by itself.
+        .onChange(of: model.launchError) { _, message in
+            if let message, !message.isEmpty { AccessibilityNotification.Announcement(message).post() }
+        }
+        // A message that is already there when the screen comes up (a sign-in whose next step failed) is said too, once the
+        // screen has settled: an announcement made while the screen is still changing is lost under it.
+        .task {
+            guard let message = model.launchError, !message.isEmpty else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard model.launchError == message else { return }
+            AccessibilityNotification.Announcement(message).post()
+        }
     }
 }
 

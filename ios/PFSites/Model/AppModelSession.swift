@@ -16,33 +16,112 @@ extension AppModel {
             if remember { body["remember"] = true }
         }
         if sendText { body["sendText"] = true }
+        // The screen that asked, to tell whether the person was still on it when the answer came.
+        let asked = auth.path, attempt = auth.attempt
+        // With a code in the request the sign-in is never thrown away: the server has spent the code by the time it says yes
+        // (a recovery code is gone for good), and it cannot be given back.
+        let mayLeave = (code ?? "").isEmpty
         _ = await endingSession?.value
         do {
             let answer = try await API.post("/api/auth/login", body)
-            await signedIn(answer, email: email)
-            return .success
+            // Back while the answer was on its way: the person said no, so the app does not sign in behind them (it used to
+            // jump to the passcode step from Welcome, having replaced the phone's earlier key). The session and the key the
+            // server has just made are given up instead.
+            if mayLeave, phase == .welcome, auth.path != asked || auth.attempt != attempt {
+                endAbandonedSignIn(id: answer["device"]["id"].string, secret: answer["device"]["secret"].string)
+                return .left
+            }
+            let went = await signedIn(answer, email: email, asked: asked, attempt: attempt, mayLeave: mayLeave)
+            return went ? .success : .left
         } catch let error as APIError {
+            // Asked for a code although this phone sent its "remember this device" token: the token has run out, so it is not
+            // kept (a new one comes with the next code when "remember" is ticked).
+            if error.twoFactor, body["trust"] != nil { Keychain.forgetTrust(for: email) }
             return error.twoFactor ? .needsCode(error) : .failed(error.message)
         } catch {
             return .failed(APIError.unreachableMessage)
         }
     }
 
-    private func signedIn(_ answer: JSON, email: String) async {
+    /// Ends a sign-in the person walked away from: the new session, and the key made for this phone with it. It runs in order
+    /// with the next sign-in, like every other ending, so it can never end that one.
+    private func endAbandonedSignIn(id: String, secret: String) {
+        let previous = endingSession
+        endingSession = Task {
+            _ = await previous?.value
+            if !id.isEmpty, !secret.isEmpty {
+                _ = try? await API.post("/api/app/signout", ["device": id, "secret": secret])
+            } else {
+                _ = try? await API.post("/api/auth/logout")
+            }
+            await clearCookies()
+        }
+    }
+
+    /// The server said yes. The person's businesses are read next, with Log in (or the code step) still showing its spinner, and
+    /// only when the app is about to leave those screens is the sign-in made final (`signInGoesOn`): until then a Back undoes
+    /// it. False when it was undone.
+    private func signedIn(_ answer: JSON, email: String, asked: [AuthStep], attempt: Int, mayLeave: Bool) async -> Bool {
         Haptics.success()
         let person = User(answer["user"]) ?? user ?? User()
-        user = person
-        remember(person)
-        // The email and password open every business the person has.
-        sessionLimited = false
         let old = Keychain.device
+        var fresh: DeviceKey?
         let id = answer["device"]["id"].string, secret = answer["device"]["secret"].string
         if !id.isEmpty, !secret.isEmpty {
-            let fresh = DeviceKey(id: id, secret: secret)
+            // The new key is only held here until the sign-in is made final: it becomes the phone's key in the same step
+            // that gives the earlier one up. Walking away, or the app being closed while the businesses are read, then
+            // leaves the phone exactly as it was (a new key saved beside the earlier person's business and Face ID gave
+            // the next launch a lock screen that could not open).
+            fresh = DeviceKey(id: id, secret: secret)
+        }
+        signInUndone = false
+        pendingSignIn = PendingSignIn(asked: asked, attempt: attempt, mayLeave: mayLeave, person: person, email: email,
+                                      trust: answer["trust"].string, freshKey: fresh, oldKey: old, previousUser: user,
+                                      previousLimited: sessionLimited, previousSites: sites)
+        user = person
+        // The email and password open every business the person has.
+        sessionLimited = false
+        await loadConfig()
+        await syncCookiesToWeb()
+        await routeAfterSignIn()
+        // Every way out of the sign-in screens settles it; this is only for a way that did not.
+        if pendingSignIn != nil { _ = signInGoesOn() }
+        return !signInUndone
+    }
+
+    /// Settles a sign-in in flight as the app is about to leave the sign-in screens (or to say why it cannot). True: it goes
+    /// on, and what cannot be taken back is done now. False: the person walked away from the screen that asked (Back, or Back
+    /// and in again), so it has been undone and the caller stops. With no sign-in in flight it is simply true.
+    func signInGoesOn() -> Bool {
+        guard let pending = pendingSignIn else { return true }
+        pendingSignIn = nil
+        let stayed = auth.path == pending.asked && auth.attempt == pending.attempt
+        if stayed || !pending.mayLeave || phase != .welcome {
+            commitSignIn(pending)
+            return true
+        }
+        undoSignIn(pending)
+        return false
+    }
+
+    private func commitSignIn(_ pending: PendingSignIn) {
+        let person = pending.person
+        // Someone else signing in on this phone does not inherit the last person's choice to get notifications here: they stay
+        // off until this person turns them on. People are told apart by their account, so the same person with a changed email
+        // keeps theirs; by the email only on a phone that never stored an account yet.
+        let defaults = UserDefaults.standard
+        let lastID = defaults.string(forKey: Keys.userID) ?? ""
+        let lastEmail = (defaults.string(forKey: Keys.email) ?? "").lowercased()
+        let someoneElse = lastID.isEmpty
+            ? !lastEmail.isEmpty && !person.email.isEmpty && lastEmail != person.email.lowercased()
+            : !person.id.isEmpty && lastID != person.id
+        if someoneElse { defaults.set(false, forKey: Keys.pushWanted) }
+        remember(person)
+        if let fresh = pending.freshKey {
             Keychain.saveDevice(fresh)
-            // The phone's earlier key (an earlier sign-in, or another person) is given up without ending the new session,
-            // and what belonged to it goes too: its Face ID secret and the business it opened.
-            if let old, old.id != fresh.id {
+            // The phone's earlier key (an earlier sign-in, or another person) is given up without ending the new session, and
+            // what belonged to it goes too: its Face ID secret and the business it opened.
+            if let old = pending.oldKey, old.id != fresh.id {
                 Task { _ = try? await API.send("POST", "/api/app/signout", body: ["device": old.id, "secret": old.secret], cookies: false) }
                 Keychain.delete("bio")
                 Keychain.delete("site")
@@ -51,11 +130,17 @@ extension AppModel {
                 pushSent = false
             }
         }
-        let trust = answer["trust"].string
-        if !trust.isEmpty { Keychain.saveTrust(trust, for: email) }
-        await loadConfig()
-        await syncCookiesToWeb()
-        await routeAfterSignIn()
+        if !pending.trust.isEmpty { Keychain.saveTrust(pending.trust, for: pending.email) }
+    }
+
+    /// The person walked away: who was signed in and the businesses listed are put back (the phone's own key was never
+    /// touched), and the session and key the server made are given up.
+    private func undoSignIn(_ pending: PendingSignIn) {
+        signInUndone = true
+        endAbandonedSignIn(id: pending.freshKey?.id ?? "", secret: pending.freshKey?.secret ?? "")
+        user = pending.previousUser
+        sessionLimited = pending.previousLimited
+        sites = pending.previousSites
     }
 
     /// Where a full sign-in leads (D4): no business yet → make the first one; one → its passcode step straight away;
@@ -64,13 +149,20 @@ extension AppModel {
         do {
             let list = try await loadSites()
             switch list.count {
-            case 0: setPhase(.creatingBusiness)
-            case 1: await passcodeStep(for: list[0])
-            default: setPhase(.choosingLocation)
+            case 0:
+                guard signInGoesOn() else { return }
+                setPhase(.creatingBusiness)
+            case 1:
+                await passcodeStep(for: list[0])
+            default:
+                guard signInGoesOn() else { return }
+                setPhase(.choosingLocation)
             }
         } catch let error as APIError where error.sessionEnded {
+            guard signInGoesOn() else { return }
             sessionEndedBeforeReady()
         } catch {
+            guard signInGoesOn() else { return }
             showLaunchError(error) { [weak self] in await self?.routeAfterSignIn() }
         }
     }
@@ -86,25 +178,43 @@ extension AppModel {
 
     /// The passcode step for a business after a full sign-in: type the passcode they have there, or make one.
     func passcodeStep(for business: Site) async {
-        guard Keychain.device != nil else {
+        // A key for this phone: the one a sign-in in flight is holding, or the one it already has.
+        guard pendingSignIn?.freshKey != nil || Keychain.device != nil else {
             // Without a key for this phone (a very old server) there is nothing to set up, so right after the email and password
             // the dashboard opens; the next lock or cold start asks for the email and password again.
+            guard signInGoesOn() else { return }
             await enterReady(business)
             return
         }
-        let forgot = auth.forgotPasscode
+        // "Forgot passcode?" was one person's: someone else who signs in after it types the passcode they have at this business
+        // (they used to be shown "Create passcode", and saving it replaced the one their other phone opens with).
+        let forgot = auth.forgot(for: user?.email ?? "", id: user?.id ?? "")
         var has = false
         if !forgot {
             do {
                 has = try await API.get("/api/app/passcode?site=\(Config.query(business.id))")["has"].bool
             } catch let error as APIError where error.sessionEnded {
+                guard signInGoesOn() else { return }
                 sessionEndedBeforeReady()
                 return
+            } catch let error as APIError where (400..<500).contains(error.status) && error.status != 429 && error.status != 408 {
+                guard signInGoesOn() else { return }
+                // The server answered, and said no (this sign-in may not open that business, or the business is gone). Asking
+                // again would be refused again, so Log in says why, instead of a Try again that can never work. (Asked too
+                // often, or too slow, is not a no: those keep Try again.)
+                sessionEndedBeforeReady(error.message)
+                // The session the sign-in just opened is still open on the server: it ends too, as on every other way back to
+                // Log in from a live session.
+                endSessionInBackground()
+                return
             } catch {
+                guard signInGoesOn() else { return }
                 showLaunchError(error) { [weak self] in await self?.passcodeStep(for: business) }
                 return
             }
         }
+        guard signInGoesOn() else { return }
+        if auth.forgotPasscode && !forgot { auth.forgotPasscode = false }
         setPhase(.passcode(PasscodeStep(purpose: .afterSignIn(has: has, forgot: forgot), site: business.ref)))
     }
 
@@ -154,6 +264,11 @@ extension AppModel {
         } catch let error as APIError {
             // A 401 without the device flags means the session itself ended (left too long on this screen); the key is still good.
             if error.sessionEnded { return .sessionEnded(AppModel.sessionEndedMessage) }
+            // Typing the passcode they have, not making one: digits that can never be a passcode (1234, 1111) are simply not
+            // right. The server answers those with its rule for making a passcode, which reads oddly on "Enter passcode".
+            if !replace, error.status == 400, error.left == nil, Passcode.problem(code) != nil {
+                return .wrong("That passcode is not right.")
+            }
             return passcodeResult(error)
         } catch {
             return .failed(APIError.unreachableMessage)
@@ -179,7 +294,7 @@ extension AppModel {
         sites = []
         site = nil
         sessionLimited = false
-        pushSent = false
+        stopPushOnThisPhone()
         setOrdersBadge(0)
         goWelcome(atLogin: true, message: message)
         endSessionInBackground()
@@ -288,28 +403,63 @@ extension AppModel {
 
     // MARK: Face ID
 
-    /// Turns Face ID on or off for opening the app. Turning it on reads the secret once, so iOS asks permission now.
-    func applyFaceID(_ wanted: Bool) async {
-        guard biometry != .none, wanted != faceIDOn, let key = Keychain.device else { return }
+    /// Turns Face ID on or off for opening the app. Turning it on reads the secret once, so iOS asks permission now. The answer
+    /// says what came of it, so the screen that asked can say why Face ID is not on (a ticked box or a switch that just goes back
+    /// tells the person nothing).
+    @discardableResult
+    func applyFaceID(_ wanted: Bool) async -> FaceIDChange {
+        guard biometry != .none, wanted != faceIDOn, let key = Keychain.device else { return .done }
         let proof: [String: Any] = ["device": key.id, "secret": key.secret]
-        if wanted {
-            guard let answer = try? await API.post("/api/app/biometric", proof) else { return }
-            let bio = answer["bio"].string
-            guard !bio.isEmpty, Keychain.saveBio(bio) else { return }
-            suppressCover = true
-            let check = await Keychain.readBio()
-            suppressCover = false
-            if case .ok = check {
-                setFaceIDFlag(true)
-            } else {
-                _ = try? await API.delete("/api/app/biometric", proof)
-                Keychain.delete("bio")
-                setFaceIDFlag(false)
-            }
-        } else {
+        guard wanted else {
             _ = try? await API.delete("/api/app/biometric", proof)
             Keychain.delete("bio")
             setFaceIDFlag(false)
+            return .done
+        }
+        let name = biometry.name
+        let plain = "\(name) could not be turned on. Try again."
+        let answer: JSON
+        do {
+            answer = try await API.post("/api/app/biometric", proof)
+        } catch let error as APIError {
+            if phase == .ready {
+                // The server forgot this phone (two-step sign-in was turned on, the password was changed, signed out
+                // everywhere): trying again can never work, so Log in says so now instead of at the next lock.
+                if error.signIn {
+                    deviceForgotten(error.message)
+                    return .left
+                }
+                // The session ended: check, then lock.
+                if error.sessionEnded {
+                    sessionEnded()
+                    return .left
+                }
+            }
+            // Always with what it is about: over the dashboard, the server's bare words ("PF Sites is restarting. Give it a
+            // moment and try again.") would not say what to try again.
+            return .failed("\(name) could not be turned on. \(error.message)")
+        } catch {
+            return .failed(plain)
+        }
+        let bio = answer["bio"].string
+        guard !bio.isEmpty, Keychain.saveBio(bio) else { return .failed(plain) }
+        suppressCover = true
+        let check = await Keychain.readBio()
+        suppressCover = false
+        if case .ok = check {
+            setFaceIDFlag(true)
+            return .done
+        }
+        _ = try? await API.delete("/api/app/biometric", proof)
+        Keychain.delete("bio")
+        setFaceIDFlag(false)
+        switch check {
+        case .cancelled:
+            return .cancelled
+        case .unavailable:
+            return .failed("\(name) could not be turned on. Check that it is set up, and allowed for PF Sites, in the iPhone's Settings.")
+        default:
+            return .failed(plain)
         }
     }
 
@@ -338,6 +488,12 @@ extension AppModel {
         idle.stop()
         stopPolling()
         WebStore.shared.blankAll()
+        // A step that was waiting for a full-screen page to be closed does not outlast the lock: it would come up long after
+        // the tap that asked for it, to whoever unlocks the phone.
+        if shell.afterCover != nil {
+            shell.afterCover = nil
+            shell.pendingTab = nil
+        }
         if let step = lockStep() {
             setPhase(.passcode(step))
         } else {
@@ -357,7 +513,17 @@ extension AppModel {
         Task {
             let me = try? await API.get("/api/me")
             checkingSession = false
-            guard let me, !me["user"].isObject else { return }
+            guard let me else { return }
+            if me["user"].isObject {
+                // Still signed in. A page that was sent to the website's log in page all the same only lacked the web views' own
+                // copy of the session cookie (it can arrive late, see `syncCookiesToWeb`): the cookie is handed over again and
+                // that page loads once more.
+                if WebStore.shared.hasPagesSentToLogin {
+                    await syncCookiesToWeb()
+                    WebStore.shared.retryPagesSentToLogin()
+                }
+                return
+            }
             if phase == .ready { lock() } else if phase == .creatingBusiness { sessionEndedBeforeReady() }
         }
     }
@@ -367,6 +533,10 @@ extension AppModel {
         closeShell()
         goWelcome(atLogin: true, note: "After you sign in, you'll make a new passcode.")
         auth.forgotPasscode = true
+        // The email Log in opens with is the one of the person this phone was set up for; their account's id tells them
+        // apart even when they have changed that email since.
+        auth.forgotFor = auth.email.trimmed.lowercased()
+        auth.forgotForID = UserDefaults.standard.string(forKey: Keys.userID) ?? ""
         endSessionInBackground()
     }
 
@@ -398,7 +568,7 @@ extension AppModel {
         sites = []
         site = nil
         sessionLimited = false
-        pushSent = false
+        stopPushOnThisPhone()
         setOrdersBadge(0)
         Keychain.forgetDevice()
         setFaceIDFlag(false)
@@ -419,6 +589,7 @@ extension AppModel {
     }
 
     func goWelcome(atLogin: Bool = false, message: String = "", note: String = "") {
+        readyNotice = nil
         auth.reset(email: UserDefaults.standard.string(forKey: Keys.email) ?? "")
         auth.error = message
         auth.note = note
@@ -426,14 +597,30 @@ extension AppModel {
         setPhase(.welcome)
     }
 
-    /// Closes the dashboard and its pages (signing out, someone else signing in).
+    /// Closes the dashboard and its pages (signing out, someone else signing in), and everything that was open over it.
     func closeShell() {
         idle.stop()
         stopPolling()
+        // Whatever is still presented goes at once, without a slide: a share sheet holding an exported file, a Safari page, the
+        // website preview, an alert, the scanner, a full-screen page. The lock screen only covers these, so without this they
+        // would still be there, over Log in, for whoever uses the phone next.
+        BarcodeScan.finish(nil)
+        OverlayWindows.shared.mainWindow?.rootViewController?.dismiss(animated: false)
         WebStore.shared.closeAll()
+        // Files made to be shared (reports, item lists, recovery codes) do not outlast the person who made them, and a download
+        // still on its way is stopped first.
+        DownloadCenter.shared.cancelAll()
+        DownloadCenter.clearOldFiles()
+        // Neither does a notification they tapped before the dashboard was showing, nor the count on the app's icon, nor the
+        // sales reports read for them.
+        forgetPendingNotification()
+        setOrdersBadge(0)
+        StatsChoices.shared.reset()
+        AppointmentsModel.forget()
         shellAlive = false
         shell = Shell()
         shellID = UUID()
+        if notesDot { notesDot = false }
     }
 
     // MARK: Changing business (D5 / E11 from the dashboard)
@@ -476,23 +663,45 @@ extension AppModel {
         (HTTPCookieStorage.shared.cookies(for: Config.baseURL) ?? []).contains { $0.name == "pf_session" }
     }
 
-    /// Copies the session cookie from the app's requests into the web views' cookie store, and waits until it is there,
-    /// before any page loads or reloads.
+    /// Copies the session cookie from the app's requests into the web views' cookie store, before any page loads or reloads.
+    /// WebKit's answer is waited for, but never for long (`webKitAnswer`). With no page open, iOS puts WebKit's network process to
+    /// sleep, and then the answer only comes when the next page wakes it: 35 seconds later in one test run, when the first page
+    /// opened. The dashboard is what opens that page, so waiting for the answer before showing the dashboard waited for ever (the
+    /// loading screen never went away after signing in, 3 times in 8). The cookie is handed over before the wait starts, so it is
+    /// in WebKit's queue ahead of anything a page asks for later.
     func syncCookiesToWeb() async {
+        let cookies = HTTPCookieStorage.shared.cookies(for: Config.baseURL) ?? []
+        guard !cookies.isEmpty else { return }
         let store = WKWebsiteDataStore.default().httpCookieStore
-        for cookie in HTTPCookieStorage.shared.cookies(for: Config.baseURL) ?? [] {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                store.setCookie(cookie) { continuation.resume() }
+        await Self.webKitAnswer { done in
+            let all = DispatchGroup()
+            for cookie in cookies {
+                all.enter()
+                store.setCookie(cookie) { all.leave() }
             }
+            all.notify(queue: .main) { done() }
         }
     }
 
+    /// Clears the session's cookies: from the app's own requests at once, and from the web views, whose answer is waited for no
+    /// longer than in `syncCookiesToWeb` and for the same reason (the next log in or unlock waits for this to finish).
     func clearCookies() async {
         let storage = HTTPCookieStorage.shared
         for cookie in storage.cookies(for: Config.baseURL) ?? [] { storage.deleteCookie(cookie) }
         let types: Set<String> = [WKWebsiteDataTypeCookies]
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: Date.distantPast) { continuation.resume() }
+        await Self.webKitAnswer { done in
+            WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: Date.distantPast) { done() }
+        }
+    }
+
+    /// Starts `work` and comes back when it calls `done`, or after `seconds` when WebKit has not answered by then (it usually
+    /// answers within half a second). The work itself is not cancelled: only the waiting ends. True when WebKit answered in time.
+    @discardableResult
+    static func webKitAnswer(within seconds: TimeInterval = 1, _ work: (@escaping @Sendable () -> Void) -> Void) async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let first = FirstCaller()
+            work { DispatchQueue.main.async { if first.take() { continuation.resume(returning: true) } } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { if first.take() { continuation.resume(returning: false) } }
         }
     }
 
@@ -509,5 +718,17 @@ extension AppModel {
     func endServerSession() async {
         _ = try? await API.post("/api/auth/logout")
         await clearCookies()
+    }
+}
+
+/// Lets the first caller through and nobody after it, so a wait that can end two ways (an answer, or time running out) ends once.
+/// Only ever used on the main queue.
+final class FirstCaller: @unchecked Sendable {
+    private var open = true
+
+    func take() -> Bool {
+        guard open else { return false }
+        open = false
+        return true
     }
 }

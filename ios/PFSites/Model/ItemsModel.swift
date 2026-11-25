@@ -177,6 +177,9 @@ final class ItemsModel {
     private(set) var settingsAsked = false
     private(set) var loading = false
     private(set) var problem = ""
+    /// When the Items cover this model belongs to was closed (there is one model per opening of Items): a change still on its
+    /// way then says what went wrong over whatever is showing, instead of on a page that has gone.
+    @ObservationIgnored var closedAt: Date?
 
     var search = ""
     var searching = false
@@ -185,6 +188,21 @@ final class ItemsModel {
     /// Kept while the screen is open, like the website keeps its filters while its page is open.
     var filter = ItemsFilter()
     private(set) var toast: String?
+
+    /// A change was sent, no answer came back, and the list has not been read since: the change may or may not have been made.
+    /// While this holds nothing else is sent. The list is read first, so nothing is done a second time on top of itself.
+    private(set) var unconfirmed = false
+    /// Words a sheet over the list leaves for the list to say once the sheet has gone.
+    var notice: String?
+    /// Counts the lists read from the server, to tell whether a read worked.
+    @ObservationIgnored private var reads = 0
+
+    /// After a change that got no answer, once the list has been read again: look before doing it again.
+    static let checkFirst = "No answer came back, so this may already have been done. The list is up to date now: check it before doing it again."
+    /// The list could not be read either, so what happened to the change is not known yet.
+    static let notChecked = "We could not check whether your last change was made. Check your connection and try again."
+    /// The status of the error an import gives back with `checkFirst` (it is not the server's).
+    static let checkStatus = -1
 
     @ObservationIgnored private var round = 0
     /// Counts the lists that changes brought back, so a load that began before one never puts its older list over it.
@@ -230,7 +248,7 @@ final class ItemsModel {
         if filter.out || filter.low || filter.hidden || filter.sale {
             // The website's states: hidden first, then sold out at 0, then low at the business's warning level or below.
             let low = item.available && item.stock != 0 && item.stock <= lowAt
-            let hit = (filter.out && item.stock == 0) || (filter.low && low) || (filter.hidden && !item.available) || (filter.sale && item.sale > 0)
+            let hit = (filter.out && item.available && item.stock == 0) || (filter.low && low) || (filter.hidden && !item.available) || (filter.sale && item.sale > 0)
             if !hit { return false }
         }
         if !filter.cats.isEmpty && !filter.cats.contains(item.category) { return false }
@@ -256,6 +274,8 @@ final class ItemsModel {
             if before == changes { show(menu) }
             loaded = true
             problem = ""
+            reads += 1
+            if unconfirmed { unconfirmed = false }
         } catch let error as APIError {
             guard mine == round else { return }
             // Signed out everywhere, or the session ended: the app checks, then locks. A 403 is only a message.
@@ -268,10 +288,39 @@ final class ItemsModel {
         guard mine == round else { return }
         if let site, site["site"].isObject {
             settings = ItemsSettings(site: site["site"])
+            // Only once they have really come: without them the editor still works, with the items' own categories, and asks
+            // again when it opens instead of saying the business has no modifier groups or labels.
+            settingsAsked = true
+            dropGoneCategories()
         }
-        // Asked and answered, even with no: without them the editor still works, with the items' own categories.
-        if !Task.isCancelled { settingsAsked = true }
         loading = false
+    }
+
+    /// Reads the list again, for a few seconds at most (someone is waiting behind it), and says whether that worked.
+    func reread(_ model: AppModel, within seconds: Double = 5) async -> Bool {
+        let before = reads
+        let work = Task { await self.load(model) }
+        let limit = Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            work.cancel()
+        }
+        await work.value
+        limit.cancel()
+        return reads != before
+    }
+
+    /// A change got no answer. The list is read again: when that works it shows what is true, and the words say to look before
+    /// doing it again; when it does not, the change stays unconfirmed and the next one waits for a read (see `unconfirmed`).
+    private func unanswered(_ model: AppModel, words: String) async -> (checked: Bool, words: String) {
+        unconfirmed = true
+        return await reread(model) ? (true, Self.checkFirst) : (false, words)
+    }
+
+    /// Before a change is sent: when the one before it is still unconfirmed, the list is read and the change is not sent, so
+    /// the person looks first. Nil when there is nothing in the way.
+    private func heldBack(_ model: AppModel) async -> String? {
+        guard unconfirmed else { return nil }
+        return await reread(model) ? Self.checkFirst : Self.notChecked
     }
 
     /// The server answers every change with the whole list; it replaces the one shown.
@@ -279,6 +328,8 @@ final class ItemsModel {
         guard answer["items"].raw is [Any] else { return }
         changes += 1
         show(answer)
+        // The server just answered with the whole list: a line left from an earlier failed load no longer holds.
+        problem = ""
     }
 
     private func show(_ answer: JSON) {
@@ -286,7 +337,17 @@ final class ItemsModel {
         items = answer["items"].array.compactMap { CatalogItem($0) }
         let ids = Set(items.map(\.id))
         selection = selection.intersection(ids)
+        dropGoneCategories()
         loaded = true
+    }
+
+    /// A filter by a category that no longer exists goes with it (its last item was moved, or the menu was replaced): the
+    /// panel lists only the categories there are, so it could not be unticked, and the list said "No items found" with
+    /// nothing ticked.
+    private func dropGoneCategories() {
+        guard !filter.cats.isEmpty else { return }
+        let kept = filter.cats.intersection(categoryNames)
+        if kept != filter.cats { filter.cats = kept }
     }
 
     func showToast(_ text: String) {
@@ -309,6 +370,7 @@ final class ItemsModel {
     /// The website's bulk changes and bulk delete (POST /api/sites/<id>/menu/bulk). Nil when it worked, otherwise the server's words.
     func bulk(_ model: AppModel, ids: [String], body: [String: Any]) async -> String? {
         guard let business = model.site else { return nil }
+        if let words = await heldBack(model) { return words }
         var payload = body
         payload["ids"] = ids
         do {
@@ -318,16 +380,23 @@ final class ItemsModel {
             return nil
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
+            // No answer came, but the change may have reached the server (a price raised, items deleted): the list is read
+            // again and the words say to look before doing it again, instead of "try again" over a list that may already
+            // hold the change.
+            if error.status == 0 { return await unanswered(model, words: error.message).words }
             return error.message
         } catch {
             // Never said to have worked when no answer came.
-            return APIError.unreachableMessage
+            return await unanswered(model, words: APIError.unreachableMessage).words
         }
     }
 
     /// Imports an item list (POST /api/sites/<id>/menu/import), as the website's import does. The number added, or the server's words.
     func importList(_ model: AppModel, csv: String, replace: Bool, startStock: Int) async -> Result<Int, APIError> {
         guard let business = model.site else { return .failure(APIError(status: 0, message: APIError.unreachableMessage)) }
+        if let words = await heldBack(model) {
+            return .failure(APIError(status: words == Self.checkFirst ? Self.checkStatus : 0, message: words))
+        }
         do {
             let answer = try await API.post("/api/sites/\(business.id)/menu/import", ["csv": csv, "replace": replace, "startStock": startStock])
             take(answer)
@@ -335,18 +404,26 @@ final class ItemsModel {
             return .success(max(0, answer["imported"].int))
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
+            // As in `bulk`. With `checkStatus` the sheet closes, so the list is looked at before the file is sent again
+            // (an import that did arrive would otherwise be on the menu twice after "Try again").
+            if error.status == 0 {
+                let after = await unanswered(model, words: error.message)
+                return .failure(APIError(status: after.checked ? Self.checkStatus : 0, message: after.words))
+            }
             return .failure(error)
         } catch {
-            return .failure(APIError(status: 0, message: APIError.unreachableMessage))
+            let after = await unanswered(model, words: APIError.unreachableMessage)
+            return .failure(APIError(status: after.checked ? Self.checkStatus : 0, message: after.words))
         }
     }
 
     // MARK: Export and print
 
-    /// The website's "Download item list" file, written where the share sheet can hand it on.
+    /// The website's "Download item list" file, written where the share sheet can hand it on: a folder of its own with the app's
+    /// other downloads, so it is removed when the sheet closes instead of staying in the temporary folder.
     func exportFile() throws -> URL {
         let name = settings.slug.isEmpty ? "items" : "\(settings.slug)-items"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(name).csv")
+        let url = try DownloadCenter.newFolder().appendingPathComponent("\(name).csv")
         try ItemsCSV.export(items).write(to: url, atomically: true, encoding: .utf8)
         return url
     }
@@ -439,7 +516,7 @@ enum ItemsCodes {
 enum ItemsMoney {
     /// "$1,234.50", "12", "9,50" or "Free" in cents, or nil when it is not a price (shared/core.js parsePrice).
     static func parse(_ input: String) -> Int? {
-        let raw = input.trimmed
+        let raw = ItemsCSV.trim(input)
         guard !raw.isEmpty else { return nil }
         let lower = raw.lowercased()
         if lower == "free" || lower == "no charge" || lower == "n/c" { return 0 }
@@ -508,7 +585,8 @@ struct ItemsRx {
         }
     }
 
-    static let negative = ItemsRx(#"-\s*[0-9]|\(\s*\$?[0-9]"#)
+    // JavaScript's \s also matches a byte-order mark; it is named here so both read the same.
+    static let negative = ItemsRx(#"-[\s\x{FEFF}]*[0-9]|\([\s\x{FEFF}]*\$?[0-9]"#)
     static let choice = ItemsRx(#"^(.*?)[\s,;:-]*\+?\s*\$?\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*$"#)
 }
 
@@ -560,6 +638,31 @@ enum ItemsCSV {
         return "<!doctype html><meta charset=\"utf-8\"><title>\(escape(title))</title><style>\(css)</style><h1>\(escape(title))</h1><table><thead><tr>\(header)</tr></thead><tbody>\(body)</tbody></table>"
     }
 
+    /// A spreadsheet file's bytes as text: UTF-8, Excel's "Unicode Text" (UTF-16, which starts with its byte-order mark), or the
+    /// old Windows encoding that Excel's plain CSV uses.
+    static func text(from data: Data) -> String {
+        if data.starts(with: [0xFF, 0xFE]) || data.starts(with: [0xFE, 0xFF]), let text = String(data: data, encoding: .utf16) { return text }
+        return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252) ?? String(decoding: data, as: UTF8.self)
+    }
+
+    /// A cell trimmed the way the server trims it (JavaScript's trim), so the import sheet and the server agree to the letter:
+    /// there a byte-order mark counts as a space and a zero-width space does not, the other way round from `trimmed`.
+    static func trim(_ text: String) -> String {
+        let scalars = text.unicodeScalars
+        var start = scalars.startIndex
+        var end = scalars.endIndex
+        while start < end, isSpace(scalars[start]) { start = scalars.index(after: start) }
+        while end > start, isSpace(scalars[scalars.index(before: end)]) { end = scalars.index(before: end) }
+        return String(scalars[start..<end])
+    }
+
+    private static func isSpace(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x09...0x0D, 0x20, 0xA0, 0x1680, 0x2000...0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF: return true
+        default: return false
+        }
+    }
+
     /// A spreadsheet's text in rows of cells: quotes, line breaks inside quotes, and comma, semicolon or tab separators.
     static func rows(_ text: String) -> [[String]] {
         var scalars = Array(text.unicodeScalars)
@@ -592,7 +695,7 @@ enum ItemsCSV {
                 } else {
                     cell.append(scalar)
                 }
-            } else if scalar == "\"" && String(cell).trimmed.isEmpty {
+            } else if scalar == "\"" && trim(String(cell)).isEmpty {
                 cell = String.UnicodeScalarView()
                 quoted = true
             } else if scalar == separator {
@@ -613,7 +716,7 @@ enum ItemsCSV {
             row.append(String(cell))
             rows.append(row)
         }
-        return rows.map { $0.map { $0.trimmed } }.filter { $0.contains { !$0.isEmpty } }
+        return rows.map { $0.map { trim($0) } }.filter { $0.contains { !$0.isEmpty } }
     }
 
     // The column names the website recognises, in its order (a "Price type" column is never read as the price).
@@ -693,7 +796,7 @@ enum ItemsCSV {
         }
         let get: ([String], String) -> String = { row, key in
             guard let column = map[key], column >= 0, column < row.count else { return "" }
-            return String(row[column].prefix(2000)).trimmed
+            return trim(String(row[column].prefix(2000)))
         }
         var category = ""
         var codes: [String: String] = [:]
@@ -834,15 +937,17 @@ enum ItemPhoto {
             result = try await URLSession.shared.upload(for: request, from: data)
         } catch {
             if Task.isCancelled || (error as? URLError)?.code == .cancelled { throw CancellationError() }
-            let offline: Set<URLError.Code> = [.notConnectedToInternet, .networkConnectionLost, .dataNotAllowed, .internationalRoamingOff, .cannotLoadFromNetwork]
+            // "You're offline" only when the phone has no connection, as for every other request (API.words).
+            let offline: Set<URLError.Code> = [.notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff]
             let code = (error as? URLError)?.code
             throw APIError(status: 0, message: code.map { offline.contains($0) } == true ? APIError.offlineMessage : APIError.unreachableMessage)
         }
         let status = (result.1 as? HTTPURLResponse)?.statusCode ?? 0
         let json = JSON(data: result.0)
         if (200..<300).contains(status), !json["url"].string.isEmpty { return json["url"].string }
-        if status == 502 || status == 503 || status == 504 { throw APIError(status: status, message: APIError.restartingMessage) }
         let text = json["error"].string
+        // Only a gateway's answer means the service is restarting; the service's own words ("Uploads are not available.") are shown.
+        if text.isEmpty, status == 502 || status == 503 || status == 504 { throw APIError(status: status, message: APIError.restartingMessage) }
         throw APIError(status: status, message: text.isEmpty ? "Something went wrong. Please try again." : text, data: json)
     }
 }

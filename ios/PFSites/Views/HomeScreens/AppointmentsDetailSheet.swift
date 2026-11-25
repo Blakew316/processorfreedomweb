@@ -15,6 +15,9 @@ struct AppointmentDaySheet: View {
     @Environment(AppModel.self) private var model
     @State private var snapshot: Appointment? = nil
     @State private var working: String? = nil
+    /// A step worked and the sheet is on its way out: while it slides away its steps (the pill that just turned from Confirm to
+    /// Complete among them) do nothing, so a second press cannot move the booking on again.
+    @State private var closing = false
     @State private var problem: String? = nil
     @State private var question: Question? = nil
     @State private var choosingTender = false
@@ -264,7 +267,7 @@ struct AppointmentDaySheet: View {
     private func stepPill(_ title: String, step: String, kind: AppointmentDayPillStyle.Kind = .primary, action: @escaping () -> Void) -> some View {
         let running = working == step
         return Button {
-            if working == nil { action() }
+            if working == nil && !closing { action() }
         } label: {
             if running {
                 ProgressView()
@@ -283,7 +286,7 @@ struct AppointmentDaySheet: View {
     private func textButton(_ title: String, step: String, color: Color, action: @escaping () -> Void) -> some View {
         let running = working == step
         return Button {
-            if working == nil { action() }
+            if working == nil && !closing { action() }
         } label: {
             ZStack {
                 if running {
@@ -340,13 +343,14 @@ struct AppointmentDaySheet: View {
     // MARK: Talking to the server
 
     private func change(to status: AppointmentStatus) {
-        guard let appointment, let business = model.site, working == nil else { return }
+        guard let appointment, let business = model.site, working == nil, !closing else { return }
         working = status.rawValue
         model.idle.touch()
         Task {
             do {
                 _ = try await list.setStatus(appointment, to: status, siteID: business.id)
                 Haptics.success()
+                closing = true
                 working = nil
                 finish(nil)
             } catch let error as APIError {
@@ -360,13 +364,14 @@ struct AppointmentDaySheet: View {
     }
 
     private func pay(_ tender: String) {
-        guard let appointment, let business = model.site, working == nil else { return }
+        guard let appointment, let business = model.site, working == nil, !closing else { return }
         working = "pay"
         model.idle.touch()
         Task {
             do {
                 _ = try await list.recordPayment(appointment, tender: tender, siteID: business.id)
                 Haptics.success()
+                closing = true
                 working = nil
                 finish("Paid by \(tender.lowercased())")
             } catch let error as APIError {
@@ -379,13 +384,14 @@ struct AppointmentDaySheet: View {
     }
 
     private func voidPayment() {
-        guard let appointment, let business = model.site, working == nil else { return }
+        guard let appointment, let business = model.site, working == nil, !closing else { return }
         working = "void"
         model.idle.touch()
         Task {
             do {
                 _ = try await list.voidPayment(appointment, siteID: business.id)
                 Haptics.success()
+                closing = true
                 working = nil
                 finish("Payment voided")
             } catch let error as APIError {
@@ -410,8 +416,21 @@ struct AppointmentDaySheet: View {
         Task { await list.load(siteID: business.id) }
     }
 
+    /// The number to dial: its digits, with a leading +. Once a whole number has been read (seven digits, the fewest the server
+    /// takes), it stops at a letter ("ext 5", "x12"), a comma, a semicolon, a slash, # or * (what the phone pad offers for an
+    /// extension), so an extension or a second number written after it is not dialled as part of the first. Before that, those
+    /// are only ways of writing the number ("312/555-0144").
     private func phoneURL(_ phone: String) -> URL? {
-        let digits = phone.filter { $0.isASCII && ($0.isNumber || $0 == "+") }
+        var digits = ""
+        for character in phone.trimmed {
+            if character.isASCII && character.isNumber {
+                digits.append(character)
+            } else if character == "+" && digits.isEmpty {
+                digits.append(character)
+            } else if character.isLetter || ",;/#*".contains(character) {
+                if digits.filter({ $0.isNumber }).count >= 7 { break }
+            }
+        }
         guard digits.filter({ $0.isNumber }).count >= 3 else { return nil }
         return URL(string: "tel:\(digits)")
     }
@@ -419,7 +438,11 @@ struct AppointmentDaySheet: View {
     private func mailURL(_ email: String) -> URL? {
         let address = email.trimmed
         guard address.contains("@") else { return nil }
-        if let url = URL(string: "mailto:\(address)") { return url }
-        return address.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed).flatMap { URL(string: "mailto:\($0)") }
+        // The address comes from whoever booked. As the link's path, every ?, & and # in it stays part of the address, so
+        // it cannot bring a hidden recipient, a subject or a message into Mail (see OrderDetailView.mailURL).
+        var link = URLComponents()
+        link.scheme = "mailto"
+        link.path = address
+        return link.url
     }
 }
