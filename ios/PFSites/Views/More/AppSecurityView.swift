@@ -47,7 +47,8 @@ struct AppSecurityView: View {
 
                 notificationsRow
 
-                SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, small: true, enabled: true) {
+                // A value under its title, drawn like the photo's value rows beside it (Inactivity timeout, Appearance).
+                SettingsRowView(title: "Two-step sign-in", subtitle: twoStepStatus, enabled: true) {
                     model.shell.push(.page("profile"))
                 }
 
@@ -131,10 +132,10 @@ struct AppSecurityView: View {
     private var notificationsRow: some View {
         if !model.config.appPush {
             // The server cannot send Apple push yet.
-            SettingsRowView(title: "Notifications", subtitle: "Not available yet", small: true, enabled: false) {}
+            SettingsRowView(title: "Notifications", subtitle: "Not available yet", enabled: false) {}
         } else if model.pushDenied {
             // Refused in iOS: only iOS Settings can turn them back on.
-            SettingsRowView(title: "Notifications", subtitle: "Off in iOS Settings", small: true, enabled: true) {
+            SettingsRowView(title: "Notifications", subtitle: "Off in iOS Settings", enabled: true) {
                 UIPresenter.openNotificationSettings()
             }
         } else {

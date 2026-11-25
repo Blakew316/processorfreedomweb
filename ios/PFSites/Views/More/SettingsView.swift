@@ -320,39 +320,51 @@ struct SettingsRowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Button {
-                if enabled { action() }
-            } label: {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: small ? 4 : 7) {
-                        Text(title)
-                            .pfFont(17.5, .semibold)
-                            .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
-                        if !subtitle.isEmpty {
-                            Text(subtitle)
-                                .pfFont(small ? 14 : 17.5)
-                                .foregroundStyle(enabled ? (small ? Color.secondary : Color.primary) : SettingsLook.greyed)
-                        }
-                    }
-                    .multilineTextAlignment(.leading)
-                    Spacer(minLength: 8)
-                    if enabled {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.primary)
-                            .accessibilityHidden(true)
-                    }
-                }
-                .padding(.leading, 24)
-                .padding(.trailing, 30)
-                .padding(.vertical, 17)
-                .frame(maxWidth: .infinity, minHeight: 55.33, alignment: .leading)
-                .contentShape(Rectangle())
+            if enabled {
+                Button(action: action) { label }
+                    .buttonStyle(.plain)
+            } else {
+                // Drawn as it is, never as a button that cannot be pressed: that fades it a second time, to half the grey the
+                // app's other greyed rows have (More's Card Reader), and to almost nothing in dark mode.
+                label
+                    .accessibilityElement(children: .combine)
+                    .accessibilityValue(subtitle.isEmpty ? "Not available yet" : "")
             }
-            .buttonStyle(.plain)
-            .disabled(!enabled)
-            .accessibilityValue(enabled ? "" : "Not available yet")
             SettingsListSeparator(inset: !plainLine)
         }
+    }
+
+    /// A row with a value under its title (Profile and the name) has its chevron level with the title, as in the photos; the
+    /// small grey second line of search results keeps the chevron in the middle of the row.
+    private var label: some View {
+        let valueRow = !subtitle.isEmpty && !small
+        return HStack(alignment: valueRow ? .top : .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: small ? 4 : 7) {
+                Text(title)
+                    .pfFont(17.5, .semibold)
+                    .foregroundStyle(enabled ? Color.primary : SettingsLook.greyed)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .pfFont(small ? 14 : 17.5)
+                        .foregroundStyle(enabled ? (small ? Color.secondary : Color.primary) : SettingsLook.greyed)
+                }
+            }
+            .multilineTextAlignment(.leading)
+            Spacer(minLength: 8)
+            if enabled {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+                    // On a value row: in the middle of the title's 21 pt line, as App security's value rows place it.
+                    .frame(height: valueRow ? 21 : nil)
+                    .padding(.top, valueRow ? 1 : 0)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.leading, 24)
+        .padding(.trailing, 30)
+        .padding(.vertical, 17)
+        .frame(maxWidth: .infinity, minHeight: 55.33, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
