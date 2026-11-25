@@ -1381,7 +1381,7 @@ html{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   .table td:first-child{grid-column:1/-1;font-size:17px}
   .table td:first-child::before{display:none!important}
   /* an email address has the card's whole width: in half of it, it was cut in the middle of a word */
-  .table td[data-l="Email"]{grid-column:1/-1}
+  .table td[data-l="Email"],.table td[data-l="Email address"]{grid-column:1/-1}
   .table td[data-l=""],.table td:last-child:has(button,a.btn){grid-column:1/-1}
   .table td[data-empty]{display:none}
   .table td .btn{min-height:38px}
