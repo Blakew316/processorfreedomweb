@@ -416,9 +416,10 @@ struct AppointmentDaySheet: View {
         Task { await list.load(siteID: business.id) }
     }
 
-    /// The number to dial: its digits, with a leading +. It stops where the number does, at a letter ("ext 5", "x12"), a comma,
-    /// a semicolon, a slash, # or * (what the phone pad offers for an extension), so an extension or a second number written
-    /// after it is not dialled as part of the first.
+    /// The number to dial: its digits, with a leading +. Once a whole number has been read (seven digits, the fewest the server
+    /// takes), it stops at a letter ("ext 5", "x12"), a comma, a semicolon, a slash, # or * (what the phone pad offers for an
+    /// extension), so an extension or a second number written after it is not dialled as part of the first. Before that, those
+    /// are only ways of writing the number ("312/555-0144").
     private func phoneURL(_ phone: String) -> URL? {
         var digits = ""
         for character in phone.trimmed {
@@ -427,7 +428,7 @@ struct AppointmentDaySheet: View {
             } else if character == "+" && digits.isEmpty {
                 digits.append(character)
             } else if character.isLetter || ",;/#*".contains(character) {
-                if digits.contains(where: { $0.isNumber }) { break }
+                if digits.filter({ $0.isNumber }).count >= 7 { break }
             }
         }
         guard digits.filter({ $0.isNumber }).count >= 3 else { return nil }
