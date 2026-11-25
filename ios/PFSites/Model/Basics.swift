@@ -72,6 +72,15 @@ enum Passcode {
 extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Only the digits, at most `limit` of them.
-    func digits(limit: Int) -> String { String(filter { $0.isASCII && $0.isNumber }.prefix(limit)) }
+    /// Only the digits, at most `limit` of them, written 0 to 9. A number pad that writes its own digits (the Arabic, Persian
+    /// and Hindi keyboards do) types the same passcode or code as any other; its keys used to be thrown away one by one, so
+    /// the passcode could not be typed at all while such a keyboard was the one in use.
+    func digits(limit: Int) -> String {
+        let plain = compactMap { character -> Character? in
+            guard character.unicodeScalars.count == 1, let scalar = character.unicodeScalars.first,
+                  scalar.properties.numericType == .decimal, let value = character.wholeNumberValue, (0...9).contains(value) else { return nil }
+            return Character(String(value))
+        }
+        return String(plain.prefix(limit))
+    }
 }
