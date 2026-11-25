@@ -106,6 +106,9 @@ struct TwoStepView: View {
                         .padding(.top, 29)
 
                         Button("Cancel") {
+                            // Not while a code is being checked: the server spends the code as it says yes (a recovery code is
+                            // gone for good), so the answer is waited for, as the passcode screen waits for its own.
+                            guard !busy else { return }
                             dismiss()
                         }
                         .buttonStyle(SignInPillStyle(fill: SignInLook.cancelFill, text: .primary))

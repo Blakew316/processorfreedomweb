@@ -76,11 +76,7 @@ struct LoginView: View {
                                 HStack(spacing: 8) {
                                     Group {
                                         if showPassword {
-                                            // The letters-and-numbers keyboard, as the hidden field has: on the ordinary one
-                                            // iOS turns ' " and -- into curly quotes and a dash as they are typed, and a
-                                            // password typed right is then refused.
                                             TextField("", text: $auth.password)
-                                                .keyboardType(.asciiCapable)
                                         } else {
                                             SecureField("", text: $auth.password)
                                         }

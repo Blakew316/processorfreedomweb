@@ -246,10 +246,13 @@ final class OrdersModel {
     private(set) var today = ""
 
     /// Once the person picks a tab it stays; until then the first load opens Open when there is something to do.
-    @ObservationIgnored var tabChosen = false
+    @ObservationIgnored private(set) var tabChosen = false
+    /// The first tab is settled (chosen by the app, or tapped by the person). The list is not drawn before that, so it never
+    /// shows on one tab and jumps to the other.
+    private(set) var tabSettled = false
     @ObservationIgnored private var siteLoadedAt: Date?
-    /// The business's time zone has been read, or its reading failed: "today" is as right as it is going to be.
-    @ObservationIgnored private var zoneSettled = false
+    /// The short wait for the business's time zone before the first tab is chosen without it.
+    @ObservationIgnored private var zoneWait: Task<Void, Never>?
     /// Counts the lists asked for, the last one shown and the orders changed on this phone, so a list that left the server before a
     /// newer one, or before a change made here, never replaces what is newer.
     @ObservationIgnored private var asked = 0
@@ -285,7 +288,7 @@ final class OrdersModel {
             if !loaded { loaded = true }
             if !loadError.isEmpty { loadError = "" }
             if !refreshProblem.isEmpty { refreshProblem = "" }
-            chooseFirstTab()
+            settleFirstTab()
             AppModel.shared.setOrdersBadge(list.filter { $0.status == "new" }.count)
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
@@ -307,26 +310,52 @@ final class OrdersModel {
     func loadSite(siteID: String, force: Bool = false) async {
         if !force, let at = siteLoadedAt, Date().timeIntervalSince(at) < 60 { return }
         guard let answer = try? await API.get("/api/sites/\(siteID)") else {
-            // It could not be read: the tab is chosen with the day the app has, rather than not at all.
-            zoneSettled = true
-            chooseFirstTab()
+            // It could not be read (not merely given up because the screen went away): the first tab is chosen with the day
+            // the app has, rather than waited for.
+            if !Task.isCancelled { chooseFirstTab() }
             return
         }
         siteLoadedAt = Date()
         let zone = answer["site"]["ordering"]["timezone"].string
         if let found = TimeZone(identifier: zone), found.identifier != timeZone.identifier { timeZone = found }
-        zoneSettled = true
         chooseFirstTab()
     }
 
-    /// The first tab, chosen once: Open when there is something to do today, else Closed. It waits for the list and for the
-    /// business's time zone. The list alone used to decide, with Chicago's day until the time zone came: a business elsewhere,
+    /// The person tapped a tab: it stays, and nothing is chosen for them any more.
+    func tabPicked() {
+        tabChosen = true
+        zoneWait?.cancel()
+        zoneWait = nil
+        if !tabSettled { tabSettled = true }
+    }
+
+    /// The list is in: the first tab is chosen now when the business's time zone is known, and otherwise once it arrives, for
+    /// at most a second (it is asked for beside the list and usually lands with it). With Chicago's day, a business elsewhere,
     /// in the hours when its day and Chicago's differ, settled on Closed with open orders waiting under "Open (2)".
+    private func settleFirstTab() {
+        guard !tabChosen else { return }
+        if siteLoadedAt != nil {
+            chooseFirstTab()
+            return
+        }
+        guard zoneWait == nil else { return }
+        zoneWait = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.zoneWait = nil
+            self?.chooseFirstTab()
+        }
+    }
+
+    /// The first tab, chosen once the list is in: Open when there is something to do today, else Closed.
     private func chooseFirstTab() {
-        guard !tabChosen, loaded, zoneSettled else { return }
+        guard !tabChosen, loaded else { return }
+        zoneWait?.cancel()
+        zoneWait = nil
         tabChosen = true
         let first: OrdersTab = counts().open > 0 ? .open : .closed
         if tab != first { tab = first }
+        if !tabSettled { tabSettled = true }
     }
 
     func replace(_ fresh: CustomerOrder) {

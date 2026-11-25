@@ -17,19 +17,22 @@ extension AppModel {
         }
         if sendText { body["sendText"] = true }
         // The screen that asked, to tell whether the person was still on it when the answer came.
-        let asked = auth.path
+        let asked = auth.path, attempt = auth.attempt
+        // With a code in the request the sign-in is never thrown away: the server has spent the code by the time it says yes
+        // (a recovery code is gone for good), and it cannot be given back.
+        let mayLeave = (code ?? "").isEmpty
         _ = await endingSession?.value
         do {
             let answer = try await API.post("/api/auth/login", body)
-            // Cancel on the code step, or Back, while the answer was on its way: the person said no, so the app does not sign
-            // in behind them a second later (it used to jump to the passcode step from Log in or Welcome, having replaced the
-            // phone's earlier key). The session and the key the server has just made are given up instead.
-            if phase == .welcome, auth.path != asked {
-                await giveUpSignIn(answer)
+            // Back while the answer was on its way: the person said no, so the app does not sign in behind them (it used to
+            // jump to the passcode step from Welcome, having replaced the phone's earlier key). The session and the key the
+            // server has just made are given up instead.
+            if mayLeave, phase == .welcome, auth.path != asked || auth.attempt != attempt {
+                endAbandonedSignIn(id: answer["device"]["id"].string, secret: answer["device"]["secret"].string)
                 return .left
             }
-            await signedIn(answer, email: email)
-            return .success
+            let went = await signedIn(answer, email: email, asked: asked, attempt: attempt, mayLeave: mayLeave)
+            return went ? .success : .left
         } catch let error as APIError {
             // Asked for a code although this phone sent its "remember this device" token: the token has run out, so it is not
             // kept (a new one comes with the next code when "remember" is ticked).
@@ -42,10 +45,9 @@ extension AppModel {
 
     /// Ends a sign-in the person walked away from: the new session, and the key made for this phone with it. It runs in order
     /// with the next sign-in, like every other ending, so it can never end that one.
-    private func giveUpSignIn(_ answer: JSON) async {
-        let id = answer["device"]["id"].string, secret = answer["device"]["secret"].string
+    private func endAbandonedSignIn(id: String, secret: String) {
         let previous = endingSession
-        let ending = Task {
+        endingSession = Task {
             _ = await previous?.value
             if !id.isEmpty, !secret.isEmpty {
                 _ = try? await API.post("/api/app/signout", ["device": id, "secret": secret])
@@ -54,44 +56,93 @@ extension AppModel {
             }
             await clearCookies()
         }
-        endingSession = ending
-        await ending.value
     }
 
-    private func signedIn(_ answer: JSON, email: String) async {
+    /// The server said yes. The person's businesses are read next, with Log in (or the code step) still showing its spinner, and
+    /// only when the app is about to leave those screens is the sign-in made final (`signInGoesOn`): until then a Back undoes
+    /// it. False when it was undone.
+    private func signedIn(_ answer: JSON, email: String, asked: [AuthStep], attempt: Int, mayLeave: Bool) async -> Bool {
         Haptics.success()
         let person = User(answer["user"]) ?? user ?? User()
-        user = person
-        // Someone else signing in on this phone does not inherit the last person's choice to get notifications here: they stay
-        // off until this person turns them on. (Face ID already goes with the phone's earlier key, below.)
-        let before = (UserDefaults.standard.string(forKey: Keys.email) ?? "").lowercased()
-        if !before.isEmpty, !person.email.isEmpty, before != person.email.lowercased() {
-            UserDefaults.standard.set(false, forKey: Keys.pushWanted)
-        }
-        remember(person)
-        // The email and password open every business the person has.
-        sessionLimited = false
         let old = Keychain.device
+        var fresh: DeviceKey?
         let id = answer["device"]["id"].string, secret = answer["device"]["secret"].string
         if !id.isEmpty, !secret.isEmpty {
-            let fresh = DeviceKey(id: id, secret: secret)
-            Keychain.saveDevice(fresh)
-            // The phone's earlier key (an earlier sign-in, or another person) is given up without ending the new session,
-            // and what belonged to it goes too: its Face ID secret and the business it opened.
-            if let old, old.id != fresh.id {
-                Task { _ = try? await API.send("POST", "/api/app/signout", body: ["device": old.id, "secret": old.secret], cookies: false) }
-                Keychain.delete("bio")
-                Keychain.delete("site")
-                setFaceIDFlag(false)
-                // The old key's notification address goes with it; the new key's is sent when the dashboard opens.
-                pushSent = false
-            }
+            let key = DeviceKey(id: id, secret: secret)
+            // The new key is the phone's from now (the passcode step needs it); the earlier one is only given up when the
+            // sign-in is made final, so walking away leaves the phone as it was.
+            Keychain.saveDevice(key)
+            fresh = key
         }
-        let trust = answer["trust"].string
-        if !trust.isEmpty { Keychain.saveTrust(trust, for: email) }
+        signInUndone = false
+        pendingSignIn = PendingSignIn(asked: asked, attempt: attempt, mayLeave: mayLeave, person: person, email: email,
+                                      trust: answer["trust"].string, freshKey: fresh, oldKey: old, previousUser: user,
+                                      previousLimited: sessionLimited, previousSites: sites)
+        user = person
+        // The email and password open every business the person has.
+        sessionLimited = false
         await loadConfig()
         await syncCookiesToWeb()
         await routeAfterSignIn()
+        // Every way out of the sign-in screens settles it; this is only for a way that did not.
+        if pendingSignIn != nil { _ = signInGoesOn() }
+        return !signInUndone
+    }
+
+    /// Settles a sign-in in flight as the app is about to leave the sign-in screens (or to say why it cannot). True: it goes
+    /// on, and what cannot be taken back is done now. False: the person walked away from the screen that asked (Back, or Back
+    /// and in again), so it has been undone and the caller stops. With no sign-in in flight it is simply true.
+    func signInGoesOn() -> Bool {
+        guard let pending = pendingSignIn else { return true }
+        pendingSignIn = nil
+        let stayed = auth.path == pending.asked && auth.attempt == pending.attempt
+        if stayed || !pending.mayLeave || phase != .welcome {
+            commitSignIn(pending)
+            return true
+        }
+        undoSignIn(pending)
+        return false
+    }
+
+    private func commitSignIn(_ pending: PendingSignIn) {
+        let person = pending.person
+        // Someone else signing in on this phone does not inherit the last person's choice to get notifications here: they stay
+        // off until this person turns them on. People are told apart by their account, so the same person with a changed email
+        // keeps theirs; by the email only on a phone that never stored an account yet.
+        let defaults = UserDefaults.standard
+        let lastID = defaults.string(forKey: Keys.userID) ?? ""
+        let lastEmail = (defaults.string(forKey: Keys.email) ?? "").lowercased()
+        let someoneElse = lastID.isEmpty
+            ? !lastEmail.isEmpty && !person.email.isEmpty && lastEmail != person.email.lowercased()
+            : !person.id.isEmpty && lastID != person.id
+        if someoneElse { defaults.set(false, forKey: Keys.pushWanted) }
+        remember(person)
+        // The phone's earlier key (an earlier sign-in, or another person) is given up without ending the new session, and what
+        // belonged to it goes too: its Face ID secret and the business it opened.
+        if let fresh = pending.freshKey, let old = pending.oldKey, old.id != fresh.id {
+            Task { _ = try? await API.send("POST", "/api/app/signout", body: ["device": old.id, "secret": old.secret], cookies: false) }
+            Keychain.delete("bio")
+            Keychain.delete("site")
+            setFaceIDFlag(false)
+            // The old key's notification address goes with it; the new key's is sent when the dashboard opens.
+            pushSent = false
+        }
+        if !pending.trust.isEmpty { Keychain.saveTrust(pending.trust, for: pending.email) }
+    }
+
+    /// The person walked away: the phone is put back as it was (its earlier key, who was signed in, the businesses listed), and
+    /// the session and key the server made are given up.
+    private func undoSignIn(_ pending: PendingSignIn) {
+        signInUndone = true
+        if let fresh = pending.freshKey {
+            if let old = pending.oldKey { Keychain.saveDevice(old) } else { Keychain.delete("device") }
+            endAbandonedSignIn(id: fresh.id, secret: fresh.secret)
+        } else {
+            endAbandonedSignIn(id: "", secret: "")
+        }
+        user = pending.previousUser
+        sessionLimited = pending.previousLimited
+        sites = pending.previousSites
     }
 
     /// Where a full sign-in leads (D4): no business yet → make the first one; one → its passcode step straight away;
@@ -100,13 +151,20 @@ extension AppModel {
         do {
             let list = try await loadSites()
             switch list.count {
-            case 0: setPhase(.creatingBusiness)
-            case 1: await passcodeStep(for: list[0])
-            default: setPhase(.choosingLocation)
+            case 0:
+                guard signInGoesOn() else { return }
+                setPhase(.creatingBusiness)
+            case 1:
+                await passcodeStep(for: list[0])
+            default:
+                guard signInGoesOn() else { return }
+                setPhase(.choosingLocation)
             }
         } catch let error as APIError where error.sessionEnded {
+            guard signInGoesOn() else { return }
             sessionEndedBeforeReady()
         } catch {
+            guard signInGoesOn() else { return }
             showLaunchError(error) { [weak self] in await self?.routeAfterSignIn() }
         }
     }
@@ -125,21 +183,23 @@ extension AppModel {
         guard Keychain.device != nil else {
             // Without a key for this phone (a very old server) there is nothing to set up, so right after the email and password
             // the dashboard opens; the next lock or cold start asks for the email and password again.
+            guard signInGoesOn() else { return }
             await enterReady(business)
             return
         }
         // "Forgot passcode?" was one person's: someone else who signs in after it types the passcode they have at this business
         // (they used to be shown "Create passcode", and saving it replaced the one their other phone opens with).
-        let forgot = auth.forgot(for: user?.email ?? "")
-        if auth.forgotPasscode && !forgot { auth.forgotPasscode = false }
+        let forgot = auth.forgot(for: user?.email ?? "", id: user?.id ?? "")
         var has = false
         if !forgot {
             do {
                 has = try await API.get("/api/app/passcode?site=\(Config.query(business.id))")["has"].bool
             } catch let error as APIError where error.sessionEnded {
+                guard signInGoesOn() else { return }
                 sessionEndedBeforeReady()
                 return
             } catch let error as APIError where (400..<500).contains(error.status) && error.status != 429 && error.status != 408 {
+                guard signInGoesOn() else { return }
                 // The server answered, and said no (this sign-in may not open that business, or the business is gone). Asking
                 // again would be refused again, so Log in says why, instead of a Try again that can never work. (Asked too
                 // often, or too slow, is not a no: those keep Try again.)
@@ -149,10 +209,13 @@ extension AppModel {
                 endSessionInBackground()
                 return
             } catch {
+                guard signInGoesOn() else { return }
                 showLaunchError(error) { [weak self] in await self?.passcodeStep(for: business) }
                 return
             }
         }
+        guard signInGoesOn() else { return }
+        if auth.forgotPasscode && !forgot { auth.forgotPasscode = false }
         setPhase(.passcode(PasscodeStep(purpose: .afterSignIn(has: has, forgot: forgot), site: business.ref)))
     }
 
@@ -373,7 +436,9 @@ extension AppModel {
                     return .left
                 }
             }
-            return .failed(error.status == 0 ? "\(name) could not be turned on. \(error.message)" : error.message)
+            // Always with what it is about: over the dashboard, the server's bare words ("PF Sites is restarting. Give it a
+            // moment and try again.") would not say what to try again.
+            return .failed("\(name) could not be turned on. \(error.message)")
         } catch {
             return .failed(plain)
         }
@@ -469,8 +534,10 @@ extension AppModel {
         closeShell()
         goWelcome(atLogin: true, note: "After you sign in, you'll make a new passcode.")
         auth.forgotPasscode = true
-        // The email Log in opens with is the one of the person this phone was set up for.
+        // The email Log in opens with is the one of the person this phone was set up for; their account's id tells them
+        // apart even when they have changed that email since.
         auth.forgotFor = auth.email.trimmed.lowercased()
+        auth.forgotForID = UserDefaults.standard.string(forKey: Keys.userID) ?? ""
         endSessionInBackground()
     }
 
@@ -523,6 +590,7 @@ extension AppModel {
     }
 
     func goWelcome(atLogin: Bool = false, message: String = "", note: String = "") {
+        readyNotice = nil
         auth.reset(email: UserDefaults.standard.string(forKey: Keys.email) ?? "")
         auth.error = message
         auth.note = note

@@ -431,13 +431,12 @@ struct PasscodeView: View {
         case .switchTo, .change:
             onDone?()
         }
-        // A ticked "Enable Face ID" that could not be turned on says so once the dashboard is up (the passcode was right, so
-        // nothing holds the person here). Without this the box was simply unticked again at the next lock, with no word why.
+        // A ticked "Enable Face ID" that could not be turned on says so on the dashboard (the passcode was right, so nothing holds
+        // the person here): at once, after this step has slid away when it is over the dashboard (another business's passcode,
+        // Change passcode), or when the dashboard next opens if the loading screen comes first. Without this the box was simply
+        // unticked again at the next lock, with no word why.
         if case .failed(let message) = change {
-            // Over the dashboard (another business's passcode, Change passcode) this step is still sliding away: the words
-            // wait for it, or they would go with it.
-            if onDone != nil { try? await Task.sleep(nanoseconds: 900_000_000) }
-            if model.phase == .ready { UIPresenter.message(message) }
+            model.sayWhenReady(message, after: onDone != nil ? 0.9 : 0)
         }
     }
 

@@ -197,7 +197,7 @@ struct OrdersTabView: View {
         let on = orders.tab == tab
         return Button {
             tabTapped = true
-            orders.tabChosen = true
+            orders.tabPicked()
             guard !on else { return }
             // The light tap the app gives when moving between the pages of a section.
             Haptics.light()
@@ -217,7 +217,9 @@ struct OrdersTabView: View {
 
     @ViewBuilder
     private func content(_ days: [OrderDay]) -> some View {
-        if !orders.loaded && orders.loadError.isEmpty {
+        // The wait shows until the list is in and its first tab is settled (a moment later at most), so the list is never drawn
+        // on Closed and then swapped for Open under the person's finger.
+        if (!orders.loaded || !orders.tabSettled) && orders.loadError.isEmpty {
             Spacer()
             ProgressView().controlSize(.large).tint(Theme.blue)
             Spacer()

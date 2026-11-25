@@ -400,8 +400,10 @@ final class CreateAppointmentModel {
             if !customersLoaded { customersLoaded = true }
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            // The website treats a list it cannot read as no customers; the server's words show under the search.
-            if customers.isEmpty {
+            // The website treats a list it cannot read as no customers; the server's words show under the search. Only while
+            // no list has been read: one read before stays as it is, an empty one too (a business with no customers yet used to
+            // get the message after a failed refresh, and a Try again that could not show its wait).
+            if !customersLoaded {
                 customersError = error.message
                 // A 403 is this login's answer, and the same every time.
                 customersRetry = !error.forbidden

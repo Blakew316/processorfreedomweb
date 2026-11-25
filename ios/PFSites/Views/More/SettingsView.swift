@@ -98,7 +98,11 @@ struct SettingsListScreen<Content: View>: View {
                     if query.trimmed.isEmpty {
                         content()
                     } else {
-                        SettingsSearchResults(query: query.trimmed, home: home) { query = "" }
+                        SettingsSearchResults(query: query.trimmed, home: home) {
+                            // The keyboard goes too: left up, it covered the lower rows the search was emptied to show.
+                            query = ""
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
                     }
                 }
                 .padding(.bottom, 24)

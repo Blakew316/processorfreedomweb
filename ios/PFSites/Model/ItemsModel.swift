@@ -177,6 +177,9 @@ final class ItemsModel {
     private(set) var settingsAsked = false
     private(set) var loading = false
     private(set) var problem = ""
+    /// When the Items cover this model belongs to was closed (there is one model per opening of Items): a change still on its
+    /// way then says what went wrong over whatever is showing, instead of on a page that has gone.
+    @ObservationIgnored var closedAt: Date?
 
     var search = ""
     var searching = false

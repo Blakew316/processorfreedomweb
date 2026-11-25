@@ -36,6 +36,8 @@ struct ItemsScreen: View {
             // Back from a page: anything changed there (the Menus page, the item settings) shows here.
             if new.count < old.count { Task { await items.load(model) } }
         }
+        // Items was closed: a change still on its way says what went wrong another way (see ItemsListPage.run).
+        .onDisappear { items.closedAt = Date() }
     }
 
     /// The website's Menus page over the editor, once: a second tap before it has slid in opens nothing more.
@@ -550,15 +552,15 @@ struct ItemsListPage: View {
                 Haptics.error()
                 await ItemsAlerts.settled(since: asked)
                 // Not under the lock screen: the app may have locked while the alert before this one was going away.
-                if model.phase == .ready {
-                    if case .items = model.shell.cover {
-                        message = problem
-                    } else {
-                        // Items was closed with its X while the change was on its way: the words are still said, over
-                        // whatever is showing now. Set on the page that has gone they were never seen, and the person left
-                        // believing the items were changed or deleted.
-                        UIPresenter.message(problem)
-                    }
+                if let closedAt = items.closedAt {
+                    // Items was closed with its X while the change was on its way (it may even be open again, as another
+                    // page): the words are still said, over whatever is showing, once the cover has finished sliding away.
+                    // Set on the page that has gone they were never seen, and the person left believing the items were
+                    // changed or deleted.
+                    await ItemsAlerts.settled(since: closedAt, wait: 0.7)
+                    if model.phase == .ready { UIPresenter.message(problem) }
+                } else if model.phase == .ready {
+                    message = problem
                 }
             } else {
                 Haptics.success()

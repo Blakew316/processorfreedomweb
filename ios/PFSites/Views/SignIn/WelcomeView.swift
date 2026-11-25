@@ -19,6 +19,7 @@ struct WelcomeFlow: View {
         // Back on Welcome, the password typed on Log in is forgotten: left in the form, anyone who picked the phone up later
         // could open Log in again and read it with the eye button.
         .onChange(of: auth.path) { _, path in
+            auth.attempt += 1
             if path.isEmpty, !auth.password.isEmpty { auth.password = "" }
             // The copy the code step sends again goes when that step is left (Cancel, or Back).
             if path.last != .twoStep, !auth.sentPassword.isEmpty { auth.sentPassword = "" }

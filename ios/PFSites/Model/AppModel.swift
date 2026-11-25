@@ -52,6 +52,27 @@ enum FaceIDChange {
     case left              // the server forgot this phone, or the session ended: the app is on its way to Log in or the lock
 }
 
+/// A sign-in the server has accepted, while the app is still on Log in or the code step reading the person's businesses (the
+/// button shows its spinner, and Back is still there). Until the app leaves those screens the person can walk away, so nothing
+/// that cannot be taken back is done before then: the phone's earlier key is still good, and nobody new is remembered.
+struct PendingSignIn {
+    /// The screen that asked, and the count of moves between the sign-in screens when it did.
+    let asked: [AuthStep]
+    let attempt: Int
+    /// False when the request carried a two-step code: the server has spent the code by then (a recovery code is gone for
+    /// good), so that sign-in is never thrown away.
+    let mayLeave: Bool
+    let person: User
+    let email: String
+    let trust: String
+    let freshKey: DeviceKey?
+    /// As things were before, to put back when the person walked away.
+    let oldKey: DeviceKey?
+    let previousUser: User?
+    let previousLimited: Bool
+    let previousSites: [Site]
+}
+
 enum LogInOutcome {
     case success
     case needsCode(APIError)
@@ -109,6 +130,12 @@ final class AppModel {
     @ObservationIgnored var unlockedSiteID: String?
     /// When the app last went to the background, for the Log in form's own two-minute rule (see `scenePhaseChanged`).
     @ObservationIgnored var leftAt: Date?
+    /// A sign-in the server has accepted while the sign-in screens still show (see `PendingSignIn`).
+    @ObservationIgnored var pendingSignIn: PendingSignIn?
+    /// The last accepted sign-in was undone because the person had walked away from it.
+    @ObservationIgnored var signInUndone = false
+    /// Words kept for the dashboard (see `sayWhenReady`).
+    @ObservationIgnored var readyNotice: String?
     /// The logout that runs when the app locks. Unlocking and signing in wait for it, so it can never clear the new session's cookie.
     @ObservationIgnored var endingSession: Task<Void, Never>?
     @ObservationIgnored var checkingSession = false
@@ -300,6 +327,7 @@ final class AppModel {
         } else {
             hideLoading()
         }
+        showReadyNotice()
         // A notification tapped while the app was locked opens its page now, before anything that waits on the server.
         if let path = pendingNotification {
             pendingNotification = nil
@@ -544,10 +572,28 @@ final class AppModel {
         shell.sheet = .locations
     }
 
+    /// Words for the person that belong on the dashboard (a ticked "Enable Face ID" that could not be turned on): said at once
+    /// when it is showing, after `wait` seconds when a step over it is still sliding away, or kept until it next opens (the
+    /// loading screen may come first, with its own Try again). They go with any return to the sign-in screens.
+    func sayWhenReady(_ words: String, after wait: Double = 0) {
+        readyNotice = words
+        Task {
+            if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
+            showReadyNotice()
+        }
+    }
+
+    func showReadyNotice() {
+        guard phase == .ready, let words = readyNotice else { return }
+        readyNotice = nil
+        UIPresenter.message(words)
+    }
+
     /// The person's name and email for the greeting and to fill in the Log in form next time.
     func remember(_ person: User) {
         let defaults = UserDefaults.standard
         defaults.set(person.name, forKey: Keys.name)
         if !person.email.isEmpty { defaults.set(person.email, forKey: Keys.email) }
+        if !person.id.isEmpty { defaults.set(person.id, forKey: Keys.userID) }
     }
 }
