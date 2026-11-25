@@ -438,7 +438,11 @@ struct AppointmentDaySheet: View {
     private func mailURL(_ email: String) -> URL? {
         let address = email.trimmed
         guard address.contains("@") else { return nil }
-        if let url = URL(string: "mailto:\(address)") { return url }
-        return address.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed).flatMap { URL(string: "mailto:\($0)") }
+        // The address comes from whoever booked. As the link's path, every ?, & and # in it stays part of the address, so
+        // it cannot bring a hidden recipient, a subject or a message into Mail (see OrderDetailView.mailURL).
+        var link = URLComponents()
+        link.scheme = "mailto"
+        link.path = address
+        return link.url
     }
 }

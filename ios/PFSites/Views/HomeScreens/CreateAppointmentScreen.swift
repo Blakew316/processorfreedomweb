@@ -1094,13 +1094,24 @@ struct CreateAppointmentScreen: View {
         model.idle.touch()
         Task {
             do {
-                // Saved after the screen was left with Back: the appointment stands, and nothing else is closed.
-                if try await form.save(siteID: business.id), !closed {
-                    Haptics.success()
-                    dismiss()
+                let day = AppointmentsModel.forShell(model.shellID)
+                if try await form.save(siteID: business.id) {
+                    // The day view says so, in the website's words: the form opens on today whatever day was showing, so
+                    // without them a booking for another day closes onto a day with nothing new on it.
+                    day.leave(note: "Appointment created")
+                    // Saved after the screen was left with Back: the appointment stands, and nothing else is closed.
+                    if !closed {
+                        Haptics.success()
+                        dismiss()
+                    }
                 }
             } catch let error as APIError {
-                guard !closed else { return }
+                guard !closed else {
+                    // Left with Back before the answer came: the day view says why the appointment was not made, instead
+                    // of nothing saying so anywhere. (A session that ended is said by the lock screen.)
+                    if error.status != 401 { AppointmentsModel.forShell(model.shellID).leave(note: error.message) }
+                    return
+                }
                 Haptics.error()
                 problem = error.message
             } catch {

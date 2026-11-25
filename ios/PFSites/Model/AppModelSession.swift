@@ -473,6 +473,7 @@ extension AppModel {
         forgetPendingNotification()
         setOrdersBadge(0)
         StatsChoices.shared.reset()
+        AppointmentsModel.forget()
         shellAlive = false
         shell = Shell()
         shellID = UUID()

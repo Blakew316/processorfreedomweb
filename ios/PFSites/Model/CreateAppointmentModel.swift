@@ -283,6 +283,9 @@ final class CreateAppointmentModel {
     /// The appointment is on the server: this form is finished, and nothing can send it a second time.
     var saved = false
 
+    /// The name of this form's save. The server makes one appointment for it however often it arrives, so pressing Save again
+    /// after an answer that never came back (a dropped connection, a gateway time-out) cannot book the appointment twice.
+    @ObservationIgnored private let saveKey = UUID().uuidString
     /// A date or time that came with the screen, was picked, or was found stays; otherwise they follow the business's clock.
     @ObservationIgnored private var dateChosen = false
     @ObservationIgnored private var timeChosen = false
@@ -348,7 +351,9 @@ final class CreateAppointmentModel {
             let rate = (ordering["taxRate"].raw as? NSNumber)?.doubleValue ?? Double(ordering["taxRate"].string) ?? 0
             if rate != taxRate { taxRate = rate.isFinite ? rate : 0 }
             if let business = TimeZone(identifier: ordering["timezone"].string), business.identifier != zone.identifier { zone = business }
-            fillClock()
+            // Once, when the business's clock is first known. A later reload (back from another app, an unlock, a pull) leaves
+            // the date and time as the person last saw them, instead of moving them on to the next half hour unseen.
+            if !siteLoaded { fillClock() }
             if !siteLoaded { siteLoaded = true }
             if !loadError.isEmpty { loadError = "" }
         } catch let error as APIError {
@@ -682,6 +687,7 @@ final class CreateAppointmentModel {
             "total": total,
             "tax": tax,
             "taxable": taxable,
+            "key": saveKey,
         ]
         do {
             if customer == nil {
