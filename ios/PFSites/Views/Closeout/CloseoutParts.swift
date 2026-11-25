@@ -30,7 +30,9 @@ enum CloseoutLook {
     /// clock (ordering.timezone), like the times of the Orders tab, so a batch reads the same wherever the phone is.
     static func when(_ date: Date, in zone: TimeZone) -> String {
         let day = date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated).month(.abbreviated).day().year())
-        let time = date.formatted(Date.FormatStyle(timeZone: zone).hour().minute())
+        // An ordinary space before AM and PM, as in the photo and on the Orders tab: the system writes a narrow one, which
+        // reads as "11:11AM".
+        let time = date.formatted(Date.FormatStyle(timeZone: zone).hour().minute()).replacingOccurrences(of: "\u{202F}", with: " ")
         return "\(day), \(time)"
     }
 }

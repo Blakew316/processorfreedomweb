@@ -173,6 +173,7 @@ struct TxCardHeading<Accessory: View>: View {
                 Text(title)
                     .pfFont(20, .bold, relativeTo: .title3)
                     .foregroundStyle(Color.primary)
+                    .lineSpacing(SettingsLook.titleLineSpacing)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                 if !note.isEmpty {
@@ -194,23 +195,23 @@ extension TxCardHeading where Accessory == EmptyView {
     }
 }
 
-/// Clover's plain pencil at a card's top right. Nothing on these pages can be changed from the app yet, so it is greyed (40%) and
-/// does nothing.
+/// Clover's plain pencil at a card's top right. Nothing on these pages can be changed from the app yet, so it is greyed (the
+/// one grey of everything that is not available, as on the other Settings pages) and does nothing. The photos' pencil is
+/// 19 to 20 pt across on Payments and Payment receipts, which is this symbol at 25.
 struct TxPencil: View {
     let card: String
-    var size: CGFloat = 19
+    var size: CGFloat = 25
 
     var body: some View {
         Button {} label: {
             Image(systemName: "pencil")
                 .font(.system(size: size, weight: .regular))
-                .foregroundStyle(Color.primary)
+                .foregroundStyle(SettingsLook.greyed)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ItemsBareStyle())
         .disabled(true)
-        .opacity(0.4)
         .accessibilityLabel("Edit \(card)")
         .accessibilityValue("Not available yet")
     }

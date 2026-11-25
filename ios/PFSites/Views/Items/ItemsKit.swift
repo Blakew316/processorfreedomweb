@@ -101,7 +101,8 @@ struct ItemsPillStyle: ButtonStyle {
     var kind: Kind = .grey
     var width: CGFloat? = nil
     var height: CGFloat = 48
-    var size: CGFloat = 17
+    /// 16 pt, as the photos' "Select" and "Cancel" are.
+    var size: CGFloat = 16
     var weight: Font.Weight = .regular
     /// What a brand-blue pill shows behind its greyed words while it cannot be used (nothing for Save, as in the photos).
     var disabledFill: Color = .clear
@@ -758,7 +759,7 @@ struct ItemsCard<Content: View>: View {
     /// sits over the row's end, centred on the title, with its 44 pt tap area making nothing taller.
     private func titleRow(chevron show: Bool) -> some View {
         Text(title)
-            .pfFont(18.5, .bold, relativeTo: .title3)
+            .pfFont(18.5, .semibold, relativeTo: .title3)
             .foregroundStyle(titleColor)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)

@@ -221,8 +221,8 @@ enum ItemSalesFile {
 /// worked out like the website's Item sales report (public/js/editor.js CL['r-items']), with its periods, ‹ and › and order type.
 @Observable @MainActor
 final class ItemSalesModel {
-    /// The website's sentence under "No results found" on this report (NORES in public/js/editor.js).
-    static let noResults = "Try again with a different timeframe, filters or search criteria."
+    /// The website's sentence under "No results found" on this report (NORES2 in public/js/editor.js), as in the photo.
+    static let noResults = "Try again with a different timeframe, filter, and search combination."
     /// The website's name for this report and its words about it (nameOf('r-items') and ABOUT['r-items'] in public/js/editor.js).
     static let aboutTitle = "Item and Service sales"
     static let about = "How many of each item sold and what it brought in."

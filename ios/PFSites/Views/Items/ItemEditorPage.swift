@@ -177,7 +177,7 @@ struct ItemEditorPage: View {
             Button("Cancel") {
                 leave(then: { dismiss() })
             }
-            .buttonStyle(ItemsPillStyle(kind: .grey, height: 50, size: 17, weight: .bold))
+            .buttonStyle(ItemsPillStyle(kind: .grey, height: 50, size: 17, weight: .semibold))
             .disabled(editor.saving || deleting)
             Spacer(minLength: 0)
             Button {
@@ -190,7 +190,7 @@ struct ItemEditorPage: View {
                     Text("Save")
                 }
             }
-            .buttonStyle(ItemsPillStyle(kind: .brand, height: 50, size: 17, weight: .bold))
+            .buttonStyle(ItemsPillStyle(kind: .brand, height: 50, size: 17, weight: .semibold))
             .disabled(!editor.changed || editor.saving || deleting || editor.uploading || loadingPhoto)
         }
         .padding(.leading, 20)

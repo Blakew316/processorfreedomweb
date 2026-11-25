@@ -332,7 +332,7 @@ struct ItemsListPage: View {
                 .foregroundStyle(ItemsLook.rowGrey)
                 .accessibilityHidden(true)
             TextField("Search items", text: Bindable(items).search, prompt: Text("Search items").foregroundStyle(ItemsLook.searchHint))
-                .pfFont(17)
+                .pfFont(16)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
@@ -413,7 +413,7 @@ struct ItemsListPage: View {
                     }
                     if items.searching {
                         Text("All results")
-                            .pfFont(16.5, .bold)
+                            .pfFont(16.5, .semibold)
                             .foregroundStyle(Color.primary)
                             .padding(.leading, 14)
                             .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
@@ -476,7 +476,7 @@ struct ItemsListPage: View {
             HStack(spacing: 13) {
                 ItemsCheckbox(on: all)
                 Text("Select all")
-                    .pfFont(17, .bold)
+                    .pfFont(17, .semibold)
                     .foregroundStyle(Color.primary)
                 Spacer(minLength: 0)
             }
@@ -648,7 +648,7 @@ struct ItemsListPage: View {
     }
 }
 
-/// A row of the list, as in the photos: the bold name (two lines at most), "Item name: …" and "Price: …" in grey, a chevron; while
+/// A row of the list, as in the photos: the semibold name (two lines at most), "Item name: …" and "Price: …" in grey, a chevron; while
 /// selecting, a checkbox on the left instead of the chevron.
 struct ItemsListRow: View {
     let item: CatalogItem
@@ -663,7 +663,7 @@ struct ItemsListRow: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text(item.name)
-                    .pfFont(17, .bold)
+                    .pfFont(17, .semibold)
                     .foregroundStyle(Color.primary)
                     .lineLimit(2)
                     .lineSpacing(3.7)

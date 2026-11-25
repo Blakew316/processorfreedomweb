@@ -275,7 +275,8 @@ struct ItemSalesScreen: View {
                 .frame(width: 30, height: 44)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // Not the plain style: it fades a button that cannot be used, and the greyed › is grey already.
+        .buttonStyle(ItemsBareStyle())
         .disabled(!enabled)
         .accessibilityLabel(later ? "Later" : "Earlier")
     }

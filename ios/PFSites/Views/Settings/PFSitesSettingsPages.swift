@@ -137,8 +137,9 @@ struct QuickSalePage: View {
     private func row(_ label: String, note: String) -> some View {
         VStack(alignment: .leading, spacing: 6.33) {
             HStack(spacing: 12) {
+                // A size under the paragraph above, as in the photo.
                 Text(label)
-                    .pfFont(16)
+                    .pfFont(15)
                     .foregroundStyle(SettingsLook.greyed)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityHidden(true)
@@ -198,7 +199,8 @@ struct CarbonCopyReceiptsPage: View {
         TxPlainPage(margin: 17, top: 9.67, barBottom: 11) {
             Text("Carbon copy receipts")
                 .pfFont(20, .bold, relativeTo: .title2)
-                .foregroundStyle(Color.primary)
+                // The photo's dark slate, as on Invoice number.
+                .foregroundStyle(SettingsA.value)
                 .accessibilityAddTraits(.isHeader)
             Text("We email a copy of every new order, booking request and the daily summary to the address below.")
                 .pfFont(16)

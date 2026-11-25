@@ -20,6 +20,9 @@ enum SettingsLook {
     static let offText = Color(light: UIColor(hex: 0x2E2E2E), dark: UIColor(hex: 0xD1D1D6))
     /// Rows and values for things Processor Freedom does not do yet.
     static let greyed = Color(.tertiaryLabel)
+    /// Added between the lines of a card title that runs onto two: they are 28 pt apart in the photos, and the 20 pt bold
+    /// title's own lines are 24.3 pt apart.
+    static let titleLineSpacing: CGFloat = 3.67
 }
 
 /// A native Settings page: shown full screen over everything with `ShellCover.settingsPage`, or pushed onto the tab with
@@ -277,6 +280,7 @@ struct SettingsCard<Content: View>: View {
                         Text(title)
                             .pfFont(20, .bold, relativeTo: .title3)
                             .foregroundStyle(Color.primary)
+                            .lineSpacing(SettingsLook.titleLineSpacing)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityAddTraits(.isHeader)
                             .padding(.top, pencil.isCircle ? 6 : 0)

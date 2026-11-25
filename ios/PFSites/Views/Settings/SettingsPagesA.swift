@@ -123,7 +123,9 @@ extension SettingsA {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // Not the plain style: it fades a button that cannot be used, and a greyed pencil is grey already (faded twice it
+            // was almost invisible, and fainter than the greyed pencils of the other Settings pages).
+            .buttonStyle(ItemsBareStyle())
             .disabled(action == nil)
             .accessibilityLabel(label)
             .accessibilityValue(action == nil ? "Not available yet" : "")
@@ -155,6 +157,7 @@ extension SettingsA {
             Text(text)
                 .pfFont(20, .bold, relativeTo: .title3)
                 .foregroundStyle(Color.primary)
+                .lineSpacing(SettingsLook.titleLineSpacing)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
         }

@@ -82,7 +82,7 @@ struct ItemDetailsCard: View {
             required
                 .padding(.top, 27.8)
             Text("Service or item type*")
-                .pfFont(15, .bold)
+                .pfFont(15, .semibold)
                 .foregroundStyle(ItemsLook.grey)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 29.3)
@@ -138,6 +138,7 @@ struct ItemDetailsCard: View {
                 } else {
                     HStack(spacing: 0) {
                         Text("$")
+                            .foregroundStyle(editor.draft.priceText.isEmpty ? ItemsLook.placeholder : Color.primary)
                             .accessibilityHidden(true)
                         TextField("", text: $e.draft.priceText, prompt: Text("0.00").foregroundStyle(ItemsLook.placeholder))
                             .keyboardType(.decimalPad)
@@ -238,9 +239,9 @@ struct ItemDetailsCard: View {
         }
     }
 
-    /// "*Required", its small asterisk sitting low as in the photo.
+    /// "*Required", its small asterisk sitting low and tight against the R, as in the photo.
     private var required: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 1.5) {
+        HStack(alignment: .firstTextBaseline, spacing: -0.8) {
             Text("*")
                 .baselineOffset(-1.5)
                 .pfFont(11)
@@ -361,6 +362,7 @@ struct ItemSaleCard: View {
                             .accessibilityLabel("Sale, percent off")
                             .modifier(ItemsDigits(text: $e.draft.saleText, limit: 2))
                         Text("%")
+                            .foregroundStyle(editor.draft.saleText.isEmpty ? ItemsLook.placeholder : Color.primary)
                             .accessibilityHidden(true)
                     }
                 }
@@ -724,6 +726,7 @@ struct ItemCostCard: View {
                 ItemsField(label: "Item cost", problem: editor.costProblem, focused: focus.wrappedValue == .cost, tap: { focus.wrappedValue = .cost }) {
                     HStack(spacing: 0) {
                         Text("$")
+                            .foregroundStyle(editor.draft.costText.isEmpty ? ItemsLook.placeholder : Color.primary)
                             .accessibilityHidden(true)
                         TextField("", text: $e.draft.costText, prompt: Text("0.00").foregroundStyle(ItemsLook.placeholder))
                             .keyboardType(.decimalPad)
