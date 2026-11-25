@@ -417,12 +417,14 @@ struct ItemLabelCard: View {
 struct ItemModsCard: View {
     let editor: ItemEditorModel
     let groups: [ItemsSettings.ModifierGroup]
+    /// Whether the business's settings have been read: until then an empty list means "not known yet", not "none".
+    var loaded = true
 
     var body: some View {
         ItemsCard(title: "Modifier groups", note: "Use modifier groups to let customers customize this item.", bottom: 24) {
             VStack(alignment: .leading, spacing: 22) {
                 if groups.isEmpty {
-                    Text("You do not have any modifier groups")
+                    Text(loaded ? "You do not have any modifier groups" : "Your modifier groups have not loaded yet.")
                         .pfFont(16)
                         .foregroundStyle(ItemsLook.grey)
                         .fixedSize(horizontal: false, vertical: true)

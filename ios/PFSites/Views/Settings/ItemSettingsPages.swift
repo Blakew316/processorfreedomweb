@@ -344,7 +344,8 @@ private struct SaleSwitchPage: View {
         .animation(.snappy, value: settings.reloadProblem)
         // Put back to what is saved, there is nothing left to save and nothing left to say about a save.
         .onChange(of: on) { _, now in
-            if now == shown, !saving { problem = "" }
+            // Only a failed save's words: "changed on another device" is set as the switch goes back, and has to stay.
+            if now == shown, !saving, problemIsError { problem = "" }
         }
         .settingsLoads { await load() }
         .refreshable { await load() }

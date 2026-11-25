@@ -165,7 +165,13 @@ struct ItemsListPage: View {
                 say("We could not read that file.", after: picked, wait: 0.6)
             }
         }
-        .sheet(item: $importPlan) { plan in
+        .sheet(item: $importPlan, onDismiss: {
+            // Words the import sheet left for the list, said once the sheet has gone (two presentations cannot overlap).
+            if let text = items.notice {
+                items.notice = nil
+                if model.phase == .ready { message = text }
+            }
+        }) { plan in
             ItemsImportSheet(plan: plan, items: items)
                 .environment(model)
         }
@@ -543,7 +549,8 @@ struct ItemsListPage: View {
             if let problem {
                 Haptics.error()
                 await ItemsAlerts.settled(since: asked)
-                message = problem
+                // Not under the lock screen: the app may have locked while the alert before this one was going away.
+                if model.phase == .ready { message = problem }
             } else {
                 Haptics.success()
                 items.showToast(note)
@@ -557,7 +564,7 @@ struct ItemsListPage: View {
         Haptics.error()
         Task {
             await ItemsAlerts.settled(since: asked, wait: wait)
-            message = text
+            if model.phase == .ready { message = text }
         }
     }
 

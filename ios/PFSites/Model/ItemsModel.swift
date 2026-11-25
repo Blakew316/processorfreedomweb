@@ -186,6 +186,21 @@ final class ItemsModel {
     var filter = ItemsFilter()
     private(set) var toast: String?
 
+    /// A change was sent, no answer came back, and the list has not been read since: the change may or may not have been made.
+    /// While this holds nothing else is sent. The list is read first, so nothing is done a second time on top of itself.
+    private(set) var unconfirmed = false
+    /// Words a sheet over the list leaves for the list to say once the sheet has gone.
+    var notice: String?
+    /// Counts the lists read from the server, to tell whether a read worked.
+    @ObservationIgnored private var reads = 0
+
+    /// After a change that got no answer, once the list has been read again: look before doing it again.
+    static let checkFirst = "No answer came back, so this may already have been done. The list is up to date now: check it before doing it again."
+    /// The list could not be read either, so what happened to the change is not known yet.
+    static let notChecked = "We could not check whether your last change was made. Check your connection and try again."
+    /// The status of the error an import gives back with `checkFirst` (it is not the server's).
+    static let checkStatus = -1
+
     @ObservationIgnored private var round = 0
     /// Counts the lists that changes brought back, so a load that began before one never puts its older list over it.
     @ObservationIgnored private var changes = 0
@@ -256,6 +271,8 @@ final class ItemsModel {
             if before == changes { show(menu) }
             loaded = true
             problem = ""
+            reads += 1
+            if unconfirmed { unconfirmed = false }
         } catch let error as APIError {
             guard mine == round else { return }
             // Signed out everywhere, or the session ended: the app checks, then locks. A 403 is only a message.
@@ -274,6 +291,33 @@ final class ItemsModel {
             dropGoneCategories()
         }
         loading = false
+    }
+
+    /// Reads the list again, for a few seconds at most (someone is waiting behind it), and says whether that worked.
+    func reread(_ model: AppModel, within seconds: Double = 5) async -> Bool {
+        let before = reads
+        let work = Task { await self.load(model) }
+        let limit = Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            work.cancel()
+        }
+        await work.value
+        limit.cancel()
+        return reads != before
+    }
+
+    /// A change got no answer. The list is read again: when that works it shows what is true, and the words say to look before
+    /// doing it again; when it does not, the change stays unconfirmed and the next one waits for a read (see `unconfirmed`).
+    private func unanswered(_ model: AppModel, words: String) async -> (checked: Bool, words: String) {
+        unconfirmed = true
+        return await reread(model) ? (true, Self.checkFirst) : (false, words)
+    }
+
+    /// Before a change is sent: when the one before it is still unconfirmed, the list is read and the change is not sent, so
+    /// the person looks first. Nil when there is nothing in the way.
+    private func heldBack(_ model: AppModel) async -> String? {
+        guard unconfirmed else { return nil }
+        return await reread(model) ? Self.checkFirst : Self.notChecked
     }
 
     /// The server answers every change with the whole list; it replaces the one shown.
@@ -323,6 +367,7 @@ final class ItemsModel {
     /// The website's bulk changes and bulk delete (POST /api/sites/<id>/menu/bulk). Nil when it worked, otherwise the server's words.
     func bulk(_ model: AppModel, ids: [String], body: [String: Any]) async -> String? {
         guard let business = model.site else { return nil }
+        if let words = await heldBack(model) { return words }
         var payload = body
         payload["ids"] = ids
         do {
@@ -332,20 +377,23 @@ final class ItemsModel {
             return nil
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
-            // No answer came, but the change may have reached the server: the list is read again, so it shows what is true
-            // before the same change is made a second time (a price raised twice, a list imported twice).
-            if error.status == 0 { await load(model) }
+            // No answer came, but the change may have reached the server (a price raised, items deleted): the list is read
+            // again and the words say to look before doing it again, instead of "try again" over a list that may already
+            // hold the change.
+            if error.status == 0 { return await unanswered(model, words: error.message).words }
             return error.message
         } catch {
             // Never said to have worked when no answer came.
-            await load(model)
-            return APIError.unreachableMessage
+            return await unanswered(model, words: APIError.unreachableMessage).words
         }
     }
 
     /// Imports an item list (POST /api/sites/<id>/menu/import), as the website's import does. The number added, or the server's words.
     func importList(_ model: AppModel, csv: String, replace: Bool, startStock: Int) async -> Result<Int, APIError> {
         guard let business = model.site else { return .failure(APIError(status: 0, message: APIError.unreachableMessage)) }
+        if let words = await heldBack(model) {
+            return .failure(APIError(status: words == Self.checkFirst ? Self.checkStatus : 0, message: words))
+        }
         do {
             let answer = try await API.post("/api/sites/\(business.id)/menu/import", ["csv": csv, "replace": replace, "startStock": startStock])
             take(answer)
@@ -353,12 +401,16 @@ final class ItemsModel {
             return .success(max(0, answer["imported"].int))
         } catch let error as APIError {
             if error.status == 401 { model.sessionEnded() }
-            // As in `bulk`: with no answer, the list is read again before the import is tried a second time.
-            if error.status == 0 { await load(model) }
+            // As in `bulk`. With `checkStatus` the sheet closes, so the list is looked at before the file is sent again
+            // (an import that did arrive would otherwise be on the menu twice after "Try again").
+            if error.status == 0 {
+                let after = await unanswered(model, words: error.message)
+                return .failure(APIError(status: after.checked ? Self.checkStatus : 0, message: after.words))
+            }
             return .failure(error)
         } catch {
-            await load(model)
-            return .failure(APIError(status: 0, message: APIError.unreachableMessage))
+            let after = await unanswered(model, words: APIError.unreachableMessage)
+            return .failure(APIError(status: after.checked ? Self.checkStatus : 0, message: after.words))
         }
     }
 

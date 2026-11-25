@@ -222,7 +222,7 @@ struct ItemEditorPage: View {
             ItemSaleCard(editor: editor, focus: $focus)
             ItemTaxCard(editor: editor)
             ItemLabelCard(editor: editor, labels: items.settings.labels)
-            ItemModsCard(editor: editor, groups: items.settings.modGroups)
+            ItemModsCard(editor: editor, groups: items.settings.modGroups, loaded: items.settingsAsked)
             ItemOptionsCard(editor: editor, focus: $focus)
             ItemCategoriesCard(editor: editor) {
                 focus = nil
@@ -303,7 +303,8 @@ struct ItemEditorPage: View {
                 // Two alerts cannot be up at once: the server's words wait until the question has gone.
                 await ItemsAlerts.settled(since: asked)
                 deleting = false
-                message = problem
+                // Not under the lock screen (see the list page).
+                if model.phase == .ready { message = problem }
             } else {
                 deleting = false
                 Haptics.success()
@@ -344,7 +345,7 @@ struct ItemEditorPage: View {
                 Haptics.error()
                 // Nothing can come up while the photo picker is still closing.
                 await ItemsAlerts.settled(since: picked, wait: 0.6)
-                message = problem
+                if model.phase == .ready { message = problem }
             }
         }
     }
