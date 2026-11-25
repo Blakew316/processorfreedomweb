@@ -9,6 +9,7 @@ struct WebScreen: View {
     /// there, instead of a button to the website's own parent list.
     var keepsBack = false
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     @State private var page: OfficePage?
 
     var body: some View {
@@ -32,7 +33,9 @@ struct WebScreen: View {
             if hasParent, let page {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        page.back()
+                        // A page that could not load cannot take the person back to its list (nothing is running in it), and
+                        // this button stands where the system's would be: it then leaves the screen, as that one does.
+                        if page.failure != nil { dismiss() } else { page.back() }
                     } label: {
                         Label(page.parentTitle.isEmpty ? "Back" : page.parentTitle, systemImage: "chevron.backward")
                             .labelStyle(.titleAndIcon)
@@ -51,6 +54,9 @@ struct WebScreen: View {
             // forget every phone's key, this one's too, and its notification address with it. Sending the address again as
             // the page is left finds that out at once (the server says so), instead of at the next lock.
             if tab == "profile" { Task { await model.uploadPushTokenIfWanted() } }
+            // A change made on the page is saved a moment after it is made: the page is kept a few seconds after its screen
+            // has gone, so going Back straight after a change does not take the change with it.
+            if let page { WebStore.shared.holdBriefly(page) }
         }
     }
 

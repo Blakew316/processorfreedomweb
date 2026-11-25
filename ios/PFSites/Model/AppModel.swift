@@ -423,6 +423,7 @@ final class AppModel {
             OverlayWindows.shared.showCover()
             idle.wentToBackground()
             stopPolling()
+            WebStore.shared.visibleLeft()
         @unknown default:
             break
         }

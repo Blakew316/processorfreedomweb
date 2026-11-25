@@ -61,5 +61,6 @@ struct WebPageView: View {
                 }
             }
             .onAppear { page.appeared() }
+            .onDisappear { page.left() }
     }
 }

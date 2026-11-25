@@ -87,6 +87,8 @@ final class OfficePage: NSObject {
     /// How many times in a row this page was sent to the website's log in page. When the session turns out to be fine, the page
     /// is loaded again with the cookie handed over afresh, but not for ever: after two tries it is left alone.
     @ObservationIgnored private(set) var loginBounces = 0
+    /// When the page last left the screen (another tab, a screen pushed over it, the app put away), until it is shown again.
+    @ObservationIgnored private var leftAt: Date?
 
     init(siteID: String, path: String, kind: Kind = .office, script: String? = nil) {
         self.siteID = siteID
@@ -149,8 +151,21 @@ final class OfficePage: NSObject {
         refreshIfStale()
     }
 
+    /// The page went off screen, or the app was put away: the time is noted, for `refreshIfStale`.
+    func left() {
+        if leftAt == nil { leftAt = Date() }
+    }
+
+    /// Back on screen after more than two minutes away, the page loads fresh data. It is the time away that counts, not how
+    /// long the page has been open: someone who has spent ten minutes on a page and looks at another tab for a moment comes
+    /// back to it as it was. And a page opened from a list (an invoice, an estimate, a customer being written) is never
+    /// loaded again by itself: what was typed there is only kept on the page, and the website cannot tell the app about a
+    /// field that is no longer being typed in.
     func refreshIfStale() {
-        guard let last = lastLoaded, Date().timeIntervalSince(last) > 120, failure == nil, !closed else { return }
+        guard let away = leftAt else { return }
+        leftAt = nil
+        guard lastLoaded != nil, Date().timeIntervalSince(away) > 120, failure == nil, !closed else { return }
+        guard parent.isEmpty, !tab.hasSuffix("-new"), !tab.hasSuffix("-edit") else { return }
         webView.evaluateJavaScript("!!(window.PF && window.PF.busy && window.PF.busy())") { [weak self] result, _ in
             guard let self, (result as? Bool) != true else { return }
             self.reload()
@@ -364,8 +379,9 @@ final class OfficePage: NSObject {
         let site = json["site"].string
         if kind == .office || kind == .sheet, !site.isEmpty, !siteID.isEmpty, site != siteID {
             // The website moved this page into another business's back office by itself: the app changes business its own way
-            // (with that business's passcode step), and this page goes back to where it started.
-            reportedSite = ""
+            // (with that business's passcode step), and this page goes back to where it started. Until it reports its own
+            // business again, the other one's order count is not taken for this one's.
+            reportedSite = site
             load(startPath)
             AppModel.shared.openBusinessFromWeb(id: site, tab: json["tab"].string)
             return
@@ -450,12 +466,20 @@ final class OfficePage: NSObject {
         lastGoodURL = url
     }
 
-    /// A page that finished loading but never reported in (a plain server page) still stops the spinner and the picture.
+    /// A page that finished loading but never reported in (a plain server page) still stops the spinner and the picture. A
+    /// page the website is running in has only not reported yet (its data is still on its way on a slow connection): the
+    /// spinner and the picture stay for it, up to 8 seconds, instead of giving way to a blank page.
     func finishedWithoutReport() {
         guard loading else { return }
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard let self, self.loading, self.failure == nil else { return }
+            guard !self.closed else { return }
+            let running = (try? await self.webView.evaluateJavaScript("!!window.PF")) as? Bool ?? false
+            if running {
+                try? await Task.sleep(nanoseconds: 6_800_000_000)
+                guard !self.closed, self.loading, self.failure == nil else { return }
+            }
             self.loading = false
             self.fadeOverlay()
             self.endRefreshing()

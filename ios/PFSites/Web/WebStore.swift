@@ -35,9 +35,28 @@ final class WebStore {
 
     func reloadAll() { live.forEach { $0.reload() } }
     func blankAll() { live.forEach { $0.blank() } }
-    func closeAll() { live.forEach { $0.close() } }
+    func closeAll() {
+        live.forEach { $0.close() }
+        leaving.removeAll()
+    }
     func networkCameBack() { live.forEach { $0.networkCameBack() } }
     func refreshVisibleIfStale() { live.filter { $0.isOnScreen }.forEach { $0.refreshIfStale() } }
+    /// The app is being put away: the pages on screen note the time, to know how long they were away when it comes back.
+    func visibleLeft() { live.filter { $0.isOnScreen }.forEach { $0.left() } }
+
+    /// Pages whose screen has just gone away are kept a few seconds more. A change made on a page is saved a moment after it
+    /// is made; a page let go the instant Back is tapped took its unsaved change with it.
+    private var leaving: [ObjectIdentifier: (page: OfficePage, stamp: UUID)] = [:]
+
+    func holdBriefly(_ page: OfficePage) {
+        let id = ObjectIdentifier(page)
+        let stamp = UUID()
+        leaving[id] = (page, stamp)
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if self?.leaving[id]?.stamp == stamp { self?.leaving.removeValue(forKey: id) }
+        }
+    }
 
     /// The page on screen that was opened on this website page shows it again, when its own page strip has moved on to another.
     func showAgain(_ tab: String) {
