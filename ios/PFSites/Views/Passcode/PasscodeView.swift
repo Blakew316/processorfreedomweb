@@ -437,8 +437,9 @@ struct PasscodeView: View {
             onDone?()
         }
         // Over the dashboard (another business's passcode, Change passcode) this step is still sliding away: the words wait
-        // for it. Anywhere else the dashboard has said them already, and this finds nothing left to say.
-        if case .failed = change { model.showReadyNotice(after: onDone != nil ? 0.9 : 0) }
+        // for it. Anywhere else the dashboard says them itself as it opens (`enterReady`), at the moment that suits what
+        // else it is putting up.
+        if case .failed = change, onDone != nil { model.showReadyNotice(after: 0.9) }
     }
 
     /// A passcode or Face ID is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot
