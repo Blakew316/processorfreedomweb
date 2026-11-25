@@ -8,7 +8,6 @@ struct APIError: Error, LocalizedError {
     var data = JSON(nil)
 
     var errorDescription: String? { message }
-    var offline: Bool { status == 0 }
     var twoFactor: Bool { data["twoFactor"].bool }
     var methods: [String] { data["methods"].array.map { $0.string }.filter { !$0.isEmpty } }
     var phone: String { data["phone"].string }

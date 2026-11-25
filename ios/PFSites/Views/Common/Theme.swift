@@ -32,7 +32,8 @@ extension Color {
     }
 }
 
-/// A font at the photos' point size that still grows and shrinks with the person's text size (Dynamic Type).
+/// A font at the photos' point size that follows the person's text size (Dynamic Type) as far as the app lets it: sizes above
+/// Large are held at Large (PFSitesApp and the overlay windows), so the screens keep the photos' layout.
 struct ScaledFont: ViewModifier {
     @ScaledMetric private var size: CGFloat
     private let weight: Font.Weight

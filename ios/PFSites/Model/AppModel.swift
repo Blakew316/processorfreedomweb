@@ -295,7 +295,7 @@ final class AppModel {
 
     func loadConfig() async {
         guard let answer = try? await API.get("/api/config") else { return }
-        config = AppConfig(smsEnabled: answer["smsEnabled"].bool, appPush: answer["appPush"].bool)
+        config = AppConfig(appPush: answer["appPush"].bool)
         configLoaded = true
     }
 

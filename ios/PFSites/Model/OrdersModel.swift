@@ -81,7 +81,6 @@ struct CustomerOrder: Identifiable, Hashable {
     /// Open orders are still being made; closed ones are completed or cancelled.
     var isOpen: Bool { status == "new" || status == "confirmed" || status == "ready" }
     var isPaid: Bool { paidAt != nil }
-    var isCancelled: Bool { status == "cancelled" }
     /// What is paid at the counter: the total, less what a gift card paid when ordering.
     var due: Int { total - gift }
 

@@ -3,3 +3,6 @@ data/
 .env
 *.log
 .DS_Store
+
+# A local assistant plugin's scratch file
+.anchor/

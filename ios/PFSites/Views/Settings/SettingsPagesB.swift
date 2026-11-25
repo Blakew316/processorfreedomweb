@@ -267,12 +267,6 @@ extension TxSettingRow where Below == TxValue {
     }
 }
 
-extension TxSettingRow where Below == EmptyView {
-    init(label: String, note: String? = nil, greyed: Bool = false, style: TxRowStyle = .payments) {
-        self.init(label: label, note: note, greyed: greyed, style: style) { EmptyView() }
-    }
-}
-
 /// A setting's value. The Payments photos print values in black; Invoices and estimates and the Orders pages in the muted grey.
 struct TxValue: View {
     let text: String

@@ -22,7 +22,8 @@ enum SettingsLook {
     static let greyed = Color(.tertiaryLabel)
 }
 
-/// Which full-screen Settings page to show (presented over everything with `ShellCover.settingsPage`).
+/// A native Settings page: shown full screen over everything with `ShellCover.settingsPage`, or pushed onto the tab with
+/// `Route.settingsPage`.
 enum SettingsPageID: String, Identifiable, CaseIterable {
     // Settings → About your business, and Services and appointments
     case businessInformation, closeoutSettings, appointmentBooking
@@ -66,7 +67,8 @@ struct SettingsPageHost: View {
 
 /// The full-screen Settings page from the photos: a bare X at the top left and the page name bold in the middle of the bar,
 /// then a light grey panel (only its top-left corner rounded, like Clover's) holding white cards.
-/// Pages under Transactions also start with a "← Settings" link (it closes the page, like the X) and a large heading.
+/// Some pages (Orders, Order receipts, Order types, Inventory) also start with a "← Settings" link (it closes the page, like
+/// the X) and a large heading.
 /// It has its own navigation stack, so a page can push a back-office web page inside it.
 /// Measured from the photos, from the bar's lower edge: the link's middle 33 pt down; a heading's baseline 42 pt down (96 when
 /// the link is above it); a description's first baseline 28 pt under the heading's, on 24 pt lines; and the first card 26 pt
@@ -239,11 +241,10 @@ private struct SettingsRefresh: ViewModifier {
     }
 }
 
-/// The edit button at a card's top right: Clover's plain pencil (Appointment booking, Payments) or a pencil in a 48 pt grey circle
-/// (Orders Options). Without an action it is drawn at 40% and does nothing: nothing there can be changed yet.
+/// The edit button at a card's top right: a pencil in a 48 pt grey circle (Orders Options, Order receipts, Inventory). Without an
+/// action it is drawn at 40% and does nothing: nothing there can be changed yet.
 enum SettingsPencil {
     case none
-    case plain(action: (() -> Void)?)
     case circle(action: (() -> Void)?)
 
     var shows: Bool {
@@ -299,21 +300,6 @@ struct SettingsCard<Content: View>: View {
         switch pencil {
         case .none:
             EmptyView()
-        case .plain(let action):
-            Button { action?() } label: {
-                Image(systemName: "pencil")
-                    .font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(action == nil)
-            .opacity(action == nil ? 0.4 : 1)
-            .padding(.top, -10)
-            .padding(.trailing, -12)
-            .accessibilityLabel(title.map { "Edit \($0)" } ?? "Edit")
-            .accessibilityValue(action == nil ? "Not available yet" : "")
         case .circle(let action):
             Button { action?() } label: {
                 Image(systemName: "pencil")
@@ -361,36 +347,6 @@ struct SettingsValueRow: View {
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// The On / Off capsule from the Orders Options photo.
-struct OnOffPill: View {
-    let on: Bool
-    var greyed = false
-
-    var body: some View {
-        Text(on ? "On" : "Off")
-            .pfFont(16, .medium)
-            .foregroundStyle(greyed ? SettingsLook.greyed : (on ? SettingsLook.onText : SettingsLook.offText))
-            .padding(.horizontal, 13)
-            .padding(.vertical, 6)
-            .background(greyed ? SettingsLook.offFill : (on ? SettingsLook.onFill : SettingsLook.offFill), in: Capsule())
-            .accessibilityLabel(on ? "On" : "Off")
-    }
-}
-
-/// A light blue tag (the Order types photo): the ways of ordering that are turned on.
-struct SettingsTag: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .pfFont(16, .medium)
-            .foregroundStyle(SettingsLook.onText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(SettingsLook.onFill, in: Capsule())
     }
 }
 
