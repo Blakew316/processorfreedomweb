@@ -145,13 +145,19 @@ extension SettingsA {
     struct WithButton<Content: View>: View {
         let button: EditButton
         var trailing: CGFloat = 0
+        /// How far above the middle the button is drawn, and the room between the words and it. Beside the three-line
+        /// descriptions of Business information the photos have the button 17 pt above the middle and the words ending 12 pt
+        /// sooner; nothing else in the card moves for it.
+        var lift: CGFloat = 0
+        var gap: CGFloat = 12
         @ViewBuilder let content: () -> Content
 
         var body: some View {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: gap) {
                 content()
                     .frame(maxWidth: .infinity, alignment: .leading)
                 button
+                    .offset(y: -lift)
                     .padding(.trailing, trailing)
             }
         }

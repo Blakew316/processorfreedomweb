@@ -286,8 +286,8 @@ struct TxValue: View {
 }
 
 /// A pill with any word in it ("On", "Off", "Disabled"), measured from the photos: 14 pt medium text, about 14 pt of space either
-/// side of it and 32 pt tall. `solid` is the darker grey (#E3E3E3) of the Payments photos; the Orders and receipts photos use the
-/// lighter #F9F9F9.
+/// side of it and 32 pt tall. `solid` is the darker grey (#E3E3E3) of the Payments photos, and with it the stronger "On" of the
+/// Inventory photo; the Orders and receipts photos use the lighter #F9F9F9.
 struct TxPill: View {
     let text: String
     var on = false
@@ -301,7 +301,7 @@ struct TxPill: View {
             .foregroundStyle(greyed ? SettingsLook.greyed : (on ? SettingsLook.onText : SettingsLook.offText))
             .padding(.horizontal, 13.5)
             .padding(.vertical, 7.5)
-            .background(on && !greyed ? SettingsLook.onFill : (solid ? SettingsLook.border : SettingsLook.offFill), in: Capsule())
+            .background(on && !greyed ? (solid ? SettingsLook.onFillStrong : SettingsLook.onFill) : (solid ? SettingsLook.border : SettingsLook.offFill), in: Capsule())
             .accessibilityLabel(text)
     }
 }

@@ -9,14 +9,17 @@ struct SolidButtonStyle: ButtonStyle {
     var size: CGFloat = 18
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        // A pill (corners half the height) ends in exact half circles, as the photos' pills do; the smoothed corner keeps the
+        // top and bottom edges flat for longer and makes its shoulders squarer.
+        let corner: RoundedCornerStyle = radius * 2 >= height ? .circular : .continuous
+        return configuration.label
             .pfFont(size, .semibold)
             .foregroundStyle(text)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, minHeight: height)
-            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill))
-            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: radius, style: corner).fill(fill))
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: corner))
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

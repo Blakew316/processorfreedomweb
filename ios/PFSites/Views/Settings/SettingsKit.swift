@@ -14,6 +14,8 @@ enum SettingsLook {
     static let muted = Color(light: UIColor(hex: 0x4D4D4D), dark: UIColor(hex: 0xAEAEB2))
     /// An "On" pill: light blue with navy text (Clover's light green with dark green text, rebranded).
     static let onFill = Color(light: UIColor(hex: 0xE8F1FC), dark: UIColor(hex: 0x1D4F9E, alpha: 0.32))
+    /// The stronger "On" of the Inventory photo (Clover's #D2EECF there against #EEF9EC on the Orders pages), rebranded.
+    static let onFillStrong = Color(light: UIColor(hex: 0xCFE0F7), dark: UIColor(hex: 0x1D4F9E, alpha: 0.45))
     static let onText = Color(light: UIColor(hex: 0x0A1F44), dark: .white)
     /// An "Off" pill: #F9F9F9 with #2E2E2E text, as in the photos.
     static let offFill = Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x2C2C2E))

@@ -177,7 +177,7 @@ struct BusinessInformationPage: View {
         return SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Logo")
                 .padding(.top, Self.titleLift)
-            SettingsA.WithButton(button: SettingsA.EditButton(symbol: has ? "pencil" : "plus", size: has ? 25 : 20, label: has ? "Change the logo" : "Add a logo", action: open), trailing: 8) {
+            SettingsA.WithButton(button: SettingsA.EditButton(symbol: has ? "pencil" : "plus", size: has ? 25 : 20, label: has ? "Change the logo" : "Add a logo", action: open), trailing: 8, lift: 17, gap: 24) {
                 SettingsA.Note(parts: [.text("Your logo appears on your website and order pages.")])
             }
             .padding(.top, 16)
@@ -239,7 +239,7 @@ struct BusinessInformationPage: View {
         return SettingsCard(spacing: 0) {
             SettingsA.CardTitle(text: "Privacy policy")
                 .padding(.top, Self.titleLift)
-            SettingsA.WithButton(button: SettingsA.EditButton(symbol: on ? "pencil" : "plus", size: on ? 25 : 20, label: on ? "Edit privacy policy" : "Add a privacy policy", action: { openTab = "policies" }), trailing: 8) {
+            SettingsA.WithButton(button: SettingsA.EditButton(symbol: on ? "pencil" : "plus", size: on ? 25 : 20, label: on ? "Edit privacy policy" : "Add a privacy policy", action: { openTab = "policies" }), trailing: 8, lift: 17, gap: 24) {
                 SettingsA.Note(parts: [
                     .text("Learn how to stay compliant with the "),
                     .plainLink("California Consumer Privacy Act (CCPA)", { UIPresenter.safari(Self.ccpa) }),
