@@ -125,9 +125,10 @@ struct OrdersTabView: View {
                     }
                 }
             } label: {
+                // The same link as on Sales Overview, semibold as the photos have it on both screens.
                 Text(list.range.label)
                     .underline()
-                    .pfFont(15)
+                    .pfFont(15, .semibold)
                     .foregroundStyle(Theme.blue)
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())

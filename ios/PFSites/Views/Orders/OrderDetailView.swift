@@ -106,6 +106,8 @@ struct OrderDetailView: View {
                 let code = giftCode.trimmed
                 if !code.isEmpty { pay("Gift card", giftCode: code) }
             }
+            // Without a code there is nothing to pay with: the button waits, instead of closing the question and doing nothing.
+            .disabled(giftCode.trimmed.isEmpty)
             Button("Cancel", role: .cancel) {}
         }
         .alert(problem ?? "", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {

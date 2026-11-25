@@ -76,6 +76,10 @@ struct HomeView: View {
         .task(id: SalesKey(shown: model.shell.salesAllowed && model.shell.salesShown, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "", retry: salesRetry)) {
             await keepSalesFresh()
         }
+        // VoiceOver reads out why the amount could not be read: the words take the spinner's place on the card.
+        .onChange(of: salesProblem) { _, message in
+            if !message.isEmpty { AccessibilityNotification.Announcement(message).post() }
+        }
     }
 
     // MARK: Date card

@@ -257,12 +257,13 @@ struct LocationAddress: View {
     }
 }
 
-/// The location search (both photos): #EEEEEE with 4 pt corners, 48 pt tall, the magnifying glass 10 pt in, then the prompt in grey.
+/// The location search (both photos): #EEEEEE with 4 pt corners, 48 pt tall, the magnifying glass 10 pt in, then the prompt in
+/// grey 14 pt after it. The symbol brings 2 to 3 pt of its own space on each side, which the numbers below take off.
 struct LocationSearchField: View {
     @Binding var text: String
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 11.3) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 17))
                 .foregroundStyle(.primary)
@@ -285,7 +286,8 @@ struct LocationSearchField: View {
                 .accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.leading, 8)
+        .padding(.trailing, 10)
         .frame(minHeight: 48)
         .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(SignInLook.searchFill))
     }

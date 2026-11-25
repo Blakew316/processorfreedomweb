@@ -17,6 +17,9 @@ struct TimeFrameSheet: View {
     @State private var revealCustom = 0
     /// Whether Custom's dates can be seen: the sheet can open with them already open below the last row in view.
     @State private var datesInView = false
+    /// A tap on Custom brought its dates up instead of closing them. Only once: if the dates were in view after all, the next
+    /// tap closes them as usual, so Custom can always be closed.
+    @State private var broughtUp = false
     /// Whether the rows have scrolled up under the title: a line then marks where they go under it.
     @State private var scrolled = false
     @State private var start = Date()
@@ -139,10 +142,12 @@ struct TimeFrameSheet: View {
         let span = chosen.days(today: today)
         return Button {
             // Open, but below what is in view: the tap brings the dates up instead of closing them unseen.
-            if customOpen && !datesInView {
+            if customOpen && !datesInView && !broughtUp {
+                broughtUp = true
                 revealCustom += 1
                 return
             }
+            broughtUp = false
             withAnimation(.snappy) { customOpen.toggle() }
             if customOpen { revealCustom += 1 } else { datesInView = false }
         } label: {

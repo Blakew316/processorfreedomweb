@@ -376,17 +376,18 @@ struct CreateAppointmentScreen: View {
     private var newCustomerFields: some View {
         @Bindable var draft = form
         return VStack(alignment: .leading, spacing: 0) {
-            typedField("First name", text: $draft.firstName, field: .firstName, kind: .givenName, keyboard: .default, capitals: .words)
-            typedField("Last name", text: $draft.lastName, field: .lastName, kind: .familyName, keyboard: .default, capitals: .words)
+            typedField("First name", text: $draft.firstName, field: .firstName, next: .lastName, kind: .givenName, keyboard: .default, capitals: .words)
+            typedField("Last name", text: $draft.lastName, field: .lastName, next: .email, kind: .familyName, keyboard: .default, capitals: .words)
                 .padding(.top, 24.67)
-            typedField("Email address", text: $draft.email, field: .email, kind: .emailAddress, keyboard: .emailAddress, capitals: .never)
+            typedField("Email address", text: $draft.email, field: .email, next: .phone, kind: .emailAddress, keyboard: .emailAddress, capitals: .never)
                 .padding(.top, 24.67)
-            typedField("Phone number", text: $draft.phone, field: .phone, kind: .telephoneNumber, keyboard: .phonePad, capitals: .never)
+            typedField("Phone number", text: $draft.phone, field: .phone, next: nil, kind: .telephoneNumber, keyboard: .phonePad, capitals: .never)
                 .padding(.top, 24.67)
         }
     }
 
-    private func typedField(_ label: String, text: Binding<String>, field: CreateAppointmentFocus, kind: UITextContentType, keyboard: UIKeyboardType, capitals: TextInputAutocapitalization) -> some View {
+    /// `next` is the field the keyboard's Next goes to (the keyboard closes after the last one).
+    private func typedField(_ label: String, text: Binding<String>, field: CreateAppointmentFocus, next: CreateAppointmentFocus?, kind: UITextContentType, keyboard: UIKeyboardType, capitals: TextInputAutocapitalization) -> some View {
         VStack(alignment: .leading, spacing: CreateAppointmentLook.labelGap) {
             CreateAppointmentLabel(text: label)
             TextField("", text: text)
@@ -396,6 +397,8 @@ struct CreateAppointmentScreen: View {
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(capitals)
                 .autocorrectionDisabled()
+                .submitLabel(next == nil ? .done : .next)
+                .onSubmit { focus = next }
                 .focused($focus, equals: field)
                 .accessibilityLabel(label)
                 .padding(.horizontal, CreateAppointmentFieldBox.inset)

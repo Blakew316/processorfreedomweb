@@ -472,7 +472,7 @@ struct StatsReport {
             }
         } else {
             said.append("\(when) your business generated total net sales of \(Money.format(t.net)) across "
-                        + "\(StatsFormat.count(t.orders, "order", "orders")), with an average order value of \(Money.format(t.average)).")
+                        + "\(StatsFormat.count(t.orders, "order", "orders")), resulting in an average order value of \(Money.format(t.average)).")
             said.append(refundsAndDiscounts)
             if let busiest { said.append(busiest) }
             if let bestSeller { said.append(bestSeller) }

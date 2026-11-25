@@ -27,6 +27,10 @@ struct LoadingView: View {
             }
         }
         .ignoresSafeArea()
+        // VoiceOver reads the message out: it takes the spinner's place and would not be come across by itself.
+        .onChange(of: model.launchError) { _, message in
+            if let message, !message.isEmpty { AccessibilityNotification.Announcement(message).post() }
+        }
     }
 }
 
