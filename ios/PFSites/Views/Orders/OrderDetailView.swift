@@ -12,6 +12,8 @@ struct OrderDetailView: View {
     @State private var working = false
     @State private var problem: String?
     @State private var confirmCancel = false
+    /// The order's status when "Cancel order?" was put.
+    @State private var cancelAsked: String?
     @State private var choosingTender = false
     @State private var askingGiftCode = false
     @State private var giftCode = ""
@@ -72,7 +74,7 @@ struct OrderDetailView: View {
         }
         .alert(cancelTitle, isPresented: $confirmCancel) {
             Button("Cancel", role: .cancel) {}
-            Button("Cancel order", role: .destructive) { change(to: "cancelled") }
+            Button("Cancel order", role: .destructive) { change(to: "cancelled", asked: cancelAsked) }
         } message: {
             Text(cancelText)
         }
@@ -279,6 +281,9 @@ struct OrderDetailView: View {
             }
             if order.canCancel {
                 Button {
+                    // The order as the question is put: the answer is about that order, not about whatever it has become
+                    // on another screen while the question was up.
+                    cancelAsked = order.status
                     confirmCancel = true
                 } label: {
                     // The whole 44 pt row is the button, not only its words.
@@ -338,14 +343,16 @@ struct OrderDetailView: View {
 
     // MARK: Talking to the server
 
-    private func change(to status: String) {
+    /// `asked` is the status the order had when a question about this change was put (Cancel order): the server then refuses
+    /// when the order has moved on since, as it does for a stale screen, instead of cancelling an order completed meanwhile.
+    private func change(to status: String, asked: String? = nil) {
         guard let order, let business = model.site, !working else { return }
         working = true
         model.idle.touch()
         let tapped = Date()
         Task {
             do {
-                let fresh = try await orders.setStatus(order, to: status, siteID: business.id)
+                let fresh = try await orders.setStatus(order, to: status, from: asked, siteID: business.id)
                 snapshot = fresh
                 Haptics.success()
                 // A cancelled order puts its stock back, so the Sale screen loads the items again next time.
@@ -362,6 +369,8 @@ struct OrderDetailView: View {
 
     private func pay(_ tender: String, giftCode: String? = nil) {
         guard let order, let business = model.site, !working else { return }
+        // Paid on another screen while the tender list was up: there is nothing left to record, and the page shows it paid.
+        guard order.canRecordPayment else { return }
         working = true
         model.idle.touch()
         let tapped = Date()
@@ -432,7 +441,12 @@ struct OrderDetailView: View {
     private func mailURL(_ email: String) -> URL? {
         let address = email.trimmed
         guard address.contains("@") else { return nil }
-        if let url = URL(string: "mailto:\(address)") { return url }
-        return address.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed).flatMap { URL(string: "mailto:\($0)") }
+        // The address comes from whoever placed the order. Written into the link as it is, an "address" such as
+        // a@b.co?cc=someone&body=... would open Mail with a second recipient and a message already in it; as the link's path,
+        // every ?, & and # is part of the address and nothing more.
+        var link = URLComponents()
+        link.scheme = "mailto"
+        link.path = address
+        return link.url
     }
 }

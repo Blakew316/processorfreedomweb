@@ -229,6 +229,9 @@ final class OrdersModel {
     var orders: [CustomerOrder] = []
     var loaded = false
     var loadError = ""
+    /// Why the last refresh failed while a list was already showing. The list stays, with one quiet line over it, so orders that
+    /// may be out of date are never taken for the latest (staff watch this list for new orders). It goes when a refresh works.
+    private(set) var refreshProblem = ""
     var timeZone: TimeZone = TimeZone(identifier: "America/Chicago") ?? .current
     var range: OrdersRange = .today
     var tab: OrdersTab = .closed
@@ -279,6 +282,7 @@ final class OrdersModel {
             if list != orders { orders = list }
             if !loaded { loaded = true }
             if !loadError.isEmpty { loadError = "" }
+            if !refreshProblem.isEmpty { refreshProblem = "" }
             if !tabChosen {
                 tabChosen = true
                 tab = counts().open > 0 ? .open : .closed
@@ -288,6 +292,7 @@ final class OrdersModel {
             if error.status == 401 { AppModel.shared.sessionEnded() }
             // A failed refresh keeps the list it had; the message shows when there is nothing to show, or when this login may not see it.
             if ticket > shown, !loaded || error.status == 403 { loadError = error.message }
+            if ticket > shown, loaded, error.status != 401, error.status != 403 { refreshProblem = error.message }
         } catch {
             // Cancelled: the screen went away.
         }
@@ -325,16 +330,19 @@ final class OrdersModel {
     /// Moves an order to its next status, or cancels it. The server checks it again (a payment recorded first must be refunded).
     /// `from` is the status this phone showed: when the order has moved on since (another phone, the website), the server
     /// refuses with its own words and the list loads again, instead of an old screen moving a finished order backwards.
-    func setStatus(_ order: CustomerOrder, to status: String, siteID: String) async throws -> CustomerOrder {
-        let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)", ["status": status, "from": order.status])
+    /// A change that was asked about first (Cancel order) gives the status the order had when the question was put.
+    func setStatus(_ order: CustomerOrder, to status: String, from shown: String? = nil, siteID: String) async throws -> CustomerOrder {
+        let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)", ["status": status, "from": shown ?? order.status])
         guard let fresh = CustomerOrder(answer["order"]) else { throw APIError(status: 0, message: "Something went wrong. Please try again.") }
         replace(fresh)
         return fresh
     }
 
     /// Records a payment taken at the counter (nothing is charged by this). A gift card needs its code: it pays from its balance.
+    /// The app only offers this for an order with no payment, and says so (`unpaid`): if the order was paid elsewhere in the
+    /// meantime the server refuses, instead of taking this as a change of how it was paid.
     func recordPayment(_ order: CustomerOrder, tender: String, giftCode: String? = nil, siteID: String) async throws -> CustomerOrder {
-        var body: [String: Any] = ["method": tender]
+        var body: [String: Any] = ["method": tender, "unpaid": true]
         if let giftCode { body["giftCode"] = giftCode }
         let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)/payment", body)
         guard let fresh = CustomerOrder(answer["order"]) else { throw APIError(status: 0, message: "Something went wrong. Please try again.") }
@@ -361,6 +369,13 @@ final class OrdersModel {
         }
         let last = range == .yesterday ? first : today
         return (first, calendar.date(byAdding: .day, value: 1, to: last) ?? last.addingTimeInterval(86_400))
+    }
+
+    /// The server sends the 300 newest orders. When that many came and the chosen period reaches back past the oldest of them,
+    /// the period has older orders this list does not hold: the list says so instead of looking complete.
+    var periodIsCutShort: Bool {
+        guard orders.count >= 300, let oldest = orders.map(\.createdAt).min() else { return false }
+        return span().start < oldest
     }
 
     var inRange: [CustomerOrder] {

@@ -31,6 +31,17 @@ struct OrdersTabView: View {
             dateRow
             OrdersHairline()
             tabsRow(lined: !banded)
+            if !orders.refreshProblem.isEmpty, orders.loaded, !orders.orders.isEmpty {
+                // The last refresh failed: the orders below are the last ones that came, and may be out of date.
+                Text("\(orders.refreshProblem) The orders below may be out of date.")
+                    .pfFont(14)
+                    .foregroundStyle(SettingsLook.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                OrdersHairline()
+            }
             content(days)
         }
         .background(Color(.systemBackground))
@@ -249,6 +260,16 @@ struct OrdersTabView: View {
                         } header: {
                             band(day)
                         }
+                    }
+                    if orders.periodIsCutShort {
+                        Text("Only the latest 300 orders are shown here. Older orders in this period are on the website.")
+                            .pfFont(14)
+                            .foregroundStyle(SettingsLook.muted)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 18)
                     }
                 }
             }

@@ -181,6 +181,7 @@ struct OrderSheet: View {
                         Text(Money.format(line.total))
                             .pfFont(17, .semibold)
                             .frame(minWidth: 80, alignment: .trailing)
+                            .accessibilityLabel("Line total \(Money.format(line.total))")
                     }
                     .padding(.vertical, 4)
                 }
@@ -378,6 +379,8 @@ struct PriceKeypadSheet: View {
         // A key that would go past $999,999.99 does nothing.
         guard value <= Money.most else { return }
         withAnimation(.snappy(duration: 0.15)) { cents = value }
+        // VoiceOver says only the key; the amount it makes is said too, so it need not be gone back to after every key.
+        if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: Money.format(value)) }
     }
 
     private func done() {

@@ -15,9 +15,12 @@ enum ScanSymbologies {
 final class ScanGate {
     private var seen: [String: Date] = [:]
 
-    /// Whether this sighting is a new read. Every sighting counts as seen.
-    func pass(_ code: String, at now: Date = Date()) -> Bool {
+    /// Whether this sighting is a new read. Every sighting counts as seen; while reading is `held` (the code before it is
+    /// still being looked up), only codes already read do, so a code first shown during the wait is read as soon as the wait
+    /// is over instead of never while it stays in view.
+    func pass(_ code: String, at now: Date = Date(), held: Bool = false) -> Bool {
         let last = seen[code]
+        if held && last == nil { return true }
         seen[code] = now
         if seen.count > 64 { seen = seen.filter { now.timeIntervalSince($0.value) < 10 } }
         guard let last else { return true }

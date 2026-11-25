@@ -140,6 +140,9 @@ struct CloseoutCurrentBatchView: View {
                     working = false
                     asked = now
                     confirming = !now.totals.isEmpty
+                    // Closed out on another screen in the meantime, and nothing has come in since: say so, instead of the
+                    // page quietly becoming an empty batch with a greyed button.
+                    if now.totals.isEmpty { say("This batch was already closed out.") }
                     return
                 }
                 working = false
