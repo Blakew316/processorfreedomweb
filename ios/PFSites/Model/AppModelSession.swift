@@ -468,9 +468,11 @@ extension AppModel {
         // still on its way is stopped first.
         DownloadCenter.shared.cancelAll()
         DownloadCenter.clearOldFiles()
-        // Neither does a notification they tapped before the dashboard was showing, nor the count on the app's icon.
+        // Neither does a notification they tapped before the dashboard was showing, nor the count on the app's icon, nor the
+        // sales reports read for them.
         forgetPendingNotification()
         setOrdersBadge(0)
+        StatsChoices.shared.reset()
         shellAlive = false
         shell = Shell()
         shellID = UUID()

@@ -792,4 +792,11 @@ final class StatsChoices {
         models[screen] = made
         return made
     }
+
+    /// The dashboard closed (Log out, Switch User): the reports read for the person who was using it are let go, instead of
+    /// staying in memory until someone next opens Sales Overview or Insights.
+    func reset() {
+        models = [:]
+        shellID = nil
+    }
 }
