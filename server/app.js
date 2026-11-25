@@ -2069,6 +2069,9 @@ export function createApp(options = {}) {
       const method = TENDERS.includes(b.method) ? b.method : bad(400, 'Choose how the customer paid.');
       // A cancelled order has given its money back, so a payment recorded from a screen that had not caught up is refused.
       if (o.status === 'cancelled') bad(409, 'This order was cancelled, so no payment can be recorded for it.');
+      // The caller's screen showed the order unpaid (the iPhone app's Record payment): once it has been paid elsewhere, the payment is
+      // refused instead of being taken as a change of how it was paid. The back office's own change of tender does not say this.
+      if (b.unpaid === true && o.paid_at) bad(409, `This order was already paid by ${String(o.paid_method || 'Other').toLowerCase()} on another screen. Check it before recording anything else.`);
       if (role === 'kitchen' && o.paid_at && method !== o.paid_method) bad(403, 'Your login does not allow changing a payment. Ask a manager.');
       if (method === 'Gift card' && !o.paid_at) {
         // Paid at the counter with a gift card: the card has to cover what is due, and pays it now.

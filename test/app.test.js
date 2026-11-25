@@ -881,6 +881,11 @@ test('timed prices, kitchen limits, daily refill, summary, low-stock alerts, cus
     assert.deepEqual([ana.orders, ana.spent, ana.favourite], [2, 0, 'Taco']);
     const anaOrder = (await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((o) => o.email.toLowerCase() === 'ana@example.com');
     await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { method: 'Cash' });
+    // A screen that still showed the order unpaid cannot change how it was paid by recording "its" payment: it is told, and nothing moves.
+    const late = await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { method: 'Card', unpaid: true });
+    assert.equal(late.status, 409);
+    assert.match(late.data.error, /already paid by cash/);
+    assert.equal((await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((o) => o.id === anaOrder.id).paidMethod, 'Cash');
     await me('POST', `/api/sites/${site.id}/orders/${anaOrder.id}/payment`, { refund: 100 });
     people = (await me('GET', `/api/sites/${site.id}/customers`)).data.customers;
     ana = people.find((c) => c.email === 'ana@example.com');
