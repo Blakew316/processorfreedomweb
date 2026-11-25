@@ -279,7 +279,9 @@ final class SaleModel {
         let shownCode = raw.trimmed
         guard !key.isEmpty else { return .notFound(shownCode) }
         let stale = loadedSite != siteID || loadedAt.map({ Date().timeIntervalSince($0) >= 30 }) ?? true
-        let justTried = loadedSite == siteID && (triedAt.map({ Date().timeIntervalSince($0) < 30 }) ?? false)
+        // A reload that failed moments ago is not tried again with every scan, as long as there are items to scan against.
+        // With none (the list never loaded), each scan asks again: the connection may be back.
+        let justTried = !items.isEmpty && loadedSite == siteID && (triedAt.map({ Date().timeIntervalSince($0) < 30 }) ?? false)
         if stale && !justTried {
             await loadItems(siteID: siteID)
             // The scanner was closed while the items were on their way: nothing is added behind the person's back.
