@@ -2685,12 +2685,18 @@ export function createApp(options = {}) {
 
   route('POST', '/api/sites/:id/orders/:order', async (req, res, p) => {
     const { site, user } = ownSite(req, p.id, 'kitchen');
-    const status = str((await readJson(req)).status, 20);
+    const body = await readJson(req);
+    const status = str(body.status, 20);
+    // The status the screen showed when the button was pressed, when the caller says.
+    const from = str(body.from, 20);
     if (!Object.hasOwn(ORDER_STATUSES, status)) bad(400, 'Unknown status.');
     // Read now the body is here, and changed only from the status read, so two taps on Cancel can never return the stock twice.
     const row = db.get('SELECT * FROM orders WHERE id = ? AND site_id = ?', p.order, site.id) || bad(404, 'We could not find that order.');
     if (status !== row.status) {
       if (row.status === 'cancelled') bad(400, 'A cancelled order cannot be reopened. Take a new order instead.');
+      // The order moved on since that screen was drawn (another phone, the kitchen screen): an old screen does not move it again,
+      // which could take a completed order back to confirmed and email the customer a second time.
+      if (Object.hasOwn(ORDER_STATUSES, from) && from !== row.status) bad(409, `This order changed on another screen: it is now ${ORDER_STATUSES[row.status].toLowerCase()}. Check it, then try again.`);
       const by = staffName(site, user), byId = user.id, now = Date.now();
       // Money taken at the counter is refunded first, so the books never keep a payment for an order that did not happen.
       // A gift card is given back by cancelling.

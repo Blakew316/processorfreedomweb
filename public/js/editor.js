@@ -715,7 +715,7 @@ export async function editor(id, mount, title, startTab = '') {
       if (!orders) { loadOrders(); return [group('', skel(3, 'card'))]; }
       const active = orders.filter((x) => !['completed', 'cancelled'].includes(x.status));
       const shown = orderFilter === 'active' ? active : orders;
-      const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); putOrder(x, r.order); if (status === 'cancelled') freshStock(); paintPanel(); } catch (e) { toast(e.message, true); } };
+      const setStatus = async (x, status) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status, from: x.status }); putOrder(x, r.order); if (status === 'cancelled') freshStock(); paintPanel(); } catch (e) { toast(e.message, true); } };
       const next = { new: ['confirmed', 'Confirm order'], confirmed: ['ready', 'Mark ready'], ready: ['completed', 'Complete'] };
       const seg = h('div', { class: 'seg' }, [['active', `Active · ${active.length}`], ['all', 'All orders']].map(([k, l]) => h('button', { 'aria-pressed': String(orderFilter === k), onclick: () => { orderFilter = k; paintPanel(); } }, l)));
       const alertBox = h('label', { class: 'switch' }, h('span', {}, h('b', { style: 'font-weight:500' }, 'Sound and pop-up alerts'), null), h('input', { type: 'checkbox', checked: alertsOn(), onchange: (e) => setAlerts(e.target.checked) }), h('i'));
@@ -2538,7 +2538,7 @@ export async function editor(id, mount, title, startTab = '') {
     const x = (orders || []).find((o) => o.number === row.number);
     if (!x) return toast('That order is no longer in the recent list.', true);
     const next = { new: ['confirmed', 'Confirm order'], confirmed: ['ready', 'Mark ready'], ready: ['completed', 'Complete'] };
-    const set = async (status, close) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status }); putOrder(x, r.order); stats = null; close(); if (status === 'cancelled') freshStock(); paintPanel(); } catch (e) { toast(e.message, true); } };
+    const set = async (status, close) => { try { const r = await api('POST', `/api/sites/${id}/orders/${x.id}`, { status, from: x.status }); putOrder(x, r.order); stats = null; close(); if (status === 'cancelled') freshStock(); paintPanel(); } catch (e) { toast(e.message, true); } };
     sheet((close) => [h('h2', {}, `#${x.number} · ${x.name}`), h('p', { class: 'muted' }, `${ORDER_METHODS[x.method]?.name || x.method} · ${new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${x.status === 'ready' ? readyLabel(x.method) : ORDER_STATUSES[x.status]}`),
       h('div', { class: 'cl-lines' }, x.items.map((l) => h('div', {}, h('span', {}, `${l.qty} × ${l.name}`, l.opts?.length > 0 && h('small', {}, l.opts.join(', '))), h('b', {}, money(l.price * l.qty)))),
         x.discount > 0 && h('div', {}, h('span', {}, 'Discount'), h('b', {}, `−${money(x.discount)}`)), x.tax > 0 && h('div', {}, h('span', {}, 'Tax'), h('b', {}, money(x.tax))), x.fee > 0 && h('div', {}, h('span', {}, 'Delivery fee'), h('b', {}, money(x.fee))), x.tip > 0 && h('div', {}, h('span', {}, 'Tip'), h('b', {}, money(x.tip))), h('div', { class: 'tot' }, h('span', {}, 'Total'), h('b', {}, money(x.total))),

@@ -371,6 +371,15 @@ test('ordering: build from an item list, take an order, track stock, send emails
     await new Promise((x) => setTimeout(x, 20));
     assert.deepEqual(sent.map((m) => m.subject.split(' · ')[0]), ['Your order is confirmed', 'Your order is on its way']);
     assert.match((await anon('GET', `/order/${order.token}`, null, host)).data, /on its way/);
+    // A screen that still shows the order as new cannot move it back to confirmed (and email the customer again); a screen that
+    // shows what is true can move it on, and a caller that does not say what it showed is served as before.
+    r = await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'confirmed', from: 'new' });
+    assert.equal(r.status, 409);
+    assert.match(r.data.error, /now ready/);
+    assert.equal((await me('GET', `/api/sites/${site.id}/orders`)).data.orders.find((x) => x.id === order.id).status, 'ready');
+    assert.equal((await me('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'ready', from: 'new' })).status, 200);
+    await new Promise((x) => setTimeout(x, 20));
+    assert.equal(sent.length, 2);
     assert.equal((await client()('POST', `/api/sites/${site.id}/orders/${order.id}`, { status: 'cancelled' })).status, 401);
     r = await place({ ...who, method: 'curbside', vehicle: 'Blue Tacoma', items: [{ id: churros.id, qty: 10 }] });
     assert.equal(r.data.number, 1002);
@@ -1265,7 +1274,10 @@ test('gift cards, recurring payments, customer import, projects', async () => {
     assert.deepEqual([invs.length, invs[0].status, invs[0].total, invs[0].items[0].name], [1, 'sent', 5500, 'Office lunch']);
     assert.ok(sent.some((m) => m.to === 'dana@acme.test' && /Invoice INV-1001/.test(m.subject)));
     plans = (await me('GET', `/api/sites/${site.id}/plans`)).data.plans;
-    assert.ok(plans[0].nextDate > new Date().toISOString().slice(0, 10) && plans[0].billed === 5500);
+    // The next date is worked out in the business's time zone, where it is still yesterday for a few hours each evening: on
+    // those evenings the next date can be the very date UTC already shows, so "not before it" is the comparison that always
+    // holds (the "not billed twice" check below is what proves the plan moved on).
+    assert.ok(plans[0].nextDate >= new Date().toISOString().slice(0, 10) && plans[0].billed === 5500);
     app6.tick(Date.now());
     assert.equal((await me('GET', `/api/sites/${site.id}/invoices`)).data.invoices.length, 1, 'not billed twice');
     // A monthly plan from the 31st stays on the 31st, or the month's last day, so no month is skipped. Bad schedules are refused.
