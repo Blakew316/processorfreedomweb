@@ -1732,7 +1732,16 @@ export function createApp(options = {}) {
   });
   route('POST', '/api/sites/:id/appointments', async (req, res, p) => {
     const { site } = ownSite(req, p.id, 'kitchen');
-    json(res, 201, { appointment: makeAppt(site, orderingOf(site), await readJson(req), false) });
+    const b = await readJson(req);
+    // A caller can name its save (the iPhone app does). When the answer to a save is lost on the way back and the same save is sent
+    // again, the appointment it already made is returned instead of a second one being booked. Nothing between this check and the
+    // insert waits, so two copies arriving together cannot both get past it.
+    const key = str(b.key, 64).trim();
+    const made = key && db.get('SELECT * FROM appointments WHERE site_id = ? AND client_key = ?', site.id, key);
+    if (made) return json(res, 200, { appointment: toAppt(made) });
+    const appointment = makeAppt(site, orderingOf(site), b, false);
+    if (key) db.run('UPDATE appointments SET client_key = ? WHERE id = ?', key, appointment.id);
+    json(res, 201, { appointment });
   });
   route('POST', '/api/sites/:id/appointments/:appt', async (req, res, p) => {
     const { site } = ownSite(req, p.id, 'kitchen');

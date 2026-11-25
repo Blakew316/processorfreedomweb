@@ -1338,6 +1338,15 @@ test('online booking, appointments, shifts and the time clock', async () => {
     await new Promise((r) => setTimeout(r, 20));
     assert.ok(sent.some((m) => m.to === 'ana@example.com' && /confirmed/.test(m.subject)));
     assert.equal((await me('POST', `/api/sites/${site.id}/appointments`, { serviceName: 'Walk-in', date: day, time: '18:30', name: 'Bo' })).data.appointment.status, 'confirmed', 'staff can add one even when the slot is full');
+    // A save that names itself can be sent again when its answer was lost: the same appointment comes back, and none is added.
+    const named = { serviceName: 'Walk-in', date: day, time: '19:30', name: 'Cy', key: 'save-7f3a' };
+    const first = await me('POST', `/api/sites/${site.id}/appointments`, named);
+    const again = await me('POST', `/api/sites/${site.id}/appointments`, named);
+    assert.deepEqual([first.status, again.status, again.data.appointment.id], [201, 200, first.data.appointment.id]);
+    assert.equal((await me('GET', `/api/sites/${site.id}/appointments`)).data.appointments.filter((a) => a.name === 'Cy').length, 1);
+    // Another save, another name: a second appointment at the same time is still allowed for staff.
+    assert.equal((await me('POST', `/api/sites/${site.id}/appointments`, { ...named, key: 'save-9b1c' })).status, 201);
+    assert.equal((await me('GET', `/api/sites/${site.id}/appointments`)).data.appointments.filter((a) => a.name === 'Cy').length, 2);
 
     assert.equal((await me('POST', `/api/sites/${site.id}/shifts`, { name: 'Bea', day, start: '9', finish: '17:00' })).status, 400);
     await me('POST', `/api/sites/${site.id}/shifts`, { name: 'Bea', day, start: '09:00', finish: '17:00' });
