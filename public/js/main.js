@@ -1,7 +1,7 @@
 import { TEMPLATES, createSite, slugify, ICONS, parseMenuCsv, MENU_TEMPLATE_CSV, defaultOrdering, money, ORDER_METHODS, ORDER_STATUSES } from '/shared/core.js';
 import { MARK } from './mark.js';
 import { siteFooter, faqList, faqPage, privacyPage, termsPage, contactPage, FAQ, dock, testimonialsSection } from './pages.js';
-import { syncTopColor, h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, themeButton, getTheme, setTheme, labelTables, canOfferInstall, installApp, inApp, toApp, busy, signedOut } from './ui.js';
+import { syncTopColor, h, api, go, link, state, toast, thumb, LOGO, svg, ic, fmtDate, addressChecker, showAddress, confirmSheet, sheet, ION, labelTables, canOfferInstall, installApp, inApp, toApp, busy, signedOut } from './ui.js';
 
 const root = document.getElementById('app');
 let cleanup = null;
@@ -18,7 +18,7 @@ export function topbar(...right) {
   return h('header', { class: `top${appPage ? ' app' : ''}` }, h('div', { class: 'in' },
     appPage ? link('/app', { class: 'logo mid', 'aria-label': 'PF Sites' }, h('img', { src: '/assets/logo-dark.svg', alt: 'PF Sites', width: 42, height: 42 }))
       : link(state.user ? '/app' : '/', { class: 'logo' }, h('span', { html: LOGO }), h('span', {}, 'Processor Freedom ', h('em', {}, 'Sites'))),
-    h('nav', {}, ...right, !appPage && themeButton())));
+    h('nav', {}, ...right)));
 }
 
 function changePassword() {
@@ -45,7 +45,6 @@ function accountMenu() {
       h('div', { style: 'padding:9px 12px' }, h('small', { class: 'muted' }, 'Signed in as'), h('div', { style: 'font-weight:500;overflow-wrap:anywhere' }, state.user.email)),
       state.user.admin && h('button', { onclick: () => { close(); go('/app/admin'); } }, 'Staff dashboard'),
       h('button', { onclick: () => { close(); changePassword(); } }, 'Change password'),
-      h('div', { style: 'padding:8px 12px 10px' }, h('small', { class: 'muted' }, 'Appearance'), h('div', { class: 'seg', style: 'margin-top:6px' }, [['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto']].map(([k, l]) => h('button', { 'aria-pressed': String(getTheme() === k), onclick: () => { setTheme(k); close(); } }, l)))),
       h('button', { onclick: async () => { await api('POST', '/api/auth/logout'); state.user = null; go('/login'); } }, 'Sign out'),
       h('button', { onclick: async () => { close(); if (!await confirmSheet({ title: 'Sign out everywhere?', text: 'This signs your account out on every phone, tablet and computer, including this one. Use it if a device was lost or shared.', action: 'Sign out everywhere' })) return; await api('POST', '/api/auth/logout-all'); state.user = null; go('/login'); } }, 'Sign out everywhere'));
     wrap.append(menu);

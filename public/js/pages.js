@@ -1,5 +1,5 @@
 // The pages every proper site has: questions, privacy and terms. Plain words, kept honest about what the product does today.
-import { h, link, themeButton } from './ui.js';
+import { h, link } from './ui.js';
 
 export const CONTACT = 'support@processorfreedom.com';
 const UPDATED = 'November 21, 2026';
@@ -11,7 +11,7 @@ export const TESTIMONIALS = [];
 /* The menu. It lives at the bottom of the screen, so the top carries only our name. */
 const MENU = () => [['Examples', '/#examples'], ['Why us', '/#features'], ...(TESTIMONIALS.length ? [['Testimonials', '/#testimonials']] : []), ['FAQ', '/#faq'], ['Log in', '/login']];
 export function dock() {
-  const el = h('nav', { class: 'dock', 'aria-label': 'Menu' }, h('div', { class: 'dock-in' }, MENU().map(([t, to]) => link(to, {}, t)), link('/signup', { class: 'btn sm' }, 'Sign up'), themeButton()));
+  const el = h('nav', { class: 'dock', 'aria-label': 'Menu' }, h('div', { class: 'dock-in' }, MENU().map(([t, to]) => link(to, {}, t)), link('/signup', { class: 'btn sm' }, 'Sign up')));
   // On the home page it waits out of sight while the film has the screen, and comes in once you start down the page.
   const rest = () => el.classList.toggle('rest', !!document.querySelector('.film-main') && window.scrollY < Math.min(520, window.innerHeight * 0.55));
   el.classList.add('rest'); requestAnimationFrame(rest); window.addEventListener('scroll', () => { if (el.isConnected) rest(); }, { passive: true });
@@ -78,7 +78,7 @@ export function siteFooter() {
       col('Account', link('/login', {}, 'Log in'), link('/signup', {}, 'Sign up')),
       col('Help', link('/faq', {}, 'All questions'), link('/contact', {}, 'Contact us')),
       col('Legal', link('/privacy', {}, 'Privacy Policy'), link('/terms', {}, 'Terms and Conditions'))),
-    h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.'), h('span', { class: 'ft-theme' }, 'Appearance', themeButton()))));
+    h('div', { class: 'ft-base' }, h('span', {}, `© ${new Date().getFullYear()} Processor Freedom. All rights reserved.`), h('span', {}, 'Their software. Your processor.'))));
 }
 
 export const faqList = (items = FAQ) => h('div', { class: 'faq' }, items.map(([q, a]) => h('details', {}, h('summary', {}, h('span', {}, q), h('i', { 'aria-hidden': 'true' })), h('p', {}, a))));
