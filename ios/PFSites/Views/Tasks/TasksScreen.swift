@@ -65,9 +65,6 @@ struct TasksScreen: View {
             }
             .background(Color(.systemBackground))
             .refreshable { await loadLive() }
-            // What scrolls under the top bar is cut off cleanly at the bar's edge, as in the photos and on the Settings pages: nothing of
-            // the page shows through the bar.
-            .scrollEdgeEffectStyle(.hard, for: .top)
             .navigationTitle("Tasks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
