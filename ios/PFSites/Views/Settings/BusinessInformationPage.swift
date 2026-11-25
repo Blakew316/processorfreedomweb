@@ -127,7 +127,7 @@ struct BusinessInformationPage: View {
                 .padding(.top, Self.titleLift)
             SettingsA.Note(parts: [
                 .text("This information appears on "),
-                .link("payment receipts", { model.shell.cover = .settingsPage(.paymentReceipts) }),
+                .plainLink("payment receipts", { model.shell.cover = .settingsPage(.paymentReceipts) }),
                 .text(" and your website. It may or may not be the same as your billing and tax-related business information."),
             ])
                 .padding(.top, 16)
@@ -237,7 +237,7 @@ struct BusinessInformationPage: View {
             SettingsA.WithButton(button: SettingsA.EditButton(symbol: on ? "pencil" : "plus", size: on ? 25 : 20, label: on ? "Edit privacy policy" : "Add a privacy policy", action: { openTab = "policies" }), trailing: 8) {
                 SettingsA.Note(parts: [
                     .text("Learn how to stay compliant with the "),
-                    .link("California Consumer Privacy Act (CCPA)", { UIPresenter.safari(Self.ccpa) }),
+                    .plainLink("California Consumer Privacy Act (CCPA)", { UIPresenter.safari(Self.ccpa) }),
                     .text(" and include your own privacy policy on your website."),
                 ])
             }

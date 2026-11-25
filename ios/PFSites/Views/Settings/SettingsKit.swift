@@ -350,10 +350,20 @@ struct SettingsValueRow: View {
     }
 }
 
-/// A piece of a description: plain text, or an underlined blue link that runs an action.
+/// A piece of a description: plain text, or a blue link that runs an action. Most links are underlined in the photos; two on
+/// Business information ("payment receipts" and the privacy act) are blue without a line, which is `plainLink`.
 enum SettingsTextPart {
     case text(String)
     case link(String, () -> Void)
+    case plainLink(String, () -> Void)
+
+    /// What a link runs when it is tapped (nil for plain text).
+    var action: (() -> Void)? {
+        switch self {
+        case .text: return nil
+        case .link(_, let run), .plainLink(_, let run): return run
+        }
+    }
 }
 
 /// A muted paragraph with links in it, like "… in the Order Receipts page." in the photos: 16 pt on 24 pt lines.
@@ -373,7 +383,7 @@ struct SettingsLinkedText: View {
             .fixedSize(horizontal: false, vertical: true)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "pfsettings", let index = Int(url.host() ?? ""), parts.indices.contains(index),
-                      case .link(_, let run) = parts[index] else { return .discarded }
+                      let run = parts[index].action else { return .discarded }
                 run()
                 return .handled
             })
@@ -390,6 +400,11 @@ struct SettingsLinkedText: View {
                 link.link = URL(string: "pfsettings://\(index)")
                 // Named in full: with UIKit imported too, `underlineStyle` could be SwiftUI's or UIKit's, and would not compile.
                 link[AttributeScopes.SwiftUIAttributes.UnderlineStyleAttribute.self] = .single
+                link.foregroundColor = Theme.blue
+                out += link
+            case .plainLink(let words, _):
+                var link = AttributedString(words)
+                link.link = URL(string: "pfsettings://\(index)")
                 link.foregroundColor = Theme.blue
                 out += link
             }
