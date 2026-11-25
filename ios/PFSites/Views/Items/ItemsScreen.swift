@@ -159,7 +159,7 @@ struct ItemsListPage: View {
         }
         // Typing is not a touch on the screen: it counts for the 15-minute rule too, as on the Sale screen.
         .onChange(of: items.search) { _, _ in model.idle.touch() }
-        .fileImporter(isPresented: $choosingFile, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText]) { result in
+        .fileImporter(isPresented: $choosingFile, allowedContentTypes: Self.listFileTypes) { result in
             let picked = Date()
             switch result {
             case .success(let url):
@@ -616,6 +616,9 @@ struct ItemsListPage: View {
         }
     }
 
+    /// The files an item list can come from: CSV, tab-separated or plain text, and Excel workbooks (.xlsx), as on the website.
+    private static let listFileTypes: [UTType] = [.commaSeparatedText, .tabSeparatedText, .plainText] + [UTType(filenameExtension: "xlsx")].compactMap { $0 }
+
     /// An item list chosen in Files: read the way the server will read it, then the import sheet says what it found, once the
     /// file picker has finished closing (a sheet cannot come up while another is still going away).
     private func read(_ url: URL, picked: Date) {
@@ -625,7 +628,20 @@ struct ItemsListPage: View {
             say("We could not read that file.", after: picked, wait: 0.6)
             return
         }
-        let text = ItemsCSV.text(from: data)
+        // An Excel workbook is turned into the same text a CSV file holds; from there the two are read alike.
+        let text: String
+        if ItemsXLSX.looksLikeWorkbook(data) {
+            guard let sheet = ItemsXLSX.csv(from: data) else {
+                say("We could not read that Excel file. Save it as CSV and choose it again.", after: picked, wait: 0.6)
+                return
+            }
+            text = sheet
+        } else if ItemsXLSX.looksLikeOldExcel(data) {
+            say("That is an older Excel file (.xls). Save it as .xlsx or CSV and choose it again.", after: picked, wait: 0.6)
+            return
+        } else {
+            text = ItemsCSV.text(from: data)
+        }
         let plan = ItemsImportPlan(fileName: url.lastPathComponent, csv: text, reading: ItemsCSV.read(text))
         Task {
             await ItemsAlerts.settled(since: picked, wait: 0.6)
