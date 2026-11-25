@@ -2447,7 +2447,7 @@ export async function editor(id, mount, title, startTab = '') {
     const rows = clState.itemsTab === 'rev' ? st.items.map((x) => ({ n: h('b', {}, x.name), c: x.category, q: String(x.qty), s: money(x.sales), p: `${itemsTotal ? Math.round((x.sales / itemsTotal) * 100) : 0}%`, _name: x.name, _q: x.qty, _s: x.sales })) : [];
     return [h('div', { class: 'cl' }, cHead('Reports', 'Item sales', [exportBtn('r-items'), dots('r-items')]), ...cDates(cFilters(() => rPanel('Filters', () => { let v = clState.type; const typeOpts = [['', 'All order types'], ...Object.entries(ORDER_METHODS).map(([k, m]) => [k, m.name])]; return { el: rpRadios('Order type', typeOpts.map((x) => x[1]), (typeOpts.find((x) => x[0] === v) || typeOpts[0])[1], (o) => { v = typeOpts.find((x) => x[1] === o)[0]; }), apply: () => { clState.type = v; stats = null; } }; }), clState.type ? 1 : 0)),
       cTabs([['rev', 'Revenue items'], ['non', 'Non revenue items', true]], clState.itemsTab, (k) => { clState.itemsTab = k; }),
-      rows.length ? cTable('r-items', cols, rows, null) : cEmpty('No results found', NORES, 'look'))];
+      rows.length ? cTable('r-items', cols, rows, null) : cEmpty('No results found', NORES2, 'look'))];
   };
   CL['r-peer'] = () => {
     const months = { prev3: 3, prev6: 6, prev12: 12 }[clState.peer];

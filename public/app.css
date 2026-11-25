@@ -1380,6 +1380,8 @@ html{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   .table td[data-l]:not([data-l=""])::before{content:attr(data-l);display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
   .table td:first-child{grid-column:1/-1;font-size:17px}
   .table td:first-child::before{display:none!important}
+  /* an email address has the card's whole width: in half of it, it was cut in the middle of a word */
+  .table td[data-l="Email"]{grid-column:1/-1}
   .table td[data-l=""],.table td:last-child:has(button,a.btn){grid-column:1/-1}
   .table td[data-empty]{display:none}
   .table td .btn{min-height:38px}
@@ -4715,6 +4717,7 @@ html[data-theme=dark]:has(.k),html[data-theme=dark]:has(.k) body{background:#1c1
   .scard:hover,.tcard:hover,.kind:hover,.bento:hover,.inv-kpis .kpi:hover,.look-opt:hover,.xport-opt:hover,.c2-ev:hover,.reg-tile:hover,a.reach-card:hover,.tcard:hover .thumb,.scard .thumb:hover,.hero-cta .btn:hover,.gain-art:hover>*,.ft-col a:hover{transform:none!important}
   .scard:hover,.inv-kpis .kpi:hover,.todo-row:hover,.step:hover,.bento:hover{box-shadow:var(--lift-1),var(--edge)!important}
   .cl-table tr.click:hover td,.cl-months button:hover,.cl-menu button:hover,.cl-ccol:hover{background:none}
+  .ed-body[data-mode=office] table.table tbody tr:hover{background:none}
   .cl-table tr.click:active td,.cl-months button:active,.cl-menu button:active{background:var(--bg2)}
   .btn,.icon-btn,.fbtn,.cl-sel,.cl-chip,.reg-tile,.cat-tog,.cl-link,.nav-row,.mm-row{-webkit-tap-highlight-color:transparent}
   .btn:active,.fbtn:active,.cl-sel:active,.cl-chip:active,.icon-btn:active{transform:scale(.97)}
@@ -5602,7 +5605,7 @@ html:not([data-theme=dark]) .ed-body[data-mode=office] .ed-side>.panel[data-tab=
 @container (max-width:1500px){.cl.it.iv .it-table table.fixed{table-layout:auto}.cl.it.iv .it-table col{width:auto}}
 .iv .it-table .iv-nw{white-space:nowrap;overflow-wrap:normal;word-break:normal}
 @container (max-width:1000px){.iv-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.iv-kpi:nth-child(3n+1)::before{display:none}.iv-kpi:nth-child(n+4){border-top:1px solid var(--line)}}
-@container (max-width:560px){.iv-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.iv-kpi{padding:20px 16px}.iv-kpi::before{top:16px;bottom:16px}.iv-kpi:nth-child(n)::before{display:block}.iv-kpi:nth-child(2n+1)::before{display:none}.iv-kpi:nth-child(n+3){border-top:1px solid var(--line)}}
+@container (max-width:560px){.iv-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.iv-kpi{padding:20px 16px;align-content:space-between}.iv-kpi::before{top:16px;bottom:16px}.iv-kpi:nth-child(n)::before{display:block}.iv-kpi:nth-child(2n+1)::before{display:none}.iv-kpi:nth-child(n+3){border-top:1px solid var(--line)}}
 /* the bar: what to search by, the search, Filters and Create */
 .it-bar.iv-bar{margin-top:27px;flex-wrap:nowrap}
 .iv-by{display:inline-flex;align-items:center;gap:12px;flex:none;height:48px;padding:0 14px;border:1px solid var(--it-edge);border-radius:10px;background:var(--card);color:var(--ink);font:inherit;font-size:16px;white-space:nowrap;cursor:pointer}
