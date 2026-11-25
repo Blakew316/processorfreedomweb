@@ -14,7 +14,7 @@ struct BusinessInformationPage: View {
         // The name under the heading is the one the app already knows until the page has loaded, so nothing moves when it does.
         let name = (info?.name ?? model.site?.name ?? "").trimmed
         SettingsPage(title: "Business information", heading: "Business information",
-                     intro: name.isEmpty ? [] : [SettingsTextPart.text(name.uppercased())], introSize: 17.5,
+                     intro: name.isEmpty ? [] : [SettingsTextPart.text(name.uppercased())], introSize: 16,
                      refresh: { await loader.load(model) }) {
             VStack(alignment: .leading, spacing: 24) {
                 if let info {

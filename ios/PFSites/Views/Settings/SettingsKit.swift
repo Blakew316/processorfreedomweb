@@ -270,7 +270,9 @@ struct SettingsCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
             if title != nil || pencil.shows {
-                HStack(alignment: .top, spacing: 12) {
+                // The title may run to within 12 pt of the pencil, as in the photo (13 pt there). A gap on each side of the
+                // spacer as well made that 32 pt, and "Customize order receipts" broke onto two lines where the photo has one.
+                HStack(alignment: .top, spacing: 0) {
                     if let title {
                         Text(title)
                             .pfFont(20, .bold, relativeTo: .title3)
@@ -279,7 +281,7 @@ struct SettingsCard<Content: View>: View {
                             .accessibilityAddTraits(.isHeader)
                             .padding(.top, pencil.isCircle ? 6 : 0)
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 12)
                     pencilButton
                 }
             }

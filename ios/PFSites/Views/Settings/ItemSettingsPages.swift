@@ -157,8 +157,9 @@ private struct StockTrackingSheet: View {
                         .lineSpacing(7)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                // A size down from the name above it, as in the photo (capitals 10 pt tall there against the name's 11).
                 Text(note)
-                    .pfFont(15)
+                    .pfFont(13.6)
                     .foregroundStyle(SettingsLook.greyed)
                     .lineSpacing(4.4)
                     .fixedSize(horizontal: false, vertical: true)

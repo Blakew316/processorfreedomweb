@@ -292,8 +292,9 @@ struct TxPill: View {
     var solid = false
 
     var body: some View {
+        // Semibold, as the photos' pills are (their strokes are a step heavier than medium).
         Text(text)
-            .pfFont(14, .medium)
+            .pfFont(14, .semibold)
             .foregroundStyle(greyed ? SettingsLook.greyed : (on ? SettingsLook.onText : SettingsLook.offText))
             .padding(.horizontal, 13.5)
             .padding(.vertical, 7.5)
@@ -315,7 +316,7 @@ struct TxTag: View {
 
     var body: some View {
         Text(text)
-            .pfFont(14, .medium)
+            .pfFont(14, .semibold)
             .foregroundStyle(SettingsLook.onText)
             .padding(.horizontal, 13.5)
             .padding(.vertical, 7.5)

@@ -145,6 +145,8 @@ private struct CustomizeOrdersSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        // Solid, like the app's other sheets: at half height the system's sheet let the page's blue pills show through it.
+        .presentationBackground(Color(.systemGroupedBackground))
         .interactiveDismissDisabled(saving)
     }
 
