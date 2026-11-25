@@ -650,6 +650,10 @@ export function createApp(options = {}) {
   // Without APP_URL, text codes cannot be turned on, since a code bound to an address people do not use would never be offered; codes
   // for people who already use them still go, bound to our own address, so nobody is locked out by a change of settings.
   const CODE_HOST = FIXED_ORIGIN.replace(/^https?:\/\//, '').split(/[:/]/)[0].toLowerCase();
+  // Once the back office has a name of its own (CANONICAL_HOST), a code asked for from a browser there is bound to that name, so the
+  // phone offers to fill it in on the page the person is looking at. The iPhone app keeps asking at APP_URL, so its codes stay bound to
+  // that. What a request names only ever chooses between these two names of ours; it is never itself put in a text.
+  const codeHostFor = (req) => (CANONICAL_HOST && hostOf(req).split(':')[0] === CANONICAL_HOST ? CANONICAL_HOST : CODE_HOST);
   const smsReady = !!sms.enabled && !!APP_HOST;
   if (sms.enabled && !APP_HOST) console.warn('Text message codes stay off until APP_URL is set to the address people sign in at (for example https://processorfreedomsites.com), because each code is bound to that address.');
   // The countries text codes can go to: the calling codes in SMS_COUNTRIES (such as "1,44"), or only +1 (the US and Canada) when it is
@@ -676,7 +680,8 @@ export function createApp(options = {}) {
     db.run('DELETE FROM codes WHERE user_id = ? AND purpose = ?', userId, purpose);
     db.run('INSERT INTO codes (id, user_id, purpose, phone, hash, tries, expires_at, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)', id, userId, purpose, phone, codeHash(userId, purpose, code), now + CODE_MS, now);
     // The last line is what lets an iPhone offer the code on our own address only (an origin-bound code).
-    try { await sms.send(phone, `Your Processor Freedom code is ${code}. It expires in 10 minutes.${CODE_HOST ? `\n\n@${CODE_HOST} #${code}` : ''}`); } catch (e) {
+    const boundTo = codeHostFor(req);
+    try { await sms.send(phone, `Your Processor Freedom code is ${code}. It expires in 10 minutes.${boundTo ? `\n\n@${boundTo} #${code}` : ''}`); } catch (e) {
       db.run('DELETE FROM codes WHERE id = ?', id);
       console.error('Text message failed:', e.message);
       bad(502, 'We could not send the text message. Please try again in a moment.');
