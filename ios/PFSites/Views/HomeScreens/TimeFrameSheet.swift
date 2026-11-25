@@ -20,8 +20,6 @@ struct TimeFrameSheet: View {
     /// A tap on Custom brought its dates up instead of closing them. Only once: if the dates were in view after all, the next
     /// tap closes them as usual, so Custom can always be closed.
     @State private var broughtUp = false
-    /// Whether the rows have scrolled up under the title: a line then marks where they go under it.
-    @State private var scrolled = false
     @State private var start = Date()
     @State private var end = Date()
 
@@ -64,20 +62,6 @@ struct TimeFrameSheet: View {
                         }
                     }
                     .padding(.bottom, 24)
-                }
-                // At rest the sheet is the photo's: no line under the title. Once the rows scroll (Custom's dates open below the
-                // last row), a hairline marks the edge they go under, so a row is never just sliced off under the title.
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    geometry.contentOffset.y + geometry.contentInsets.top > 1
-                } action: { _, now in
-                    scrolled = now
-                }
-                .overlay(alignment: .top) {
-                    StatsLook.sheetLine
-                        .frame(height: 1 / max(displayScale, 1))
-                        .opacity(scrolled ? 1 : 0)
-                        .animation(.easeOut(duration: 0.15), value: scrolled)
-                        .accessibilityHidden(true)
                 }
                 .onChange(of: revealCustom) { _, _ in
                     Task {
