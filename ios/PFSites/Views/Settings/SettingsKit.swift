@@ -269,6 +269,9 @@ enum SettingsPencil {
 struct SettingsCard<Content: View>: View {
     var title: String? = nil
     var pencil: SettingsPencil = .none
+    /// What VoiceOver hears on a pencil that cannot be pressed: the app's words for what Processor Freedom does not have yet,
+    /// unless the page gives its own ("Loading", while the settings the pencil edits are still being read).
+    var pencilOff = "Not available yet"
     var spacing: CGFloat = 24
     @ViewBuilder let content: () -> Content
 
@@ -323,7 +326,7 @@ struct SettingsCard<Content: View>: View {
             .disabled(action == nil)
             .padding(.top, -7)
             .accessibilityLabel(title.map { "Edit \($0)" } ?? "Edit")
-            .accessibilityValue(action == nil ? "Not available yet" : "")
+            .accessibilityValue(action == nil ? pencilOff : "")
         }
     }
 }

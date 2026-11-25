@@ -577,6 +577,8 @@ struct TxSaveButton: View {
     let enabled: Bool
     var busy = false
     var size: CGFloat = 18
+    /// Why it cannot be pressed, for VoiceOver, when that is not simply that nothing was changed ("Enter a valid email address").
+    var offReason = ""
     let action: () -> Void
 
     var body: some View {
@@ -590,6 +592,6 @@ struct TxSaveButton: View {
         .buttonStyle(SolidButtonStyle(fill: enabled || busy ? Theme.blue : Color(.systemGray3), text: enabled || busy ? .white : Theme.offLabel, radius: 6, height: 44, size: size))
         .disabled(!enabled || busy)
         .accessibilityLabel(title)
-        .accessibilityValue(busy ? "Saving" : (enabled ? "" : "Nothing to save"))
+        .accessibilityValue(busy ? "Saving" : (enabled ? "" : (offReason.isEmpty ? "Nothing to save" : offReason)))
     }
 }

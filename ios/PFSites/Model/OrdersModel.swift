@@ -248,6 +248,8 @@ final class OrdersModel {
     /// Once the person picks a tab it stays; until then the first load opens Open when there is something to do.
     @ObservationIgnored var tabChosen = false
     @ObservationIgnored private var siteLoadedAt: Date?
+    /// The business's time zone has been read, or its reading failed: "today" is as right as it is going to be.
+    @ObservationIgnored private var zoneSettled = false
     /// Counts the lists asked for, the last one shown and the orders changed on this phone, so a list that left the server before a
     /// newer one, or before a change made here, never replaces what is newer.
     @ObservationIgnored private var asked = 0
@@ -283,10 +285,7 @@ final class OrdersModel {
             if !loaded { loaded = true }
             if !loadError.isEmpty { loadError = "" }
             if !refreshProblem.isEmpty { refreshProblem = "" }
-            if !tabChosen {
-                tabChosen = true
-                tab = counts().open > 0 ? .open : .closed
-            }
+            chooseFirstTab()
             AppModel.shared.setOrdersBadge(list.filter { $0.status == "new" }.count)
         } catch let error as APIError {
             if error.status == 401 { AppModel.shared.sessionEnded() }
@@ -307,10 +306,27 @@ final class OrdersModel {
     /// The business's time zone (ordering.timezone), so "Today" is the business's today. Read again at most once a minute.
     func loadSite(siteID: String, force: Bool = false) async {
         if !force, let at = siteLoadedAt, Date().timeIntervalSince(at) < 60 { return }
-        guard let answer = try? await API.get("/api/sites/\(siteID)") else { return }
+        guard let answer = try? await API.get("/api/sites/\(siteID)") else {
+            // It could not be read: the tab is chosen with the day the app has, rather than not at all.
+            zoneSettled = true
+            chooseFirstTab()
+            return
+        }
         siteLoadedAt = Date()
         let zone = answer["site"]["ordering"]["timezone"].string
         if let found = TimeZone(identifier: zone), found.identifier != timeZone.identifier { timeZone = found }
+        zoneSettled = true
+        chooseFirstTab()
+    }
+
+    /// The first tab, chosen once: Open when there is something to do today, else Closed. It waits for the list and for the
+    /// business's time zone. The list alone used to decide, with Chicago's day until the time zone came: a business elsewhere,
+    /// in the hours when its day and Chicago's differ, settled on Closed with open orders waiting under "Open (2)".
+    private func chooseFirstTab() {
+        guard !tabChosen, loaded, zoneSettled else { return }
+        tabChosen = true
+        let first: OrdersTab = counts().open > 0 ? .open : .closed
+        if tab != first { tab = first }
     }
 
     func replace(_ fresh: CustomerOrder) {

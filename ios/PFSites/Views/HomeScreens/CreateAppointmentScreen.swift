@@ -329,11 +329,19 @@ struct CreateAppointmentScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if form.customersRetry {
                     CreateAppointmentLink(title: "Try again", underlined: false) {
-                        retry { await form.loadCustomers($0) }
+                        retry { await form.reloadCustomers($0) }
                     }
                 }
             }
             .padding(.top, 10)
+        } else if !form.query.isEmpty && !form.customersLoaded {
+            // The list is still being read: the wait, as Appointment History shows it, instead of the nothing that "no such
+            // customer" also looks like.
+            ProgressView()
+                .tint(Theme.blue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 12)
+                .accessibilityLabel("Loading customers")
         }
     }
 
@@ -577,6 +585,7 @@ struct CreateAppointmentScreen: View {
                     findAvailability()
                 }
                 .disabled(finding)
+                .accessibilityValue(finding ? "In progress" : "")
             }
             .padding(.top, 35.67)
 
@@ -720,6 +729,9 @@ struct CreateAppointmentScreen: View {
     private func found(_ time: Bool) {
         if time {
             Haptics.light()
+            // The date and time fields further down changed without a word: VoiceOver is told which time was found.
+            let words = "Next open time: \(CreateAppointmentClock.longDay(form.date)), \(CreateAppointmentClock.clock(form.time))"
+            AccessibilityNotification.Announcement(words).post()
         } else {
             Haptics.error()
             say(CreateAppointmentModel.noOpenTimes)
@@ -901,10 +913,10 @@ struct CreateAppointmentScreen: View {
                     sheet = .amount(.discount)
                 }
                 Spacer(minLength: 8)
-                Text("-" + Money.format(form.discount))
+                Text("-" + Money.format(form.discountApplied))
                     .pfFont(16)
                     .foregroundStyle(CreateAppointmentLook.red)
-                    .accessibilityLabel("Discount \(Money.format(form.discount))")
+                    .accessibilityLabel("Discount \(Money.format(form.discountApplied))")
             }
             .padding(.top, 13.67)
             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -1150,7 +1162,7 @@ struct CreateAppointmentScreen: View {
                     add { form.addCustom(name: name, price: cents) }
                 }
             case .discount:
-                CreateAppointmentAmountSheet(title: "Order discount", question: "Amount off", allowsZero: true, start: form.discount) { cents, _ in
+                CreateAppointmentAmountSheet(title: "Order discount", question: "Amount off", allowsZero: true, start: form.discountApplied) { cents, _ in
                     if let message = form.setDiscount(cents) { pendingProblem = message }
                 }
             case .charge:

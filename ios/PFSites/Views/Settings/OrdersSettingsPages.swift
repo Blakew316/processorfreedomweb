@@ -20,7 +20,8 @@ struct OrdersOptionsPage: View {
         ], refresh: { await settings.load(siteID: siteID) }) {
             SettingsA.ReloadProblem(problem: settings.reloadProblem)
             // As in the photo: the first name's baseline 103 pt into the card, and the card ends 16 pt under the last pill.
-            SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil), spacing: 27) {
+            SettingsCard(title: "Customize orders", pencil: .circle(action: settings.loaded ? openEditor : nil),
+                         pencilOff: settings.problem.isEmpty ? "Loading" : "Could not load", spacing: 27) {
                 if settings.loaded {
                     grid
                         .padding(.bottom, -3.5)

@@ -247,10 +247,10 @@ struct TwoStepView: View {
         info = ""
         let value = entered
         Task {
-            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.password, code: value, remember: remember)
+            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.sentPassword, code: value, remember: remember)
             busy = false
             switch outcome {
-            case .success:
+            case .success, .left:
                 break
             case .needsCode(let problem):
                 auth.took(problem)
@@ -280,10 +280,10 @@ struct TwoStepView: View {
         error = ""
         info = ""
         Task {
-            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.password, sendText: true)
+            let outcome = await model.logIn(email: auth.email.trimmed.lowercased(), password: auth.sentPassword, sendText: true)
             resending = false
             switch outcome {
-            case .success:
+            case .success, .left:
                 break
             case .needsCode(let answer):
                 auth.took(answer)

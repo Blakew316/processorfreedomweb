@@ -118,6 +118,16 @@ final class Shell {
         }
     }
 
+    /// The page on top of the tab that is showing (nil on the tab's own first screen).
+    var topRoute: Route? {
+        switch tab {
+        case .home: return home.last
+        case .sale: return sale.last
+        case .orders: return orders.last
+        case .more: return more.last
+        }
+    }
+
     /// Opens a back-office page on the current tab, the way the website's links move around: the Orders list is its own tab.
     func open(tab id: String) {
         guard !id.isEmpty else { return }

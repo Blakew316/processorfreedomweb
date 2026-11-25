@@ -419,7 +419,10 @@ struct PasscodeView: View {
         finished = true
         focused = false
         Haptics.light()
-        await model.applyFaceID(faceIDWanted)
+        let change = await model.applyFaceID(faceIDWanted)
+        // The server forgot this phone at that very moment: the app has already gone to Log in, which says so. (When it was
+        // only the session that ended, the step finishes as usual and the lock follows once that is confirmed.)
+        if case .left = change, model.phase != .ready { return }
         switch step.purpose {
         case .afterSignIn:
             await model.passcodeFinished(for: step.site)
@@ -427,6 +430,14 @@ struct PasscodeView: View {
             await model.finishUnlock()
         case .switchTo, .change:
             onDone?()
+        }
+        // A ticked "Enable Face ID" that could not be turned on says so once the dashboard is up (the passcode was right, so
+        // nothing holds the person here). Without this the box was simply unticked again at the next lock, with no word why.
+        if case .failed(let message) = change {
+            // Over the dashboard (another business's passcode, Change passcode) this step is still sliding away: the words
+            // wait for it, or they would go with it.
+            if onDone != nil { try? await Task.sleep(nanoseconds: 900_000_000) }
+            if model.phase == .ready { UIPresenter.message(message) }
         }
     }
 

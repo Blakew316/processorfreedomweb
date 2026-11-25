@@ -270,7 +270,10 @@ struct CarbonCopyReceiptsPage: View {
             }
         } bottom: {
             // "Saved" only while nothing has been changed since: with a new change waiting, the button says what it will do.
-            TxSaveButton(title: savedNote && !changed ? "Saved" : "Save", enabled: changed && valid && !saving, busy: saving, size: 13.5) { save() }
+            // A changed address that is not a whole one yet: VoiceOver hears that, not "Nothing to save" (the line under the
+            // field only shows once the keyboard is away).
+            TxSaveButton(title: savedNote && !changed ? "Saved" : "Save", enabled: changed && valid && !saving, busy: saving, size: 13.5,
+                         offReason: changed && !valid ? "Enter a valid email address" : "") { save() }
         }
         .animation(.snappy, value: problem)
         .animation(.snappy, value: settings.reloadProblem)

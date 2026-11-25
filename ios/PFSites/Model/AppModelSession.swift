@@ -16,9 +16,18 @@ extension AppModel {
             if remember { body["remember"] = true }
         }
         if sendText { body["sendText"] = true }
+        // The screen that asked, to tell whether the person was still on it when the answer came.
+        let asked = auth.path
         _ = await endingSession?.value
         do {
             let answer = try await API.post("/api/auth/login", body)
+            // Cancel on the code step, or Back, while the answer was on its way: the person said no, so the app does not sign
+            // in behind them a second later (it used to jump to the passcode step from Log in or Welcome, having replaced the
+            // phone's earlier key). The session and the key the server has just made are given up instead.
+            if phase == .welcome, auth.path != asked {
+                await giveUpSignIn(answer)
+                return .left
+            }
             await signedIn(answer, email: email)
             return .success
         } catch let error as APIError {
@@ -31,10 +40,34 @@ extension AppModel {
         }
     }
 
+    /// Ends a sign-in the person walked away from: the new session, and the key made for this phone with it. It runs in order
+    /// with the next sign-in, like every other ending, so it can never end that one.
+    private func giveUpSignIn(_ answer: JSON) async {
+        let id = answer["device"]["id"].string, secret = answer["device"]["secret"].string
+        let previous = endingSession
+        let ending = Task {
+            _ = await previous?.value
+            if !id.isEmpty, !secret.isEmpty {
+                _ = try? await API.post("/api/app/signout", ["device": id, "secret": secret])
+            } else {
+                _ = try? await API.post("/api/auth/logout")
+            }
+            await clearCookies()
+        }
+        endingSession = ending
+        await ending.value
+    }
+
     private func signedIn(_ answer: JSON, email: String) async {
         Haptics.success()
         let person = User(answer["user"]) ?? user ?? User()
         user = person
+        // Someone else signing in on this phone does not inherit the last person's choice to get notifications here: they stay
+        // off until this person turns them on. (Face ID already goes with the phone's earlier key, below.)
+        let before = (UserDefaults.standard.string(forKey: Keys.email) ?? "").lowercased()
+        if !before.isEmpty, !person.email.isEmpty, before != person.email.lowercased() {
+            UserDefaults.standard.set(false, forKey: Keys.pushWanted)
+        }
         remember(person)
         // The email and password open every business the person has.
         sessionLimited = false
@@ -95,7 +128,10 @@ extension AppModel {
             await enterReady(business)
             return
         }
-        let forgot = auth.forgotPasscode
+        // "Forgot passcode?" was one person's: someone else who signs in after it types the passcode they have at this business
+        // (they used to be shown "Create passcode", and saving it replaced the one their other phone opens with).
+        let forgot = auth.forgot(for: user?.email ?? "")
+        if auth.forgotPasscode && !forgot { auth.forgotPasscode = false }
         var has = false
         if !forgot {
             do {
@@ -166,6 +202,11 @@ extension AppModel {
         } catch let error as APIError {
             // A 401 without the device flags means the session itself ended (left too long on this screen); the key is still good.
             if error.sessionEnded { return .sessionEnded(AppModel.sessionEndedMessage) }
+            // Typing the passcode they have, not making one: digits that can never be a passcode (1234, 1111) are simply not
+            // right. The server answers those with its rule for making a passcode, which reads oddly on "Enter passcode".
+            if !replace, error.status == 400, error.left == nil, Passcode.problem(code) != nil {
+                return .wrong("That passcode is not right.")
+            }
             return passcodeResult(error)
         } catch {
             return .failed(APIError.unreachableMessage)
@@ -300,28 +341,61 @@ extension AppModel {
 
     // MARK: Face ID
 
-    /// Turns Face ID on or off for opening the app. Turning it on reads the secret once, so iOS asks permission now.
-    func applyFaceID(_ wanted: Bool) async {
-        guard biometry != .none, wanted != faceIDOn, let key = Keychain.device else { return }
+    /// Turns Face ID on or off for opening the app. Turning it on reads the secret once, so iOS asks permission now. The answer
+    /// says what came of it, so the screen that asked can say why Face ID is not on (a ticked box or a switch that just goes back
+    /// tells the person nothing).
+    @discardableResult
+    func applyFaceID(_ wanted: Bool) async -> FaceIDChange {
+        guard biometry != .none, wanted != faceIDOn, let key = Keychain.device else { return .done }
         let proof: [String: Any] = ["device": key.id, "secret": key.secret]
-        if wanted {
-            guard let answer = try? await API.post("/api/app/biometric", proof) else { return }
-            let bio = answer["bio"].string
-            guard !bio.isEmpty, Keychain.saveBio(bio) else { return }
-            suppressCover = true
-            let check = await Keychain.readBio()
-            suppressCover = false
-            if case .ok = check {
-                setFaceIDFlag(true)
-            } else {
-                _ = try? await API.delete("/api/app/biometric", proof)
-                Keychain.delete("bio")
-                setFaceIDFlag(false)
-            }
-        } else {
+        guard wanted else {
             _ = try? await API.delete("/api/app/biometric", proof)
             Keychain.delete("bio")
             setFaceIDFlag(false)
+            return .done
+        }
+        let name = biometry.name
+        let plain = "\(name) could not be turned on. Try again."
+        let answer: JSON
+        do {
+            answer = try await API.post("/api/app/biometric", proof)
+        } catch let error as APIError {
+            if phase == .ready {
+                // The server forgot this phone (two-step sign-in was turned on, the password was changed, signed out
+                // everywhere): trying again can never work, so Log in says so now instead of at the next lock.
+                if error.signIn {
+                    deviceForgotten(error.message)
+                    return .left
+                }
+                // The session ended: check, then lock.
+                if error.sessionEnded {
+                    sessionEnded()
+                    return .left
+                }
+            }
+            return .failed(error.status == 0 ? "\(name) could not be turned on. \(error.message)" : error.message)
+        } catch {
+            return .failed(plain)
+        }
+        let bio = answer["bio"].string
+        guard !bio.isEmpty, Keychain.saveBio(bio) else { return .failed(plain) }
+        suppressCover = true
+        let check = await Keychain.readBio()
+        suppressCover = false
+        if case .ok = check {
+            setFaceIDFlag(true)
+            return .done
+        }
+        _ = try? await API.delete("/api/app/biometric", proof)
+        Keychain.delete("bio")
+        setFaceIDFlag(false)
+        switch check {
+        case .cancelled:
+            return .cancelled
+        case .unavailable:
+            return .failed("\(name) could not be turned on. Check that it is set up, and allowed for PF Sites, in the iPhone's Settings.")
+        default:
+            return .failed(plain)
         }
     }
 
@@ -395,6 +469,8 @@ extension AppModel {
         closeShell()
         goWelcome(atLogin: true, note: "After you sign in, you'll make a new passcode.")
         auth.forgotPasscode = true
+        // The email Log in opens with is the one of the person this phone was set up for.
+        auth.forgotFor = auth.email.trimmed.lowercased()
         endSessionInBackground()
     }
 

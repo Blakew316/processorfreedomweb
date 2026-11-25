@@ -81,12 +81,16 @@ struct AppSecurityView: View {
             faceIDBusy = true
             faceIDProblem = ""
             Task {
-                await model.applyFaceID(wanted)
+                let outcome = await model.applyFaceID(wanted)
                 faceIDBusy = false
-                if model.faceIDOn != wanted {
-                    // Turning it on did not go through: the server could not be reached, or Face ID did not answer.
+                // Turning it on did not go through, and the row says why in the words that fit: the server's own, the
+                // connection, or Face ID itself. A question the person turned away themselves is not an error, and when the
+                // server forgot this phone the app is already on its way to Log in, which says so.
+                if case .failed(let message) = outcome {
                     Haptics.error()
-                    faceIDProblem = "\(model.biometry.name) could not be turned on. Try again."
+                    faceIDProblem = message
+                    // VoiceOver hears why the switch went back: the words appear under the row and are not come across.
+                    AccessibilityNotification.Announcement(message).post()
                 }
                 faceIDWanted = model.faceIDOn
             }
@@ -99,10 +103,15 @@ struct AppSecurityView: View {
                 let done = wanted ? await model.requestPush() : await model.disablePush()
                 await model.refreshPushStatus()
                 pushBusy = false
-                // Refused in iOS has its own row ("Off in iOS Settings"); anything else is the server not answering.
+                // Refused in iOS has its own row ("Off in iOS Settings"); anything else is the server refusing or not answering.
                 if !done, !model.pushDenied, model.pushOn != wanted {
                     Haptics.error()
-                    pushProblem = "Notifications could not be turned \(wanted ? "on" : "off"). Check your connection and try again."
+                    // The server's own words when it answered and said no (asked too often, say): "check your connection"
+                    // would send the person looking in the wrong place.
+                    let refusal = wanted ? model.pushRefusal : ""
+                    let message = refusal.isEmpty ? "Notifications could not be turned \(wanted ? "on" : "off"). Check your connection and try again." : refusal
+                    pushProblem = message
+                    AccessibilityNotification.Announcement(message).post()
                 }
                 pushWanted = model.pushOn
             }

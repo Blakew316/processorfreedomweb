@@ -550,7 +550,16 @@ struct ItemsListPage: View {
                 Haptics.error()
                 await ItemsAlerts.settled(since: asked)
                 // Not under the lock screen: the app may have locked while the alert before this one was going away.
-                if model.phase == .ready { message = problem }
+                if model.phase == .ready {
+                    if case .items = model.shell.cover {
+                        message = problem
+                    } else {
+                        // Items was closed with its X while the change was on its way: the words are still said, over
+                        // whatever is showing now. Set on the page that has gone they were never seen, and the person left
+                        // believing the items were changed or deleted.
+                        UIPresenter.message(problem)
+                    }
+                }
             } else {
                 Haptics.success()
                 items.showToast(note)

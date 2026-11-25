@@ -20,6 +20,8 @@ struct WelcomeFlow: View {
         // could open Log in again and read it with the eye button.
         .onChange(of: auth.path) { _, path in
             if path.isEmpty, !auth.password.isEmpty { auth.password = "" }
+            // The copy the code step sends again goes when that step is left (Cancel, or Back).
+            if path.last != .twoStep, !auth.sentPassword.isEmpty { auth.sentPassword = "" }
         }
     }
 }

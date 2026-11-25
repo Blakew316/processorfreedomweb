@@ -39,9 +39,9 @@ struct LoginView: View {
                             .padding(.leading, 16)
 
                         VStack(alignment: .leading, spacing: 0) {
-                            if !auth.note.isEmpty {
+                            if !note.isEmpty {
                                 // After "Forgot passcode?" or the like: what happens after signing in.
-                                Text(auth.note)
+                                Text(note)
                                     .pfFont(15)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -76,7 +76,11 @@ struct LoginView: View {
                                 HStack(spacing: 8) {
                                     Group {
                                         if showPassword {
+                                            // The letters-and-numbers keyboard, as the hidden field has: on the ordinary one
+                                            // iOS turns ' " and -- into curly quotes and a dash as they are typed, and a
+                                            // password typed right is then refused.
                                             TextField("", text: $auth.password)
+                                                .keyboardType(.asciiCapable)
                                         } else {
                                             SecureField("", text: $auth.password)
                                         }
@@ -145,6 +149,7 @@ struct LoginView: View {
                         .padding(.top, gap)
                         // A message coming or going moves the button under it smoothly.
                         .animation(.snappy(duration: 0.25), value: auth.error)
+                        .animation(.snappy(duration: 0.25), value: note)
 
                         Spacer(minLength: 40)
 
@@ -190,6 +195,24 @@ struct LoginView: View {
                 focus = .email
             }
         }
+        // Why the app came back to Log in ("Your session ended. Please sign in again.", "Sign in again on this device.", the
+        // line after "Forgot passcode?") arrives together with the screen, so VoiceOver is told once the screen has settled:
+        // an announcement made while the screen is still changing is lost under it.
+        .task {
+            let words = model.auth.error.isEmpty ? note : model.auth.error
+            guard !words.isEmpty else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard (model.auth.error.isEmpty ? note : model.auth.error) == words else { return }
+            AccessibilityNotification.Announcement(words).post()
+        }
+    }
+
+    /// The line above the form. "After you sign in, you'll make a new passcode." is for the person who tapped "Forgot
+    /// passcode?": once another email is typed it no longer holds (that person types the passcode they have), so it goes.
+    private var note: String {
+        let auth = model.auth
+        if auth.forgotPasscode, !auth.forgot(for: auth.email) { return "" }
+        return auth.note
     }
 
     private var canSubmit: Bool {
@@ -219,7 +242,7 @@ struct LoginView: View {
             let outcome = await model.logIn(email: email, password: password)
             auth.busy = false
             switch outcome {
-            case .success:
+            case .success, .left:
                 break
             case .needsCode(let error):
                 auth.took(error)
@@ -229,7 +252,14 @@ struct LoginView: View {
                 auth.codeProblem = error.status == 401 ? "" : error.message
                 // Only from this screen: if it was left with Back while the answer was on its way, the code step is not
                 // pushed onto Welcome.
-                if auth.path.last == .login { auth.path.append(.twoStep) }
+                if auth.path.last == .login {
+                    // The code step sends this password again with the code. The field here is emptied, so coming back from
+                    // that step (Cancel) does not leave a password the server has just accepted waiting behind the eye button.
+                    auth.sentPassword = password
+                    auth.password = ""
+                    showPassword = false
+                    auth.path.append(.twoStep)
+                }
             case .failed(let message):
                 auth.error = message
                 Haptics.error()

@@ -152,9 +152,20 @@ struct LocationPickerView: View {
     }
 
     private var shown: [Site] {
-        let words = query.trimmed
+        let words = Self.plain(query.trimmed)
         guard !words.isEmpty else { return sites }
-        return sites.filter { $0.name.localizedCaseInsensitiveContains(words) || $0.street.localizedCaseInsensitiveContains(words) }
+        // The name, the street, and the line the row shows under the name (a business with no street shows its web address).
+        return sites.filter { Self.plain("\($0.name)\n\($0.street)\n\($0.placeLine)").contains(words) }
+    }
+
+    /// Text made plain for the search: small letters, no accents, and straight quotes. The iPhone types a curly apostrophe, so
+    /// "joe's" never found "Joe's Pizza" saved with a straight one, and "cafe" never found "Café Roma".
+    private static func plain(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current)
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
     }
 
     @ViewBuilder

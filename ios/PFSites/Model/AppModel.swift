@@ -44,10 +44,20 @@ enum FaceIDAttempt {
     case refused(PasscodeResult)   // the server said no, or the faces enrolled changed: said under the dots
 }
 
+/// What came of turning Face ID on or off.
+enum FaceIDChange {
+    case done              // as asked, or there was nothing to change
+    case cancelled         // the person turned the Face ID question away themselves: nothing went wrong
+    case failed(String)    // it could not be turned on, in words for the person
+    case left              // the server forgot this phone, or the session ended: the app is on its way to Log in or the lock
+}
+
 enum LogInOutcome {
     case success
     case needsCode(APIError)
     case failed(String)
+    /// The person left the screen (Cancel on the code step, or Back) while the answer was on its way: they are not signed in.
+    case left
 }
 
 /// The app's single source of truth: who is signed in, which business is open, which screen shows, and everything that
@@ -93,7 +103,12 @@ final class AppModel {
     @ObservationIgnored var tokenSent: Bool?
     /// Device-token uploads on their way to the server, so an answer about notifications can wait for them.
     @ObservationIgnored var pushUploads = 0
+    /// What the server said when it last refused this phone's address (asked too often, say); empty when the address went through
+    /// or the server could not be reached at all. The Notifications switch says it in place of "check your connection".
+    @ObservationIgnored var pushRefusal = ""
     @ObservationIgnored var unlockedSiteID: String?
+    /// When the app last went to the background, for the Log in form's own two-minute rule (see `scenePhaseChanged`).
+    @ObservationIgnored var leftAt: Date?
     /// The logout that runs when the app locks. Unlocking and signing in wait for it, so it can never clear the new session's cookie.
     @ObservationIgnored var endingSession: Task<Void, Never>?
     @ObservationIgnored var checkingSession = false
@@ -146,7 +161,10 @@ final class AppModel {
         // A cold start: nothing but the loading screen is in the app's window yet, so the lock screen may fade in over it.
         let coldStart = phase == .launching && !shellAlive
         // Once the sign-in screens are left, the typed password is not kept any longer than it was needed.
-        if phase == .welcome, next != .welcome, !auth.password.isEmpty { auth.password = "" }
+        if phase == .welcome, next != .welcome {
+            if !auth.password.isEmpty { auth.password = "" }
+            if !auth.sentPassword.isEmpty { auth.sentPassword = "" }
+        }
         phase = next
         if isLocked && !wasLocked {
             OverlayWindows.shared.showLock(fadeIn: coldStart)
@@ -407,6 +425,13 @@ final class AppModel {
         case .active:
             // Fifteen minutes away locks before anything is shown again.
             if phase == .ready, idle.expired, site?.isKitchen != true { lock() }
+            // A password typed on Log in and left there (a try that failed, a call that interrupted) does not wait in the form
+            // for whoever picks the phone up later, one tap on the eye away: after two minutes out of the app the field is
+            // empty again. (The dashboard has its own fifteen-minute lock; the sign-in screens had no limit at all.)
+            if phase == .welcome, !auth.busy, !auth.password.isEmpty, let leftAt, Date().timeIntervalSince(leftAt) > 120 {
+                auth.password = ""
+            }
+            leftAt = nil
             OverlayWindows.shared.hideCover()
             // Not while Face ID is up: its own sheet makes the app inactive and active again.
             if !suppressCover { refreshBiometry() }
@@ -422,6 +447,7 @@ final class AppModel {
             // a moment too, and the cover should not flash over them.
             if !suppressCover && phase == .ready { OverlayWindows.shared.showCover() }
         case .background:
+            if leftAt == nil { leftAt = Date() }
             OverlayWindows.shared.showCover()
             idle.wentToBackground()
             stopPolling()

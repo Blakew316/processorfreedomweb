@@ -80,6 +80,10 @@ final class OfficePage: NSObject {
     @ObservationIgnored private var pendingScript: String?
     /// The hand-off is tried again once, on the next report, if the website answered false (its page was not ready for it).
     @ObservationIgnored private var scriptTries = 0
+    /// The hand-off itself, kept for a page the app loads again (see `armHandOff`).
+    private let handOff: String?
+    /// The Virtual Terminal said the sale it was handed is recorded: it is never handed over again.
+    @ObservationIgnored private var saleRecorded = false
     /// The business the page last said it shows (the nav message's site), so another business's order count is never shown here.
     @ObservationIgnored private var reportedSite = ""
     /// Blank windows the page opened (window.open with no address yet), kept until we see where they go.
@@ -96,6 +100,7 @@ final class OfficePage: NSObject {
         self.kind = kind
         self.carriesSaleOrder = script != nil
         self.pendingScript = script
+        self.handOff = script
         self.webView = WKWebView(frame: .zero, configuration: WebStore.shared.makeConfiguration())
         super.init()
         let proxy = ScriptProxy(page: self)
@@ -181,13 +186,27 @@ final class OfficePage: NSObject {
         }
         coverWithSnapshot(spinner: false)
         loading = true
+        armHandOff()
         webView.reload()
     }
 
     /// Try again after a failure: the page that was last showing, or the page this one started on.
     func retry() {
         retryTask?.cancel()
+        armHandOff()
         load(url: lastGoodURL ?? Config.url(startPath))
+    }
+
+    /// The page opened by Check out is about to be loaded again by the app itself (after unlocking, a pull to refresh, two
+    /// minutes away, iOS taking the page's memory back): the order is handed over again when it reports in. The website keeps
+    /// the handed sale only in the page's memory, so the terminal used to come back at $0.00 with no note, on a screen that is
+    /// still the checkout of that order. Nothing typed can be overwritten by this: a fresh load has already thrown it away.
+    /// Only while the page is still on the Virtual Terminal (the hand-off would bring it back there from any other page),
+    /// and never once the sale is recorded.
+    private func armHandOff() {
+        guard let handOff, !saleRecorded, tab == "sale" else { return }
+        pendingScript = handOff
+        scriptTries = 0
     }
 
     func networkCameBack() {
@@ -246,6 +265,7 @@ final class OfficePage: NSObject {
                 } else {
                     self.coverWithSnapshot(spinner: true)
                     self.loading = true
+                    self.armHandOff()
                     self.webView.reload()
                 }
             }
@@ -337,7 +357,11 @@ final class OfficePage: NSObject {
         case "open": AppModel.shared.openFromWeb(tab: json["tab"].string)
         // The Virtual Terminal recorded the sale it was handed through PF.sale. The website does not send this yet (its Complete
         // Payment button cannot record a sale), so until it does the Sale order is only cleared with Clear order.
-        case "saleDone": if carriesSaleOrder { AppModel.shared.shell.order.clear() }
+        case "saleDone":
+            if carriesSaleOrder {
+                saleRecorded = true
+                AppModel.shared.shell.order.clear()
+            }
         default: break
         }
     }

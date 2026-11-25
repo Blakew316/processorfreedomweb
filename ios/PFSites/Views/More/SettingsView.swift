@@ -81,7 +81,11 @@ struct SettingsGroupView: View {
 struct SettingsListScreen<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content
+    @Environment(AppModel.self) private var model
     @State private var query = ""
+    /// The page this list is (nil on a tab's own first screen), noted as a search starts: while the field is being typed in,
+    /// this list is the page on top.
+    @State private var home: Route?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -94,12 +98,15 @@ struct SettingsListScreen<Content: View>: View {
                     if query.trimmed.isEmpty {
                         content()
                     } else {
-                        SettingsSearchResults(query: query.trimmed)
+                        SettingsSearchResults(query: query.trimmed, home: home) { query = "" }
                     }
                 }
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
+        }
+        .onChange(of: query.trimmed.isEmpty) { _, empty in
+            if !empty { home = model.shell.topRoute }
         }
         .background(Color(.systemBackground))
         .navigationTitle(title)
@@ -196,6 +203,10 @@ struct SettingsListSeparator: View {
 /// Search across every Settings row and sub-row: a flat list, each match with its card's name in small grey type.
 struct SettingsSearchResults: View {
     let query: String
+    /// The page these results are on (nil on a tab's own first screen).
+    let home: Route?
+    /// Empties the search field, so the list's own rows show again.
+    let clear: () -> Void
     @Environment(AppModel.self) private var model
 
     private struct Match: Identifiable {
@@ -216,8 +227,18 @@ struct SettingsSearchResults: View {
                 .padding(.vertical, 17)
         }
         ForEach(found) { match in
-            SettingsRowView(title: match.title, subtitle: match.card, small: true, enabled: match.enabled, action: match.open)
+            SettingsRowView(title: match.title, subtitle: match.card, small: true, enabled: match.enabled) { choose(match) }
         }
+    }
+
+    /// Opens a match. When it leads to the very list these results are on ("Face ID" or "Log out" typed on App security and
+    /// privacy, a group's own name typed inside that group), nothing can open: the search is emptied instead, so the row the
+    /// person asked for shows. (The tap used to do nothing at all, with the results left up over the row.)
+    private func choose(_ match: Match) {
+        let shell = model.shell
+        let before = shell.topRoute
+        match.open()
+        if before == home, shell.topRoute == home, shell.cover == nil, shell.sheet == nil { clear() }
     }
 
     private var matches: [Match] {
@@ -325,7 +346,9 @@ struct SettingsRowView: View {
                 // app's other greyed rows have (More's Card Reader), and to almost nothing in dark mode.
                 label
                     .accessibilityElement(children: .combine)
-                    .accessibilityValue(subtitle.isEmpty ? "Not available yet" : "")
+                    // A search match's second line is only the name of its card, so it is said there too; a row whose own
+                    // second line already says why (Notifications' "Not available yet") is left as it reads.
+                    .accessibilityValue(subtitle.isEmpty || small ? "Not available yet" : "")
             }
             SettingsListSeparator(inset: !plainLine)
         }
