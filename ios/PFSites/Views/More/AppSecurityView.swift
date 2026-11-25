@@ -160,7 +160,7 @@ struct AppSecurityView: View {
                     .disabled(busy || greyed)
                     .padding(.top, 16)
                     // A switch that can never be turned says why, instead of only reading as dimmed.
-                    .accessibilityHint(greyed ? "Not available yet" : "")
+                    .modifier(GreyedSwitchValue(greyed: greyed))
             }
             .padding(.leading, 24)
             .padding(.trailing, 15)
@@ -301,5 +301,20 @@ struct AppSecurityView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// VoiceOver's words for a switch that can never be turned, the app's words for what Processor Freedom does not do yet. A working
+/// switch keeps its own "on" and "off".
+private struct GreyedSwitchValue: ViewModifier {
+    let greyed: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if greyed {
+            content.accessibilityValue("Off, not available yet")
+        } else {
+            content
+        }
     }
 }

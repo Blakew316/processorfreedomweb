@@ -40,8 +40,8 @@ final class TransactionsSettings {
         do {
             let answer = try await API.get("/api/sites/\(siteID)")
             guard mine == round else { return }
-            // An answer without the business in it is not its settings: taking it would put every switch at its default, and a
-            // save after that would write those defaults.
+            // An answer without the business in it is not its settings: taking it would show every switch at its default as
+            // if that were what the business has.
             guard answer["site"].isObject else {
                 let words = "Something went wrong. Please try again."
                 if loaded { reloadProblem = words } else { problem = words }
@@ -74,6 +74,9 @@ final class TransactionsSettings {
     func saveOrdering(siteID: String, unchanged: ((JSON) -> Bool)? = nil, change: (inout [String: Any]) -> Void) async -> SaveResult {
         do {
             let site = try await API.get("/api/sites/\(siteID)")["site"]
+            // An answer without the business in it says nothing about its settings: nothing is saved over it and nothing is shown
+            // from it (it is not "changed on another device" either).
+            guard site.isObject else { return .failed("Something went wrong. Please try again.") }
             if let unchanged, !unchanged(site["ordering"]) {
                 round += 1
                 apply(site)

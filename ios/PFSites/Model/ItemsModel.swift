@@ -230,7 +230,7 @@ final class ItemsModel {
         if filter.out || filter.low || filter.hidden || filter.sale {
             // The website's states: hidden first, then sold out at 0, then low at the business's warning level or below.
             let low = item.available && item.stock != 0 && item.stock <= lowAt
-            let hit = (filter.out && item.stock == 0) || (filter.low && low) || (filter.hidden && !item.available) || (filter.sale && item.sale > 0)
+            let hit = (filter.out && item.available && item.stock == 0) || (filter.low && low) || (filter.hidden && !item.available) || (filter.sale && item.sale > 0)
             if !hit { return false }
         }
         if !filter.cats.isEmpty && !filter.cats.contains(item.category) { return false }

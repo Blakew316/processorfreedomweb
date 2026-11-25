@@ -170,29 +170,33 @@ struct HomeView: View {
     }
 
     /// Reads today's sales now and then every minute, while they are shown and Home is on screen in an open, unlocked app: a sale
-    /// taken on the website or another phone shows up here, and after midnight the amount is the new day's. It stops on a failure
-    /// with nothing to show (the card then says why and offers Try again).
+    /// taken on the website or another phone shows up here, and after midnight the amount is the new day's. After a failure with
+    /// nothing to show the card says why and offers Try again, and the reading goes on being tried each minute behind that
+    /// message (quietly, so the message does not blink): the amount comes back by itself when the connection does.
     private func keepSalesFresh() async {
         let shell = model.shell
         guard shell.salesAllowed, shell.salesShown, scenePhase == .active, model.phase == .ready else { return }
+        var first = true
         while !Task.isCancelled {
-            let read = await loadSales()
-            if !read && sales == nil { return }
+            await loadSales(quiet: !first)
+            first = false
             try? await Task.sleep(nanoseconds: 60_000_000_000)
         }
     }
 
     /// True when the amount was read. While it is being read for the first time the card shows a spinner (no amount and no
-    /// problem yet); a reading that fails while an amount is up leaves that amount (the next reading replaces it).
+    /// problem yet); a reading that fails while an amount is up leaves that amount (the next reading replaces it). `quiet` is
+    /// the every-minute reading: it leaves a message that is showing where it is until it has an amount to put in its place.
     @discardableResult
-    private func loadSales() async -> Bool {
+    private func loadSales(quiet: Bool = false) async -> Bool {
         guard let business = model.site else { return false }
-        salesProblem = ""
+        if !quiet { salesProblem = "" }
         do {
             let answer = try await API.get("/api/sites/\(business.id)/stats?range=today")
             // Hidden while the answer was on its way: it is not kept.
             guard model.shell.salesShown else { return false }
             sales = TodaySales(net: answer["totals"]["net"].int, orders: answer["totals"]["orders"].int, readAt: Date())
+            salesProblem = ""
             return true
         } catch let error as APIError {
             if error.forbidden {
