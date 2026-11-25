@@ -61,6 +61,8 @@ export function followDevice() {
   syncTopColor();
 }
 export const setTheme = () => followDevice();
+// A page that still holds an older copy of the other scripts asks for the switch that used to be here: it gets nothing.
+export const themeButton = () => null;
 // The device can switch while a page is open (at sunset, or from Control Center): follow it straight away.
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', followDevice);
 
