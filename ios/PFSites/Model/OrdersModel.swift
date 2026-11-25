@@ -253,6 +253,9 @@ final class OrdersModel {
     @ObservationIgnored private var siteLoadedAt: Date?
     /// The short wait for the business's time zone before the first tab is chosen without it.
     @ObservationIgnored private var zoneWait: Task<Void, Never>?
+    /// The time zone this phone remembered for the business was taken up (once), and whether there was one.
+    @ObservationIgnored private var zoneLookedUp = false
+    @ObservationIgnored private var zoneRemembered = false
     /// Counts the lists asked for, the last one shown and the orders changed on this phone, so a list that left the server before a
     /// newer one, or before a change made here, never replaces what is newer.
     @ObservationIgnored private var asked = 0
@@ -269,7 +272,18 @@ final class OrdersModel {
 
     // MARK: Loading
 
+    /// The business's time zone as this phone last read it, taken up before anything is worked out from "today": the first
+    /// tab is then right at once on every opening after the first, whatever happens to the read that refreshes it.
+    private func takeRememberedZone(_ siteID: String) {
+        guard !zoneLookedUp else { return }
+        zoneLookedUp = true
+        guard siteLoadedAt == nil, let name = UserDefaults.standard.string(forKey: Keys.zone(siteID)), let found = TimeZone(identifier: name) else { return }
+        zoneRemembered = true
+        if found.identifier != timeZone.identifier { timeZone = found }
+    }
+
     func load(siteID: String) async {
+        takeRememberedZone(siteID)
         markDay()
         asked += 1
         let ticket = asked
@@ -308,6 +322,7 @@ final class OrdersModel {
 
     /// The business's time zone (ordering.timezone), so "Today" is the business's today. Read again at most once a minute.
     func loadSite(siteID: String, force: Bool = false) async {
+        takeRememberedZone(siteID)
         if !force, let at = siteLoadedAt, Date().timeIntervalSince(at) < 60 { return }
         guard let answer = try? await API.get("/api/sites/\(siteID)") else {
             // It could not be read (not merely given up because the screen went away): the first tab is chosen with the day
@@ -317,7 +332,10 @@ final class OrdersModel {
         }
         siteLoadedAt = Date()
         let zone = answer["site"]["ordering"]["timezone"].string
-        if let found = TimeZone(identifier: zone), found.identifier != timeZone.identifier { timeZone = found }
+        if let found = TimeZone(identifier: zone) {
+            if found.identifier != timeZone.identifier { timeZone = found }
+            UserDefaults.standard.set(found.identifier, forKey: Keys.zone(siteID))
+        }
         chooseFirstTab()
     }
 
@@ -329,12 +347,13 @@ final class OrdersModel {
         if !tabSettled { tabSettled = true }
     }
 
-    /// The list is in: the first tab is chosen now when the business's time zone is known, and otherwise once it arrives, for
-    /// at most a second (it is asked for beside the list and usually lands with it). With Chicago's day, a business elsewhere,
+    /// The list is in: the first tab is chosen now when the business's time zone is known (read just now, or remembered from
+    /// last time), and otherwise once it arrives, for at most a second (it is asked for beside the list and usually lands with
+    /// it): that wait only happens the first time a business's orders are opened on this phone. With Chicago's day, a business elsewhere,
     /// in the hours when its day and Chicago's differ, settled on Closed with open orders waiting under "Open (2)".
     private func settleFirstTab() {
         guard !tabChosen else { return }
-        if siteLoadedAt != nil {
+        if siteLoadedAt != nil || zoneRemembered {
             chooseFirstTab()
             return
         }

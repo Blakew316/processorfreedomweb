@@ -24,7 +24,7 @@ struct OrdersTabView: View {
     var body: some View {
         let days = orders.days
         // The list is showing (not the spinner or the message), with at least one day's band under the tabs.
-        let banded = orders.loaded && (orders.loadError.isEmpty || !orders.orders.isEmpty) && !days.isEmpty
+        let banded = orders.loaded && (orders.tabSettled || !orders.loadError.isEmpty) && (orders.loadError.isEmpty || !orders.orders.isEmpty) && !days.isEmpty
         VStack(spacing: 0) {
             searchRow
             OrdersHairline()

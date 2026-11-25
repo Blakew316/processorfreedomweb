@@ -168,6 +168,10 @@ struct LoginView: View {
                 .onChange(of: geometry.size.height) { _, visible in settle(visible) }
                 .onChange(of: buttonBottom) { _, _ in settle(geometry.size.height) }
                 .onChange(of: focus) { _, _ in settle(geometry.size.height) }
+                // A password shown while it is typed goes to the server exactly as typed: iOS's smart punctuation (curly quotes,
+                // a dash for two hyphens) is switched off for that field once it is the one being typed in.
+                .onChange(of: focus) { _, _ in typePlainly() }
+                .onChange(of: showPassword) { _, _ in typePlainly() }
                 // On a phone too short even for that, the rest is done by scrolling, once the keyboard is up (on a phone tall
                 // enough to show the button already, nothing moves).
                 .onChange(of: focus) { _, field in
@@ -209,6 +213,19 @@ struct LoginView: View {
         let auth = model.auth
         if auth.forgotPasscode, !auth.forgot(for: auth.email) { return "" }
         return auth.note
+    }
+
+    /// See `PlainTyping`. The field takes over as the one being typed in a moment after the eye is tapped or the field is
+    /// touched, so it is looked for then, and once more a little later.
+    private func typePlainly() {
+        guard showPassword, focus == .password else { return }
+        Task {
+            for wait: UInt64 in [120_000_000, 400_000_000] {
+                try? await Task.sleep(nanoseconds: wait)
+                guard showPassword, focus == .password else { return }
+                PlainTyping.applyToFieldInUse()
+            }
+        }
     }
 
     private var canSubmit: Bool {

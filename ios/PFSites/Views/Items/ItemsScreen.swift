@@ -19,13 +19,13 @@ struct ItemsScreen: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ItemsListPage(items: items, path: $path, close: { dismiss() })
+            ItemsListPage(items: items, path: $path, close: { close() })
                 .navigationDestination(for: ItemsRoute.self) { route in
                     switch route {
                     case .edit(let id):
-                        ItemEditorPage(items: items, itemID: id, close: { dismiss() }, openMenus: { openMenus() })
+                        ItemEditorPage(items: items, itemID: id, close: { close() }, openMenus: { openMenus() })
                     case .add:
-                        ItemEditorPage(items: items, itemID: nil, close: { dismiss() }, openMenus: { openMenus() })
+                        ItemEditorPage(items: items, itemID: nil, close: { close() }, openMenus: { openMenus() })
                     case .web(let tab):
                         WebScreen(tab: tab)
                     }
@@ -36,8 +36,15 @@ struct ItemsScreen: View {
             // Back from a page: anything changed there (the Menus page, the item settings) shows here.
             if new.count < old.count { Task { await items.load(model) } }
         }
-        // Items was closed: a change still on its way says what went wrong another way (see ItemsListPage.run).
-        .onDisappear { items.closedAt = Date() }
+        // Items was closed some other way than its X: a change still on its way says what went wrong another way too.
+        .onDisappear { if items.closedAt == nil { items.closedAt = Date() } }
+    }
+
+    /// The X: the closing is noted as it starts, not when the cover has finished sliding away, so a change whose answer lands
+    /// during the slide is not set on the page that is going (see ItemsListPage.run).
+    private func close() {
+        items.closedAt = Date()
+        dismiss()
     }
 
     /// The website's Menus page over the editor, once: a second tap before it has slid in opens nothing more.
