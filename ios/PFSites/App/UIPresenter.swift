@@ -38,15 +38,16 @@ enum UIPresenter {
     /// Save to Files, AirDrop, Mail and the rest, for a downloaded or exported file. The copy made for the sheet is not left on
     /// the phone (a report, a set of recovery codes): it is removed at once when the sheet is closed without a choice, and ten
     /// minutes after a choice, as whatever was chosen (a print job, Mail, what was copied) may still be reading the file when
-    /// the sheet reports it is done. Whatever is left goes when the dashboard closes and at the next launch.
+    /// the sheet reports it is done. A choice the person backed out of leaves the sheet up, so the file stays for the next
+    /// choice. Whatever is left goes when the dashboard closes and at the next launch.
     static func share(_ file: URL) {
         let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
-        sheet.completionWithItemsHandler = { _, completed, _, _ in
-            guard completed else {
+        sheet.completionWithItemsHandler = { activity, completed, _, _ in
+            if completed {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 600) { DownloadCenter.remove(file) }
+            } else if activity == nil {
                 DownloadCenter.remove(file)
-                return
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 600) { DownloadCenter.remove(file) }
         }
         present(sheet)
     }

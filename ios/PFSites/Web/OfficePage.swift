@@ -488,7 +488,7 @@ final class OfficePage: NSObject {
     /// Downloads a file of ours (an attachment) and offers it to save or share.
     func download(_ url: URL) {
         webView.startDownload(using: URLRequest(url: url)) { download in
-            download.delegate = DownloadCenter.shared
+            DownloadCenter.shared.take(download)
         }
     }
 
