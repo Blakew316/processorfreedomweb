@@ -376,9 +376,12 @@ struct AppointmentsScreen: View {
     private func poll() async {
         guard scenePhase == .active, model.phase == .ready, let business = model.site else { return }
         let shown = list
+        // The first read after coming back takes an earlier failure's message away while it tries again.
+        await shown.retry(siteID: business.id)
         while !Task.isCancelled {
-            await shown.load(siteID: business.id)
             try? await Task.sleep(nanoseconds: 60_000_000_000)
+            guard !Task.isCancelled else { return }
+            await shown.load(siteID: business.id)
         }
     }
 

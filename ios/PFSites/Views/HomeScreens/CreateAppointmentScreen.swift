@@ -1000,7 +1000,7 @@ struct CreateAppointmentScreen: View {
                             .foregroundStyle(SettingsLook.muted)
                             .fixedSize(horizontal: false, vertical: true)
                         CreateAppointmentLink(title: "Try again", underlined: false) {
-                            retry { await form.loadAppointments($0) }
+                            retry { await form.reloadAppointments($0) }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

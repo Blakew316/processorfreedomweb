@@ -428,7 +428,7 @@ final class ItemSalesModel {
             guard asked == query else { return nil }
             // Signed out everywhere, or the server ended the session: the app checks, then locks. A 403 is only a message.
             if error.status == 401 { AppModel.shared.sessionEnded() }
-            if error.status != 403 && shownQuery == asked { return error.message }
+            if error.status != 403 && shownQuery == asked { return error.status == 401 ? nil : error.message }
             rows = []
             shownQuery = nil
             forbidden = error.status == 403

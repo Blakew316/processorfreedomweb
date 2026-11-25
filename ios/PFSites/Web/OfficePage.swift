@@ -297,10 +297,11 @@ final class OfficePage: NSObject {
 
     // MARK: Messages from the page
 
-    /// Only the page itself (the main frame, on our own address) may talk to the app.
+    /// Only the page itself (the main frame, on our own address: the same scheme, host and port) may talk to the app.
     private func trusted(_ message: WKScriptMessage) -> Bool {
         let origin = message.frameInfo.securityOrigin
-        return message.frameInfo.isMainFrame && origin.host.lowercased() == Config.host && origin.port == (Config.baseURL.port ?? 0)
+        return message.frameInfo.isMainFrame && origin.`protocol`.lowercased() == (Config.baseURL.scheme?.lowercased() ?? "https")
+            && origin.host.lowercased() == Config.host && origin.port == (Config.baseURL.port ?? 0)
     }
 
     func received(_ message: WKScriptMessage) {
@@ -311,7 +312,10 @@ final class OfficePage: NSObject {
         case "ready": reportedReady(path: json["path"].string)
         // The count of new orders, for the business this page belongs to (the kitchen screen and the create page have no say).
         case "badge": if (kind == .office || kind == .sheet) && (reportedSite.isEmpty || reportedSite == siteID) { AppModel.shared.setOrdersBadge(json["orders"].int) }
-        case "signedOut": AppModel.shared.sessionEnded()
+        case "signedOut":
+            // The website says so with a message when it is running inside the app (it clears itself and does not move).
+            sentToLogin()
+            AppModel.shared.sessionEnded()
         case "activity": AppModel.shared.idle.touch()
         case "print": printPage(title: json["title"].string)
         // The Setup tasks and Notifications pages hand their choice to the app, which opens it natively.
@@ -433,8 +437,17 @@ final class OfficePage: NSObject {
         }
     }
 
+    /// Remembers where the page is, for Try again and the reload after iOS took its memory back. Only a back-office address is
+    /// kept, and for a dashboard page only one of its own business: never a file's address (loading it again would start a
+    /// download) and never another business's (loading it again would change business).
     func noteLoaded(_ url: URL?) {
-        if let url, Config.isOwn(url) { lastGoodURL = url }
+        guard let url, Config.isOwn(url) else { return }
+        let parts = url.path.split(separator: "/").map(String.init)
+        guard parts.first == "app" else { return }
+        if kind == .office || kind == .sheet {
+            guard parts.count >= 3, parts[1] == "site", parts[2] == siteID else { return }
+        }
+        lastGoodURL = url
     }
 
     /// A page that finished loading but never reported in (a plain server page) still stops the spinner and the picture.

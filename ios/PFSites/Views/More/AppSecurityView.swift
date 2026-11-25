@@ -159,6 +159,8 @@ struct AppSecurityView: View {
                     .tint(Theme.blue)
                     .disabled(busy || greyed)
                     .padding(.top, 16)
+                    // A switch that can never be turned says why, instead of only reading as dimmed.
+                    .accessibilityHint(greyed ? "Not available yet" : "")
             }
             .padding(.leading, 24)
             .padding(.trailing, 15)

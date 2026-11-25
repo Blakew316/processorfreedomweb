@@ -340,6 +340,7 @@ struct OrderDetailView: View {
         guard let order, let business = model.site, !working else { return }
         working = true
         model.idle.touch()
+        let tapped = Date()
         Task {
             do {
                 let fresh = try await orders.setStatus(order, to: status, siteID: business.id)
@@ -348,6 +349,7 @@ struct OrderDetailView: View {
                 // A cancelled order puts its stock back, so the Sale screen loads the items again next time.
                 if status == "cancelled" { model.shell.order.invalidate() }
             } catch let error as APIError {
+                await Self.settled(since: tapped)
                 failed(error)
             } catch {
                 // Cancelled: the screen went away.
@@ -360,6 +362,7 @@ struct OrderDetailView: View {
         guard let order, let business = model.site, !working else { return }
         working = true
         model.idle.touch()
+        let tapped = Date()
         Task {
             do {
                 let fresh = try await orders.recordPayment(order, tender: tender, giftCode: giftCode, siteID: business.id)
@@ -367,12 +370,21 @@ struct OrderDetailView: View {
                 Haptics.success()
                 show("#\(String(fresh.number)) paid by \(tender.lowercased())")
             } catch let error as APIError {
+                await Self.settled(since: tapped)
                 failed(error)
             } catch {
                 // Cancelled: the screen went away.
             }
             working = false
         }
+    }
+
+    /// Two alerts cannot be up at once: a refusal that follows an alert's own button (Cancel order, a tender, the gift card's Pay)
+    /// waits until that alert has gone, as Closeout and Items wait. A quick answer from the server used to arrive while the
+    /// first alert was still closing, and its message was never shown.
+    private static func settled(since tapped: Date) async {
+        let left = min(0.45, 0.45 - Date().timeIntervalSince(tapped))
+        if left > 0 { try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000)) }
     }
 
     /// The server's own words. A 401 is checked (and locks only if the session really ended); a 403 or a conflict is a message,

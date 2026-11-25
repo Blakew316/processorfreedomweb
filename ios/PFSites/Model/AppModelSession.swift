@@ -22,6 +22,9 @@ extension AppModel {
             await signedIn(answer, email: email)
             return .success
         } catch let error as APIError {
+            // Asked for a code although this phone sent its "remember this device" token: the token has run out, so it is not
+            // kept (a new one comes with the next code when "remember" is ticked).
+            if error.twoFactor, body["trust"] != nil { Keychain.forgetTrust(for: email) }
             return error.twoFactor ? .needsCode(error) : .failed(error.message)
         } catch {
             return .failed(APIError.unreachableMessage)
@@ -100,9 +103,10 @@ extension AppModel {
             } catch let error as APIError where error.sessionEnded {
                 sessionEndedBeforeReady()
                 return
-            } catch let error as APIError where (400..<500).contains(error.status) {
+            } catch let error as APIError where (400..<500).contains(error.status) && error.status != 429 && error.status != 408 {
                 // The server answered, and said no (this sign-in may not open that business, or the business is gone). Asking
-                // again would be refused again, so Log in says why, instead of a Try again that can never work.
+                // again would be refused again, so Log in says why, instead of a Try again that can never work. (Asked too
+                // often, or too slow, is not a no: those keep Try again.)
                 sessionEndedBeforeReady(error.message)
                 return
             } catch {
@@ -451,7 +455,9 @@ extension AppModel {
         BarcodeScan.finish(nil)
         OverlayWindows.shared.mainWindow?.rootViewController?.dismiss(animated: false)
         WebStore.shared.closeAll()
-        // Files made to be shared (reports, item lists, recovery codes) do not outlast the person who made them.
+        // Files made to be shared (reports, item lists, recovery codes) do not outlast the person who made them, and a download
+        // still on its way is stopped first.
+        DownloadCenter.shared.cancelAll()
         DownloadCenter.clearOldFiles()
         shellAlive = false
         shell = Shell()

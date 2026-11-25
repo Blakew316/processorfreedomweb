@@ -166,7 +166,8 @@ struct MoreView: View {
     private var lowerGroup: some View {
         VStack(spacing: 0) {
             Button {
-                model.shell.more.append(.settings)
+                // Through the shell, so a second tap that lands before Settings has slid in does not open it twice.
+                model.shell.push(.settings)
             } label: {
                 rowLabel(label: "Settings", icon: "gearshape", chevron: false, isOpen: false, enabled: true)
             }
@@ -250,6 +251,6 @@ struct MoreView: View {
 
     private func openPage(_ id: String) {
         lastOpened = id
-        model.shell.more.append(.page(id))
+        model.shell.push(.page(id))
     }
 }

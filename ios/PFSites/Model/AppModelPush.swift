@@ -18,9 +18,11 @@ extension AppModel {
     }
 
     /// At launch: when notifications are on, ask iOS for the current device token (it can change), which is then sent again.
+    /// Only for a phone that is signed in (it holds a key): after Log out iOS was told to stop, and a cold start must not turn
+    /// delivery back on for whoever holds the phone.
     func refreshPushRegistration() async {
         await refreshPushStatus()
-        if pushAuthorized && pushWanted { UIApplication.shared.registerForRemoteNotifications() }
+        if pushAuthorized && pushWanted && Keychain.device != nil { UIApplication.shared.registerForRemoteNotifications() }
     }
 
     /// Asks once, after the first time the dashboard opens, and only when the server can send them.

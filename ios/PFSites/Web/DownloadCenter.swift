@@ -4,13 +4,14 @@ import WebKit
 
 /// Saves files the website downloads (CSV and spreadsheet exports, recovery codes, attachments) to a temporary folder,
 /// then offers the share sheet so they can go to Files, AirDrop, Mail and the rest. Nothing is kept longer than it is needed:
-/// a file goes when its share sheet closes, and the whole folder goes when the dashboard closes (Log out, Switch User) and at
-/// the next launch.
+/// a file goes once its share sheet has closed, and the whole folder goes when the dashboard closes (Log out, Switch User) and
+/// at the next launch.
 @MainActor
 final class DownloadCenter: NSObject, WKDownloadDelegate {
     static let shared = DownloadCenter()
 
-    private var files: [ObjectIdentifier: URL] = [:]
+    /// Downloads still on their way, each with the file it is writing.
+    private var running: [ObjectIdentifier: (download: WKDownload, file: URL)] = [:]
 
     private nonisolated static var folder: URL { FileManager.default.temporaryDirectory.appendingPathComponent("Downloads", isDirectory: true) }
 
@@ -41,18 +42,29 @@ final class DownloadCenter: NSObject, WKDownloadDelegate {
             return
         }
         let file = place.appendingPathComponent(Self.safeName(suggestedFilename))
-        files[ObjectIdentifier(download)] = file
+        running[ObjectIdentifier(download)] = (download, file)
         completionHandler(file)
     }
 
     func downloadDidFinish(_ download: WKDownload) {
-        guard let file = files.removeValue(forKey: ObjectIdentifier(download)) else { return }
-        UIPresenter.share(file)
+        // A download stopped by `cancelAll` is no longer in the list: nothing is offered for it.
+        guard let entry = running.removeValue(forKey: ObjectIdentifier(download)) else { return }
+        UIPresenter.share(entry.file)
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        if let file = files.removeValue(forKey: ObjectIdentifier(download)) { Self.remove(file) }
+        // Only a download the person is still waiting for says that it failed (one stopped as the dashboard closed does not).
+        guard let entry = running.removeValue(forKey: ObjectIdentifier(download)) else { return }
+        Self.remove(entry.file)
         UIPresenter.alert(title: "Download failed", message: "The file could not be saved. Please try again.")
+    }
+
+    /// The dashboard is closing (Log out, Switch User): downloads still on their way are stopped, so no share sheet and no
+    /// "Download failed" turns up over the Log in screen afterwards.
+    func cancelAll() {
+        let stopping = running.values.map { $0.download }
+        running.removeAll()
+        stopping.forEach { $0.cancel { _ in } }
     }
 
     static func safeName(_ name: String) -> String {
@@ -149,7 +161,7 @@ final class BrowserController: UIViewController, WKNavigationDelegate {
             present(safari, animated: true)
             return
         }
-        if scheme == "mailto" || scheme == "tel" || scheme == "sms" {
+        if UIPresenter.appSchemes.contains(scheme) {
             decisionHandler(.cancel)
             UIApplication.shared.open(target, options: [:], completionHandler: nil)
             return

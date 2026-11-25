@@ -956,7 +956,11 @@ struct ItemTrackingCard: View {
                     .focused(focus, equals: .stock)
                     .accessibilityLabel("In stock")
                     .modifier(ItemsDigits(text: $e.draft.stockText, limit: 6))
-                    .onChange(of: editor.draft.stockText) { _, _ in editor.stockProblem = "" }
+                    // Typing takes the message away. The count the server just put in the field (sold while the editor was open)
+                    // is not typing: its message stays until the person changes the number.
+                    .onChange(of: editor.draft.stockText) { _, typed in
+                        if typed != String(editor.seenStock) { editor.stockProblem = "" }
+                    }
             } trailing: {
                 HStack(spacing: 6) {
                     step("minus", by: -1, label: "One fewer")

@@ -182,7 +182,7 @@ struct ItemsListPage: View {
             Button("Delete", role: .destructive) { deleteChosen() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("They are removed from your menu straight away. Past orders are kept.")
+            Text(items.selection.count == 1 ? "It is removed from your menu straight away. Past orders are kept." : "They are removed from your menu straight away. Past orders are kept.")
         }
         .alert(message ?? "", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK", role: .cancel) {}
@@ -622,7 +622,7 @@ struct ItemsListPage: View {
             say("We could not read that file.", after: picked, wait: 0.6)
             return
         }
-        let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252) ?? String(decoding: data, as: UTF8.self)
+        let text = ItemsCSV.text(from: data)
         let plan = ItemsImportPlan(fileName: url.lastPathComponent, csv: text, reading: ItemsCSV.read(text))
         Task {
             await ItemsAlerts.settled(since: picked, wait: 0.6)

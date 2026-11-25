@@ -339,6 +339,8 @@ final class AppModel {
         // would have been then.
         if !configLoaded {
             await loadConfig()
+            // Only while the dashboard is still showing: the app may have locked or logged out while that was read.
+            guard phase == .ready, site?.id == business.id else { return }
             if configLoaded { maybeAskForPush() }
         }
         do {

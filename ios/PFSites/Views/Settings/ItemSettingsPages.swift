@@ -336,7 +336,8 @@ private struct SaleSwitchPage: View {
                     .transition(.opacity)
             }
         } bottom: {
-            TxSaveButton(title: savedNote ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving, size: 13.5) { save() }
+            // "Saved" only while nothing has been changed since: with a new change waiting, the button says what it will do.
+            TxSaveButton(title: savedNote && on == shown ? "Saved" : "Save", enabled: settings.loaded && on != shown && !saving, busy: saving, size: 13.5) { save() }
         }
         .animation(.snappy, value: problem)
         .animation(.snappy, value: settings.reloadProblem)

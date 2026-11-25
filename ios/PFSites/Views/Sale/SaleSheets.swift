@@ -191,6 +191,7 @@ struct OrderSheet: View {
                         Text(Money.format(order.total)).pfFont(20, .bold)
                     }
                     .padding(.vertical, 6)
+                    .accessibilityElement(children: .combine)
                 }
             }
             .listStyle(.insetGrouped)
@@ -272,6 +273,7 @@ struct PriceKeypadSheet: View {
                         .foregroundStyle(.secondary)
                     BoxField(focused: nameFocused) {
                         TextField("Custom item", text: $name)
+                            .accessibilityLabel(needsName ? "Name, required" : "Name")
                             .focused($nameFocused)
                             .submitLabel(.done)
                             .textInputAutocapitalization(.sentences)

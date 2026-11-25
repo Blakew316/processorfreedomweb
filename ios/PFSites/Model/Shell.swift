@@ -83,13 +83,25 @@ final class Shell {
     /// The last screen pushed and when, to tell a second tap from a later request for the same screen.
     @ObservationIgnored private var lastPush: (route: Route, tab: MainTab, at: Date)?
 
-    /// Pushes a screen onto the current tab. A second tap that lands before the first push has moved the screen does not open
-    /// the same screen twice. Only that: the same screen asked for again later (a notification for the page already showing,
-    /// whose own page strip may have moved on) is a request of its own and opens.
+    /// Pushes a screen onto the current tab. The screen already on top is never opened a second time over itself: a second tap
+    /// that lands before the first push has moved the screen does nothing, and the same screen asked for again later (a
+    /// notification for the web page already showing, whose own page strip may have moved on) asks that page to show it again.
     func push(_ route: Route) {
         let now = Date()
-        if let last = lastPush, last.route == route, last.tab == tab, now.timeIntervalSince(last.at) < 0.7 { return }
+        let secondTap = lastPush.map { $0.route == route && $0.tab == tab && now.timeIntervalSince($0.at) < 0.7 } ?? false
+        if secondTap { return }
         lastPush = (route, tab, now)
+        let top: Route?
+        switch tab {
+        case .home: top = home.last
+        case .sale: top = sale.last
+        case .orders: top = orders.last
+        case .more: top = more.last
+        }
+        if top == route {
+            if case .page(let id) = route { WebStore.shared.showAgain(id) }
+            return
+        }
         switch tab {
         case .home: home.append(route)
         case .sale: sale.append(route)

@@ -296,8 +296,8 @@ struct SaleView: View {
             HStack(spacing: 8) {
                 // 46 pt inside the 48 pt options box, as in the photo.
                 Button("Check out") { checkOut(order) }
-                    .buttonStyle(SolidButtonStyle(fill: empty ? SaleLook.disabled : Theme.blue, text: .white, radius: 4, height: 46, size: 18.5))
-                    .disabled(empty)
+                    .buttonStyle(SolidButtonStyle(fill: order.payable ? Theme.blue : SaleLook.disabled, text: .white, radius: 4, height: 46, size: 18.5))
+                    .disabled(!order.payable)
                 Menu {
                     Button("Clear order", role: .destructive) { order.clear() }
                         .disabled(empty)
@@ -325,7 +325,7 @@ struct SaleView: View {
     /// Hands the order to the website's Virtual Terminal (its real checkout) with the total and a note of what was sold.
     private func checkOut(_ order: SaleModel) {
         // Only from the Sale screen itself: a second tap while the terminal is already opening does not open it twice.
-        guard !order.isEmpty, model.shell.sale.isEmpty else { return }
+        guard order.payable, model.shell.sale.isEmpty else { return }
         model.shell.sale.append(.checkout(sub: Money.decimal(order.total), note: order.note))
     }
 

@@ -77,6 +77,8 @@ enum Keychain {
 
     static func saveTrust(_ token: String, for email: String) { set(Data(token.utf8), for: "trust:\(email.lowercased())") }
 
+    static func forgetTrust(for email: String) { delete("trust:\(email.lowercased())") }
+
     // MARK: Face ID
 
     /// Stores the Face ID secret so that only a successful Face ID (with the faces enrolled now) can read it back.

@@ -21,10 +21,13 @@ enum UIPresenter {
         top.present(controller, animated: true)
     }
 
-    /// A page in Safari inside the app (terms, help, a customer's site). Other kinds of address go to the app that handles them.
+    /// The kinds of link that open in their own app: mail, phone and text. No other kind of address is handed to another app.
+    static let appSchemes: Set<String> = ["mailto", "tel", "sms"]
+
+    /// A page in Safari inside the app (terms, help, a customer's site). Mail, phone and text links go to their apps.
     static func safari(_ url: URL) {
         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            if appSchemes.contains(url.scheme?.lowercased() ?? "") { UIApplication.shared.open(url, options: [:], completionHandler: nil) }
             return
         }
         let controller = SFSafariViewController(url: url)
@@ -32,13 +35,18 @@ enum UIPresenter {
         present(controller)
     }
 
-    /// Save to Files, AirDrop, Mail and the rest, for a downloaded or exported file. The copy made for the sheet is removed once
-    /// the sheet has closed, however it closed, so a report or a set of recovery codes is not left on the phone. Only Copy keeps
-    /// it, as what was copied may still point at the file (it goes with the rest when the dashboard closes).
+    /// Save to Files, AirDrop, Mail and the rest, for a downloaded or exported file. The copy made for the sheet is not left on
+    /// the phone (a report, a set of recovery codes): it is removed at once when the sheet is closed without a choice, and ten
+    /// minutes after a choice, as whatever was chosen (a print job, Mail, what was copied) may still be reading the file when
+    /// the sheet reports it is done. Whatever is left goes when the dashboard closes and at the next launch.
     static func share(_ file: URL) {
         let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
-        sheet.completionWithItemsHandler = { activity, _, _, _ in
-            if activity != .copyToPasteboard { DownloadCenter.remove(file) }
+        sheet.completionWithItemsHandler = { _, completed, _, _ in
+            guard completed else {
+                DownloadCenter.remove(file)
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 600) { DownloadCenter.remove(file) }
         }
         present(sheet)
     }

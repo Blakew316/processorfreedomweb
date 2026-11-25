@@ -62,8 +62,8 @@ struct WelcomeView: View {
             Button("Get started") {
                 // A fresh start: what an earlier try said is not shown again.
                 model.auth.error = ""
-                // A second tap that lands before Log in has slid in does not open it twice.
-                if model.auth.path.isEmpty { model.auth.path.append(.login) }
+                // Set, not added: a second tap that lands before Log in has slid in does not open it twice.
+                model.auth.path = [.login]
             }
             .buttonStyle(SolidButtonStyle(radius: 6, height: 44, size: 14.7))
             .padding(.horizontal, 20)

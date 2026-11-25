@@ -40,6 +40,13 @@ final class TransactionsSettings {
         do {
             let answer = try await API.get("/api/sites/\(siteID)")
             guard mine == round else { return }
+            // An answer without the business in it is not its settings: taking it would put every switch at its default, and a
+            // save after that would write those defaults.
+            guard answer["site"].isObject else {
+                let words = "Something went wrong. Please try again."
+                if loaded { reloadProblem = words } else { problem = words }
+                return
+            }
             apply(answer["site"])
             problem = ""
         } catch let error as APIError {

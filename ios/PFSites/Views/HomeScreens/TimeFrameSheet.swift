@@ -15,6 +15,8 @@ struct TimeFrameSheet: View {
     @State private var customOpen = false
     /// Counts the taps that open Custom, so the list scrolls to show its dates.
     @State private var revealCustom = 0
+    /// Whether Custom's dates can be seen: the sheet can open with them already open below the last row in view.
+    @State private var datesInView = false
     @State private var start = Date()
     @State private var end = Date()
 
@@ -53,6 +55,7 @@ struct TimeFrameSheet: View {
                             customDates
                                 .id(TimeFrameSheet.customID)
                                 .transition(.opacity)
+                                .onScrollVisibilityChange(threshold: 0.2) { datesInView = $0 }
                         }
                     }
                     .padding(.bottom, 24)
@@ -119,8 +122,13 @@ struct TimeFrameSheet: View {
         let on = chosen.range.isCustomDays
         let span = chosen.days(today: today)
         return Button {
+            // Open, but below what is in view: the tap brings the dates up instead of closing them unseen.
+            if customOpen && !datesInView {
+                revealCustom += 1
+                return
+            }
             withAnimation(.snappy) { customOpen.toggle() }
-            if customOpen { revealCustom += 1 }
+            if customOpen { revealCustom += 1 } else { datesInView = false }
         } label: {
             HStack(alignment: .center, spacing: 0) {
                 HStack(spacing: 16) {
@@ -145,7 +153,7 @@ struct TimeFrameSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
-        .accessibilityHint(customOpen ? "Hides the dates" : "Shows a start and end date")
+        .accessibilityHint(customOpen && datesInView ? "Hides the dates" : "Shows a start and end date")
     }
 
     /// The days on the right: the date (or first and last day) semibold, the hours under it; brand blue on the chosen row.

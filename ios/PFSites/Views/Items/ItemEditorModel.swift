@@ -129,6 +129,11 @@ final class ItemEditorModel {
         return nil
     }
 
+    /// That field's message, for VoiceOver to say when a save is refused.
+    var firstProblemText: String {
+        [nameProblem, priceProblem, costProblem, codeProblem, stockProblem].first { !$0.isEmpty } ?? ""
+    }
+
     /// What customers pay while a sale is on, in the website's words (or how to have no sale).
     var saleLine: String {
         guard draft.sale > 0, let price = ItemsMoney.parse(draft.priceText) else { return "Leave empty for no sale." }

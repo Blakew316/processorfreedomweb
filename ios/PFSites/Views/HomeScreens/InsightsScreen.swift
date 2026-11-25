@@ -223,6 +223,7 @@ struct InsightsScreen: View {
         }
         .buttonStyle(InsightsGreyedButtonStyle())
         .disabled(true)
+        .accessibilityValue("Not available yet")
     }
 
     private func load(_ stats: StatsModel, full: Bool = true) async {

@@ -599,7 +599,6 @@ struct ItemsField<Field: View, Trailing: View>: View {
                     .pfFont(14)
                     .foregroundStyle(Theme.error)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.updatesFrequently)
             } else if let note {
                 Text(note)
                     .pfFont(14)
@@ -808,7 +807,8 @@ struct ItemsCard<Content: View>: View {
 enum ItemsAlerts {
     static func settled(since asked: Date?, wait: Double = 0.45) async {
         guard let asked else { return }
-        let left = wait - Date().timeIntervalSince(asked)
+        // Never longer than the wait itself, whatever the clock did meanwhile.
+        let left = min(wait, wait - Date().timeIntervalSince(asked))
         if left > 0 {
             try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000))
         }

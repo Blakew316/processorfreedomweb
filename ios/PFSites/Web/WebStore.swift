@@ -39,6 +39,12 @@ final class WebStore {
     func networkCameBack() { live.forEach { $0.networkCameBack() } }
     func refreshVisibleIfStale() { live.filter { $0.isOnScreen }.forEach { $0.refreshIfStale() } }
 
+    /// The page on screen that was opened on this website page shows it again, when its own page strip has moved on to another.
+    func showAgain(_ tab: String) {
+        guard let page = live.first(where: { $0.isOnScreen && $0.kind == .office && $0.startPath == Config.sitePath($0.siteID, tab) }) else { return }
+        if page.tab != tab || page.failure != nil { page.go(tab) }
+    }
+
     /// Pages that were turned away to the website's log in page and have not loaded since.
     var hasPagesSentToLogin: Bool { live.contains { $0.loginBounces > 0 } }
     func retryPagesSentToLogin() { live.forEach { $0.retryAfterLoginBounce() } }

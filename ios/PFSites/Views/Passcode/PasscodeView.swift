@@ -192,8 +192,9 @@ struct PasscodeView: View {
     @ViewBuilder
     private var feedback: some View {
         // The spinner stays after a right passcode too, while what comes next is made ready (Face ID being set up, the
-        // dashboard's data): the screen never just sits there with its dots filled.
-        if busy || finished {
+        // dashboard's data): the screen never just sits there with its dots filled. It shows while Face ID is with the server
+        // as well, when the number pad is down and the ways off this screen wait.
+        if busy || finished || faceIDRunning {
             ProgressView().tint(Theme.blue)
         } else if !problem.isEmpty {
             Text(problem)
@@ -286,10 +287,13 @@ struct PasscodeView: View {
         faceIDRunning = true
         defer { faceIDRunning = false }
         focused = false
+        // Digits that slip in while Face ID is up are never sent, so they are not left showing as filled dots afterwards.
+        let typedBefore = code
         switch await model.unlockWithFaceID() {
         case .unlocked:
             await finish()
         case .stay, .keypad, .hidden:
+            if code != typedBefore { code = typedBefore }
             if !finished { focusSoon() }
         case .refused(let result):
             faceIDWanted = model.faceIDOn
@@ -411,6 +415,7 @@ struct PasscodeView: View {
     }
 
     private func finish() async {
+        guard !finished else { return }
         finished = true
         focused = false
         Haptics.light()

@@ -324,8 +324,10 @@ final class OrdersModel {
     // MARK: Actions (the website's order sheet)
 
     /// Moves an order to its next status, or cancels it. The server checks it again (a payment recorded first must be refunded).
+    /// `from` is the status this phone showed: when the order has moved on since (another phone, the website), the server
+    /// refuses with its own words and the list loads again, instead of an old screen moving a finished order backwards.
     func setStatus(_ order: CustomerOrder, to status: String, siteID: String) async throws -> CustomerOrder {
-        let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)", ["status": status])
+        let answer = try await API.post("/api/sites/\(siteID)/orders/\(order.id)", ["status": status, "from": order.status])
         guard let fresh = CustomerOrder(answer["order"]) else { throw APIError(status: 0, message: "Something went wrong. Please try again.") }
         replace(fresh)
         return fresh

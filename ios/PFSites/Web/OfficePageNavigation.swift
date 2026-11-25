@@ -72,7 +72,8 @@ enum WebRouter {
             UIPresenter.safari(url)
             return
         }
-        guard !scheme.isEmpty, scheme != "about", scheme != "javascript" else { return }
+        // Mail, phone and text links, the only other kinds the back office makes. Nothing else a page asks for opens another app.
+        guard UIPresenter.appSchemes.contains(scheme) else { return }
         UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 }

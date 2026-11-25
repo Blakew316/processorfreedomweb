@@ -412,6 +412,13 @@ final class CreateAppointmentModel {
         }
     }
 
+    /// Try again in Appointment History, after the appointments could not be read: the wait shows until the answer comes
+    /// (a failure puts the server's words back).
+    func reloadAppointments(_ siteID: String) async {
+        if !appointmentsLoaded, !appointmentsError.isEmpty { appointmentsError = "" }
+        await loadAppointments(siteID)
+    }
+
     /// Try again in Add inventory item, after the items could not be read: the wait shows until the answer comes.
     func reloadItems(_ siteID: String) async {
         if itemsLoaded { itemsLoaded = false }
@@ -636,7 +643,8 @@ final class CreateAppointmentModel {
 
     /// The website's ready(): a customer, a service, a date and a time.
     var ready: Bool {
-        let who = customer != nil || (newCustomer && (!firstName.isEmpty || !lastName.isEmpty))
+        // A name of spaces only is no name (the server would refuse it).
+        let who = customer != nil || (newCustomer && (!firstName.trimmed.isEmpty || !lastName.trimmed.isEmpty))
         return who && services.contains { !$0.name.trimmed.isEmpty } && !date.isEmpty && !time.isEmpty
     }
 

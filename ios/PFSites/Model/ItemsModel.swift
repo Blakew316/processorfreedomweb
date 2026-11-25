@@ -279,6 +279,8 @@ final class ItemsModel {
         guard answer["items"].raw is [Any] else { return }
         changes += 1
         show(answer)
+        // The server just answered with the whole list: a line left from an earlier failed load no longer holds.
+        problem = ""
     }
 
     private func show(_ answer: JSON) {
@@ -440,7 +442,7 @@ enum ItemsCodes {
 enum ItemsMoney {
     /// "$1,234.50", "12", "9,50" or "Free" in cents, or nil when it is not a price (shared/core.js parsePrice).
     static func parse(_ input: String) -> Int? {
-        let raw = input.trimmed
+        let raw = ItemsCSV.trim(input)
         guard !raw.isEmpty else { return nil }
         let lower = raw.lowercased()
         if lower == "free" || lower == "no charge" || lower == "n/c" { return 0 }
@@ -509,7 +511,8 @@ struct ItemsRx {
         }
     }
 
-    static let negative = ItemsRx(#"-\s*[0-9]|\(\s*\$?[0-9]"#)
+    // JavaScript's \s also matches a byte-order mark; it is named here so both read the same.
+    static let negative = ItemsRx(#"-[\s\x{FEFF}]*[0-9]|\([\s\x{FEFF}]*\$?[0-9]"#)
     static let choice = ItemsRx(#"^(.*?)[\s,;:-]*\+?\s*\$?\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*$"#)
 }
 
@@ -561,6 +564,31 @@ enum ItemsCSV {
         return "<!doctype html><meta charset=\"utf-8\"><title>\(escape(title))</title><style>\(css)</style><h1>\(escape(title))</h1><table><thead><tr>\(header)</tr></thead><tbody>\(body)</tbody></table>"
     }
 
+    /// A spreadsheet file's bytes as text: UTF-8, Excel's "Unicode Text" (UTF-16, which starts with its byte-order mark), or the
+    /// old Windows encoding that Excel's plain CSV uses.
+    static func text(from data: Data) -> String {
+        if data.starts(with: [0xFF, 0xFE]) || data.starts(with: [0xFE, 0xFF]), let text = String(data: data, encoding: .utf16) { return text }
+        return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252) ?? String(decoding: data, as: UTF8.self)
+    }
+
+    /// A cell trimmed the way the server trims it (JavaScript's trim), so the import sheet and the server agree to the letter:
+    /// there a byte-order mark counts as a space and a zero-width space does not, the other way round from `trimmed`.
+    static func trim(_ text: String) -> String {
+        let scalars = text.unicodeScalars
+        var start = scalars.startIndex
+        var end = scalars.endIndex
+        while start < end, isSpace(scalars[start]) { start = scalars.index(after: start) }
+        while end > start, isSpace(scalars[scalars.index(before: end)]) { end = scalars.index(before: end) }
+        return String(scalars[start..<end])
+    }
+
+    private static func isSpace(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x09...0x0D, 0x20, 0xA0, 0x1680, 0x2000...0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF: return true
+        default: return false
+        }
+    }
+
     /// A spreadsheet's text in rows of cells: quotes, line breaks inside quotes, and comma, semicolon or tab separators.
     static func rows(_ text: String) -> [[String]] {
         var scalars = Array(text.unicodeScalars)
@@ -593,7 +621,7 @@ enum ItemsCSV {
                 } else {
                     cell.append(scalar)
                 }
-            } else if scalar == "\"" && String(cell).trimmed.isEmpty {
+            } else if scalar == "\"" && trim(String(cell)).isEmpty {
                 cell = String.UnicodeScalarView()
                 quoted = true
             } else if scalar == separator {
@@ -614,7 +642,7 @@ enum ItemsCSV {
             row.append(String(cell))
             rows.append(row)
         }
-        return rows.map { $0.map { $0.trimmed } }.filter { $0.contains { !$0.isEmpty } }
+        return rows.map { $0.map { trim($0) } }.filter { $0.contains { !$0.isEmpty } }
     }
 
     // The column names the website recognises, in its order (a "Price type" column is never read as the price).
@@ -694,7 +722,7 @@ enum ItemsCSV {
         }
         let get: ([String], String) -> String = { row, key in
             guard let column = map[key], column >= 0, column < row.count else { return "" }
-            return String(row[column].prefix(2000)).trimmed
+            return trim(String(row[column].prefix(2000)))
         }
         var category = ""
         var codes: [String: String] = [:]

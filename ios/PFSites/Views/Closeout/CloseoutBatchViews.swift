@@ -167,7 +167,8 @@ struct CloseoutCurrentBatchView: View {
 
     /// Two alerts cannot be up at once: the next one waits until the question's alert has gone, as the Orders tab waits.
     private static func afterAlert(since tapped: Date) async {
-        let left = 0.45 - Date().timeIntervalSince(tapped)
+        // Never longer than the wait itself, whatever the clock did meanwhile.
+        let left = min(0.45, 0.45 - Date().timeIntervalSince(tapped))
         if left > 0 {
             try? await Task.sleep(nanoseconds: UInt64(left * 1_000_000_000))
         }

@@ -71,6 +71,11 @@ struct ItemEditorPage: View {
         .onChange(of: items.settingsAsked) { _, asked in
             if asked { editor.startCategory(items.categoryNames.last ?? "Menu") }
         }
+        // Opening this page over the list stops the list's own request, so settings still on their way then (the categories,
+        // labels and modifier groups to choose from) are asked for here.
+        .task {
+            if !items.settingsAsked { await items.load(model) }
+        }
         .toolbar {
             // Number pads have no return key: Done puts the keyboard away.
             ToolbarItemGroup(placement: .keyboard) {
@@ -257,9 +262,10 @@ struct ItemEditorPage: View {
                 Haptics.error()
                 message = text
             } else if editor.firstProblem != nil {
-                // A field says why: it comes into view.
+                // A field says why: it comes into view, and VoiceOver reads it out (it would not be come across by itself).
                 Haptics.error()
                 refusals += 1
+                UIAccessibility.post(notification: .announcement, argument: editor.firstProblemText)
             }
         }
     }
