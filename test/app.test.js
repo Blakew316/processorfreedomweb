@@ -3419,6 +3419,53 @@ test('a variable-price item that never had a price is not made a fixed one at $0
   } finally { s.stop(); }
 });
 
+test('replacing the menu from a file keeps an item\'s id and what the file has no column for', async () => {
+  const core = await import('../shared/core.js');
+  assert.deepEqual(core.parseMenuCsv('Category,Item name,Price,Stock\nFood,Taco,1,5').columns.sort(), ['category', 'name', 'price', 'stock']);
+  assert.deepEqual(core.parseMenuCsv('Taco,1.00\nSoda,2.00').columns.sort(), ['name', 'price'], 'a list with no header row');
+  const s = await appServer();
+  try {
+    const me = client();
+    await me('POST', '/api/auth/signup', { email: 'replace@shop.test', password: 'long-enough-pw' }, newIp());
+    const site = (await me('POST', '/api/sites', { name: 'Replace Cafe', template: 'order', kind: 'ordering', csv: 'Category,Item,Price,Description\nFood,Taco,10.00,Crispy\nFood,Burrito,12.00,Big\nDrinks,Soda,2.00,Cold' })).data.site;
+    const S = `/api/sites/${site.id}`;
+    const [taco, burrito, soda] = (await me('GET', `${S}/menu`)).data.items;
+    // What only the back office sets: sizes, a daily refill, a sale, a colour, a label, a revenue class, and hiding an item.
+    const sizes = [{ name: 'Size', required: true, choices: [{ name: 'Regular', price: 0 }, { name: 'Large', price: 200 }] }];
+    assert.equal((await me('PUT', `${S}/menu/${taco.id}`, { options: sizes, restock: 40, stock: 7, stockWas: taco.stock })).status, 200);
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [taco.id], set: { sale: 25, color: '#FF8800', label: 'Grill', revclass: 'Food rev' } })).status, 200);
+    assert.equal((await me('POST', `${S}/menu/bulk`, { ids: [soda.id], set: { available: false } })).status, 200);
+
+    // The item list as it is downloaded (it has no column for any of those), sent back with one price changed, one item left out and
+    // one added: the usual change-it-in-a-spreadsheet round trip.
+    const head = 'Category,Item name,Price,Cost,Description,Stock,Taxable,Price type,Product code\n';
+    let r = await me('POST', `${S}/menu/import`, { replace: true, csv: `${head}Food,Taco,11.00,,Crispy,7,yes,Fixed,\nDrinks,Soda,2.00,,Cold,100,yes,Fixed,\nFood,Nachos,8.00,,,50,yes,Fixed,\n` });
+    assert.deepEqual([r.status, r.data.imported, r.data.items.map((x) => x.name)], [200, 3, ['Taco', 'Soda', 'Nachos']], 'the menu is what the file says: Burrito is gone');
+    let [t, so, n] = r.data.items;
+    assert.deepEqual([t.id, t.price, t.sale, t.color, t.restock, t.label, t.revclass, t.stock, t.desc], [taco.id, 1100, 25, '#ff8800', 40, 'Grill', 'Food rev', 7, 'Crispy'], 'Taco is still the same item, with its new price');
+    assert.deepEqual(t.options.map((o) => [o.name, o.choices.map((c) => c.name)]), [['Size', ['Regular', 'Large']]], 'its sizes are kept');
+    assert.deepEqual([so.id, so.available, so.stock], [soda.id, false, 100], 'a hidden item stays hidden: the file has no column that says');
+    assert.deepEqual([n.sale, n.options, n.available, n.color, n.stock], [0, [], true, '', 50], 'a new item starts plain');
+    assert.ok(![taco.id, burrito.id, soda.id].includes(n.id));
+
+    // A bare list of names and prices changes the prices and nothing else: descriptions, categories and counts stay.
+    r = await me('POST', `${S}/menu/import`, { replace: true, csv: 'Item,Price\nTaco,9.00\nSoda,2.50\n' });
+    [t, so] = r.data.items;
+    assert.deepEqual([r.data.items.length, t.id, t.price, t.category, t.desc, t.stock, t.sale], [2, taco.id, 900, 'Food', 'Crispy', 7, 25]);
+    assert.deepEqual([so.id, so.price, so.category, so.desc, so.available], [soda.id, 250, 'Drinks', 'Cold', false]);
+
+    // A column the file does have is the file's to say: an empty description clears it, and "no" hides the item.
+    r = await me('POST', `${S}/menu/import`, { replace: true, csv: 'Category,Item,Price,Description,Available\nFood,Taco,9.00,,no\nSides,Soda,2.50,Colder,yes\n' });
+    [t, so] = r.data.items;
+    assert.deepEqual([t.id, t.desc, t.available, t.sale], [taco.id, '', false, 25]);
+    assert.deepEqual([so.id, so.category, so.desc, so.available], [soda.id, 'Sides', 'Colder', true], 'found by its name alone when its category changed');
+
+    // Adding to the menu (not replacing) is as before: nothing on the menu is touched, and the new row is a new item.
+    r = await me('POST', `${S}/menu/import`, { csv: 'Item,Price\nTaco,1.00\n' });
+    assert.deepEqual(r.data.items.map((x) => [x.name, x.price, x.id === taco.id]), [['Taco', 900, true], ['Soda', 250, false], ['Taco', 100, false]]);
+  } finally { s.stop(); }
+});
+
 test('product codes from item lists and pastes: only a code column is read, a 0 a spreadsheet dropped goes back, hidden characters go', async () => {
   const core = await import('../shared/core.js');
   const codesIn = (csv) => parseMenuCsv(csv).items.map((x) => x.code);

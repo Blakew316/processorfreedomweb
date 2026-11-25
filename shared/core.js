@@ -660,7 +660,8 @@ Desserts,Churros,5.50,"Cinnamon sugar, chocolate sauce",12,
 /** Turns an uploaded item list into menu items. Only a name and a price are required on each row. */
 export function parseMenuCsv(text) {
   const rows = parseCsv(text);
-  const out = { items: [], errors: [], rows: 0 };
+  // `columns` names what the file has a column for (name, price, stock, ...), so replacing a menu can leave alone what it has none for.
+  const out = { items: [], errors: [], rows: 0, columns: [] };
   if (!rows.length) { out.errors.push({ row: 0, reason: 'The file is empty.' }); return out; }
   let map = {};
   const head = rows[0];
@@ -680,6 +681,7 @@ export function parseMenuCsv(text) {
     body = firstIsHeader ? rows.slice(1) : rows; offset = firstIsHeader ? 2 : 1;
   }
   const get = (r, k) => (map[k] === undefined ? '' : str(r[map[k]], 2000).trim());
+  out.columns = Object.keys(map).filter((k) => map[k] !== undefined);
   let category = '';
   // The product codes taken so far, so two rows never give one barcode to two items: the first row keeps it.
   const codes = new Map();
