@@ -288,7 +288,9 @@ final class AppModel {
             openNotification(path: path)
         }
         await sendPushAddress()
-        maybeAskForPush()
+        // Only while this dashboard is still the one showing: the app may have locked or gone back to Log in while the address
+        // was on its way (the server may just have said it no longer knows this phone).
+        if phase == .ready, site?.id == business.id { maybeAskForPush() }
     }
 
     // MARK: Server data
