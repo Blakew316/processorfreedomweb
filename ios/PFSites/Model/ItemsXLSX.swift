@@ -13,7 +13,8 @@ enum ItemsXLSX {
         data.starts(with: [0x50, 0x4B, 0x03, 0x04])
     }
 
-    /// The older Excel format (.xls) starts with these bytes. It is not a zip and is not read here.
+    /// The older Excel format (.xls) starts with these bytes, and so does a workbook saved with a password, whatever its name
+    /// ends in (Excel wraps the encrypted file in the old container). Neither is a zip, and neither is read here.
     static func looksLikeOldExcel(_ data: Data) -> Bool {
         data.starts(with: [0xD0, 0xCF, 0x11, 0xE0])
     }
@@ -23,9 +24,10 @@ enum ItemsXLSX {
     static func csv(from data: Data) -> String? {
         guard let zip = Zip(data) else { return nil }
         let shared = zip.file("xl/sharedStrings.xml").map(sharedStrings) ?? []
+        let places = zip.file("xl/styles.xml").map(decimalPlaces) ?? []
         for path in sheetPaths(in: zip) {
             guard let xml = zip.file(path) else { continue }
-            let rows = sheetRows(xml, shared: shared)
+            let rows = sheetRows(xml, shared: shared, places: places)
             guard rows.contains(where: { row in row.contains { !$0.isEmpty } }) else { continue }
             return text(rows)
         }
@@ -85,21 +87,88 @@ enum ItemsXLSX {
         return reader.strings
     }
 
-    private static func sheetRows(_ xml: Data, shared: [String]) -> [[String]] {
-        let reader = SheetRows(shared: shared)
+    private static func sheetRows(_ xml: Data, shared: [String], places: [Int?]) -> [[String]] {
+        let reader = SheetRows(shared: shared, places: places)
         let parser = XMLParser(data: xml)
         parser.delegate = reader
         parser.parse()
         return reader.rows
     }
 
-    /// A number as a spreadsheet shows it by default: whole numbers with no decimal point (a barcode stays its digits), others to
-    /// 15 significant digits (9.9900000000000002, as the file can store 9.99, reads 9.99).
-    static func number(_ raw: String) -> String {
+    /// A number as the spreadsheet shows it. With no format of its own: whole numbers with no decimal point (a barcode stays
+    /// its digits), others to 15 significant digits (9.9900000000000002, as the file can store 9.99, reads 9.99). In a cell
+    /// formatted to a number of decimal places (a price shown as $3.24 whose formula left 3.237 in the file), rounded to those
+    /// places the way Excel rounds, so the price read is the price seen.
+    static func number(_ raw: String, places: Int? = nil) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let value = Double(trimmed), value.isFinite else { return trimmed }
+        if let places, abs(value) < 1e15 {
+            // Rounded as written in decimal (2.675 is 2.68, as on the sheet), not as stored in binary (2.67499...).
+            let exact = NSDecimalNumber(string: String(format: "%.15g", value), locale: Locale(identifier: "en_US_POSIX"))
+            guard exact != NSDecimalNumber.notANumber else { return trimmed }
+            let rule = NSDecimalNumberHandler(roundingMode: .plain, scale: Int16(places), raiseOnExactness: false, raiseOnOverflow: false, raiseOnUnderflow: false, raiseOnDivideByZero: false)
+            var text = exact.rounding(accordingToBehavior: rule).description(withLocale: Locale(identifier: "en_US_POSIX"))
+            if places > 0 {
+                // Always the full number of places ("3.2" is "3.20"), as the sheet shows it.
+                let have = text.firstIndex(of: ".").map { text.distance(from: $0, to: text.endIndex) - 1 } ?? -1
+                if have < 0 { text += "." }
+                if have < places { text += String(repeating: "0", count: places - max(have, 0)) }
+            }
+            return text
+        }
         if value == value.rounded(), abs(value) < 1e15 { return String(Int64(value)) }
         return String(format: "%.15g", value)
+    }
+
+    // MARK: Number formats
+
+    /// For each cell style of the workbook, in order: how many decimal places its number format shows, or nil when it has no
+    /// fixed number of places (General, dates, percentages, text), in which case the number is read as it is stored.
+    private static func decimalPlaces(_ xml: Data) -> [Int?] {
+        let reader = Styles()
+        let parser = XMLParser(data: xml)
+        parser.delegate = reader
+        parser.parse()
+        return reader.formats.map { id in
+            if let code = reader.custom[id] { return places(inFormat: code) }
+            return builtInPlaces[id]
+        }
+    }
+
+    /// Excel's built-in number formats that show a fixed number of decimal places (0.00, #,##0.00, the currency and accounting
+    /// ones). The others are General, dates, times, percentages, fractions and scientific notation.
+    private static let builtInPlaces: [Int: Int] = [1: 0, 2: 2, 3: 0, 4: 2, 5: 0, 6: 0, 7: 2, 8: 2, 37: 0, 38: 0, 39: 2, 40: 2, 41: 0, 42: 0, 43: 2, 44: 2]
+
+    /// The decimal places a custom format shows for a positive number ("$"#,##0.00 is 2, #,##0 is 0), or nil for a format that
+    /// is not a plain number: General, a date or time, a percentage, a fraction, scientific notation, text.
+    static func places(inFormat format: String) -> Int? {
+        // The first of the format's sections (positive numbers), without quoted words, escaped characters and [bracketed] parts.
+        var code = ""
+        var quoted = false
+        var bracket = false
+        var skip = false
+        for character in format {
+            if skip { skip = false; continue }
+            if quoted { if character == "\"" { quoted = false }; continue }
+            if bracket { if character == "]" { bracket = false }; continue }
+            switch character {
+            case "\"": quoted = true
+            case "[": bracket = true
+            case "\\", "_", "*": skip = true
+            case ";": return places(inPlainCode: code)
+            default: code.append(character)
+            }
+        }
+        return places(inPlainCode: code)
+    }
+
+    private static func places(inPlainCode code: String) -> Int? {
+        let lower = code.lowercased()
+        if lower.contains("general") || lower.contains("@") || lower.contains("%") || lower.contains("e+") || lower.contains("e-") || lower.contains("/") { return nil }
+        if lower.contains(where: { "ymdhs".contains($0) }) { return nil }
+        guard lower.contains(where: { $0 == "0" || $0 == "#" || $0 == "?" }) else { return nil }
+        guard let dot = lower.firstIndex(of: ".") else { return 0 }
+        return lower[lower.index(after: dot)...].prefix(while: { $0 == "0" || $0 == "#" || $0 == "?" }).count
     }
 
     /// "A" is column 0, "Z" 25, "AA" 26: the letters at the start of a cell's name ("BC12").
@@ -287,12 +356,15 @@ private final class SharedStrings: NSObject, XMLParserDelegate {
 /// and a column never slides left.
 private final class SheetRows: NSObject, XMLParserDelegate {
     private let shared: [String]
+    /// Decimal places by cell style (see `ItemsXLSX.decimalPlaces`).
+    private let places: [Int?]
     private(set) var rows: [[String]] = []
 
     private var row: [String] = []
     private var inRow = false
     private var cellColumn = 0
     private var cellType = ""
+    private var cellStyle: Int?
     private var value = ""
     private var inline = ""
     private var inValue = false
@@ -303,8 +375,9 @@ private final class SheetRows: NSObject, XMLParserDelegate {
     private static let mostColumns = 500
     private static let mostRows = 20_000
 
-    init(shared: [String]) {
+    init(shared: [String], places: [Int?]) {
         self.shared = shared
+        self.places = places
     }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String: String] = [:]) {
@@ -316,6 +389,7 @@ private final class SheetRows: NSObject, XMLParserDelegate {
             // Without a name the cell follows the one before it.
             cellColumn = attributeDict["r"].flatMap(ItemsXLSX.column(of:)) ?? row.count
             cellType = attributeDict["t"] ?? ""
+            cellStyle = attributeDict["s"].flatMap { Int($0) }
             value = ""
             inline = ""
         case "v":
@@ -370,7 +444,32 @@ private final class SheetRows: NSObject, XMLParserDelegate {
         case "b":
             return value.trimmingCharacters(in: .whitespacesAndNewlines) == "1" ? "TRUE" : "FALSE"
         default:
-            return ItemsXLSX.number(value)
+            let shown = cellStyle.flatMap { places.indices.contains($0) ? places[$0] : nil }
+            return ItemsXLSX.number(value, places: shown)
         }
+    }
+}
+
+/// The workbook's styles: the number format of each cell style (`cellXfs`, in order), and the custom formats by their number.
+private final class Styles: NSObject, XMLParserDelegate {
+    private(set) var formats: [Int] = []
+    private(set) var custom: [Int: String] = [:]
+    private var inCellStyles = false
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String: String] = [:]) {
+        switch ItemsXMLName.plain(elementName) {
+        case "numFmt":
+            if let id = attributeDict["numFmtId"].flatMap({ Int($0) }), let code = attributeDict["formatCode"] { custom[id] = code }
+        case "cellXfs":
+            inCellStyles = true
+        case "xf":
+            if inCellStyles { formats.append(attributeDict["numFmtId"].flatMap { Int($0) } ?? 0) }
+        default:
+            break
+        }
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        if ItemsXMLName.plain(elementName) == "cellXfs" { inCellStyles = false }
     }
 }

@@ -637,7 +637,8 @@ struct ItemsListPage: View {
             }
             text = sheet
         } else if ItemsXLSX.looksLikeOldExcel(data) {
-            say("That is an older Excel file (.xls). Save it as .xlsx or CSV and choose it again.", after: picked, wait: 0.6)
+            // An .xls file, or a workbook saved with a password (Excel keeps those in the old container too).
+            say("That is an older Excel file (.xls), or one protected with a password. Remove the password, or save it as .xlsx or CSV, and choose it again.", after: picked, wait: 0.6)
             return
         } else {
             text = ItemsCSV.text(from: data)
