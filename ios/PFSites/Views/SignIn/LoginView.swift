@@ -44,6 +44,7 @@ struct LoginView: View {
                             Text("Email")
                                 .pfFont(14.2)
                                 .padding(.top, 19)
+                                .accessibilityHidden(true)
                             SignInField(focused: focus == .email) {
                                 TextField("", text: $auth.email)
                                     .textContentType(.username)
@@ -60,6 +61,7 @@ struct LoginView: View {
                             Text("Password")
                                 .pfFont(14.2)
                                 .padding(.top, 19)
+                                .accessibilityHidden(true)
                             SignInField(focused: focus == .password) {
                                 HStack(spacing: 8) {
                                     Group {
@@ -101,7 +103,6 @@ struct LoginView: View {
                                     .foregroundStyle(Theme.error)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .padding(.top, 10)
-                                    .accessibilityAddTraits(.updatesFrequently)
                             }
 
                             Button {
@@ -196,6 +197,10 @@ struct LoginView: View {
                 break
             case .needsCode(let error):
                 auth.took(error)
+                // "Enter the code we texted you" is a plain 401. Anything else with the code step's flags is a refusal (the text
+                // could not be sent, or one was asked for too soon): the code step says so, where the ways to get a code are,
+                // instead of reading as if a code were on its way.
+                auth.codeProblem = error.status == 401 ? "" : error.message
                 // Only from this screen: if it was left with Back while the answer was on its way, the code step is not
                 // pushed onto Welcome.
                 if auth.path.last == .login { auth.path.append(.twoStep) }

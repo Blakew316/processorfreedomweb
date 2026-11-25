@@ -100,6 +100,11 @@ extension AppModel {
             } catch let error as APIError where error.sessionEnded {
                 sessionEndedBeforeReady()
                 return
+            } catch let error as APIError where (400..<500).contains(error.status) {
+                // The server answered, and said no (this sign-in may not open that business, or the business is gone). Asking
+                // again would be refused again, so Log in says why, instead of a Try again that can never work.
+                sessionEndedBeforeReady(error.message)
+                return
             } catch {
                 showLaunchError(error) { [weak self] in await self?.passcodeStep(for: business) }
                 return
@@ -179,7 +184,7 @@ extension AppModel {
         sites = []
         site = nil
         sessionLimited = false
-        pushSent = false
+        stopPushOnThisPhone()
         setOrdersBadge(0)
         goWelcome(atLogin: true, message: message)
         endSessionInBackground()
@@ -357,7 +362,17 @@ extension AppModel {
         Task {
             let me = try? await API.get("/api/me")
             checkingSession = false
-            guard let me, !me["user"].isObject else { return }
+            guard let me else { return }
+            if me["user"].isObject {
+                // Still signed in. A page that was sent to the website's log in page all the same only lacked the web views' own
+                // copy of the session cookie (it can arrive late, see `syncCookiesToWeb`): the cookie is handed over again and
+                // that page loads once more.
+                if WebStore.shared.hasPagesSentToLogin {
+                    await syncCookiesToWeb()
+                    WebStore.shared.retryPagesSentToLogin()
+                }
+                return
+            }
             if phase == .ready { lock() } else if phase == .creatingBusiness { sessionEndedBeforeReady() }
         }
     }
@@ -398,7 +413,7 @@ extension AppModel {
         sites = []
         site = nil
         sessionLimited = false
-        pushSent = false
+        stopPushOnThisPhone()
         setOrdersBadge(0)
         Keychain.forgetDevice()
         setFaceIDFlag(false)
@@ -426,14 +441,22 @@ extension AppModel {
         setPhase(.welcome)
     }
 
-    /// Closes the dashboard and its pages (signing out, someone else signing in).
+    /// Closes the dashboard and its pages (signing out, someone else signing in), and everything that was open over it.
     func closeShell() {
         idle.stop()
         stopPolling()
+        // Whatever is still presented goes at once, without a slide: a share sheet holding an exported file, a Safari page, the
+        // website preview, an alert, the scanner, a full-screen page. The lock screen only covers these, so without this they
+        // would still be there, over Log in, for whoever uses the phone next.
+        BarcodeScan.finish(nil)
+        OverlayWindows.shared.mainWindow?.rootViewController?.dismiss(animated: false)
         WebStore.shared.closeAll()
+        // Files made to be shared (reports, item lists, recovery codes) do not outlast the person who made them.
+        DownloadCenter.clearOldFiles()
         shellAlive = false
         shell = Shell()
         shellID = UUID()
+        if notesDot { notesDot = false }
     }
 
     // MARK: Changing business (D5 / E11 from the dashboard)
@@ -476,23 +499,45 @@ extension AppModel {
         (HTTPCookieStorage.shared.cookies(for: Config.baseURL) ?? []).contains { $0.name == "pf_session" }
     }
 
-    /// Copies the session cookie from the app's requests into the web views' cookie store, and waits until it is there,
-    /// before any page loads or reloads.
+    /// Copies the session cookie from the app's requests into the web views' cookie store, before any page loads or reloads.
+    /// WebKit's answer is waited for, but never for long (`webKitAnswer`). With no page open, iOS puts WebKit's network process to
+    /// sleep, and then the answer only comes when the next page wakes it: 35 seconds later in one test run, when the first page
+    /// opened. The dashboard is what opens that page, so waiting for the answer before showing the dashboard waited for ever (the
+    /// loading screen never went away after signing in, 3 times in 8). The cookie is handed over before the wait starts, so it is
+    /// in WebKit's queue ahead of anything a page asks for later.
     func syncCookiesToWeb() async {
+        let cookies = HTTPCookieStorage.shared.cookies(for: Config.baseURL) ?? []
+        guard !cookies.isEmpty else { return }
         let store = WKWebsiteDataStore.default().httpCookieStore
-        for cookie in HTTPCookieStorage.shared.cookies(for: Config.baseURL) ?? [] {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                store.setCookie(cookie) { continuation.resume() }
+        await Self.webKitAnswer { done in
+            let all = DispatchGroup()
+            for cookie in cookies {
+                all.enter()
+                store.setCookie(cookie) { all.leave() }
             }
+            all.notify(queue: .main) { done() }
         }
     }
 
+    /// Clears the session's cookies: from the app's own requests at once, and from the web views, whose answer is waited for no
+    /// longer than in `syncCookiesToWeb` and for the same reason (the next log in or unlock waits for this to finish).
     func clearCookies() async {
         let storage = HTTPCookieStorage.shared
         for cookie in storage.cookies(for: Config.baseURL) ?? [] { storage.deleteCookie(cookie) }
         let types: Set<String> = [WKWebsiteDataTypeCookies]
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: Date.distantPast) { continuation.resume() }
+        await Self.webKitAnswer { done in
+            WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: Date.distantPast) { done() }
+        }
+    }
+
+    /// Starts `work` and comes back when it calls `done`, or after `seconds` when WebKit has not answered by then (it usually
+    /// answers within half a second). The work itself is not cancelled: only the waiting ends. True when WebKit answered in time.
+    @discardableResult
+    static func webKitAnswer(within seconds: TimeInterval = 1, _ work: (@escaping @Sendable () -> Void) -> Void) async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let first = FirstCaller()
+            work { DispatchQueue.main.async { if first.take() { continuation.resume(returning: true) } } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { if first.take() { continuation.resume(returning: false) } }
         }
     }
 
@@ -509,5 +554,17 @@ extension AppModel {
     func endServerSession() async {
         _ = try? await API.post("/api/auth/logout")
         await clearCookies()
+    }
+}
+
+/// Lets the first caller through and nobody after it, so a wait that can end two ways (an answer, or time running out) ends once.
+/// Only ever used on the main queue.
+final class FirstCaller: @unchecked Sendable {
+    private var open = true
+
+    func take() -> Bool {
+        guard open else { return false }
+        open = false
+        return true
     }
 }

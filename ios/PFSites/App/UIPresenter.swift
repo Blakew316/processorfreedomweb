@@ -32,9 +32,15 @@ enum UIPresenter {
         present(controller)
     }
 
-    /// Save to Files, AirDrop, Mail and the rest, for a downloaded file.
+    /// Save to Files, AirDrop, Mail and the rest, for a downloaded or exported file. The copy made for the sheet is removed once
+    /// the sheet has closed, however it closed, so a report or a set of recovery codes is not left on the phone. Only Copy keeps
+    /// it, as what was copied may still point at the file (it goes with the rest when the dashboard closes).
     static func share(_ file: URL) {
-        present(UIActivityViewController(activityItems: [file], applicationActivities: nil))
+        let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+        sheet.completionWithItemsHandler = { activity, _, _, _ in
+            if activity != .copyToPasteboard { DownloadCenter.remove(file) }
+        }
+        present(sheet)
     }
 
     /// Our own pages that need the signed-in session (the website preview) open in an in-app browser that shares it.

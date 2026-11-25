@@ -23,6 +23,9 @@ final class AuthFlow {
     var note = ""
     /// After signing in, the person makes a new passcode instead of typing the old one.
     var forgotPasscode = false
+    /// Why the code step starts without a code on its way (the text message could not be sent, or another one was asked for too
+    /// soon): the server's words, handed from Log in to the code step, which shows them under its boxes.
+    var codeProblem = ""
 
     func reset(email: String) {
         path = []
@@ -35,6 +38,7 @@ final class AuthFlow {
         error = ""
         note = ""
         forgotPasscode = false
+        codeProblem = ""
     }
 
     /// Takes in what the server said about the second step: which ways are on, the end of the phone number, whether it just texted.

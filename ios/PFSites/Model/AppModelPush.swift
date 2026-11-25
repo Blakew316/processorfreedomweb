@@ -113,6 +113,27 @@ extension AppModel {
         tokenSent = await uploadToken(token)
     }
 
+    /// As the dashboard opens: this phone's address for notifications goes to the server again (it is tied to the phone's key,
+    /// which every sign-in replaces). After Log out iOS was told to stop, so there is no address yet: iOS is asked for one, and
+    /// it is sent when it arrives (`pushTokenArrived`).
+    func sendPushAddress() async {
+        if pushToken == nil {
+            await refreshPushRegistration()
+        } else {
+            await uploadPushTokenIfWanted()
+        }
+    }
+
+    /// Log out, or the server forgot this phone: notifications stop here whatever the server knows. The server drops the
+    /// phone's address when it is told, but a phone logged out with no connection cannot tell it, and must not go on showing
+    /// new orders to whoever holds it. So iOS itself is told to stop; the next sign-in asks for the address again.
+    func stopPushOnThisPhone() {
+        UIApplication.shared.unregisterForRemoteNotifications()
+        pushToken = nil
+        tokenSent = nil
+        pushSent = false
+    }
+
     /// The answer to the website's "Notifications on this device" switch (pfAsk pushState / pushEnable / pushDisable).
     func pushStateReply() async -> [String: Any] {
         await refreshPushStatus()

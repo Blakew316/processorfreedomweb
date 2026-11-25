@@ -100,9 +100,8 @@ struct PasscodeView: View {
                 .accessibilityValue("\(code.count) of 4 digits entered")
         }
         .contentShape(Rectangle())
-        .onTapGesture { if !finished { focused = true } }
+        .onTapGesture { if !finished && !faceIDRunning { focused = true } }
         .onAppear { faceIDWanted = model.faceIDOn }
-        // Ends with the screen, so a Face ID attempt still waiting for the app to come to the front never outlives it.
         .task { await appeared() }
         .onChange(of: code) { _, newValue in typed(newValue) }
     }
@@ -133,6 +132,7 @@ struct PasscodeView: View {
                     HStack(spacing: 6.3) {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                             .font(.system(size: 17))
+                            .accessibilityHidden(true)
                         Text("Log out")
                             .pfFont(18.4, .semibold)
                     }
@@ -202,7 +202,6 @@ struct PasscodeView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.vertical, 6)
-                .accessibilityAddTraits(.updatesFrequently)
         } else {
             Color.clear.frame(height: 0)
         }
@@ -225,6 +224,7 @@ struct PasscodeView: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.white)
+                            .accessibilityHidden(true)
                     }
                 }
                 .frame(width: 20, height: 20)
@@ -302,7 +302,7 @@ struct PasscodeView: View {
     private func focusSoon() {
         Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
-            if !finished { focused = true }
+            if !finished && !faceIDRunning { focused = true }
         }
     }
 
@@ -312,7 +312,7 @@ struct PasscodeView: View {
             code = digits
             return
         }
-        guard !busy, !finished else { return }
+        guard !busy, !finished, !faceIDRunning else { return }
         if digits.count == 1 && !problem.isEmpty { problem = "" }
         if digits.count == 4 {
             Task { await submit(digits) }
@@ -425,10 +425,10 @@ struct PasscodeView: View {
         }
     }
 
-    /// A passcode is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot passcode?,
-    /// the X) wait for the answer, so it never lands after the person has gone somewhere else. It is never long: the request
-    /// gives up by itself.
-    private var working: Bool { busy || finished }
+    /// A passcode or Face ID is with the server, or was just accepted: the ways off this screen (Log out, Switch User, Forgot
+    /// passcode?, the X) and the number pad wait for the answer, so it never lands after the person has gone somewhere else and
+    /// a second unlock is never sent beside it. It is never long: the request gives up by itself.
+    private var working: Bool { busy || finished || faceIDRunning }
 
     private func forgot() {
         guard !working else { return }
@@ -471,6 +471,6 @@ struct PasscodeCloseButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Cancel")
+        .accessibilityLabel("Close")
     }
 }

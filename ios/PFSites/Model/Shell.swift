@@ -80,23 +80,21 @@ final class Shell {
     /// The Orders tab's list, kept here so an order opened from it is a page of the tab's stack (a notification pops back to the list).
     let orderList = OrdersModel()
 
-    func popToRoot(_ which: MainTab) {
-        switch which {
-        case .home: home = []
-        case .sale: sale = []
-        case .orders: orders = []
-        case .more: more = []
-        }
-    }
+    /// The last screen pushed and when, to tell a second tap from a later request for the same screen.
+    @ObservationIgnored private var lastPush: (route: Route, tab: MainTab, at: Date)?
 
     /// Pushes a screen onto the current tab. A second tap that lands before the first push has moved the screen does not open
-    /// the same screen twice.
+    /// the same screen twice. Only that: the same screen asked for again later (a notification for the page already showing,
+    /// whose own page strip may have moved on) is a request of its own and opens.
     func push(_ route: Route) {
+        let now = Date()
+        if let last = lastPush, last.route == route, last.tab == tab, now.timeIntervalSince(last.at) < 0.7 { return }
+        lastPush = (route, tab, now)
         switch tab {
-        case .home: if home.last != route { home.append(route) }
-        case .sale: if sale.last != route { sale.append(route) }
-        case .orders: if orders.last != route { orders.append(route) }
-        case .more: if more.last != route { more.append(route) }
+        case .home: home.append(route)
+        case .sale: sale.append(route)
+        case .orders: orders.append(route)
+        case .more: more.append(route)
         }
     }
 

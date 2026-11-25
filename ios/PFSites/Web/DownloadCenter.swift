@@ -3,26 +3,40 @@ import UIKit
 import WebKit
 
 /// Saves files the website downloads (CSV and spreadsheet exports, recovery codes, attachments) to a temporary folder,
-/// then offers the share sheet so they can go to Files, AirDrop, Mail and the rest.
+/// then offers the share sheet so they can go to Files, AirDrop, Mail and the rest. Nothing is kept longer than it is needed:
+/// a file goes when its share sheet closes, and the whole folder goes when the dashboard closes (Log out, Switch User) and at
+/// the next launch.
 @MainActor
 final class DownloadCenter: NSObject, WKDownloadDelegate {
     static let shared = DownloadCenter()
 
     private var files: [ObjectIdentifier: URL] = [:]
 
-    private static var folder: URL { FileManager.default.temporaryDirectory.appendingPathComponent("Downloads", isDirectory: true) }
+    private nonisolated static var folder: URL { FileManager.default.temporaryDirectory.appendingPathComponent("Downloads", isDirectory: true) }
 
-    /// Files from an earlier run are no longer needed.
-    static func clearOldFiles() {
+    /// Files from an earlier run, or from whoever used the app before, are no longer needed.
+    nonisolated static func clearOldFiles() {
         try? FileManager.default.removeItem(at: folder)
+    }
+
+    /// A new folder of its own for one file, so the file keeps its name and never overwrites another (the app's own exports use
+    /// it too, so they are cleared with the downloads).
+    nonisolated static func newFolder() throws -> URL {
+        let place = folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: place, withIntermediateDirectories: true)
+        return place
+    }
+
+    /// Removes a file that was made to be shared, with the folder made for it. A file anywhere else is left alone.
+    nonisolated static func remove(_ file: URL) {
+        let own = file.deletingLastPathComponent().standardizedFileURL
+        guard own.deletingLastPathComponent().path == folder.standardizedFileURL.path else { return }
+        try? FileManager.default.removeItem(at: own)
     }
 
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping @MainActor @Sendable (URL?) -> Void) {
         // Each download gets its own folder, so the file keeps the website's name and never overwrites another.
-        let place = Self.folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: place, withIntermediateDirectories: true)
-        } catch {
+        guard let place = try? Self.newFolder() else {
             completionHandler(nil)
             return
         }
@@ -37,9 +51,7 @@ final class DownloadCenter: NSObject, WKDownloadDelegate {
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        if let file = files.removeValue(forKey: ObjectIdentifier(download)) {
-            try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
-        }
+        if let file = files.removeValue(forKey: ObjectIdentifier(download)) { Self.remove(file) }
         UIPresenter.alert(title: "Download failed", message: "The file could not be saved. Please try again.")
     }
 

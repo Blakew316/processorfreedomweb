@@ -113,6 +113,7 @@ extension OfficePage: WKNavigationDelegate, WKUIDelegate {
             }
         case .signedOut:
             decisionHandler(.cancel)
+            sentToLogin()
             AppModel.shared.sessionEnded()
         case .outside:
             decisionHandler(.cancel)

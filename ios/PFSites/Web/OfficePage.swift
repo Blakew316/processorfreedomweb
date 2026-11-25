@@ -84,6 +84,9 @@ final class OfficePage: NSObject {
     @ObservationIgnored private var reportedSite = ""
     /// Blank windows the page opened (window.open with no address yet), kept until we see where they go.
     @ObservationIgnored var catchers: [PopupCatcher] = []
+    /// How many times in a row this page was sent to the website's log in page. When the session turns out to be fine, the page
+    /// is loaded again with the cookie handed over afresh, but not for ever: after two tries it is left alone.
+    @ObservationIgnored private(set) var loginBounces = 0
 
     init(siteID: String, path: String, kind: Kind = .office, script: String? = nil) {
         self.siteID = siteID
@@ -166,7 +169,7 @@ final class OfficePage: NSObject {
         webView.reload()
     }
 
-    /// Try again after a failure: the last page that loaded, or the page this one started on.
+    /// Try again after a failure: the page that was last showing, or the page this one started on.
     func retry() {
         retryTask?.cancel()
         load(url: lastGoodURL ?? Config.url(startPath))
@@ -174,6 +177,17 @@ final class OfficePage: NSObject {
 
     func networkCameBack() {
         if failure == .offline || failure == .unreachable { retry() }
+    }
+
+    /// The page tried to go to the website's log in page (the app has its own, so that page is never shown).
+    func sentToLogin() {
+        loginBounces += 1
+    }
+
+    /// The session is fine after all (see `AppModel.sessionEnded`): the page that was turned away loads again.
+    func retryAfterLoginBounce() {
+        guard loginBounces > 0, loginBounces <= 2, !closed else { return }
+        retry()
     }
 
     // MARK: Moving around the page (the page strip, the back button)
@@ -376,6 +390,10 @@ final class OfficePage: NSObject {
         loading = false
         failure = nil
         lastLoaded = Date()
+        loginBounces = 0
+        // The website moves between its pages without loading anew, so where it is now is noted each time it reports in: Try
+        // again, and the reload after iOS took the page's memory back, return to this page and not to the first one opened.
+        noteLoaded(webView.url)
         retryTask?.cancel()
         fadeOverlay()
         endRefreshing()

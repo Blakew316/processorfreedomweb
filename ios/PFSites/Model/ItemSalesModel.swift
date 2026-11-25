@@ -199,8 +199,8 @@ enum ItemSalesFormat {
 }
 
 /// CSV files the way the website writes them (saveSheetFile in public/js/ui.js): a byte-order mark, every cell in quotes, lines
-/// ending CR LF. Each goes in its own folder in the same temporary Downloads folder as the app's other downloads, which the app
-/// clears on its next launch, so the file keeps its name and never overwrites another.
+/// ending CR LF. Each goes in its own folder in the same temporary Downloads folder as the app's other downloads (removed when its
+/// share sheet closes, and with the rest when the dashboard closes), so the file keeps its name and never overwrites another.
 enum ItemSalesFile {
     static func csv(_ rows: [[String]]) -> String {
         "\u{FEFF}" + rows.map { row in
@@ -209,10 +209,7 @@ enum ItemSalesFile {
     }
 
     static func write(name: String, rows: [[String]]) throws -> URL {
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Downloads", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try DownloadCenter.newFolder()
         let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-").trimmed
         let file = folder.appendingPathComponent(String((cleaned.isEmpty ? "report" : cleaned).prefix(116)) + ".csv")
         try Data(csv(rows).utf8).write(to: file, options: .atomic)

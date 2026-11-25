@@ -38,6 +38,10 @@ final class WebStore {
     func closeAll() { live.forEach { $0.close() } }
     func networkCameBack() { live.forEach { $0.networkCameBack() } }
     func refreshVisibleIfStale() { live.filter { $0.isOnScreen }.forEach { $0.refreshIfStale() } }
+
+    /// Pages that were turned away to the website's log in page and have not loaded since.
+    var hasPagesSentToLogin: Bool { live.contains { $0.loginBounces > 0 } }
+    func retryPagesSentToLogin() { live.forEach { $0.retryAfterLoginBounce() } }
 }
 
 /// Hands messages from a page to its OfficePage. The web view's content controller holds this proxy strongly and the proxy holds

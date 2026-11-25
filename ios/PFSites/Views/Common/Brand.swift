@@ -118,11 +118,13 @@ struct AuthFooter: View {
 }
 
 /// A blue underlined link-style button (Apply now, Forgot passcode?, Switch User, Resend verification code). The words keep
-/// their own size in the layout; the tap area reaches 12 pt further up and down, so a line of words is a finger-sized target.
+/// their own size in the layout; the tap area reaches 12 pt further up and down, so a line of words is a finger-sized target
+/// (`reach`: less where links are stacked closer than that, so their tap areas do not overlap).
 struct LinkButton: View {
     let title: String
     var size: CGFloat = 18
     var underline = true
+    var reach: CGFloat = 12
     let action: () -> Void
 
     var body: some View {
@@ -132,10 +134,10 @@ struct LinkButton: View {
                 .pfFont(size)
                 .foregroundStyle(Theme.blue)
                 .multilineTextAlignment(.leading)
-                .padding(.vertical, 12)
+                .padding(.vertical, reach)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.vertical, -12)
+        .padding(.vertical, -reach)
     }
 }

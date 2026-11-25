@@ -35,7 +35,7 @@ enum PasscodeResult {
     case failed(String)
 }
 
-/// How the automatic Face ID attempt on the lock screen ended.
+/// How a Face ID attempt on the lock screen ended.
 enum FaceIDAttempt {
     case unlocked                  // the server opened a session
     case stay                      // cancelled (by the person, the system or the app): the lock screen stays as it is
@@ -105,10 +105,9 @@ final class AppModel {
     @ObservationIgnored private var iconBadge = -1
     /// What Try again on the loading screen runs: the step after signing in or unlocking that could not reach the server.
     @ObservationIgnored private var retryStep: (() async -> Void)?
-    /// Counts the times the lock screen has gone up. Face ID is offered by itself once for each (showing Face ID makes the app
-    /// inactive for a moment, so offering it again on every return to the app would go round in a loop).
-    @ObservationIgnored private(set) var lockEvent = 0
-    @ObservationIgnored private var faceIDAskedFor = -1
+    /// Whether the server's flags (`config`) have been read in this run. They are asked for at sign-in and at unlock; when that
+    /// one request fails they are asked for again with the next refresh, instead of staying at their defaults until the next lock.
+    @ObservationIgnored private var configLoaded = false
 
     /// The server's words when a session opened with a team passcode tries another business.
     static let elsewhere = "Sign in with your email and password to open this business."
@@ -124,13 +123,6 @@ final class AppModel {
 
     /// Whether the location list has anything to offer: another business, or (after a team passcode) signing in to see them all.
     var canChangeLocation: Bool { sites.count > 1 || sessionLimited }
-
-    /// True the first time it is asked during this lock, so the lock screen starts Face ID by itself only once.
-    func takeFaceIDTurn() -> Bool {
-        guard faceIDAskedFor != lockEvent else { return false }
-        faceIDAskedFor = lockEvent
-        return true
-    }
 
     /// Face ID can be turned off for the app, set up or removed in Settings while the app is away.
     func refreshBiometry() {
@@ -157,7 +149,6 @@ final class AppModel {
         if phase == .welcome, next != .welcome, !auth.password.isEmpty { auth.password = "" }
         phase = next
         if isLocked && !wasLocked {
-            lockEvent += 1
             OverlayWindows.shared.showLock(fadeIn: coldStart)
         } else if !isLocked && wasLocked {
             OverlayWindows.shared.hideLock(grow: next == .ready)
@@ -277,6 +268,8 @@ final class AppModel {
             WebStore.shared.closeAll()
             shell = Shell()
             shellID = UUID()
+            // The bell's dot belongs to the business that was open; this one's own check sets it.
+            if notesDot { notesDot = false }
         }
         shellAlive = true
         setOrdersBadge(business.newOrders)
@@ -289,11 +282,12 @@ final class AppModel {
         } else {
             hideLoading()
         }
-        await uploadPushTokenIfWanted()
+        // A notification tapped while the app was locked opens its page now, before anything that waits on the server.
         if let path = pendingNotification {
             pendingNotification = nil
             openNotification(path: path)
         }
+        await sendPushAddress()
         maybeAskForPush()
     }
 
@@ -302,6 +296,7 @@ final class AppModel {
     func loadConfig() async {
         guard let answer = try? await API.get("/api/config") else { return }
         config = AppConfig(smsEnabled: answer["smsEnabled"].bool, appPush: answer["appPush"].bool)
+        configLoaded = true
     }
 
     /// The person's businesses, newest first. Falls back to the full list when the server has no light list yet.
@@ -340,6 +335,12 @@ final class AppModel {
     /// New orders for the tab badge and anything new behind the bell (also used by pull to refresh on Home).
     func refreshNow() async {
         guard phase == .ready, let business = site, !business.isKitchen else { return }
+        // The server's flags could not be read as the dashboard opened: once they can, notifications are offered as they
+        // would have been then.
+        if !configLoaded {
+            await loadConfig()
+            if configLoaded { maybeAskForPush() }
+        }
         do {
             let list = try await loadSites()
             // The business on screen now: an answer that comes back after a change of business must not set the old one's count.

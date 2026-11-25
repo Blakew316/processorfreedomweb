@@ -343,10 +343,11 @@ final class ItemsModel {
 
     // MARK: Export and print
 
-    /// The website's "Download item list" file, written where the share sheet can hand it on.
+    /// The website's "Download item list" file, written where the share sheet can hand it on: a folder of its own with the app's
+    /// other downloads, so it is removed when the sheet closes instead of staying in the temporary folder.
     func exportFile() throws -> URL {
         let name = settings.slug.isEmpty ? "items" : "\(settings.slug)-items"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(name).csv")
+        let url = try DownloadCenter.newFolder().appendingPathComponent("\(name).csv")
         try ItemsCSV.export(items).write(to: url, atomically: true, encoding: .utf8)
         return url
     }
@@ -834,15 +835,17 @@ enum ItemPhoto {
             result = try await URLSession.shared.upload(for: request, from: data)
         } catch {
             if Task.isCancelled || (error as? URLError)?.code == .cancelled { throw CancellationError() }
-            let offline: Set<URLError.Code> = [.notConnectedToInternet, .networkConnectionLost, .dataNotAllowed, .internationalRoamingOff, .cannotLoadFromNetwork]
+            // "You're offline" only when the phone has no connection, as for every other request (API.words).
+            let offline: Set<URLError.Code> = [.notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff]
             let code = (error as? URLError)?.code
             throw APIError(status: 0, message: code.map { offline.contains($0) } == true ? APIError.offlineMessage : APIError.unreachableMessage)
         }
         let status = (result.1 as? HTTPURLResponse)?.statusCode ?? 0
         let json = JSON(data: result.0)
         if (200..<300).contains(status), !json["url"].string.isEmpty { return json["url"].string }
-        if status == 502 || status == 503 || status == 504 { throw APIError(status: status, message: APIError.restartingMessage) }
         let text = json["error"].string
+        // Only a gateway's answer means the service is restarting; the service's own words ("Uploads are not available.") are shown.
+        if text.isEmpty, status == 502 || status == 503 || status == 504 { throw APIError(status: status, message: APIError.restartingMessage) }
         throw APIError(status: status, message: text.isEmpty ? "Something went wrong. Please try again." : text, data: json)
     }
 }

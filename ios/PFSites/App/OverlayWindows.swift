@@ -33,6 +33,9 @@ final class OverlayWindows {
         window.rootViewController = host
         window.makeKeyAndVisible()
         lockWindow = window
+        // The lock screen covers the app's own window for the eye but not for VoiceOver, which reads every window: nothing in the
+        // app's window (the dashboard, and any sheet or full-screen page open over it) can be reached while it is locked.
+        mainWindow?.accessibilityElementsHidden = true
         if fadeIn {
             host.view.alpha = 0
             UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) { host.view.alpha = 1 }
@@ -46,6 +49,7 @@ final class OverlayWindows {
         lockWindow = nil
         // The app's own window takes typing and touches again at once, while the lock screen is still fading.
         window.isUserInteractionEnabled = false
+        mainWindow?.accessibilityElementsHidden = false
         mainWindow?.makeKey()
         guard let view = window.rootViewController?.view else {
             close(window)
@@ -114,8 +118,11 @@ final class OverlayWindows {
             host.view.alpha = 1
             host.view.transform = .identity
         }
-        // VoiceOver says it too: the banner is in a window of its own, so it might not be come across in time otherwise.
-        UIAccessibility.post(notification: .announcement, argument: "For your security, you'll be logged out in one minute.")
+        // VoiceOver says it too: the banner is in a window of its own, so it might not be come across in time otherwise. The
+        // banner can come up with less than the minute left (the app was away for part of it), and then that is what is said.
+        let left = AppModel.shared.idle.secondsLeft
+        let when = left >= 55 ? "in one minute" : "in \(left) second\(left == 1 ? "" : "s")"
+        UIAccessibility.post(notification: .announcement, argument: "For your security, you'll be logged out \(when).")
     }
 
     func hideIdleWarning() {
