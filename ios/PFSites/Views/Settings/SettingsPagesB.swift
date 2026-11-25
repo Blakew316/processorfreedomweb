@@ -586,7 +586,7 @@ struct TxSaveButton: View {
                 Text(title)
             }
         }
-        .buttonStyle(SolidButtonStyle(fill: enabled || busy ? Theme.blue : Color(.systemGray3), text: .white, radius: 6, height: 44, size: size))
+        .buttonStyle(SolidButtonStyle(fill: enabled || busy ? Theme.blue : Color(.systemGray3), text: enabled || busy ? .white : Theme.offLabel, radius: 6, height: 44, size: size))
         .disabled(!enabled || busy)
         .accessibilityLabel(title)
         .accessibilityValue(busy ? "Saving" : (enabled ? "" : "Nothing to save"))

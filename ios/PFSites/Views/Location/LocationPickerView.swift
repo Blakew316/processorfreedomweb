@@ -79,7 +79,7 @@ struct LocationPickerView: View {
                     Text(style == .signIn ? "Continue" : "Save")
                 }
             }
-            .buttonStyle(SolidButtonStyle(fill: canContinue ? Theme.blue : Color(.systemGray3), text: .white, radius: 4, height: 46, size: 18.5))
+            .buttonStyle(SolidButtonStyle(fill: canContinue ? Theme.blue : Color(.systemGray3), text: canContinue ? .white : Theme.offLabel, radius: 4, height: 46, size: 18.5))
             .animation(.snappy(duration: 0.2), value: canContinue)
             .disabled(!canContinue || busy)
             .padding(.horizontal, 16)

@@ -17,6 +17,13 @@ enum Theme {
     static let linkOnNavy = Color(uiColor: UIColor(hex: 0x9cc0ff))
     /// The fixed brand blue (the location flag's pennant).
     static let flagBlue = Color(uiColor: UIColor(hex: 0x1d4f9e))
+    /// The words of a solid button that cannot be pressed: white on the photos' light grey; dimmed in dark mode, where white
+    /// on the dark grey read as a button that works.
+    static let offLabel = Color(light: .white, dark: UIColor(white: 1, alpha: 0.35))
+    /// What is painted around and under a website page: the website's own ground (white; #121214 in dark mode, --ambient in
+    /// public/app.css), so no band of another black shows under the page or when it is pulled past its end.
+    static let webGroundUI = UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: 0x121214) : .white }
+    static let webGround = Color(uiColor: webGroundUI)
 }
 
 extension UIColor {

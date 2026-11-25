@@ -11,8 +11,8 @@ enum CloseoutLook {
     static let detail = Color(light: UIColor(hex: 0x727272), dark: .secondaryLabel)
     /// #F5F5F5: a batch row while it is pressed.
     static let pressed = Color(light: UIColor(hex: 0xF5F5F5), dark: .systemGray6)
-    /// #F9F9F9: the box behind "Show more...".
-    static let moreFill = Color(light: UIColor(hex: 0xF9F9F9), dark: .systemGray6)
+    /// #F9F9F9: the box behind "Show more...", barely off the page (in dark mode too: a grey box there read as a button).
+    static let moreFill = Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x0D0D0E))
     /// #FAE9AD with #0F0B00 words: the "Open" pill.
     static let openFill = Color(light: UIColor(hex: 0xFAE9AD), dark: UIColor(hex: 0xFAE9AD, alpha: 0.24))
     static let openText = Color(light: UIColor(hex: 0x0F0B00), dark: UIColor(hex: 0xFCEFC2))

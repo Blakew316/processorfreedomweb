@@ -18,8 +18,9 @@ enum SaleLook {
     static let disabled = Color(light: UIColor(hex: 0xC7C7C7), dark: .systemGray3)
     /// #78787D: the options button's dots.
     static let dots = Color(light: UIColor(hex: 0x78787D), dark: .systemGray)
-    /// #373737: the price while it is still $0.00.
-    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: .secondaryLabel)
+    /// #373737: the price while it is still $0.00 (nearly full strength, in dark mode too: the secondary grey made it look
+    /// greyed out there).
+    static let zeroAmount = Color(light: UIColor(hex: 0x373737), dark: UIColor(hex: 0xC8C8C8))
 }
 
 /// A 1 pt line across the screen.
@@ -404,7 +405,7 @@ private struct KeypadDoneStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .pfFont(14, .medium)
-            .foregroundStyle(.white)
+            .foregroundStyle(on ? Color.white : Theme.offLabel)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(on ? Theme.blue : SaleLook.disabled))
             .contentShape(RoundedRectangle(cornerRadius: 4, style: .continuous))

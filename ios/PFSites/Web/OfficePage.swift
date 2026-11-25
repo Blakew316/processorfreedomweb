@@ -107,8 +107,8 @@ final class OfficePage: NSObject {
         webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
         webView.isOpaque = false
-        webView.backgroundColor = .systemBackground
-        webView.scrollView.backgroundColor = .systemBackground
+        webView.backgroundColor = Theme.webGroundUI
+        webView.scrollView.backgroundColor = Theme.webGroundUI
         // The web view sits inside the safe area, below the bars, so nothing is hidden under them and nothing fogs over content.
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.topEdgeEffect.style = .hard

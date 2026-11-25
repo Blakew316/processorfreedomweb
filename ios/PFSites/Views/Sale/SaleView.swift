@@ -297,7 +297,7 @@ struct SaleView: View {
             HStack(spacing: 8) {
                 // 46 pt inside the 48 pt options box, as in the photo.
                 Button("Check out") { checkOut(order) }
-                    .buttonStyle(SolidButtonStyle(fill: order.payable ? Theme.blue : SaleLook.disabled, text: .white, radius: 4, height: 46, size: 18.5))
+                    .buttonStyle(SolidButtonStyle(fill: order.payable ? Theme.blue : SaleLook.disabled, text: order.payable ? .white : Theme.offLabel, radius: 4, height: 46, size: 18.5))
                     .disabled(!order.payable)
                 Menu {
                     Button("Clear order", role: .destructive) { order.clear() }

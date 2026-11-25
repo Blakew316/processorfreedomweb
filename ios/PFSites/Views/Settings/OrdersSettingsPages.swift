@@ -254,7 +254,8 @@ struct OrderTypesPage: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .padding(.vertical, 19)
-            .background(SettingsLook.page)
+            // A shade off the card, as in the photo; the page's own colour is black in dark mode, a hole in the card.
+            .background(Color(light: UIColor(hex: 0xF9F9F9), dark: UIColor(hex: 0x242426)))
             .padding(.bottom, -3)
         }
     }

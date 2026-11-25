@@ -25,7 +25,7 @@ final class WebHostView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .systemBackground
+        backgroundColor = Theme.webGroundUI
         clipsToBounds = true
     }
 
@@ -51,6 +51,8 @@ struct WebPageView: View {
     var body: some View {
         OfficeWebView(page: page)
             .ignoresSafeArea(.keyboard)
+            // The page's own ground runs on under it, down to the bottom of the screen (the web view stops at the safe area).
+            .background(Theme.webGround)
             .overlay {
                 if let failure = page.failure {
                     OfflineView(failure: failure) { page.retry() }
