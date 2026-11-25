@@ -3381,6 +3381,24 @@ test('product codes: kept as typed, matched the way a scanner reads them, never 
   } finally { s.stop(); }
 });
 
+test('scripts and styles carry a fingerprint, and one a browser already has is not sent again', async () => {
+  const anon = client();
+  const first = await anon('GET', '/shared/core.js');
+  const tag = first.headers.get('etag');
+  assert.equal(first.status, 200);
+  assert.match(tag, /^W\/"[\w-]{22}"$/);
+  assert.equal(first.headers.get('cache-control'), 'no-cache', 'still asked about on every load, so a new build is picked up at once');
+  assert.ok(first.data.length > 10000);
+  // The browser has it: a short yes, with nothing in it.
+  const again = await anon('GET', '/shared/core.js', null, { headers: { 'If-None-Match': tag } });
+  assert.deepEqual([again.status, again.data, again.headers.get('etag')], [304, '', tag]);
+  // It has an older copy, or several: the file is sent when none of them is this one, and not sent when one is.
+  assert.equal((await anon('GET', '/shared/core.js', null, { headers: { 'If-None-Match': 'W/"0000000000000000000000"' } })).status, 200);
+  assert.equal((await anon('GET', '/shared/core.js', null, { headers: { 'If-None-Match': `W/"0000000000000000000000", ${tag}` } })).status, 304);
+  // Each file has its own.
+  assert.notEqual((await anon('GET', '/assets/js/ui.js')).headers.get('etag'), tag);
+});
+
 test('a variable-price item that never had a price is not made a fixed one at $0.00, in one edit or many', async () => {
   const s = await appServer();
   try {

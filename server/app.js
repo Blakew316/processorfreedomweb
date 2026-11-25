@@ -3070,6 +3070,16 @@ export function createApp(options = {}) {
         send(res, 206, buf.subarray(start, end + 1), { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${buf.length}`, ...headers });
         return true;
       }
+      // A fingerprint of the file as it is now. A browser that already has the file (and every back-office page inside the iPhone
+      // app, which loads the scripts and styles afresh each time it opens) asks "still this one?" and gets a short yes instead of
+      // the whole file again. Files sent with no-cache are asked about on every load, so a new build is still picked up at once.
+      // (Not for very large files: they are asked for in pieces, above.)
+      if (buf.length <= 2_000_000) {
+        const tag = `W/"${createHash('sha1').update(buf).digest('base64url').slice(0, 22)}"`;
+        const asked = String(res.req.headers['if-none-match'] || '');
+        if (asked.split(',').some((t) => t.trim() === tag)) { send(res, 304, '', { ETag: tag, Vary: 'Accept-Encoding', ...headers }); return true; }
+        headers = { ETag: tag, ...headers };
+      }
       // Text files travel compressed. The squeezed copy is kept, so the work is done once per file.
       if (/^(text\/|application\/(json|xml|manifest\+json)|image\/svg)/.test(type) && buf.length > 1400 && /\bgzip\b/.test(String(res.req.headers['accept-encoding'] || ''))) {
         let z = zipped.get(full);
