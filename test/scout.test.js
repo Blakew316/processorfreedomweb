@@ -27,6 +27,10 @@ test('a question finds entries for the device it names, and the merchant\'s own 
   const mine = search(lib, 'printer is out of paper', ['clover-flex']);
   assert.ok(mine.slice(0, 3).every((e) => e.devices.includes('clover-flex')), mine.slice(0, 3).map((e) => e.id).join(', '));
   assert.deepEqual(search(lib, ''), []);
+  // A code read off the screen is found by the code, even when the maker filed it under a sibling model.
+  const code = search(lib, 'my valor vl550 says error 104610');
+  assert.match(code[0].title, /^104610/, code.slice(0, 3).map((e) => e.title).join(' | '));
+  assert.match(search(lib, 'dejavoo terminal shows R05')[0].title, /R05/);
   // A device is found by its everyday name, and the longer name wins.
   assert.deepEqual(devicesNamed(lib, 'My Clover Flex will not turn on'), ['clover-flex']);
   assert.deepEqual(devicesNamed(lib, 'my clover flex pocket is dead'), ['clover-flex-pocket']);
