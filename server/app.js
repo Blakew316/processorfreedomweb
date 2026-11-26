@@ -612,7 +612,7 @@ export function createApp(options = {}) {
   const route = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
 
   route('GET', '/api/config', (req, res) => json(res, 200, {
-    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey, scanEnabled: !!scanner,
+    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey, scanEnabled: !!scanner, scoutEnabled: !!scoutModel,
     // Whether text codes can be turned on (Twilio and APP_URL are set up) and whether the iPhone app can get notifications (Apple push is set up).
     smsEnabled: smsReady, appPush: !!apns.enabled,
   }));
