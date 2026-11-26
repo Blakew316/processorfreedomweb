@@ -3,8 +3,8 @@ import SwiftUI
 /// Home → Insights, full screen with an X (the owner's Clover photos, rebranded): the large "Insights" with the underlined time frame
 /// (it opens the Time frame sheet; the choice is kept while the business is open), then the "Your business snapshot" card: a
 /// paragraph written from the period's numbers, Net sales, Net sold (the orders counted in net sales) and Average order size
-/// against the previous period, the net sales chart, and "Ask a question", greyed and not tappable: Processor Freedom has no
-/// assistant to answer it yet. It opens on the seven whole days before today, as the photo does. Everything is the server's
+/// against the previous period, the net sales chart, and "Ask a question", which opens the chat with Scout (greyed until the
+/// server has Scout switched on). It opens on the seven whole days before today, as the photo does. Everything is the server's
 /// numbers (GET /api/sites/<id>/stats), loaded when the screen appears, when the app comes back, when the time frame changes, on
 /// pull, and every minute while it shows today.
 struct InsightsScreen: View {
@@ -12,6 +12,10 @@ struct InsightsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var choosingFrame = false
+    /// The chat with Scout is open.
+    @State private var asking = false
+    /// The server has Scout switched on.
+    @State private var scoutOn = false
     /// The height the page shows, so the grey panel always reaches its bottom (while the numbers load, too), as in the photos.
     @State private var visibleHeight: CGFloat = 0
 
@@ -84,6 +88,7 @@ struct InsightsScreen: View {
         }
         .task(id: LoadKey(frame: stats.frame.key, active: scenePhase == .active, ready: model.phase == .ready, site: model.site?.id ?? "")) {
             guard scenePhase == .active, model.phase == .ready else { return }
+            await checkScout()
             await load(stats)
             // Today is read again every minute while the screen shows.
             while !Task.isCancelled {
@@ -92,6 +97,7 @@ struct InsightsScreen: View {
                 if stats.refreshesEveryMinute { await load(stats, full: false) }
             }
         }
+        .fullScreenCover(isPresented: $asking) { ScoutChatScreen() }
         .sheet(isPresented: $choosingFrame) {
             TimeFrameSheet(chosen: stats.frame, today: stats.businessToday) { frame in
                 stats.frame = frame
@@ -210,20 +216,26 @@ struct InsightsScreen: View {
         }
     }
 
-    /// "Ask a question", greyed and not tappable: Processor Freedom has no assistant to answer questions yet (the owner's decision).
+    /// "Ask a question": opens the chat with Scout. Until the server says Scout is switched on, it stays greyed and not tappable.
     private var askButton: some View {
-        Button {} label: {
+        Button { asking = true } label: {
             Text("Ask a question")
                 .pfFont(16, .medium)
-                .foregroundStyle(SettingsLook.greyed)
+                .foregroundStyle(scoutOn ? Color.white : SettingsLook.greyed)
                 .lineLimit(1)
                 .padding(.horizontal, 19)
                 .frame(minHeight: 48)
-                .background(Color(.systemGray5), in: Capsule())
+                .background(scoutOn ? Theme.navy : Color(.systemGray5), in: Capsule())
         }
         .buttonStyle(InsightsGreyedButtonStyle())
-        .disabled(true)
-        .accessibilityValue("Not available yet")
+        .disabled(!scoutOn)
+        .accessibilityValue(scoutOn ? "" : "Not available yet")
+    }
+
+    /// Asks the server whether Scout is switched on for this business.
+    private func checkScout() async {
+        guard model.phase == .ready, let business = model.site else { return }
+        if let answer = try? await API.get("/api/sites/\(business.id)/scout") { scoutOn = answer["enabled"].bool }
     }
 
     private func load(_ stats: StatsModel, full: Bool = true) async {
