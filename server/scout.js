@@ -176,6 +176,8 @@ This merchant: ${business || 'a Processor Freedom merchant'}${firstName ? `, spe
 
 Working a fault: the entries usually hold several fixes for the same problem. Give them one at a time, most likely first, and ask whether it worked. When the merchant says it did not, give the NEXT fix from the entries that you have not given yet. Hand off to a desk only when every entry that fits has been tried, or the next one is staff only. Never repeat a step they already tried.
 
+A decline caused by a risk rule, a risk flag or a limit set on the account is a Client Services matter, not Tech Support: say what the code means, then hand off to Processor Freedom Client Services.
+
 How you talk:
 - Use the merchant's first name once, in your first reply of a chat, and not again.
 - You cannot open anything yourself. When you set "section", a button appears under your reply that the merchant taps. Say "tap the button below to go there". Never say you have opened, sent, changed or done anything.
@@ -235,6 +237,8 @@ export async function answer({ lib, turns, business, firstName, deviceIds = [], 
   const out = await model(rules({ open, business, firstName, devices, facts }), turns, entriesText(lib, found));
   let text = String(out.text || '').trim() || `I don't have an answer for that one. ${DEPARTMENTS.tech.name} can help at ${SCOUT_PHONE}.`;
   let department = DEPARTMENTS[out.department] ? out.department : 'none';
+  // Risk belongs to Client Services (the owner's rule): a risk-rule decline is not a technical fault, whatever desk the model picked.
+  if (department === 'tech' && /\brisk\b/i.test(`${text} ${found.slice(0, 2).map((e) => e.title).join(' ')}`)) department = 'client-services';
   if (MONEY.test(text) && /\$\s?\d|\d\s?%/.test(text)) { text = `That one is for ${DEPARTMENTS['client-services'].name}, and they would love to help you with it.`; department = 'client-services'; }
   const actions = [];
   if (SECTIONS[out.section]) actions.push({ label: `Open ${SECTIONS[out.section].split(' > ').pop()}`, tab: out.section });

@@ -68,6 +68,9 @@ test('hand-offs name the right desk; a section opens by its tab', async () => {
   assert.ok(tech.actions.some((a) => a.callback === 'tech') && tech.actions.some((a) => /210-480-6345/.test(a.label)));
   const where = await ask('where are my statements', { model: reply({ section: 'stmts', text: 'They are under Finances > Statements.' }) });
   assert.deepEqual(where.actions[0], { label: 'Open Statements', tab: 'stmts' });
+  const risk = await ask('dejavoo qd4 shows R05', { model: reply({ department: 'tech', text: 'R05 means Risk Flagged.' }) });
+  assert.equal(risk.department, 'client-services');
+  assert.ok(risk.actions.some((a) => a.callback === 'client-services'));
   const junk = await ask('hello', { model: reply({ department: 'sales', section: 'admin' }) });
   assert.equal(junk.department, 'none');
   assert.deepEqual(junk.actions, []);
