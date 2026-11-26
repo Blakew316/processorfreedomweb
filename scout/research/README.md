@@ -12,6 +12,14 @@ or shown to anyone yet.
   texts are not in the repository; re-create them with `tools/fetch.py` / `tools/crawl.cjs` from the URLs in each file.
 - `BRIEF.md`: the rules the research followed.
 
+## Review pass (rules, then samples)
+
+- 157 entries whose steps need staff access (a parameter or key download, the processor's portal, a merchant file,
+  clearing a batch, a factory reset) were re-routed to support; each carries a `review` note.
+- 722 error-code entries are a bare code and meaning from a network's table, with no fix in the source. They carry
+  `"meaning_only": true`: Scout may state the meaning and must not invent a fix.
+- 20 online-checkout messages mistaken for terminal codes were removed.
+
 ## Not ready for Scout as it stands
 
 - Passing the quote check proves the quote is in the source. It does not prove the rewritten `steps` or the

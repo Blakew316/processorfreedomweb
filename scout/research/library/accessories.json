@@ -2758,7 +2758,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "star-tsp100iiilan-setup",
-   "quote": "Use the login “root”, and the password “public”.",
+   "quote": "Use the login \u201croot\u201d, and the password \u201cpublic\u201d.",
    "sensitive": "password"
   },
   {
@@ -4908,7 +4908,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "epson-tmu220ii-trg",
-   "quote": "Never connect the drawer cable to the customer display connector (labeled “DM-D”)."
+   "quote": "Never connect the drawer cable to the customer display connector (labeled \u201cDM-D\u201d)."
   },
   {
    "id": "accessories-u220-buzzer-or-drawer",
@@ -7112,7 +7112,7 @@
    "title": "Zebra DS2278: scanner LED solid red while charging",
    "steps": [
     "A charging error occurred.",
-    "The battery does not charge above 40°C (104°F); let the scanner cool and keep it within the recommended temperature range.",
+    "The battery does not charge above 40\u00b0C (104\u00b0F); let the scanner cool and keep it within the recommended temperature range.",
     "If it continues, contact support."
    ],
    "merchant_can_do": true,
@@ -7334,7 +7334,7 @@
    "title": "Zebra DS2278 cradle LED: amber blinking fast",
    "steps": [
     "Charging error.",
-    "Reseat the scanner in the cradle and keep it within the recommended temperature range (the battery does not charge above 40°C / 104°F).",
+    "Reseat the scanner in the cradle and keep it within the recommended temperature range (the battery does not charge above 40\u00b0C / 104\u00b0F).",
     "If it continues, contact support."
    ],
    "merchant_can_do": true,
@@ -7624,14 +7624,14 @@
    "kind": "fix",
    "title": "Zebra DS2278: battery does not charge or scanner stops scanning in a hot place",
    "steps": [
-    "The battery does not charge above 40°C (104°F).",
+    "The battery does not charge above 40\u00b0C (104\u00b0F).",
     "In presentation mode above that temperature the battery drains and the scanner stops scanning until it cools and recharges.",
-    "Use and charge it between 0°C and 40°C (32°F to 104°F), ideally 5°C to 35°C."
+    "Use and charge it between 0\u00b0C and 40\u00b0C (32\u00b0F to 104\u00b0F), ideally 5\u00b0C to 35\u00b0C."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "zebra-ds2278-prg",
-   "quote": "The battery does not charge when the temperature is above 40°C (104°F)."
+   "quote": "The battery does not charge when the temperature is above 40\u00b0C (104\u00b0F)."
   },
   {
    "id": "accessories-ds2278-battery-off",
@@ -8621,7 +8621,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "star-kb-troubleshoot-a-star-micronics-cash-drawer",
-   "quote": "Verify the cable supplied with the cash drawer is securely connected to the printer’s DK port."
+   "quote": "Verify the cable supplied with the cash drawer is securely connected to the printer\u2019s DK port."
   },
   {
    "id": "accessories-drawer-not-open-pos",
@@ -8967,7 +8967,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "star-kb-reset-the-auto-cutter-of-tsp100-and-tsp650-print",
-   "quote": "Turn the knob in front of the cutter until the guillotine blade reaches the home position, all the way towards the printer’s front."
+   "quote": "Turn the knob in front of the cutter until the guillotine blade reaches the home position, all the way towards the printer\u2019s front."
   },
   {
    "id": "accessories-star-selftest-thermal",
@@ -9304,11 +9304,12 @@
     "When it completes, the Ethernet cable can be removed.",
     "If the message stays, contact support."
    ],
-   "merchant_can_do": true,
+   "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "valor-connect-vl300-vl100",
    "quote": "If the Pin Pad communicates Keys Not Present follow the RKI steps below.",
-   "note": "Contacting support if it persists is our addition for escalation; the article ends at the download."
+   "note": "Contacting support if it persists is our addition for escalation; the article ends at the download.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "accessories-pp-vp300-connect",

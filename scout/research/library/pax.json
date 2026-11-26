@@ -613,10 +613,11 @@
     "Tap the arrow to exit the message, or press Cancel.",
     "Do not downgrade the application."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "faq",
-   "quote": "It is a message that lets them know that there is not an RKI (Remote Key Injection) download for the terminal."
+   "quote": "It is a message that lets them know that there is not an RKI (Remote Key Injection) download for the terminal.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-faq-wifi-android",
@@ -848,7 +849,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "faq",
-   "quote": "If they have not set a custom password, then it will default to today’s date in a two-digit month, two-digit day and four-digit year format (MM/DD/YYYY).",
+   "quote": "If they have not set a custom password, then it will default to today\u2019s date in a two-digit month, two-digit day and four-digit year format (MM/DD/YYYY).",
    "note": "PAX's FAQ does not name the payment application; the Func/Settings menu it describes is PAX's own payment app (BroadPOS on our terminals). Another app may differ.",
    "sensitive": "password"
   },
@@ -873,7 +874,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "faq",
-   "quote": "“Invalid Batch Sequence” means the batch number on the terminal is not matching the batch number the processor is expecting.",
+   "quote": "\u201cInvalid Batch Sequence\u201d means the batch number on the terminal is not matching the batch number the processor is expecting.",
    "note": "PAX's FAQ does not name the payment application; the Func/Settings menu it describes is PAX's own payment app (BroadPOS on our terminals). Another app may differ."
   },
   {
@@ -910,7 +911,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "faq",
-   "quote": "You can enable the option “Reversal prompt for partial approval” under the Misc. tab in the file build.",
+   "quote": "You can enable the option \u201cReversal prompt for partial approval\u201d under the Misc. tab in the file build.",
    "note": "PAX's FAQ does not name the payment application; the Func/Settings menu it describes is PAX's own payment app (BroadPOS on our terminals). Another app may differ."
   },
   {
@@ -1119,7 +1120,7 @@
    "merchant_can_do": false,
    "escalate_to": "brand",
    "source": "support",
-   "quote": "Monday – Friday: 9am – 6pm ET"
+   "quote": "Monday \u2013 Friday: 9am \u2013 6pm ET"
   },
   {
    "id": "pax-a920pro-qsg-box-missing",
@@ -2369,7 +2370,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a920max",
-   "quote": "Power Off: Press and hold the Power button for 3 seconds until the shutdown menu appears, tap Power Off > Click Power Off, and “Shutting Down” will appear."
+   "quote": "Power Off: Press and hold the Power button for 3 seconds until the shutdown menu appears, tap Power Off > Click Power Off, and \u201cShutting Down\u201d will appear."
   },
   {
    "id": "pax-a920max-qsg-sim",
@@ -2404,7 +2405,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a920max",
-   "quote": "Chip Card Transactions: With the card’s chip facing upwards, insert the chip card fully into the chip card slot."
+   "quote": "Chip Card Transactions: With the card\u2019s chip facing upwards, insert the chip card fully into the chip card slot."
   },
   {
    "id": "pax-a920max-qsg-swipe",
@@ -2420,7 +2421,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a920max",
-   "quote": "Magnetic Stripe Transactions: With the card’s magnetic stripe facing downwards, swipe the card through the magnetic reader at a constant speed, in either direction."
+   "quote": "Magnetic Stripe Transactions: With the card\u2019s magnetic stripe facing downwards, swipe the card through the magnetic reader at a constant speed, in either direction."
   },
   {
    "id": "pax-a920max-qsg-tap",
@@ -2469,7 +2470,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a920max",
-   "quote": "Battery Charging: With a charging cable connected, the device’s charging status shows on the display."
+   "quote": "Battery Charging: With a charging cable connected, the device\u2019s charging status shows on the display."
   },
   {
    "id": "pax-a920max-qsg-battery-swollen",
@@ -2520,7 +2521,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a920max",
-   "quote": "Temperature: 0℃-45℃ (32℉~113℉) (non-charging)."
+   "quote": "Temperature: 0\u2103-45\u2103 (32\u2109~113\u2109) (non-charging)."
   },
   {
    "id": "pax-a800-qsg-power-on",
@@ -2553,7 +2554,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a800",
-   "quote": "Power OFF: Press and hold the power button down for 3 to 5 seconds until the shutdown menu pops up. Select “Power off” to shut down the terminal."
+   "quote": "Power OFF: Press and hold the power button down for 3 to 5 seconds until the shutdown menu pops up. Select \u201cPower off\u201d to shut down the terminal."
   },
   {
    "id": "pax-a800-qsg-sim",
@@ -3238,7 +3239,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a35",
-   "quote": "Face the card’s magstripe inwards toward the A35, swipe the card completely up or down in a constant, steady manner."
+   "quote": "Face the card\u2019s magstripe inwards toward the A35, swipe the card completely up or down in a constant, steady manner."
   },
   {
    "id": "pax-a35-qsg-chip",
@@ -3255,7 +3256,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a35",
-   "quote": "Face the card’s microchip upward and insert firmly into the slot."
+   "quote": "Face the card\u2019s microchip upward and insert firmly into the slot."
   },
   {
    "id": "pax-a35-qsg-tap",
@@ -3271,7 +3272,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a35",
-   "quote": "Tap the contactless card or mobile wallet near the top of the A35’s LCD screen, indicated by the universal contactless icon."
+   "quote": "Tap the contactless card or mobile wallet near the top of the A35\u2019s LCD screen, indicated by the universal contactless icon."
   },
   {
    "id": "pax-a35-qsg-code-reader",
@@ -3353,7 +3354,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a35",
-   "quote": "Temperature: 0℃-50℃ (32℉~122℉) (non-charging)."
+   "quote": "Temperature: 0\u2103-50\u2103 (32\u2109~122\u2109) (non-charging)."
   },
   {
    "id": "pax-q25-qsg-power",
@@ -3388,7 +3389,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-q25",
-   "quote": "When the application is down, press and hold the ‘X’ button for 3 seconds, and confirm on the LCD screen, the operating system and application will reset."
+   "quote": "When the application is down, press and hold the \u2018X\u2019 button for 3 seconds, and confirm on the LCD screen, the operating system and application will reset."
   },
   {
    "id": "pax-q25-qsg-reset-os",
@@ -3422,7 +3423,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-q25",
-   "quote": "Put the communication cable head into the 2×7 pin interface."
+   "quote": "Put the communication cable head into the 2\u00d77 pin interface."
   },
   {
    "id": "pax-q25-qsg-sam",
@@ -3641,7 +3642,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-l1400",
-   "quote": "Power Off: Press and hold the Power Button (on the top) for three seconds until the shutdown menu appears. Tap “Shutdown”. The terminal will shut down after a few seconds.",
+   "quote": "Power Off: Press and hold the Power Button (on the top) for three seconds until the shutdown menu appears. Tap \u201cShutdown\u201d. The terminal will shut down after a few seconds.",
    "note": "The same guide's other section says hold 3 to 5 seconds and select 'Power off'."
   },
   {
@@ -3712,7 +3713,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-l1400",
-   "quote": "Humidity: 5%～95% (non-condensing)"
+   "quote": "Humidity: 5%\uff5e95% (non-condensing)"
   },
   {
    "id": "pax-a3700-qsg-power",
@@ -3797,7 +3798,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-a3700",
-   "quote": "Temperature range:0℃ ~ 45℃;"
+   "quote": "Temperature range:0\u2103 ~ 45\u2103;"
   },
   {
    "id": "pax-t3180-print-head-hot",
@@ -3957,7 +3958,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "printerpage",
-   "quote": "LED Indicator\n3 LEDs：Red, Green, Blue"
+   "quote": "LED Indicator\n3 LEDs\uff1aRed, Green, Blue"
   },
   {
    "id": "pax-t3180-switch-off-idle",
@@ -3973,7 +3974,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-t3180",
-   "quote": "Switch off the printer power supply when won’t use it for a long time."
+   "quote": "Switch off the printer power supply when won\u2019t use it for a long time."
   },
   {
    "id": "pax-t3320-power",
@@ -4063,7 +4064,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "q-t3300",
-   "quote": "Power off: Press and hold the Power button (on the top side) for three seconds until the shutdown menu appears, tap “Shutdown”, The terminal will be turned off after a few seconds.",
+   "quote": "Power off: Press and hold the Power button (on the top side) for three seconds until the shutdown menu appears, tap \u201cShutdown\u201d, The terminal will be turned off after a few seconds.",
    "note": "Our sheets call the Elys Eye 'T3200'; PAX publishes guides only for T3320 (Elys Eye) and T3300 (Elys Eye Touch). Check the model label."
   },
   {
@@ -4305,12 +4306,13 @@
     "Enter the IP address, DNS, gateway and subnet mask if prompted.",
     "Select CONNECT."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc-a920",
    "quote": "the L920 multifunction charging base.",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-pc-a920-wifi",
@@ -4329,12 +4331,13 @@
     "Enter the WiFi password and select CONNECT.",
     "The WiFi icon appears on screen when connected."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc-a920",
    "quote": "6. The WiFi icon will appear on-screen when your device has",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-pc-a920-wifi-trouble",
@@ -4751,11 +4754,12 @@
     "Select ABOUT DEVICE.",
     "Look at BUILD NUMBER; the guide says it should not be earlier than 2020."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc-a920",
    "quote": "4. Look for BUILD NUMBER, then select.",
-   "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX."
+   "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-pc-a920-batch-number",
@@ -4778,7 +4782,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc-a920",
-   "quote": "3. Enter the OPERATOR PASSWORD, the day’s date entered in",
+   "quote": "3. Enter the OPERATOR PASSWORD, the day\u2019s date entered in",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX. The source does not name the payment application; its menus (FUNC, Batch, Reports) match PAX BroadPOS. Steps can differ on another application or build.",
    "sensitive": "password"
   },
@@ -4797,7 +4801,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "pc-a920",
-   "quote": "may be presented with a message that reads “TRANSACTION",
+   "quote": "may be presented with a message that reads \u201cTRANSACTION",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX. The source does not name the payment application; its menus (FUNC, Batch, Reports) match PAX BroadPOS. Steps can differ on another application or build."
   },
   {
@@ -4816,12 +4820,13 @@
     "In the upper right corner select BATTERY SAVER and turn it on.",
     "You can also go to DISPLAY, select SLEEP and choose how long the screen stays on."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc-a920",
    "quote": "SAVER. When prompted, turn BATTERY SAVER on.",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-pc-a920-date-time",
@@ -4841,11 +4846,12 @@
     "Select SET TIME and check the time.",
     "Select SET DATE and check the date."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc-a920",
    "quote": "4. Turn off AUTOMATIC DATE AND TIME.",
-   "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX."
+   "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-pc-a920-debug-watermark",
@@ -4863,7 +4869,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "pc-a920",
-   "quote": "2. Look for a watermark that reads “DEBUG ONLY, NOT FOR",
+   "quote": "2. Look for a watermark that reads \u201cDEBUG ONLY, NOT FOR",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX.  The 'report it to support' step is our routing, not in the source."
   },
   {
@@ -5053,7 +5059,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "pc-a920",
-   "quote": "SEND ERROR CODE: Terminal’s current request is non-",
+   "quote": "SEND ERROR CODE: Terminal\u2019s current request is non-",
    "note": "Written by PaymentCloud for the classic PAX A920, not specifically the A920 Pro/MAX. The source does not name the payment application; its menus (FUNC, Batch, Reports) match PAX BroadPOS. Steps can differ on another application or build. 'Pass to support' is our routing; the source only gives the meaning."
   },
   {
@@ -6483,7 +6489,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc-a35",
-   "quote": "4. Toggle AUTOMATE DATE AND TIME and ensure it’s grayed out."
+   "quote": "4. Toggle AUTOMATE DATE AND TIME and ensure it\u2019s grayed out."
   },
   {
    "id": "pax-pc-a35-volume",
@@ -6836,7 +6842,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "pc-a35",
-   "quote": "11. PAX error—so open error uai: Requires an update on the PAX",
+   "quote": "11. PAX error\u2014so open error uai: Requires an update on the PAX",
    "note": "Message seen when the A35 is driven by a POS running BroadPOS (named in the source)."
   },
   {
@@ -6895,7 +6901,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc-a30",
-   "quote": "2. If you’re using DHCP, no other steps are required as"
+   "quote": "2. If you\u2019re using DHCP, no other steps are required as"
   },
   {
    "id": "pax-pc-a30-ethernet-static",
@@ -6918,7 +6924,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "pc-a30",
-   "quote": "• Network prefix length (this is your subnet mask",
+   "quote": "\u2022 Network prefix length (this is your subnet mask",
    "note": "Network values must come from whoever manages the shop's network or POS.",
    "sensitive": "password"
   },
@@ -6992,7 +6998,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc-a30",
-   "quote": "While the PAX A30 doesn’t come with a built-in printer, PAX"
+   "quote": "While the PAX A30 doesn\u2019t come with a built-in printer, PAX"
   },
   {
    "id": "pax-pc-a30-factory-reset",
@@ -8141,11 +8147,12 @@
     "Choose X Report (End of Shift).",
     "The report prints; an X report can be taken at any time and does not zero the totals."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "ps-xreport",
    "quote": "An X report can be taken at any time of the day and does not zero totals.",
-   "note": "Paysafe help-centre article for Paysafe's own build; the Admin menu / X Report is not the BroadPOS FUNC > Reports layout."
+   "note": "Paysafe help-centre article for Paysafe's own build; the Admin menu / X Report is not the BroadPOS FUNC > Reports layout.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-ps-npm",
@@ -8186,11 +8193,12 @@
     "If one transaction is the problem: void it if unsettled, refund it if settled.",
     "Other fixes in the source (clear the batch under System Settings > Database; change the Device ID or batch number) are for support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "ps-batchseq",
    "quote": "Force Batch Close: Try closing the batch manually via the FUNC menu (FUNC > BATCH > BATCH CLOSE).",
-   "note": "PAX's own FAQ fixes this by raising the batch number by 1 under Function > Settings > Host settings. Clearing the batch deletes transactions, so we route it to tech."
+   "note": "PAX's own FAQ fixes this by raising the batch number by 1 under Function > Settings > Host settings. Clearing the batch deletes transactions, so we route it to tech.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pax-ps-freeze-restart",

@@ -1712,10 +1712,11 @@
     "From there you can track a device order, replace a device, view device details, name a device, activate a device, or factory reset a device.",
     "If your hardware is not listed, check you are logged in with the correct admin account or role."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s4",
-   "quote": "The Devices tab displays a list of all Clover hardware and devices linked to your account"
+   "quote": "The Devices tab displays a list of all Clover hardware and devices linked to your account",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "clover-hardware-devices-serial-on-device",
@@ -1753,10 +1754,11 @@
     "It is unique to each device.",
     "It is not the 4- or 6-digit passcode you log in with."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s5",
-   "quote": "Clover devices require an 8-digit activation code before they can be used for the first time."
+   "quote": "Clover devices require an 8-digit activation code before they can be used for the first time.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "clover-hardware-activation-find",
@@ -1789,10 +1791,11 @@
     "After a factory reset the device needs a new activation code.",
     "The new code is emailed to the business owner."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s5",
-   "quote": "If an existing device requires a factory reset, a new activation code is sent to the owner via email."
+   "quote": "If an existing device requires a factory reset, a new activation code is sent to the owner via email.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "clover-hardware-find-mid",
@@ -2128,7 +2131,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s11",
-   "quote": "We encourage you to keep the PIN Entry Aid attached to your Mini’s charging cable for consistent storage and quick access."
+   "quote": "We encourage you to keep the PIN Entry Aid attached to your Mini\u2019s charging cable for consistent storage and quick access."
   },
   {
    "id": "clover-hardware-flex-accessibility-start",
@@ -3507,7 +3510,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s34",
-   "quote": "Before deactivating a SIM card that is currently in use, connect the device to the internet using another connection method, such as Wi‑Fi or Ethernet."
+   "quote": "Before deactivating a SIM card that is currently in use, connect the device to the internet using another connection method, such as Wi\u2011Fi or Ethernet."
   },
   {
    "id": "clover-hardware-sim-kiosk",
@@ -3933,7 +3936,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s38",
-   "quote": "Flex Pocket: Connect a USB‑C charger directly to the port on the top of the device. A battery icon appears briefly to indicate it is charging."
+   "quote": "Flex Pocket: Connect a USB\u2011C charger directly to the port on the top of the device. A battery icon appears briefly to indicate it is charging."
   },
   {
    "id": "clover-hardware-flexchg-unresponsive",
@@ -4008,7 +4011,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s38",
-   "quote": "Try a different USB‑C cable or power adapter if the device does not charge."
+   "quote": "Try a different USB\u2011C cable or power adapter if the device does not charge."
   },
   {
    "id": "clover-hardware-flexchg-contact",
@@ -4079,7 +4082,7 @@
     "Fully charge the device.",
     "Power it off: press and hold the power button for 3 seconds and select Power Off on the screen.",
     "Keep it out of direct sunlight and away from high humidity.",
-    "Keep it between 0°C (32°F) and 40°C (105°F).",
+    "Keep it between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F).",
     "It can be stored for up to 12 months; recharge it before storing longer."
    ],
    "merchant_can_do": true,
@@ -4237,7 +4240,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s43",
-   "quote": "The USB-C charging port can be used with Clover’s travel kit power charger (available separately) or any USB-C charging cable."
+   "quote": "The USB-C charging port can be used with Clover\u2019s travel kit power charger (available separately) or any USB-C charging cable."
   },
   {
    "id": "clover-hardware-flex-activate",
@@ -4907,7 +4910,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "s48",
-   "quote": "The dashboard displays devices that don’t support this feature as Incompatible."
+   "quote": "The dashboard displays devices that don\u2019t support this feature as Incompatible."
   },
   {
    "id": "clover-hardware-ent-wifi-forget",
@@ -5283,7 +5286,7 @@
    "steps": [
     "Tap the Settings icon in the top left corner of the KDS and scroll to Other settings.",
     "Tick 'Group identical items together'.",
-    "Five burgers then show as 'Burger × 5'."
+    "Five burgers then show as 'Burger \u00d7 5'."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -5487,7 +5490,7 @@
     "Power it off with the power button on the bottom of the display.",
     "Unplug any connected peripherals.",
     "Keep it out of direct sunlight and high humidity.",
-    "Keep it between 0°C (32°F) and 40°C (105°F)."
+    "Keep it between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F)."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -5615,10 +5618,11 @@
     "Enter the manager passcode.",
     "From Admin mode you can change kiosk setup, open device settings, restart the kiosk, or exit the Kiosk app."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s65",
-   "quote": "From here, you can make adjustments to how your kiosk is set up, access device settings, restart your kiosk, or exit the Kiosk app."
+   "quote": "From here, you can make adjustments to how your kiosk is set up, access device settings, restart your kiosk, or exit the Kiosk app.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "clover-hardware-kiosk-exit",
@@ -5687,7 +5691,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s66",
-   "quote": "If you have multiple printers that your kiosk routes to, it’s possible you haven’t assigned the correct Printer Labels."
+   "quote": "If you have multiple printers that your kiosk routes to, it\u2019s possible you haven\u2019t assigned the correct Printer Labels."
   },
   {
    "id": "clover-hardware-kiosk-not-on-kds",
@@ -5743,7 +5747,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s67",
-   "quote": "The default message programmed on your kiosk is “Your order will be ready shortly.”"
+   "quote": "The default message programmed on your kiosk is \u201cYour order will be ready shortly.\u201d"
   },
   {
    "id": "clover-hardware-kiosk-notify-setup",
@@ -5890,7 +5894,7 @@
     "Power off the device from the device settings.",
     "Unplug connected peripherals.",
     "Keep it out of direct sunlight and high humidity.",
-    "Keep it between 0°C (32°F) and 40°C (105°F)."
+    "Keep it between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F)."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -6051,7 +6055,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s75",
-   "quote": "If your Clover Kiosk screen shows a ‘No video signal detected’ message, disconnect the display cable and reconnect the kiosk.",
+   "quote": "If your Clover Kiosk screen shows a \u2018No video signal detected\u2019 message, disconnect the display cable and reconnect the kiosk.",
    "note": "Clover presents this as a merchant step even though it involves removing frame screws; escalate if the merchant is not comfortable."
   },
   {
@@ -6282,7 +6286,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s82",
-   "quote": "After the screen turns off, press and hold the Power button for 3–5 seconds until the Clover logo appears."
+   "quote": "After the screen turns off, press and hold the Power button for 3\u20135 seconds until the Clover logo appears."
   },
   {
    "id": "clover-hardware-tsg-flex-hard-reboot",
@@ -6384,7 +6388,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s83",
-   "quote": "If you are using a charging cradle, remove the device, unplug the cradle, wait 30–60 seconds, then plug it back in and reconnect the device."
+   "quote": "If you are using a charging cradle, remove the device, unplug the cradle, wait 30\u201360 seconds, then plug it back in and reconnect the device."
   },
   {
    "id": "clover-hardware-tsg-flex-charge-causes",
@@ -6782,7 +6786,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s92",
-   "quote": "Press and hold the Power button on the bottom edge of the device for 5–10 seconds."
+   "quote": "Press and hold the Power button on the bottom edge of the device for 5\u201310 seconds."
   },
   {
    "id": "clover-hardware-tsg-kds-replace",
@@ -7162,7 +7166,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s102",
-   "quote": "Press and hold the Power button on the bottom edge of the Station for 15–20 seconds until the Clover logo appears."
+   "quote": "Press and hold the Power button on the bottom edge of the Station for 15\u201320 seconds until the Clover logo appears."
   },
   {
    "id": "clover-hardware-sd2-power-escalate",
@@ -7292,7 +7296,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s106",
-   "quote": "1. Press and hold the Power button under the screen for 2–3 seconds."
+   "quote": "1. Press and hold the Power button under the screen for 2\u20133 seconds."
   },
   {
    "id": "clover-hardware-ss-hard-reboot-tsg",
@@ -7312,7 +7316,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s106",
-   "quote": "2. Press and hold the Power button for 15–20 seconds.",
+   "quote": "2. Press and hold the Power button for 15\u201320 seconds.",
    "note": "Clover's other hard-reboot article says to unplug the display cord for 10 seconds."
   },
   {
@@ -7541,7 +7545,7 @@
     "Power off: swipe down from the top right of the home screen (near the clock) and use the power button that appears.",
     "Unplug all cables, including the power adapter and peripherals.",
     "Keep it out of direct sunlight and high humidity.",
-    "Keep it between 0°C (32°F) and 40°C (105°F)."
+    "Keep it between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F)."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -7565,7 +7569,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s115",
-   "quote": "The Clover Compact powers on automatically when it’s plugged in."
+   "quote": "The Clover Compact powers on automatically when it\u2019s plugged in."
   },
   {
    "id": "clover-hardware-co-restart",
@@ -7872,7 +7876,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s120",
-   "quote": "Go card readers do not work with Windows Phone®, Amazon devices, or jailbroken or rooted devices."
+   "quote": "Go card readers do not work with Windows Phone\u00ae, Amazon devices, or jailbroken or rooted devices."
   },
   {
    "id": "clover-hardware-go-g3-pink-light",
@@ -8007,7 +8011,7 @@
     "Power it down by holding the power button for 5 to 10 seconds and confirm shutdown.",
     "Unplug all cables.",
     "Keep it out of direct sunlight and high humidity.",
-    "Keep it between 0°C (32°F) and 40°C (105°F)."
+    "Keep it between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F)."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -8205,7 +8209,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s125",
-   "quote": "If you’re not sure which version you have, look for the device name under the base of the display."
+   "quote": "If you\u2019re not sure which version you have, look for the device name under the base of the display."
   },
   {
    "id": "clover-hardware-sd2-box",
@@ -8247,7 +8251,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s125",
-   "quote": "Turn each piece right side up, and they’ll power on automatically."
+   "quote": "Turn each piece right side up, and they\u2019ll power on automatically."
   },
   {
    "id": "clover-hardware-sd2-activate",
@@ -8267,7 +8271,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s125",
-   "quote": "If the Ethernet cable is plugged in, you’ll automatically connect to the internet that way."
+   "quote": "If the Ethernet cable is plugged in, you\u2019ll automatically connect to the internet that way."
   },
   {
    "id": "clover-hardware-sd2-printer-setup",
@@ -8432,7 +8436,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s128",
-   "quote": "If you have a problem with the device and need to contact Clover support, you’ll need the customer-facing terminal serial number."
+   "quote": "If you have a problem with the device and need to contact Clover support, you\u2019ll need the customer-facing terminal serial number."
   },
   {
    "id": "clover-hardware-ss-box",
@@ -8523,7 +8527,7 @@
     "Press and hold the green power button on the body of the smaller unit, under the LCD panel, until Power Off appears.",
     "Tap Power Off and confirm.",
     "Let it turn off completely before removing the power cable.",
-    "Store out of sunlight and humidity, between 0°C (32°F) and 40°C (105°F).",
+    "Store out of sunlight and humidity, between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F).",
     "Recharge it every 12 months."
    ],
    "merchant_can_do": true,
@@ -8565,7 +8569,7 @@
     "Press and hold the white power button on the bottom edge of the display, right-hand side, until Power Off appears.",
     "Tap Power Off and confirm.",
     "Let it turn off completely before removing the power cable.",
-    "Store out of sunlight and humidity, between 0°C (32°F) and 40°C (105°F).",
+    "Store out of sunlight and humidity, between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F).",
     "Recharge it at least every 12 months."
    ],
    "merchant_can_do": true,
@@ -8646,7 +8650,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s132",
-   "quote": "Navigate to the printer settings in the device’s menu to confirm or adjust them."
+   "quote": "Navigate to the printer settings in the device\u2019s menu to confirm or adjust them."
   },
   {
    "id": "clover-hardware-stprn-test",
@@ -8686,7 +8690,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s133",
-   "quote": "To replace the Station Duo receipt printer paper, use thermal paper rolls measuring 3 ⅛ inches wide by 230 feet long, (7.94 cm x 70.1 m)."
+   "quote": "To replace the Station Duo receipt printer paper, use thermal paper rolls measuring 3 \u215b inches wide by 230 feet long, (7.94 cm x 70.1 m)."
   },
   {
    "id": "clover-hardware-ss-replace-paper",
@@ -8707,7 +8711,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s134",
-   "quote": "To replace the Station Solo receipt printer paper, use thermal paper rolls measuring 3 ⅛ inches wide by 230 feet long (7.94 cm x 70.1 m)."
+   "quote": "To replace the Station Solo receipt printer paper, use thermal paper rolls measuring 3 \u215b inches wide by 230 feet long (7.94 cm x 70.1 m)."
   },
   {
    "id": "clover-hardware-mi-which-gen",
@@ -8892,7 +8896,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s137",
-   "quote": "For the customer-facing device: Plug in Type B USB to the second port on the Mini hub’s left."
+   "quote": "For the customer-facing device: Plug in Type B USB to the second port on the Mini hub\u2019s left."
   },
   {
    "id": "clover-hardware-mi-usb-pay-display-install",
@@ -8979,7 +8983,7 @@
     "Open the printer door, remove the paper roll and find the green power button.",
     "Press and hold it until Power Off appears; tap Power Off and confirm.",
     "Let it turn off completely before removing the power cable.",
-    "Store out of sunlight and humidity, between 0°C (32°F) and 40°C (105°F)."
+    "Store out of sunlight and humidity, between 0\u00b0C (32\u00b0F) and 40\u00b0C (105\u00b0F)."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -9551,7 +9555,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s148",
-   "quote": "Station printer: 3 ⅛ inches wide × 230 feet long (80 mm × 70 m) thermal paper"
+   "quote": "Station printer: 3 \u215b inches wide \u00d7 230 feet long (80 mm \u00d7 70 m) thermal paper"
   },
   {
    "id": "clover-hardware-paper-size-small",
@@ -9569,7 +9573,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s148",
-   "quote": "Clover Compact, Mini, and Flex internal printers: 2 ¼ inches wide × 85 feet long (57 mm × 25.9 m) thermal paper"
+   "quote": "Clover Compact, Mini, and Flex internal printers: 2 \u00bc inches wide \u00d7 85 feet long (57 mm \u00d7 25.9 m) thermal paper"
   },
   {
    "id": "clover-hardware-paper-size-kiosk",
@@ -9585,7 +9589,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s148",
-   "quote": "Kiosk: 3 ⅛ inches wide × 230 feet long (80 mm × 70 m) thermal paper"
+   "quote": "Kiosk: 3 \u215b inches wide \u00d7 230 feet long (80 mm \u00d7 70 m) thermal paper"
   },
   {
    "id": "clover-hardware-paper-size-sp742",
@@ -9603,7 +9607,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s148",
-   "quote": "Star Micronics SP742 kitchen printer (impact printer): 3 inches wide × 165 feet long (76 mm × 50 m) impact (non‑thermal) paper, with a maximum roll diameter of 85 mm"
+   "quote": "Star Micronics SP742 kitchen printer (impact printer): 3 inches wide \u00d7 165 feet long (76 mm \u00d7 50 m) impact (non\u2011thermal) paper, with a maximum roll diameter of 85 mm"
   },
   {
    "id": "clover-hardware-paper-order-app",
@@ -10267,11 +10271,12 @@
     "Scan the first barcode to reset the scanner, then the second barcode to reprogram it.",
     "The barcodes themselves are images in the Clover article; ask support for them if needed."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s164",
    "quote": "you may need to scan some barcodes to factory-reset and reprogram your scanner",
-   "note": "The reset barcodes are images and are not in the saved text."
+   "note": "The reset barcodes are images and are not in the saved text.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "clover-hardware-scanner-compat",
@@ -10402,7 +10407,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s168",
-   "quote": "by holding the device 4–10 in (10 cm–25 cm) from the item.",
+   "quote": "by holding the device 4\u201310 in (10 cm\u201325 cm) from the item.",
    "note": "From the older Flex Starter Kit guide; card handling is the same in principle but check against the current model."
   },
   {

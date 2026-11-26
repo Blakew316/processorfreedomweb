@@ -599,11 +599,12 @@
     "Run a Package Download so the latest software is installed.",
     "If nothing updates, App Download has to be switched on for the terminal in the Online Portal first."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kbfaq",
    "quote": "Ensure the device is connected appropriately to the VL100 / VP100 / VP300 Pro and perform a Package Download to ensure the latest software is installed.",
-   "note": "Valor says the ISO must toggle App Download to Enabled in the Online Portal for this to work."
+   "note": "Valor says the ISO must toggle App Download to Enabled in the Online Portal for this to work.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-faq-invalid-parameter",
@@ -626,10 +627,11 @@
     "Close the terminal's batch from the Online Portal.",
     "Try the download again."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kbfaq",
-   "quote": "Close the Terminal’s batch via the Online Portal, then reattempt the Download."
+   "quote": "Close the Terminal\u2019s batch via the Online Portal, then reattempt the Download.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-faq-view-batch-vl500",
@@ -771,7 +773,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Server/Clerk Setup – Enables clerk/server ID entry during transactions for tracking; also activates tip adjustment functionality.",
+   "quote": "Server/Clerk Setup \u2013 Enables clerk/server ID entry during transactions for tracking; also activates tip adjustment functionality.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -797,7 +799,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Clerk Mandate – Requires clerk/server ID entry on every transaction when Server/Clerk Setup is enabled.",
+   "quote": "Clerk Mandate \u2013 Requires clerk/server ID entry on every transaction when Server/Clerk Setup is enabled.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -826,7 +828,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Tip On Screen – Displays Smart Tip suggestions directly on the payment terminal for customer selection.",
+   "quote": "Tip On Screen \u2013 Displays Smart Tip suggestions directly on the payment terminal for customer selection.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -852,7 +854,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Max Tip – Sets the maximum tip percentage or dollar amount to prevent excessive tipping.",
+   "quote": "Max Tip \u2013 Sets the maximum tip percentage or dollar amount to prevent excessive tipping.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -878,7 +880,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Fixed Tip – Automatically applies a preset tip percentage or dollar amount to all transactions.",
+   "quote": "Fixed Tip \u2013 Automatically applies a preset tip percentage or dollar amount to all transactions.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -904,7 +906,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Receipt for Tip Adjust – Prints a new receipt whenever a tip adjustment is made after the initial transaction.",
+   "quote": "Receipt for Tip Adjust \u2013 Prints a new receipt whenever a tip adjustment is made after the initial transaction.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -930,7 +932,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Receipt for Declined Transactions – Prints receipts for declined or failed transactions.",
+   "quote": "Receipt for Declined Transactions \u2013 Prints receipts for declined or failed transactions.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -956,7 +958,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "No Transaction Report – Prints a slip stating “No Transactions to Settle” if no transactions exist.",
+   "quote": "No Transaction Report \u2013 Prints a slip stating \u201cNo Transactions to Settle\u201d if no transactions exist.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -982,7 +984,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Email Report – Emails the batch settlement report to the primary merchant account email on file.",
+   "quote": "Email Report \u2013 Emails the batch settlement report to the primary merchant account email on file.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1010,7 +1012,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Detailed Report – Prints a detailed list of transactions during batch settlement.",
+   "quote": "Detailed Report \u2013 Prints a detailed list of transactions during batch settlement.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1037,7 +1039,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Hide Receipt Option – Disables SMS receipts and SMS collection screens for Engage my Customer; overrides SMS and Paper receipt settings.",
+   "quote": "Hide Receipt Option \u2013 Disables SMS receipts and SMS collection screens for Engage my Customer; overrides SMS and Paper receipt settings.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1064,7 +1066,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "SMS Receipt – Sends a receipt via SMS; merchant copy must be reprinted if required.",
+   "quote": "SMS Receipt \u2013 Sends a receipt via SMS; merchant copy must be reprinted if required.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1094,7 +1096,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Forced Signature – Prints a signature line on paper receipts (unsupported on RCKT, VP550E, Virtual Terminal).",
+   "quote": "Forced Signature \u2013 Prints a signature line on paper receipts (unsupported on RCKT, VP550E, Virtual Terminal).",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1120,7 +1122,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Sleep Mode / Timer – Defines how long the terminal remains idle before entering power-save mode.",
+   "quote": "Sleep Mode / Timer \u2013 Defines how long the terminal remains idle before entering power-save mode.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1146,7 +1148,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Auto Shutdown – Schedules the terminal to shut down at a set time.",
+   "quote": "Auto Shutdown \u2013 Schedules the terminal to shut down at a set time.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1173,7 +1175,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Batch Out – Chooses between manual and automatic batch settlement; automatic mode allows setting a specific time.",
+   "quote": "Batch Out \u2013 Chooses between manual and automatic batch settlement; automatic mode allows setting a specific time.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1190,7 +1192,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Display on Customer Facing Screen – Displays either the current time or an image on customer-facing displays (VP800 only).",
+   "quote": "Display on Customer Facing Screen \u2013 Displays either the current time or an image on customer-facing displays (VP800 only).",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1216,7 +1218,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Split Payment – Enables splitting a transaction into up to five payment methods.",
+   "quote": "Split Payment \u2013 Enables splitting a transaction into up to five payment methods.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1242,7 +1244,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Cash Back on Debit – Allows customers to receive cash back on PIN-verified debit transactions.",
+   "quote": "Cash Back on Debit \u2013 Allows customers to receive cash back on PIN-verified debit transactions.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1268,7 +1270,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Change Management on Cash Transactions – Lets merchants enter the cash received to calculate the correct change automatically.",
+   "quote": "Change Management on Cash Transactions \u2013 Lets merchants enter the cash received to calculate the correct change automatically.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1292,11 +1294,12 @@
     "Disable All Passwords turns off the terminal-level passwords.",
     "The master password is still needed for resets and key actions."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kbedit",
-   "quote": "Disable All Passwords – Disables terminal-level passwords, while still requiring the master password for resets and key actions.",
-   "note": "A setting in the Online Portal under Device Management > Edit Parameters."
+   "quote": "Disable All Passwords \u2013 Disables terminal-level passwords, while still requiring the master password for resets and key actions.",
+   "note": "A setting in the Online Portal under Device Management > Edit Parameters.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-param-password-refund",
@@ -1322,7 +1325,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Prompt Password For: EBT, VOID, PreAUTH – Enforces password prompts when performing these transaction types.",
+   "quote": "Prompt Password For: EBT, VOID, PreAUTH \u2013 Enforces password prompts when performing these transaction types.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1348,7 +1351,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "QSR (Quick Serve Restaurant) – Bypasses signature and receipt printing below a defined dollar threshold.",
+   "quote": "QSR (Quick Serve Restaurant) \u2013 Bypasses signature and receipt printing below a defined dollar threshold.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1376,7 +1379,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Manual Entry on Debit – Allows manual entry of debit card numbers (requires credit manual entry enabled).",
+   "quote": "Manual Entry on Debit \u2013 Allows manual entry of debit card numbers (requires credit manual entry enabled).",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1402,7 +1405,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Present Card Prompt – Asks customers to confirm card presence when entering details manually.",
+   "quote": "Present Card Prompt \u2013 Asks customers to confirm card presence when entering details manually.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1428,7 +1431,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Gift Card Partial Approval – Supports split-pay when gift card balance is insufficient.",
+   "quote": "Gift Card Partial Approval \u2013 Supports split-pay when gift card balance is insufficient.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1455,7 +1458,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "AVS – Requires address, ZIP, or both for verification during transactions.",
+   "quote": "AVS \u2013 Requires address, ZIP, or both for verification during transactions.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1483,7 +1486,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Show Remove Tax – Gives the option to remove tax at the amount confirmation screen. Requires differential removal options to also be enabled.",
+   "quote": "Show Remove Tax \u2013 Gives the option to remove tax at the amount confirmation screen. Requires differential removal options to also be enabled.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1505,7 +1508,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Access Valor Store – Grants access to Valor Store marketplace (Android devices only, limited apps).",
+   "quote": "Access Valor Store \u2013 Grants access to Valor Store marketplace (Android devices only, limited apps).",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1534,7 +1537,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "Footer – Prints a short message beneath the disclaimer on receipts. Additional footer lines can be added using “+Add.”",
+   "quote": "Footer \u2013 Prints a short message beneath the disclaimer on receipts. Additional footer lines can be added using \u201c+Add.\u201d",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1565,7 +1568,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "kbedit",
-   "quote": "DEFAULT / DEBIT – Allows debit card processing with Sale, Pre-Auth, and Ticket options.",
+   "quote": "DEFAULT / DEBIT \u2013 Allows debit card processing with Sale, Pre-Auth, and Ticket options.",
    "note": "A setting in the Online Portal under Device Management > Edit Parameters."
   },
   {
@@ -1594,10 +1597,11 @@
     "Set the offline transaction limits and settings.",
     "Select SAVE."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kbdparam",
-   "quote": "Toggle Offline Transactions to Enabled."
+   "quote": "Toggle Offline Transactions to Enabled.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-def-lin-enable",
@@ -1808,10 +1812,11 @@
     "It can be used for sale and refund transactions.",
     "Once a stable connection is back, the transactions are uploaded."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vdef",
-   "quote": "Deferred authorization can be implemented for sale and refund transaction types."
+   "quote": "Deferred authorization can be implemented for sale and refund transaction types.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-def-limits",
@@ -1834,10 +1839,11 @@
     "The maximum number of offline transactions for a single card is 5.",
     "The merchant sets the actual limits in the Valor Portal within these maximums."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vdef",
-   "quote": "The maximum number of transactions for a single card"
+   "quote": "The maximum number of transactions for a single card",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-def-delete",
@@ -1858,11 +1864,12 @@
     "With the Prompt option, the terminal asks \"Do you want to delete this transaction?\".",
     "With the password protected option, the merchant enters the last four digits of the EPI number."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vdef",
    "quote": "When the merchant chooses the Prompt option, the merchant can delete the transaction after providing the",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-def-upload-modes",
@@ -1884,7 +1891,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "vdef",
-   "quote": "transactions through two options – Upload before batch out and manual upload"
+   "quote": "transactions through two options \u2013 Upload before batch out and manual upload"
   },
   {
    "id": "valor-dejavoo-2-def-lin-icon",
@@ -1903,10 +1910,11 @@
     "Select Yes to agree to the terms and conditions.",
     "Another way: go to the main menu settings, select Utility, enter the EPI password, choose Deferred Auth, then Enable Offline Mode and Yes."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vdef",
-   "quote": "After updating the POS terminal with the necessary parameters, a small offline icon will appear in the"
+   "quote": "After updating the POS terminal with the necessary parameters, a small offline icon will appear in the",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-def-settle-manual",
@@ -1929,10 +1937,11 @@
     "Go to the main menu and select Settlement.",
     "Enter the password or passcode for the EPI to batch out the uploaded transactions."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vdef",
-   "quote": "\"Upload Offline Transaction\" to upload all offline transactions."
+   "quote": "\"Upload Offline Transaction\" to upload all offline transactions.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-def-settle-before-batch",
@@ -1953,10 +1962,11 @@
     "A pop-up shows the EPI ID; enter its password or passcode.",
     "Once confirmed, the offline transactions are credited to the merchant's account."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vdef",
-   "quote": "This process applies when the “Upload Before Batch Out” mode is enabled in the Valor Portal."
+   "quote": "This process applies when the \u201cUpload Before Batch Out\u201d mode is enabled in the Valor Portal.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-fleet-sale",
@@ -1993,10 +2003,11 @@
     "Organize products under Products, Product Types and Product Categories.",
     "To change a product, select the vertical ellipses and Edit."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vfleet",
-   "quote": "In order to access the fleet option in the Valor Portal, the merchant must navigate to the \"Settings\""
+   "quote": "In order to access the fleet option in the Valor Portal, the merchant must navigate to the \"Settings\"",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-ach-sale",
@@ -2195,10 +2206,11 @@
     "Select the horizontal ellipsis at the top-right of the New Sale screen.",
     "Select Param Download."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kb:performing-a-parameter-download",
-   "quote": "Select the Horizontal Ellipsis on the top-right of the New Sale screen."
+   "quote": "Select the Horizontal Ellipsis on the top-right of the New Sale screen.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-app-open-batches",
@@ -2214,10 +2226,11 @@
     "To look at another device, select the Store at the top-left (multi-store accounts), then the EPI at the top-right, then Ok.",
     "Select Close Batch at the top-right to close the open batch."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kb:open-batches",
-   "quote": "You will also be able to Close the Open Batch by selecting the Close Batch on the top-right of the screen."
+   "quote": "You will also be able to Close the Open Batch by selecting the Close Batch on the top-right of the screen.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-app-transactions",
@@ -2252,10 +2265,11 @@
     "Confirm pairing in the app and press the green OK button on the RCKT.",
     "The reader then loads the EPI and the RKI keys and prepares itself for use."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kb:pairing-a-rckt-device",
-   "quote": "Select the Serial Number and confirm Pairing on the App and the Green OK button on the RCKT device."
+   "quote": "Select the Serial Number and confirm Pairing on the App and the Green OK button on the RCKT device.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-rckt-pair-android",
@@ -2275,10 +2289,11 @@
     "The app scans for nearby RCKT devices; select the right device name to pair.",
     "Make sure Bluetooth and Location permissions are enabled."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vrand",
-   "quote": "Ensure that Bluetooth and Location"
+   "quote": "Ensure that Bluetooth and Location",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-rckt-pair-ios",
@@ -2298,10 +2313,11 @@
     "The app scans for nearby RCKT devices; select the right device name to pair.",
     "Make sure Bluetooth and Location permissions are enabled."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "vrios",
-   "quote": "Store. Allow Notiﬁcations for the Application."
+   "quote": "Store. Allow Noti\ufb01cations for the Application.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-portal-first-access",
@@ -2316,10 +2332,11 @@
     "Open the link and create your password.",
     "Then go to the Online Portal."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kb:gaining-online-portal-access",
-   "quote": "Upon your Sales Representative creating your account you will receive an Activation Email."
+   "quote": "Upon your Sales Representative creating your account you will receive an Activation Email.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-portal-send-verification",
@@ -2413,10 +2430,11 @@
     "Go to Device Management in the sidebar menu.",
     "Find the device EPI, select the vertical ellipsis, then RKI download log."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "kb:view-a-devices-rki-download-log",
-   "quote": "then select RKI download log."
+   "quote": "then select RKI download log.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-vault-add",
@@ -2570,12 +2588,13 @@
     "Enter the passcode 82567729 to complete the RKI download.",
     "If the error is still there, tell support what happened."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "apits",
    "quote": "This error occurs when the terminal does not have encryption keys loaded.",
    "note": "Valor: the terminal tries a Remote Key Injection (RKI) when an EPI is first loaded; if that fails it cannot process transactions until the keys are loaded.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-ts-enc-key-linux",
@@ -2594,12 +2613,13 @@
     "Enter the passcode 82567729 to complete the RKI download.",
     "If the error is still there, tell support what happened."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "apits",
    "quote": "Click **RKI** and allow the process to complete.",
    "note": "Valor: the terminal tries a Remote Key Injection (RKI) when an EPI is first loaded; if that fails it cannot process transactions until the keys are loaded.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-ts-transaction-restricted",
@@ -2735,11 +2755,12 @@
     "Go to Updates.",
     "Check the EPI and press ENTER to start the update."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "apits",
    "quote": "Verify the **EPI** and press **ENTER** to start the update",
-   "note": "The new app version has to be assigned in the portal's Device Management first (done by the ISO/support). Valor's page says 'Android Terminal' without naming models."
+   "note": "The new app version has to be assigned in the portal's Device Management first (done by the ISO/support). Valor's page says 'Android Terminal' without naming models.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-ts-update-linux",
@@ -2756,11 +2777,12 @@
     "Go to Updates.",
     "Check the EPI and press OK to start the update."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "apits",
    "quote": "Verify the **EPI** and press **OK** to start the update",
-   "note": "The new app version has to be assigned in the portal's Device Management first (done by the ISO/support)."
+   "note": "The new app version has to be assigned in the portal's Device Management first (done by the ISO/support).",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-ts-vc-menu-options",
@@ -2788,7 +2810,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apits",
-   "quote": "Run Standalone Transaction** – Allows processing of transactions outside the integrated POS system."
+   "quote": "Run Standalone Transaction** \u2013 Allows processing of transactions outside the integrated POS system."
   },
   {
    "id": "valor-dejavoo-2-ts-vc-menu-linux",
@@ -2884,7 +2906,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "“V0” acts as a standard prefix, while the remaining characters represent the processor or switch response code"
+   "quote": "\u201cV0\u201d acts as a standard prefix, while the remaining characters represent the processor or switch response code"
   },
   {
    "id": "valor-dejavoo-2-proc-datawire-no-ticket",
@@ -2967,7 +2989,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 00 000 Approved Switch 91 091 Transaction timed out"
+   "quote": "Switch 00 000 Approved Switch 91 091 Transaction timed out",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-91-091",
@@ -2995,7 +3018,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 91 091 Transaction timed out"
+   "quote": "Switch 91 091 Transaction timed out",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-91-092",
@@ -3023,7 +3047,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 91 092 Host down. Please try after some time."
+   "quote": "Switch 91 092 Host down. Please try after some time.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vp-558",
@@ -3050,7 +3075,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VP 558 EPI Not Found"
+   "quote": "Switch VP 558 EPI Not Found",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vp-559",
@@ -3077,7 +3103,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VP 559 EPI Not Active"
+   "quote": "Switch VP 559 EPI Not Active",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-91-999",
@@ -3104,7 +3131,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 91 999 Unknown Error"
+   "quote": "Switch 91 999 Unknown Error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-00-561",
@@ -3131,7 +3159,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 00 561 Empty Batch"
+   "quote": "Switch 00 561 Empty Batch",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-570",
@@ -3158,7 +3187,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 570 EMV Fallback limit exceeded."
+   "quote": "Switch V0 570 EMV Fallback limit exceeded.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-571",
@@ -3185,7 +3215,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 571 EMV Fallback limit exceeded."
+   "quote": "Switch V0 571 EMV Fallback limit exceeded.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-572",
@@ -3212,7 +3243,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 572 Refund limit exceeded."
+   "quote": "Switch V0 572 Refund limit exceeded.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-573",
@@ -3239,7 +3271,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 573 Transaction restricted."
+   "quote": "Switch V0 573 Transaction restricted.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-574",
@@ -3266,7 +3299,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 574 International card not allowed."
+   "quote": "Switch V0 574 International card not allowed.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-00-575",
@@ -3293,7 +3327,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 00 575 International card. Please verify picture ID"
+   "quote": "Switch 00 575 International card. Please verify picture ID",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v2-576",
@@ -3320,7 +3355,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V2 576 Address verification failed"
+   "quote": "Switch V2 576 Address verification failed",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v3-563",
@@ -3347,7 +3383,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V3 563 EPI host processor info not found"
+   "quote": "Switch V3 563 EPI host processor info not found",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-580",
@@ -3374,7 +3411,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 580 Host Response Error"
+   "quote": "Switch 96 580 Host Response Error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vp-600",
@@ -3401,7 +3439,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VP 600 Merchant Profile Update Required. Kindly Contact ISO."
+   "quote": "Switch VP 600 Merchant Profile Update Required. Kindly Contact ISO.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-530",
@@ -3428,7 +3467,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 530 Configuration error"
+   "quote": "Switch 96 530 Configuration error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-531",
@@ -3455,7 +3495,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 531 Invalid TPDU"
+   "quote": "Switch 96 531 Invalid TPDU",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-532",
@@ -3482,7 +3523,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 532 Checksum verification failed"
+   "quote": "Switch 96 532 Checksum verification failed",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vi-533",
@@ -3509,7 +3551,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VI 533 Transaction is improperly formatted"
+   "quote": "Switch VI 533 Transaction is improperly formatted",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vt-534",
@@ -3536,7 +3579,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VT 534 Transaction is improperly formatted"
+   "quote": "Switch VT 534 Transaction is improperly formatted",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vi-535",
@@ -3563,7 +3607,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VI 535 Transaction is improperly formatted"
+   "quote": "Switch VI 535 Transaction is improperly formatted",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vi-536",
@@ -3590,7 +3635,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VI 536 Transaction is improperly formatted"
+   "quote": "Switch VI 536 Transaction is improperly formatted",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vh-520",
@@ -3618,7 +3664,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch VH 520 HSM unavailable. Please try again."
+   "quote": "Switch VH 520 HSM unavailable. Please try again.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-00-545",
@@ -3645,7 +3692,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 00 545 Original transaction not found"
+   "quote": "Switch 00 545 Original transaction not found",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-13-539",
@@ -3672,7 +3720,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 13 539 Invalid amount or amount exceeded"
+   "quote": "Switch 13 539 Invalid amount or amount exceeded",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-14-540",
@@ -3699,7 +3748,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 14 540 Invalid card"
+   "quote": "Switch 14 540 Invalid card",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-30-541",
@@ -3726,7 +3776,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 30 541 Transaction is improperly formatted"
+   "quote": "Switch 30 541 Transaction is improperly formatted",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-94-542",
@@ -3753,7 +3804,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 94 542 Duplicate transmission"
+   "quote": "Switch 94 542 Duplicate transmission",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-12-543",
@@ -3780,7 +3832,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 12 543 Original transaction not found"
+   "quote": "Switch 12 543 Original transaction not found",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-19-544",
@@ -3807,7 +3860,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 19 544 Transaction is improperly formatted"
+   "quote": "Switch 19 544 Transaction is improperly formatted",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v1-606",
@@ -3834,7 +3888,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V1 606 Card token already used"
+   "quote": "Switch V1 606 Card token already used",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v1-605",
@@ -3861,7 +3916,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V1 605 Invalid card token"
+   "quote": "Switch V1 605 Invalid card token",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vp-557",
@@ -3888,7 +3944,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VP 557 Merchant Not Active"
+   "quote": "Switch VP 557 Merchant Not Active",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vv-546",
@@ -3915,7 +3972,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch VV 546 Void not allowed on Debit cards"
+   "quote": "Switch VV 546 Void not allowed on Debit cards",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vv-547",
@@ -3942,7 +4000,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch VV 547 More than 5 Tip adjust not allowed"
+   "quote": "Switch VV 547 More than 5 Tip adjust not allowed",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vh-521",
@@ -3969,7 +4028,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VH 521 HSM response error"
+   "quote": "Switch VH 521 HSM response error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vh-522",
@@ -3996,7 +4056,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VH 522 HSM response is invalid"
+   "quote": "Switch VH 522 HSM response is invalid",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vh-523",
@@ -4023,7 +4084,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch VH 523 HSM response is failed"
+   "quote": "Switch VH 523 HSM response is failed",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-567",
@@ -4050,7 +4112,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 567 Transaction restricted due to ticket size"
+   "quote": "Switch V0 567 Transaction restricted due to ticket size",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-568",
@@ -4077,7 +4140,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 568 Daily Transactions amount limit exceeded"
+   "quote": "Switch V0 568 Daily Transactions amount limit exceeded",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-569",
@@ -4104,7 +4168,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 569 Monthly volume limit exceeded."
+   "quote": "Switch V0 569 Monthly volume limit exceeded.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-54-548",
@@ -4131,7 +4196,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 54 548 Card expired"
+   "quote": "Switch 54 548 Card expired",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-14-564",
@@ -4158,7 +4224,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 14 564 Invalid card number"
+   "quote": "Switch 14 564 Invalid card number",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-15-610",
@@ -4185,7 +4252,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 15 610 No such issuer"
+   "quote": "Switch 15 610 No such issuer",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-17-608",
@@ -4212,7 +4280,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 17 608 EBT FCS Id not available"
+   "quote": "Switch 17 608 EBT FCS Id not available",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-92-611",
@@ -4239,7 +4308,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 92 611 Routing Error"
+   "quote": "Switch 92 611 Routing Error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-97-607",
@@ -4266,7 +4336,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 97 607 Datawire failed"
+   "quote": "Switch 97 607 Datawire failed",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-97-549",
@@ -4293,7 +4364,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 97 549 Tip amount cannot be lower than previous tip adjusted amount"
+   "quote": "Switch 97 549 Tip amount cannot be lower than previous tip adjusted amount",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-578",
@@ -4321,7 +4393,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 578 Txn is already in processing state. Pls try again later"
+   "quote": "Switch V0 578 Txn is already in processing state. Pls try again later",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-30-904",
@@ -4348,7 +4421,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 30 904 Format Error"
+   "quote": "Switch 30 904 Format Error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-612",
@@ -4375,7 +4449,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 612 Insufficient funds"
+   "quote": "Switch V0 612 Insufficient funds",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vv-589",
@@ -4402,7 +4477,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch VV 589 Void not allowed"
+   "quote": "Switch VV 589 Void not allowed",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-613",
@@ -4429,7 +4505,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 613 No transactions to settle"
+   "quote": "Switch V0 613 No transactions to settle",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-97-609",
@@ -4456,7 +4533,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 97 609 No response from the processor host"
+   "quote": "Switch 97 609 No response from the processor host",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-614",
@@ -4483,7 +4561,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 614 L3 transaction line items are missing"
+   "quote": "Switch V0 614 L3 transaction line items are missing",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-00-550",
@@ -4510,7 +4589,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 00 550 Tip amount is same as previous tip adjusted amount"
+   "quote": "Switch 00 550 Tip amount is same as previous tip adjusted amount",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-616",
@@ -4537,7 +4617,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 616 Original refund txn amount limit exceeded"
+   "quote": "Switch V0 616 Original refund txn amount limit exceeded",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-615",
@@ -4564,7 +4645,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 615 No open batch"
+   "quote": "Switch V0 615 No open batch",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-413",
@@ -4591,7 +4673,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 413 System Malfunction"
+   "quote": "Switch 96 413 System Malfunction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-415",
@@ -4618,7 +4701,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 415 System Malfunction"
+   "quote": "Switch 96 415 System Malfunction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-416",
@@ -4645,7 +4729,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 416 System Malfunction"
+   "quote": "Switch 96 416 System Malfunction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-417",
@@ -4672,7 +4757,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 417 System Malfunction"
+   "quote": "Switch 96 417 System Malfunction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-418",
@@ -4699,7 +4785,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 418 System Malfunction"
+   "quote": "Switch 96 418 System Malfunction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-96-414",
@@ -4726,7 +4813,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 96 414 System Malfunction"
+   "quote": "Switch 96 414 System Malfunction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-mm-720",
@@ -4753,7 +4841,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch MM 720 Maintenance mode is ON. Declining transaction at Switch."
+   "quote": "Switch MM 720 Maintenance mode is ON. Declining transaction at Switch.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-97-556",
@@ -4780,7 +4869,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch 97 556 Tip amount cannot be more than base amount."
+   "quote": "Switch 97 556 Tip amount cannot be more than base amount.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-vv-555",
@@ -4807,7 +4897,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch VV 555 Max allowed tip adjust count reached."
+   "quote": "Switch VV 555 Max allowed tip adjust count reached.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-619",
@@ -4834,7 +4925,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 619 Preauth Threshold reached"
+   "quote": "Switch V0 619 Preauth Threshold reached",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-623",
@@ -4861,7 +4953,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 623 Tip adjust not allowed for this transaction"
+   "quote": "Switch V0 623 Tip adjust not allowed for this transaction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-624",
@@ -4888,7 +4981,8 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "apiproc",
-   "quote": "Switch V0 624 Ticket completion max allowed threshold percentage reached"
+   "quote": "Switch V0 624 Ticket completion max allowed threshold percentage reached",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v5-620",
@@ -4915,7 +5009,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V5 620 Original void transaction found, which is already performed!!"
+   "quote": "Switch V5 620 Original void transaction found, which is already performed!!",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v5-621",
@@ -4942,7 +5037,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V5 621 Original reversal transaction found, which is already performed!!"
+   "quote": "Switch V5 621 Original reversal transaction found, which is already performed!!",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v5-622",
@@ -4969,7 +5065,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V5 622 Original completion transaction found, which is already performed!!"
+   "quote": "Switch V5 622 Original completion transaction found, which is already performed!!",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-617",
@@ -4996,7 +5093,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 617 Datawire Authentication Error"
+   "quote": "Switch V0 617 Datawire Authentication Error",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-537",
@@ -5023,7 +5121,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 537 Transaction ISO Validations Failed."
+   "quote": "Switch V0 537 Transaction ISO Validations Failed.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-590",
@@ -5050,7 +5149,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 590 Direct refund is not allowed on prepaid cards"
+   "quote": "Switch V0 590 Direct refund is not allowed on prepaid cards",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-625",
@@ -5077,7 +5177,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 625 Direct Refund not allowed for this card. No SALE performed."
+   "quote": "Switch V0 625 Direct Refund not allowed for this card. No SALE performed.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-626",
@@ -5104,7 +5205,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 626 Incremental auth not allowed for this transaction"
+   "quote": "Switch V0 626 Incremental auth not allowed for this transaction",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-628",
@@ -5131,7 +5233,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 628 Transaction type is restricted for this EPI"
+   "quote": "Switch V0 628 Transaction type is restricted for this EPI",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-629",
@@ -5158,7 +5261,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 629 Transaction is not suppoted for Fleet card"
+   "quote": "Switch V0 629 Transaction is not suppoted for Fleet card",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v5-630",
@@ -5185,7 +5289,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V5 630 Reversal is not supported for Fleet card"
+   "quote": "Switch V5 630 Reversal is not supported for Fleet card",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-632",
@@ -5212,7 +5317,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 632 This transaction type is restricted by Valor Switch."
+   "quote": "Switch V0 632 This transaction type is restricted by Valor Switch.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-633",
@@ -5239,7 +5345,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 633 Transaction is restricted for a Blacklisted Serial Number"
+   "quote": "Switch V0 633 Transaction is restricted for a Blacklisted Serial Number",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-91-412",
@@ -5266,7 +5373,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 91 412 Host Connection Error."
+   "quote": "Switch 91 412 Host Connection Error.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-91-409",
@@ -5293,7 +5401,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch 91 409 Host Connection Error."
+   "quote": "Switch 91 409 Host Connection Error.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-634",
@@ -5320,7 +5429,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 634 Transaction type is not allowed for Batch Upload."
+   "quote": "Switch V0 634 Transaction type is not allowed for Batch Upload.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-627",
@@ -5347,7 +5457,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 627 Transaction not allowed outside business hours"
+   "quote": "Switch V0 627 Transaction not allowed outside business hours",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-635",
@@ -5374,7 +5485,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 635 Expiry date is the same as before"
+   "quote": "Switch V0 635 Expiry date is the same as before",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-636",
@@ -5401,7 +5513,8 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Switch V0 636 Transaction is restricted for a Blacklisted Card"
+   "quote": "Switch V0 636 Transaction is restricted for a Blacklisted Card",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-switch-v0-640",
@@ -5428,7 +5541,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "apiproc",
-   "quote": "Switch V0 640 Transaction Restricted - Fee Amount cannot be refunded"
+   "quote": "Switch V0 640 Transaction Restricted - Fee Amount cannot be refunded",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-00-00",
@@ -5456,7 +5570,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 00 00 Approved and completed",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-01-01",
@@ -5484,7 +5599,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 01 01 Refer to issuer",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-02-02",
@@ -5512,7 +5628,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 02 02 Refer to issuer-Special condition",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-03-03",
@@ -5540,7 +5657,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 03 03 Invalid Merchant ID",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-04-04",
@@ -5568,7 +5686,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 04 04 Pick up card (no fraud)",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-05-05",
@@ -5596,7 +5715,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 05 05 Do not honor",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-06-06",
@@ -5624,7 +5744,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 06 06 General error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-07-07",
@@ -5652,7 +5773,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 07 07 Pick up card, special condition (fraud account)",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-08-08",
@@ -5680,7 +5802,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 08 08 Honor Mastercard with ID",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-10-10",
@@ -5708,7 +5831,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 10 10 Partial approval for the authorized amount",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-11-11",
@@ -5736,7 +5860,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 11 11 VIP approval",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-12-12",
@@ -5764,7 +5889,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 12 12 Invalid transaction",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-13-13",
@@ -5792,7 +5918,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 13 13 Issuer Error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-14-14",
@@ -5820,7 +5947,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 14 14 Invalid card number",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-15-15",
@@ -5848,7 +5976,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 15 15 No such issuer",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-19-19",
@@ -5876,7 +6005,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 19 19 Re-enter transaction",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-21-21",
@@ -5904,7 +6034,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 21 21 Unable to back out transaction",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-25-25",
@@ -5932,7 +6063,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 25 25 Unable to locate the account number",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-28-28",
@@ -5960,7 +6092,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 28 28 File is temporarily unavailable",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-30-30",
@@ -5988,7 +6121,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 30 30 Transaction was improperly formatted",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-39-39",
@@ -6016,7 +6150,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 39 39 No credit account",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-41-41",
@@ -6044,7 +6179,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 41 41 Lost card, pick up (fraud account)",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-43-43",
@@ -6072,7 +6208,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 43 43 Stolen card, pick up (fraud account)",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-51-51",
@@ -6100,7 +6237,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 51 51 Insufficient funds",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-52-52",
@@ -6128,7 +6266,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 52 52 No checking account",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-53-53",
@@ -6156,7 +6295,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 53 53 No savings account",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-54-54",
@@ -6184,7 +6324,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 54 54 Expired card",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-55-55",
@@ -6212,7 +6353,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 55 55 Incorrect PIN",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-57-57",
@@ -6240,7 +6382,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 57 57 Transaction not permitted-Card",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-58-58",
@@ -6268,7 +6411,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 58 58 Transaction not permitted-Terminal",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-61-61",
@@ -6296,7 +6440,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 61 61 Exceeds withdrawal limit",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-62-62",
@@ -6324,7 +6469,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 62 62 Invalid service code, restricted",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-63-63",
@@ -6352,7 +6498,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 63 63 Security violation",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-65-65",
@@ -6380,7 +6527,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 65 65 Activity limit exceeded",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-75-75",
@@ -6408,7 +6556,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 75 75 PIN tried exceeded",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-76-76",
@@ -6436,7 +6585,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 76 76 Unable to locate, no match",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-77-77",
@@ -6464,7 +6614,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 77 77 Inconsistent, reversed, or repeat data",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-78-78",
@@ -6492,7 +6643,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 78 78 No account",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-79-79",
@@ -6520,7 +6672,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 79 79 Already reversed at switch",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-80-80",
@@ -6548,7 +6701,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 80 80 No Financial impact",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-81-81",
@@ -6576,7 +6730,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 81 81 Cryptographic error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-82-82",
@@ -6604,7 +6759,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 82 82 CVV data is not correct",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-83-83",
@@ -6632,7 +6788,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 83 83 Cannot verify PIN",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-85-85",
@@ -6660,7 +6817,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 85 85 No reason to decline",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-86-86",
@@ -6688,7 +6846,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 86 86 Cannot verify PIN",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-91-91",
@@ -6716,7 +6875,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 91 91 Issuer or switch is unavailable",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-92-92",
@@ -6744,7 +6904,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 92 92 Destination not found",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-93-93",
@@ -6772,7 +6933,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 93 93 Violation, cannot complete",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-94-94",
@@ -6800,7 +6962,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 94 94 Unable to locate, no match",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-96-96",
@@ -6828,7 +6991,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 96 96 System malfunction",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-a1-a1",
@@ -6856,7 +7020,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra A1 A1 POS device authentication successful",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-a2-a2",
@@ -6884,7 +7049,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra A2 A2 POS device authentication not successful",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-a3-a3",
@@ -6912,7 +7078,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra A3 A3 POS device deactivation successful",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-b1-b1",
@@ -6940,7 +7107,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra B1 B1 Surcharge amount not permitted on debit cards or EBT food",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-b2-b2",
@@ -6968,7 +7136,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra B2 B2 Surcharge amount not supported by debit network issuer",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-cv-cv",
@@ -6996,7 +7165,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra CV CV Card Type Verification Error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-d3-d3",
@@ -7024,7 +7194,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra D3 D3 Transaction failure due to missing or invalid 3D-Secure",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-e1-e1",
@@ -7052,7 +7223,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra E1 E1 Encryption is not configured",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-e2-e2",
@@ -7080,7 +7252,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra E2 E2 Terminal is not authenticated",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-e3-e3",
@@ -7108,7 +7281,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra E3 E3 Data could not be decrypted",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-ea-ea",
@@ -7136,7 +7310,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra EA EA Verification error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-eb-eb",
@@ -7164,7 +7339,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra EB EB Verification error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-ec-ec",
@@ -7192,7 +7368,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra EC EC Verification error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-hv-hv",
@@ -7220,7 +7397,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra HV HV Hierarchy Verification Error",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-k0-k0",
@@ -7248,7 +7426,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra K0 K0 Token request was processed",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-k1-k1",
@@ -7276,7 +7455,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra K1 K1 Tokenization is not configured",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-k2-k2",
@@ -7304,7 +7484,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra K2 K2 Terminal is not authenticated",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-k3-k3",
@@ -7332,7 +7513,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra K3 K3 Data could not be de-tokenized",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-m0-m0",
@@ -7360,7 +7542,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra M0 M0 Mastercard: Canada region-issued Debit Txn not allowed",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-n3-n3",
@@ -7388,7 +7571,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra N3 N3 Cash back service not available",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-n4-n4",
@@ -7416,7 +7600,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra N4 N4 Exceeds issuer withdrawal limit",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-n7-n7",
@@ -7444,7 +7629,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra N7 N7 CVV2 Value supplied is invalid",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p0-p0",
@@ -7472,7 +7658,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P0 P0 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p1-p1",
@@ -7500,7 +7687,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P1 P1 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p2-p2",
@@ -7528,7 +7716,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P2 P2 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p3-p3",
@@ -7556,7 +7745,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P3 P3 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p4-p4",
@@ -7584,7 +7774,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P4 P4 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p5-p5",
@@ -7612,7 +7803,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P5 P5 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p6-p6",
@@ -7640,7 +7832,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P6 P6 Contact Merchant Services/Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-p7-p7",
@@ -7668,7 +7861,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra P7 P7 The terminal has not yet completed the boarding process.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-q1-q1",
@@ -7696,7 +7890,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra Q1 Q1 Card authentication failed",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-r0-r0",
@@ -7724,7 +7919,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra R0 R0 Customer requested stop of specific recurring payment",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-r1-r1",
@@ -7752,7 +7948,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra R1 R1 Customer requested stop of all recurring payments",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-r3-r3",
@@ -7780,7 +7977,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra R3 R3 All recurring payments have been canceled for this card",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-s0-s0",
@@ -7808,7 +8006,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra S0 S0 The PAN used in the transaction is inactive.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-s1-s1",
@@ -7836,7 +8035,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra S1 S1 The Mod-10 check failed.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-s5-s5",
@@ -7856,15 +8056,16 @@
    ],
    "topic": "error-code",
    "kind": "error-code",
-   "title": "TSYS response code S5: Decline – no preauthorization found.",
+   "title": "TSYS response code S5: Decline \u2013 no preauthorization found.",
    "steps": [
-    "On a TSYS (Tsys Sierra) merchant account, response code S5 means: \"Decline – no preauthorization found\"."
+    "On a TSYS (Tsys Sierra) merchant account, response code S5 means: \"Decline \u2013 no preauthorization found\"."
    ],
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Tsys Sierra S5 S5 Decline – no preauthorization found.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "quote": "Tsys Sierra S5 S5 Decline \u2013 no preauthorization found.",
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-s9-s9",
@@ -7892,7 +8093,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra S9 S9 Maximum working balance exceeded.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sa-sa",
@@ -7920,7 +8122,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SA SA The Authorization Server is shut down.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sb-sb",
@@ -7940,15 +8143,16 @@
    ],
    "topic": "error-code",
    "kind": "error-code",
-   "title": "TSYS response code SB: Invalid card status – status is other than active",
+   "title": "TSYS response code SB: Invalid card status \u2013 status is other than active",
    "steps": [
-    "On a TSYS (Tsys Sierra) merchant account, response code SB means: \"Invalid card status – status is other than active\"."
+    "On a TSYS (Tsys Sierra) merchant account, response code SB means: \"Invalid card status \u2013 status is other than active\"."
    ],
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Tsys Sierra SB SB Invalid card status – status is other than active",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "quote": "Tsys Sierra SB SB Invalid card status \u2013 status is other than active",
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sc-sc",
@@ -7968,15 +8172,16 @@
    ],
    "topic": "error-code",
    "kind": "error-code",
-   "title": "TSYS response code SC: Unknown dealer/store code – special edit.",
+   "title": "TSYS response code SC: Unknown dealer/store code \u2013 special edit.",
    "steps": [
-    "On a TSYS (Tsys Sierra) merchant account, response code SC means: \"Unknown dealer/store code – special edit\"."
+    "On a TSYS (Tsys Sierra) merchant account, response code SC means: \"Unknown dealer/store code \u2013 special edit\"."
    ],
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "apiproc",
-   "quote": "Tsys Sierra SC SC Unknown dealer/store code – special edit.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "quote": "Tsys Sierra SC SC Unknown dealer/store code \u2013 special edit.",
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sd-sd",
@@ -8004,7 +8209,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SD SD Maximum number of recharges is exceeded.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-se-se",
@@ -8032,7 +8238,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SE SE Card was already used.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sf-sf",
@@ -8060,7 +8267,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SF SF Manual transactions not allowed.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sh-sh",
@@ -8088,7 +8296,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SH SH Transaction type was unknown.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sj-sj",
@@ -8116,7 +8325,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SJ SJ An invalid tender type was submitted.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sk-sk",
@@ -8144,7 +8354,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SK SK An invalid customer type was submitted. PIN was locked.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sl-sl",
@@ -8172,7 +8383,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SL SL The maximum number of redemptions was exceeded.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sm-sm",
@@ -8200,7 +8412,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SM SM The maximum number of PAN tries was exceeded.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sp-sp",
@@ -8228,7 +8441,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SP SP The card was already issued.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-sr-sr",
@@ -8256,7 +8470,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SR SR The card was not issued.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-ss-ss",
@@ -8284,7 +8499,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra SS SS First check is okay and has been converted.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-t0-t0",
@@ -8312,7 +8528,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra T0 T0 The check is okay but cannot be converted.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-t1-t1",
@@ -8340,7 +8557,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra T1 T1 This is a declined transaction.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-t2-t2",
@@ -8368,7 +8586,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra T2 T2 Invalid ABA number, not an ACH participant.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-t3-t3",
@@ -8396,7 +8615,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra T3 T3 Amount greater than the limit.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-v1-v1",
@@ -8424,7 +8644,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra V1 V1 Daily threshold exceeded.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-96-580",
@@ -8452,7 +8673,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 96 580 Format Error.",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-46-46",
@@ -8480,7 +8702,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 46 46 Closed Account",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-59-59",
@@ -8508,7 +8731,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 59 59 Suspected Fraud",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-70-70",
@@ -8536,7 +8760,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra 70 70 PIN data required",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-ia-ia",
@@ -8564,7 +8789,8 @@
    "escalate_to": null,
    "source": "apiproc",
    "quote": "Tsys Sierra IA IA Additional customer authentication required",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-6p-6p",
@@ -8592,7 +8818,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra 6P 6P VERIF DATA FAILD Verification data failed",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h1-h1",
@@ -8620,7 +8847,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H1 H1 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h2-h2",
@@ -8648,7 +8876,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H2 H2 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h3-h3",
@@ -8676,7 +8905,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H3 H3 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h4-h4",
@@ -8704,7 +8934,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H4 H4 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h5-h5",
@@ -8732,7 +8963,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H5 H5 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h6-h6",
@@ -8760,7 +8992,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H6 H6 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h7-h7",
@@ -8788,7 +9021,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H7 H7 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h8-h8",
@@ -8816,7 +9050,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H8 H8 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-tsys-h9-h9",
@@ -8844,7 +9079,8 @@
    "escalate_to": "tech",
    "source": "apiproc",
    "quote": "Tsys Sierra H9 H9 SERV NOT ALLOWED Contact Merchant Services Technical Support",
-   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra."
+   "note": "From Valor's processor response table; applies only when the account processes on TSYS Sierra.",
+   "meaning_only": true
   },
   {
    "id": "valor-dejavoo-2-gettrx-idle-screen",
@@ -8872,7 +9108,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "gettrx",
-   "quote": "The terminal’s idle prompt displays an ENTER AMOUNT screen",
+   "quote": "The terminal\u2019s idle prompt displays an ENTER AMOUNT screen",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text."
   },
   {
@@ -8902,12 +9138,13 @@
     "On the PIN pad device, enable it and enter the countertop device's IP address.",
     "Tap START PAIRING."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "For PIN Pad devices, enable and enter countertop device",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-comm-setup",
@@ -8935,12 +9172,13 @@
     "Choose one of the network choices: GPRS, WIFI, ETHERNET or BLUETOOTH.",
     "Tap the network you want and configure it."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "Click on any one of the network choices listed: CONFIGURE",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-keyboard-beep",
@@ -8968,12 +9206,13 @@
     "Tap KEYBOARD BEEP to turn the key beep on or off.",
     "Tap the TRANSACTION RESPONSE audio cue to turn the transaction sound on or off."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "Tap KEYBOARD BEEP to enable or disable keyboard beep",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-language-theme",
@@ -9001,12 +9240,13 @@
     "Choose English or Spanish.",
     "Choose a color theme: Cyan or Blue Gray."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "Choose a color theme: Cyan or Blue Gray.",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-time-zone",
@@ -9033,12 +9273,13 @@
     "Tap DISPLAY & TIME.",
     "Tap SELECT TIME ZONE and choose your time zone."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "Click on SELECT TIME ZONE and choose your preferred",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-spin",
@@ -9062,11 +9303,12 @@
    "steps": [
     "Under SETTINGS > SPIN, the SPIn details are assigned automatically from the TPN's parameters."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "SPIn details assigned automatically by TPN parameter.",
-   "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text."
+   "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-credit-sale",
@@ -9191,12 +9433,13 @@
     "If asked, the customer enters the PIN and presses OK; if no PIN is needed, press OK to bypass.",
     "The refund receipt prints."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "Enter the REFUND amount and tap OK.",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-pre-auth",
@@ -9289,12 +9532,13 @@
     "Repeat for all un-tipped transactions.",
     "Tap YES to complete the tip adjust."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "gettrx",
    "quote": "Repeat the previous step for all un-tipped transactions then",
    "note": "Processor-hosted guide for QD and P series Android terminals on iPOSpays; the icons to tap are shown as pictures and are not named in the text.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-dejavoo-2-gettrx-settle",
@@ -9640,7 +9884,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "mat1",
-   "quote": "Use the down arrow to select “SPIN Bypass”",
+   "quote": "Use the down arrow to select \u201cSPIN Bypass\u201d",
    "note": "The page shows two headings (P-series devices, Z8 devices) followed by one list of steps and does not say which heading the steps belong to; filed under the Z8 only. Password 1234 is the vendor's stated value.",
    "sensitive": "password"
   },
@@ -10577,7 +10821,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "relall",
-   "quote": "the message on the password reset box on the iPOSpays portal will now provide specific feedback based on the user’s input",
+   "quote": "the message on the password reset box on the iPOSpays portal will now provide specific feedback based on the user\u2019s input",
    "note": "From Dejavoo's iPOSpays release notes; no step-by-step portal guide is published."
   },
   {
@@ -10817,7 +11061,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "relall",
-   "quote": "If a transaction is approved but fails either check, it will be automatically voided, and the funds will be released back to the customer’s account.",
+   "quote": "If a transaction is approved but fails either check, it will be automatically voided, and the funds will be released back to the customer\u2019s account.",
    "note": "From Dejavoo's iPOSpays release notes; no step-by-step portal guide is published."
   },
   {
@@ -10906,7 +11150,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "relall",
-   "quote": "Transaction Report now shows refunds/voids with a negative sign and adds a “Settlement Status” column for clarity.",
+   "quote": "Transaction Report now shows refunds/voids with a negative sign and adds a \u201cSettlement Status\u201d column for clarity.",
    "note": "From Dejavoo's iPOSpays release notes; no step-by-step portal guide is published."
   },
   {
@@ -10957,7 +11201,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "relall",
-   "quote": "We’ve adjusted the Recurring Payment processing time to 3:15 AM EST to accommodate merchants in various time zones.",
+   "quote": "We\u2019ve adjusted the Recurring Payment processing time to 3:15 AM EST to accommodate merchants in various time zones.",
    "note": "From Dejavoo's iPOSpays release notes; no step-by-step portal guide is published."
   }
  ],

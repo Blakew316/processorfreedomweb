@@ -619,10 +619,11 @@
     "Keep cables no longer than needed and never over 100 meters (328 feet).",
     "If custom-length cables are needed, for example through walls, have a trained technician make and test them."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "lc",
-   "quote": "Cables should be no longer than necessary, never exceeding 100 meters (328 feet)."
+   "quote": "Cables should be no longer than necessary, never exceeding 100 meters (328 feet).",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "misc-2-lc-jacks",

@@ -191,7 +191,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s1",
-   "quote": "As well as the payment screen, the terminal’s idle screen also displays the following icons:",
+   "quote": "As well as the payment screen, the terminal\u2019s idle screen also displays the following icons:",
    "note": "The PDF version of the same guide labels the second icon 'Access to other sales features' instead of the CORE menu."
   },
   {
@@ -246,10 +246,11 @@
     "After a sale the terminal can offer to send the customer copy by SMS, by email, as a paper print, or not at all.",
     "Which choices appear depends on how the terminal's TPN is configured."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
-   "quote": "Depending on TPN configuration, you will have the option to send customer copy as SMS, email, paper print or no receipt."
+   "quote": "Depending on TPN configuration, you will have the option to send customer copy as SMS, email, paper print or no receipt.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrg-debit-sale",
@@ -290,12 +291,13 @@
     "Depending on how the terminal is set up, choose how to send the customer copy: SMS, email, paper print or no receipt.",
     "The return is processed and the return receipt prints."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
    "quote": "Tap on the Refund icon. Enter Password (default password is last 4 digits of your TPN).",
    "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrg-manual-entry",
@@ -318,7 +320,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s1",
-   "quote": "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+   "quote": "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
    "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer."
   },
   {
@@ -337,11 +339,12 @@
     "If asked, enter the password. The default password is the last 4 digits of your TPN.",
     "The void completes and the terminal offers the receipt options."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
    "quote": "Input the Transaction Number or last 4 digits of the card, choose transaction from the list and tap Confirm prompt and tap Yes.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrg-void-no-card",
@@ -358,7 +361,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s1",
-   "quote": "Note: Card doesn’t need to be present to complete void successfully."
+   "quote": "Note: Card doesn\u2019t need to be present to complete void successfully."
   },
   {
    "id": "dejavoo-p-qrg-reprint",
@@ -376,12 +379,13 @@
     "Select the transaction.",
     "Follow the prompts and the receipt prints."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
    "quote": "enter transaction # or last 4 digits of card #, select transaction and tap.",
    "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrg-call-me",
@@ -420,11 +424,12 @@
     "Tap the button to submit, then tap Yes when asked if you want to submit the tip adjust.",
     "A screen confirms the tip adjust succeeded."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
    "quote": "a prompt will appear asking if you want to submit tip adjust, tap Yes. A screen will appear confirming the success of the procedure.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrg-settle",
@@ -443,12 +448,13 @@
     "If a prompt about untipped transactions appears, answer Yes or No to continue.",
     "The settlement report prints."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
    "quote": "The terminal will fetch and display a summary report. Swipe left to view a detailed report.",
    "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrg-settle-untipped-prompt",
@@ -555,12 +561,13 @@
    "steps": [
     "When the terminal asks for a password for a refund, void, reprint, tip adjust or settlement, the default is the last 4 digits of your TPN."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s1",
    "quote": "If prompted, enter Password (default password is last 4 digits of your TPN).",
    "note": "PaymentCloud's P3 guide gives 1234 instead; see the separate tier 2 entry.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-qrgpdf-idle-icons",
@@ -591,11 +598,12 @@
     "After the customer enters the PIN and presses Enter, the terminal may offer to send the customer copy by SMS, email, paper print or no receipt, depending on the TPN configuration.",
     "Then the transaction is processed and the sales receipt prints."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s2",
    "quote": "Customer enters PIN on encrypted terminal or on encrypted PIN Pad and press Enter.",
-   "note": "The PDF lists this receipt step for debit; the web page version omits it."
+   "note": "The PDF lists this receipt step for debit; the web page version omits it.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-pinpad-pair",
@@ -1166,12 +1174,13 @@
     "If asked, select GPRS.",
     "Enter your network password."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s5",
    "quote": "Enter your password to gain access to your chosen network.",
    "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-p5-pc-default-password",
@@ -1184,12 +1193,13 @@
    "steps": [
     "The default password for the P5 is the last four digits of the terminal profile number (TPN)."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s5",
    "quote": "The default password for the Dejavoo P5 will be the last four",
    "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-p-p5-pc-chip-credit-sale",
@@ -1472,7 +1482,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "s5",
-   "quote": "not be able to reinstall the app onto that customer’s device. If the",
+   "quote": "not be able to reinstall the app onto that customer\u2019s device. If the",
    "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ. The guide names the P1, P3 and P5 as examples of P line terminals."
   },
   {
@@ -2031,7 +2041,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "s19",
-   "quote": "This update resolves an issue where a \"Spring Framework\" error would appear on the merchant’s Dejavoo payment terminal"
+   "quote": "This update resolves an issue where a \"Spring Framework\" error would appear on the merchant\u2019s Dejavoo payment terminal"
   },
   {
    "id": "dejavoo-p-rn-untipped-other-tpns",

@@ -475,7 +475,7 @@
   {
    "id": "s59",
    "url": "https://support.swipesimple.com/hc/en-us/articles/360011880954-Can-I-restrict-my-employee-s-user-settings",
-   "title": "SwipeSimple Support Center: Can I restrict my employee’s user settings?",
+   "title": "SwipeSimple Support Center: Can I restrict my employee\u2019s user settings?",
    "publisher": "SwipeSimple (CardFlight)",
    "tier": 1,
    "local": "raw/fiserv-swipesimple/ss-can-i-restrict-my-employee-s-user-settings.txt"
@@ -1083,7 +1083,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s3",
-   "quote": "the four digits represent the last four digits of your card reader’s serial number"
+   "quote": "the four digits represent the last four digits of your card reader\u2019s serial number"
   },
   {
    "id": "fiserv-swipesimple-b350-multiple-readers",
@@ -1224,7 +1224,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s5",
-   "quote": "Follow instructions to perform the firmware update by tapping on the ‘Update Firmware’ button. A firmware update may take up to ten minutes and requires a stable network connection."
+   "quote": "Follow instructions to perform the firmware update by tapping on the \u2018Update Firmware\u2019 button. A firmware update may take up to ten minutes and requires a stable network connection."
   },
   {
    "id": "fiserv-swipesimple-b350-firmware-update-later",
@@ -1301,7 +1301,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s6",
-   "quote": "If an accompanying message displays on the screen to ‘Update Firmware,’ performing this update should bring dip and tap functionality back to your card reader."
+   "quote": "If an accompanying message displays on the screen to \u2018Update Firmware,\u2019 performing this update should bring dip and tap functionality back to your card reader."
   },
   {
    "id": "fiserv-swipesimple-app-emv-unavailable-processor",
@@ -1357,7 +1357,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s8",
-   "quote": "Press the reader down firmly into the cradle until you feel and hear it click into place — this confirms it is securely seated and making contact with the charging connector.",
+   "quote": "Press the reader down firmly into the cradle until you feel and hear it click into place \u2014 this confirms it is securely seated and making contact with the charging connector.",
    "note": "Our sheet says a full charge takes up to two hours; the maker says about three hours on the B350 stand (two hours is its figure for cable charging and for the B250 stand)."
   },
   {
@@ -1741,7 +1741,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s18",
-   "quote": "If you're having trouble locating the welcome email, we recommend checking your inbox’s spam filters. It is sent from noreply@swipesimple.com."
+   "quote": "If you're having trouble locating the welcome email, we recommend checking your inbox\u2019s spam filters. It is sent from noreply@swipesimple.com."
   },
   {
    "id": "fiserv-swipesimple-app-menu-sections",
@@ -1900,7 +1900,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s21",
-   "quote": "SwipeSimple does not support split tender — each transaction can only be processed with a single payment method."
+   "quote": "SwipeSimple does not support split tender \u2014 each transaction can only be processed with a single payment method."
   },
   {
    "id": "fiserv-swipesimple-app-vt-sale",
@@ -2101,7 +2101,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s25",
-   "quote": "A Quick Item can be renamed; tap on your selected Quick Item, enter a new name, and then select “Rename.”"
+   "quote": "A Quick Item can be renamed; tap on your selected Quick Item, enter a new name, and then select \u201cRename.\u201d"
   },
   {
    "id": "fiserv-swipesimple-app-reference-number",
@@ -2193,7 +2193,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s28",
-   "quote": "Enter tendered amount and tap on “Process”."
+   "quote": "Enter tendered amount and tap on \u201cProcess\u201d."
   },
   {
    "id": "fiserv-swipesimple-app-cash-cannot-disable",
@@ -2621,7 +2621,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s37",
-   "quote": "Enter your customer’s Email address or Phone number to send a receipt as an email or text."
+   "quote": "Enter your customer\u2019s Email address or Phone number to send a receipt as an email or text."
   },
   {
    "id": "fiserv-swipesimple-app-receipt-resend",
@@ -2816,7 +2816,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "s43",
-   "quote": "Don’t know which setting you have enabled or tips not working as expected? Contact your Merchant Service Provider or SwipeSimple for support.",
+   "quote": "Don\u2019t know which setting you have enabled or tips not working as expected? Contact your Merchant Service Provider or SwipeSimple for support.",
    "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
   },
   {
@@ -3284,7 +3284,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s52",
-   "quote": "To configure Reports, login to your SwipeSimple dashboard, go to Account Settings > Reports and enter the respective recipients’ emails."
+   "quote": "To configure Reports, login to your SwipeSimple dashboard, go to Account Settings > Reports and enter the respective recipients\u2019 emails."
   },
   {
    "id": "fiserv-swipesimple-dash-batch-report-timing",
@@ -3761,7 +3761,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s65",
-   "quote": "Restart the reader and then find it again in the “Select Reader” list within the app.",
+   "quote": "Restart the reader and then find it again in the \u201cSelect Reader\u201d list within the app.",
    "note": "Tier 2. Mentions a reset button at the bottom of the reader; the maker's B350 reset steps use the power button."
   },
   {
@@ -4148,7 +4148,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s71",
-   "quote": "Select the ‘Card on File’ option when processing a transaction."
+   "quote": "Select the \u2018Card on File\u2019 option when processing a transaction."
   },
   {
    "id": "fiserv-swipesimple-app-card-on-file-no-tip",
@@ -4476,7 +4476,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s78",
-   "quote": "Depending on your model, select “Close” or “Close Batch.”",
+   "quote": "Depending on your model, select \u201cClose\u201d or \u201cClose Batch.\u201d",
    "note": "Tier 2. Fiserv's own FD 130/150 steps reach Close Batch through the Other button."
   },
   {
@@ -4517,7 +4517,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s79",
-   "quote": "After the batch is deleted, the terminal will prompt “Delete Pre‑Auth Batch”, select No",
+   "quote": "After the batch is deleted, the terminal will prompt \u201cDelete Pre\u2011Auth Batch\u201d, select No",
    "note": "Tier 2 (Paysafe)."
   },
   {
@@ -4577,7 +4577,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s81",
-   "quote": "If the test fails, the terminal will display “NONE” instead of XXms",
+   "quote": "If the test fails, the terminal will display \u201cNONE\u201d instead of XXms",
    "note": "Tier 2. The page only says NONE means the test failed; checking the cable and connection comes from the same publisher's Datawire 1007 page."
   },
   {

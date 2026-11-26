@@ -532,7 +532,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "stax_trouble",
-   "quote": "A Comm Error is often – but not always – resolved by checking connectivity issues.",
+   "quote": "A Comm Error is often \u2013 but not always \u2013 resolved by checking connectivity issues.",
    "note": "Stax wrote this for 'your QD terminal' and names the QD2 and QD4 specifically."
   },
   {
@@ -2131,7 +2131,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "The Dejavoo Z11 date and time do not automatically update, so it’s",
+   "quote": "The Dejavoo Z11 date and time do not automatically update, so it\u2019s",
    "note": "From PaymentCloud's own guide (V.122024), not Dejavoo's."
   },
   {
@@ -2264,12 +2264,13 @@
     "The default password is 1234 if the merchant uses STEAM.",
     "It is the last four digits of the TPN if using the iPOSpays gateway."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc_qd2",
    "quote": "merchant uses STEAM, or the last four TPN digits if using the",
    "note": "From PaymentCloud's own guide (V.122024), not Dejavoo's. Our sheets give 1234 for the Z line and last-4-of-TPN for the P line; this guide ties the choice to STEAM versus iPOSpays instead.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-zqd-pc-qd2-factory-reset",
@@ -2540,7 +2541,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_qd5",
-   "quote": "printing receipts. The Dejavoo QD5’s receipt printer is built into the",
+   "quote": "printing receipts. The Dejavoo QD5\u2019s receipt printer is built into the",
    "note": "From PaymentCloud's own guide (V.122024), not Dejavoo's. This conflicts with our sheet and with Dejavoo, which list the QD5 as a PIN pad. Treat with caution."
   },
   {
@@ -2607,11 +2608,12 @@
     "The terminal sends the request to technical support.",
     "A technician from Dejavoo or your service provider calls the phone number linked to your account."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "pc_z8",
-   "quote": "2. The terminal will send the request to Dejavoo’s technical",
-   "note": "From PaymentCloud's own guide (V.122024), not Dejavoo's."
+   "quote": "2. The terminal will send the request to Dejavoo\u2019s technical",
+   "note": "From PaymentCloud's own guide (V.122024), not Dejavoo's.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "dejavoo-zqd-pc-z8-no-paper-mode",
@@ -2847,7 +2849,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "dj_zdl",
-   "quote": "a folder named “download” on the root directory."
+   "quote": "a folder named \u201cdownload\u201d on the root directory."
   },
   {
    "id": "dejavoo-zqd-dj-zdl-dock",
@@ -3075,7 +3077,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "dj_manual",
-   "quote": "The terminal’s factory default password is 1 2 3 4. This password can be customized either",
+   "quote": "The terminal\u2019s factory default password is 1 2 3 4. This password can be customized either",
    "note": "From Dejavoo's all-models manual V525.15, written for the V and Z series before the Aura software; menu wording on an Aura terminal can differ.",
    "sensitive": "password"
   },
@@ -3090,14 +3092,14 @@
    "kind": "how-to",
    "title": "On-screen help key",
    "steps": [
-    "At any time during a transaction or in any menu, press the \"•\" key at the bottom right of the keypad.",
+    "At any time during a transaction or in any menu, press the \"\u2022\" key at the bottom right of the keypad.",
     "The screen explains the feature and gives the next step.",
     "Press the green OK key or the red X key to go back."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "dj_manual",
-   "quote": "At any time during a transaction or within any Dejavoo menu the user may press the “•” Key",
+   "quote": "At any time during a transaction or within any Dejavoo menu the user may press the \u201c\u2022\u201d Key",
    "note": "From Dejavoo's all-models manual V525.15, written for the V and Z series before the Aura software; menu wording on an Aura terminal can differ."
   },
   {
@@ -3200,7 +3202,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "dj_manual",
-   "quote": "important to note that an Authorization Only does NOT CHARGE the customer’s credit card",
+   "quote": "important to note that an Authorization Only does NOT CHARGE the customer\u2019s credit card",
    "note": "From Dejavoo's all-models manual V525.15, written for the V and Z series before the Aura software; menu wording on an Aura terminal can differ."
   },
   {
@@ -3322,7 +3324,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "dj_manual",
-   "quote": "the terminal’s default password. User is required to confirm the current password in",
+   "quote": "the terminal\u2019s default password. User is required to confirm the current password in",
    "note": "From Dejavoo's all-models manual V525.15, written for the V and Z series before the Aura software; menu wording on an Aura terminal can differ.",
    "sensitive": "password"
   },
@@ -3425,7 +3427,7 @@
    "merchant_can_do": true,
    "escalate_to": "tech",
    "source": "dj_manual",
-   "quote": "terminal idle prompt will blink “TRAINING MODE” and every receipt and report will print with a",
+   "quote": "terminal idle prompt will blink \u201cTRAINING MODE\u201d and every receipt and report will print with a",
    "note": "From Dejavoo's all-models manual V525.15, written for the V and Z series before the Aura software; menu wording on an Aura terminal can differ."
   },
   {
@@ -3782,7 +3784,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "xplor_z",
-   "quote": "IMPORTANT: The terminal’s idle prompt displays CREDIT and SALE options and a prompt to access the SERVICES menu (F1).",
+   "quote": "IMPORTANT: The terminal\u2019s idle prompt displays CREDIT and SALE options and a prompt to access the SERVICES menu (F1).",
    "note": "From Xplor Pay's copy of the Dejavoo Z9/Z11 and Z8 quick reference guides."
   },
   {
@@ -4004,7 +4006,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "pcs_z6key",
-   "quote": "When terminal is completed it will display “Key Loading Succeeded”",
+   "quote": "When terminal is completed it will display \u201cKey Loading Succeeded\u201d",
    "note": "From PayCompass's internal support notes: a technician procedure, not a merchant one. The note includes technician logins, which are not repeated here.",
    "sensitive": "password"
   },
@@ -4198,7 +4200,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "dj_rkl",
-   "quote": "If device says “Certificate Already exists”  you should be able to skip to next section DOWNLOAD DEBIT KEYS."
+   "quote": "If device says \u201cCertificate Already exists\u201d  you should be able to skip to next section DOWNLOAD DEBIT KEYS."
   },
   {
    "id": "dejavoo-zqd-dj-rkl-success",
@@ -4218,7 +4220,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "dj_rkl",
-   "quote": "3. When terminal is completed it will display “Key Loading Succeeded”."
+   "quote": "3. When terminal is completed it will display \u201cKey Loading Succeeded\u201d."
   },
   {
    "id": "dejavoo-zqd-dj-rkl-pinpad-password",
@@ -4255,7 +4257,7 @@
     "Input the Sale Amount and press Ok.",
     "Tap on the credit card icon on the Credit Sale screen. (Insert, Swipe or Enter Card #.)",
     "Manually input Card #.",
-    "Follow the CNP prompts (input exp. Date, zip code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. Date, zip code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -4322,7 +4324,7 @@
     "From the idle screen, tap on the Credit icon.",
     "Tap on the Return icon.",
     "Input the Return Amount and press Ok.",
-    "If prompted, confirm the return amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the return amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, input Manager Password (default password is 1234).",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Return receipt will print with details of the transaction."
@@ -4347,7 +4349,7 @@
     "From the idle screen, tap on the Credit icon.",
     "Tap on the Void icon.",
     "Input the Void Amount and press OK.",
-    "If prompted, confirm the void amount by tapping OK or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping OK or No. Conditional on the terminal\u2019s configuration.",
     "If prompted, input Manager Password (default password is 1234).",
     "Tap (contactless only) or insert chip card.",
     "Enter the void transaction # and press OK.",
@@ -4376,7 +4378,7 @@
     "Tap By Transaction #.",
     "Input Transaction # to be voided and press OK.",
     "Confirm the void transaction by tapping Select.",
-    "If prompted, confirm the void amount by tapping OK or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping OK or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, input Manager Password (1234 default).",
     "The void is processed. Void receipt will print with details of the transaction."
    ],
@@ -4515,12 +4517,12 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Sale icon.",
-    "Enter the Server ID # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter the Server ID # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap on the credit card icon on the Credit Sale screen. (Insert, Swipe or Enter Card #)",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -4541,7 +4543,7 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Sale icon.",
-    "Enter Server ID# and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server ID# and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap (contactless only) or insert chip card.",
@@ -4565,7 +4567,7 @@
    "steps": [
     "Tap on the Debit icon.",
     "Tap on the Sale icon.",
-    "Enter the Server ID# and press ok. Conditional on the terminal’s configuration.",
+    "Enter the Server ID# and press ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap (contactless only) or insert chip card.",
@@ -4591,7 +4593,7 @@
     "Tap on the Credit icon.",
     "Tap on the Return icon.",
     "Enter the Return Amount and press Ok.",
-    "If prompted, confirm the return amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the return amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Return receipt will print with details of the transaction."
@@ -4616,7 +4618,7 @@
     "Tap on the Credit icon.",
     "Tap on the Void icon.",
     "Enter the Void Amount and press Ok.",
-    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "Tap (contactless only) or insert chip card.",
     "Enter the void transaction # and press Ok.",
@@ -4645,7 +4647,7 @@
     "Tap By Transaction #.",
     "Enter Transaction # to be voided and press Ok.",
     "Confirm the void transaction by tapping Select.",
-    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "The void is processed. Void receipt will print with details of the transaction."
    ],
@@ -4721,7 +4723,7 @@
     "Tap Transaction #.",
     "Enter Transaction # and press Ok.",
     "Transaction amount appears, enter Tip Amount and press Ok.",
-    "If prompted, confirm the tip amount by tapping Yes or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the tip amount by tapping Yes or No. Conditional on the terminal\u2019s configuration.",
     "Repeat steps 5 and 6 as needed.",
     "After all desired tips have been adjusted, press the key continually to return to the main screen."
    ],
@@ -4825,7 +4827,7 @@
     "Choose the payment type the customer will use. Options are Card (credit/debit), EBT Food, EBT Cash and Cash.",
     "Tap on the credit card icon on the Credit Sale screen. (Insert, Swipe or Enter Card #)",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, zip code, etc).Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, zip code, etc).Conditional on the terminal\u2019s configuration.",
     "Transaction will be processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -4923,11 +4925,11 @@
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
     "Choose the payment type the customer will use. Options are Card (credit/debit) and Cash.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap on the credit card icon on the Credit Sale screen. (Insert, Swipe or Enter Card #)",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal\u2019s configuration.",
     "The transaction will be processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -4948,10 +4950,10 @@
    "steps": [
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Choose the payment type the customer will use. Options are Card and PIN Debit.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
-    "If prompted, confirm the sale amount by tapping Ok or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Ok or No. Conditional on the terminal\u2019s configuration.",
     "When prompted, tap or insert the card. If required (debit), enter PIN number.",
     "The transaction will be processed. Sales receipt will print with details of the transaction."
    ],
@@ -4976,7 +4978,7 @@
     "If prompted, enter Manager Password. (1234 default)",
     "Enter Transaction # and press Ok.",
     "Transaction amount appears, enter Tip Amount and press Ok.",
-    "If prompted, confirm the tip amount by tapping Yes or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the tip amount by tapping Yes or No. Conditional on the terminal\u2019s configuration.",
     "If required, repeat steps 3 to 5 for each transaction."
    ],
    "merchant_can_do": true,
@@ -5000,11 +5002,11 @@
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
     "Choose the payment type the customer will use. Options are Card (credit/debit) and Cash.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap on the credit card icon on the Credit Sale screen. (Insert, Swipe or Enter Card #)",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal\u2019s configuration.",
     "Transaction will be processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5026,7 +5028,7 @@
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
     "Choose the payment type the customer will use. Options are Card and PIN Debit.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "When prompted, tap or insert the card. If required (debit), enter PIN number.",
     "Transaction will be processed. Sales receipt will print with details of the transaction."
@@ -5102,7 +5104,7 @@
     "Enter the Sale Amount and press Ok.",
     "Prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5121,7 +5123,7 @@
    "steps": [
     "Enter the Sale Amount and press Ok.",
     "Tap (contactless only) or insert chip card.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5142,7 +5144,7 @@
     "Press Ok key to select Sale.",
     "Enter the Sale Amount and press Ok.",
     "Tap (contactless only), swipe or insert chip card.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "Cardholder enters PIN on terminal or PIN Pad and presses Ok.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
@@ -5212,7 +5214,7 @@
     "Use the up and down arrow keys to highlight Void CR/DB Trans and press Ok.",
     "Use the up and down arrow keys to select By Transaction # and press Ok.",
     "Enter Transaction # to be voided and press Ok.",
-    "If prompted, confirm the Void Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Void Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "The void is processed. Void receipt will print with details of the transaction."
    ],
@@ -5349,11 +5351,11 @@
    "title": "Manually Entered Credit Sale (Non-touch screen Z8, EMV Restaurant)",
    "steps": [
     "Enter the Sale Amount and press Ok.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipts will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5371,9 +5373,9 @@
    "title": "Credit Card Sale (Non-touch screen Z8, EMV Restaurant)",
    "steps": [
     "Enter the Sale Amount and press Ok.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Sales receipts will print with details of the transaction."
    ],
@@ -5393,10 +5395,10 @@
    "steps": [
     "Use the down arrow key to highlight Debit on your terminal home screen and press Ok.",
     "Enter the Sale Amount and press Ok.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap (contactless only), swipe or insert chip card.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "Cardholder enters PIN on terminal or PIN Pad and presses Ok.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
@@ -5420,7 +5422,7 @@
     "If prompted, enter Manager Password. (1234 default)",
     "Use the up and down arrow keys to select By Transaction # and press Ok.",
     "Enter Transaction # to be voided and press Ok.",
-    "If prompted, confirm the Void Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Void Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "The void is processed. Void receipt will print with details of the transaction."
    ],
@@ -5470,10 +5472,10 @@
    "steps": [
     "Enter the Sale Amount and press Ok.",
     "Select the payment method using the up and down arrow keys and press Ok on the keypad.",
-    "A confirmation prompt with fee will pop-up. Conditional on the terminal’s configuration.",
+    "A confirmation prompt with fee will pop-up. Conditional on the terminal\u2019s configuration.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5492,9 +5494,9 @@
    "steps": [
     "Enter the Sale Amount and press Ok.",
     "From the multi pricing screen, select the payment method using the up and down arrow keys and press Ok on the keypad.",
-    "A confirmation prompt with fee will pop-up. Conditional on the terminal’s configuration.",
+    "A confirmation prompt with fee will pop-up. Conditional on the terminal\u2019s configuration.",
     "Tap, swipe or insert chip card. If required (debit), enter PIN number.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5515,7 +5517,7 @@
     "Enter the Sale Amount and press Ok.",
     "From the multi pricing screen, select the payment method using the up and down arrow keys and press Ok on the keypad.",
     "Tap (contactless only), swipe or insert chip card.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "Cardholder enters PIN on terminal or PIN Pad and presses Ok.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
@@ -5556,12 +5558,12 @@
    "title": "Manually Entered Credit Sale (Non-touch screen Z8, EMV Restaurant with Dual Pricing)",
    "steps": [
     "Enter the Sale Amount and press Ok.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "From the multi pricing screen, select the payment method using the up and down arrow keys and press Ok.",
     "Prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipts will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5579,9 +5581,9 @@
    "title": "Credit Card Sale (Non-touch screen Z8, EMV Restaurant with Dual Pricing)",
    "steps": [
     "Enter the Sale Amount and press Ok.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "From the multi pricing screen, select the payment method using the up and down arrow keys and press Ok.",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Sales receipts will print with details of the transaction."
@@ -5602,11 +5604,11 @@
    "steps": [
     "Use the down arrow key to highlight Debit on your terminal home screen and press Ok.",
     "Enter the Sale Amount and press Ok.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "From the multi pricing screen, select the payment method using the up and down arrow keys and press Ok.",
     "Tap (contactless only), swipe or insert chip card.",
-    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Sale Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "Cardholder enters PIN on terminal or PIN Pad and presses Ok.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
@@ -5649,7 +5651,7 @@
     "If prompted, enter Manager Password. (1234 default)",
     "Use the up and down arrow keys to select By Transaction # and press Ok.",
     "Transaction amount appears, enter Tip Amount and press Ok.",
-    "If prompted, confirm the Tip Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal’s configuration.",
+    "If prompted, confirm the Tip Amount by pressing F2 (YES) or F4 (CANCEL). Conditional on the terminal\u2019s configuration.",
     "Repeat steps 5 and 6 as needed.",
     "Press the key X X after all desired tips have been adjusted."
    ],
@@ -5673,7 +5675,7 @@
     "Select the payment method using the up and down arrow keys and press Ok. Options are Card and Cash. If Card is selected; options are Card and PIN Debit. Press Ok once you have highlighted your selection.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipts will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5736,11 +5738,11 @@
    "steps": [
     "Enter the Sale Amount and press Ok.",
     "Select the payment method using the up and down arrow keys and press Ok. Options are Card and Cash. If Card is selected; options are Card and PIN Debit. Press Ok once you have highlighted your selection.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipts will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5760,7 +5762,7 @@
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
     "Select the payment method using the up and down arrow keys and press Ok. Options are Card and Cash. If Card is selected; options are Card and PIN Debit. Press Ok once you have highlighted your selection.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "Tap (contactless only) or insert chip card. If required (debit), enter PIN number.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
@@ -5785,7 +5787,7 @@
     "Enter the Sale Amount and press Ok.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, ZIP code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, ZIP code, etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -5849,7 +5851,7 @@
     "Tap on the Credit icon.",
     "Tap on the Return icon.",
     "Enter the Return Amount and press Ok.",
-    "If prompted, confirm the return amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the return amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "Tap (contactless only), swipe, insert chip card or manually enter card number.",
     "The transaction is processed. Return receipts will print with details of the transaction."
@@ -5874,7 +5876,7 @@
     "Tap on the Credit icon.",
     "Tap on the Void icon.",
     "Enter the Void Amount and press Ok.",
-    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Void receipt will print with details of the transaction."
@@ -5902,7 +5904,7 @@
     "Tap By Transaction #.",
     "Enter Transaction # to be voided and press Ok.",
     "Confirm the void transaction by tapping Select.",
-    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "The void is processed. Void receipt will print with details of the transaction."
    ],
@@ -6044,12 +6046,12 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Sale icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, ZIP code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, ZIP code, etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sale receipts will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -6069,10 +6071,10 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Sale icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
-    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Sale receipts will print with details of the transaction."
    ],
@@ -6093,10 +6095,10 @@
    "steps": [
     "Tap on the Debit icon.",
     "Tap on the Sale icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
-    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "Tap (contactless only), swipe or insert chip card.",
     "Cardholder enters PIN on terminal or PIN Pad and presses Ok.",
     "The transaction is processed. Sale receipts will print with details of the transaction."
@@ -6122,7 +6124,7 @@
     "Tap By Transaction #.",
     "Enter Transaction # to be voided and press Ok.",
     "Confirm the void transaction by tapping Select.",
-    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the void amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "The void is processed. Void receipt will print with details of the transaction."
    ],
@@ -6149,7 +6151,7 @@
     "Tap All.",
     "Tap Transaction #.",
     "Transaction amount appears, enter Tip Amount and press Ok.",
-    "If prompted, confirm the tip amount by tapping Yes or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the tip amount by tapping Yes or No. Conditional on the terminal\u2019s configuration.",
     "Repeat steps 5 and 6 as needed.",
     "Press the X X key after all desired tips have been adjusted."
    ],
@@ -6225,10 +6227,10 @@
     "Tap on the Sale icon.",
     "Enter the Sale Amount and press Ok.",
     "From the multi pricing screen, tap on the desired payment method.",
-    "If prompted, confirm the sale amount by tapping Yes or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or No. Conditional on the terminal\u2019s configuration.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, ZIP code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, ZIP code, etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -6250,7 +6252,7 @@
     "Tap on the Sale icon.",
     "Enter the Sale Amount and press Ok.",
     "From the multi pricing screen, tap on the desired payment method.",
-    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "Tap (contactless only), swipe or insert chip card.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
@@ -6273,7 +6275,7 @@
     "Tap on the Sale icon.",
     "Enter the Sale Amount and press Ok.",
     "From the multi pricing screen, tap on the desired payment method.",
-    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "Tap (contactless only), swipe or insert chip card.",
     "Cardholder enters PIN on terminal or PIN Pad and presses Ok.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
@@ -6296,7 +6298,7 @@
     "Tap on the Credit icon.",
     "Tap on the Return icon.",
     "Enter the Return Amount and press Ok",
-    "If prompted, confirm the return amount by tapping Ok or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the return amount by tapping Ok or Cancel. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "When prompted, tap, swipe, insert or manually enter card number.",
     "The transaction is processed. Return receipt will print with details of the transaction."
@@ -6319,12 +6321,12 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Sale icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -6344,10 +6346,10 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Sale icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Input Tip amount.",
-    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "From the multi pricing screen, tap on the desired payment method.",
     "Tap (contactless only) or insert chip card.",
     "The transaction is processed. Sales receipt will print with details of the transaction."
@@ -6369,10 +6371,10 @@
    "steps": [
     "Tap on the Debit icon.",
     "Tap on the Sale icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Sale Amount and press Ok.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
-    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the sale amount by tapping Yes or Cancel. Conditional on the terminal\u2019s configuration.",
     "From the multi pricing screen, tap on the desired payment method.",
     "Tap (contactless only), swipe or insert chip card.",
     "Cardholder inputs PIN on terminal or PIN Pad and presses Ok.",
@@ -6395,9 +6397,9 @@
    "steps": [
     "Tap on the Credit icon.",
     "Tap on the Return icon.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Enter the Return Amount and press Ok.",
-    "If prompted, confirm the return amount by tapping Yes or No. Conditional on the terminal’s configuration.",
+    "If prompted, confirm the return amount by tapping Yes or No. Conditional on the terminal\u2019s configuration.",
     "If prompted, enter Manager Password. (1234 default)",
     "Tap (contactless only), swipe, insert chip card or manually enter card number.",
     "The transaction is processed. Return receipt will print with details of the transaction."
@@ -6451,7 +6453,7 @@
     "Choose payment type as Card. Select the card type as Credit or Debit. For PIN based transactions, choose Debit.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal\u2019s configuration.",
     "Transaction will be processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -6562,12 +6564,12 @@
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
     "Choose payment type as Card.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Select the card type as Credit or Debit. For PIN based transactions, choose Debit.",
     "If configured, terminal will prompt to Select or Enter Tip amount.",
     "When the prompt to insert card appears, press Ok.",
     "Manually enter Card #.",
-    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal’s configuration.",
+    "Follow the CNP prompts (enter exp. date, zip code, etc). Conditional on the terminal\u2019s configuration.",
     "Transaction will be processed. Sales receipt will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -6588,7 +6590,7 @@
     "Enter the Sale Amount and press Ok.",
     "The default transaction will be Sale.",
     "Choose payment type as Card.",
-    "Enter Server # and press Ok. Conditional on the terminal’s configuration.",
+    "Enter Server # and press Ok. Conditional on the terminal\u2019s configuration.",
     "Select the card type as Credit or Debit. For PIN based transactions, choose Debit.",
     "If configured, terminal will prompt to Select or Input Tip amount.",
     "When prompted, tap or insert the card. For PIN based transactions, enter PIN number on prompt.",
@@ -6881,7 +6883,7 @@
    "title": "Process a Sale: Chip Credit Sale",
    "steps": [
     "Select CREDIT.",
-    "Select SALE from your menu’s home screen.",
+    "Select SALE from your menu\u2019s home screen.",
     "Enter SALE AMOUNT.",
     "Press OK to confirm.",
     "The cardholder will be asked to tap, swipe, insert the card, or enter the card details manually to authenticate payment. Cardholders insert their EMV chip card or exercise the contactless tap option.",
@@ -6905,7 +6907,7 @@
    "title": "Process a Sale: Manual Entry Credit Sale",
    "steps": [
     "Select CREDIT.",
-    "Select SALE from your menu’s home screen.",
+    "Select SALE from your menu\u2019s home screen.",
     "When prompted, enter SALE AMOUNT.",
     "Press OK to confirm.",
     "The cardholder will be asked to tap, swipe, insert the card, or enter the card details manually to authenticate payment. Select ENTER CARD #.",
@@ -6929,7 +6931,7 @@
    "title": "Process a Sale: Debit Sale",
    "steps": [
     "Select DEBIT.",
-    "Select SALE from your menu’s home screen.",
+    "Select SALE from your menu\u2019s home screen.",
     "Enter SALE AMOUNT.",
     "Press OK to confirm.",
     "The cardholder will be asked to tap, swipe, insert the card, or enter the card details manually in order to authenticate payment. When prompted, select the relevant application and payment method.",
@@ -6952,7 +6954,7 @@
    "title": "Process a Sale: Cash Sale",
    "steps": [
     "Select CASH.*",
-    "Select SALE from your menu’s home screen.",
+    "Select SALE from your menu\u2019s home screen.",
     "Enter SALE AMOUNT.",
     "Press OK to confirm.",
     "The merchant will then have the option to send the cardholder a receipt for their sale via email or text or by printing using an existing POS receipt printer."
@@ -6973,7 +6975,7 @@
    "title": "Process a Refund: Credit Card Return",
    "steps": [
     "Select CREDIT.",
-    "On your device’s home screen, select RETURN.",
+    "On your device\u2019s home screen, select RETURN.",
     "When prompted, enter RETURN AMOUNT.",
     "Press OK to confirm.",
     "If prompted, enter Manager Password (1234).",
@@ -6998,7 +7000,7 @@
    "title": "Process a Refund: Debit Card Return",
    "steps": [
     "Select DEBIT.",
-    "On your device’s home screen, select RETURN.",
+    "On your device\u2019s home screen, select RETURN.",
     "Enter RETURN AMOUNT.",
     "Press OK to confirm.",
     "If prompted, enter Manager Password (1234).",
@@ -7023,7 +7025,7 @@
    "title": "Process a Refund: Cash Return",
    "steps": [
     "Select CASH.",
-    "On your device’s home screen, select RETURN.",
+    "On your device\u2019s home screen, select RETURN.",
     "When prompted, enter RETURN AMOUNT.",
     "If prompted, enter Manager Password (1234).",
     "When prompted, confirm RETURN AMOUNT."
@@ -7031,7 +7033,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z6",
-   "quote": "2. On your device’s home screen, select RETURN.",
+   "quote": "2. On your device\u2019s home screen, select RETURN.",
    "note": "From PaymentCloud's own guide, not Dejavoo's. It describes the Z6 as a touch-screen device that runs sales itself; our sheet treats the Z6 as a non-touch PIN pad working off a master terminal.",
    "sensitive": "password"
   },
@@ -7074,7 +7076,7 @@
     "If prompted, enter Manager Password (1234).",
     "Press OK to confirm.",
     "Upon selecting VIEW, you will be presented with options for viewing your transactions: TRANSACTION #, LAST TRANSACTION, etc. Select an option using your Z6 touchscreen. If you select TRANSACTION #, you will be asked to enter the exact number for that transaction.",
-    "Select the transaction you’d like to void using the PREVIOUS or NEXT buttons on your touchscreen.",
+    "Select the transaction you\u2019d like to void using the PREVIOUS or NEXT buttons on your touchscreen.",
     "Upon selecting the appropriate transaction, a prompt to void said transaction will appear on your screen. Use your touchscreen to select the OK option within the prompt.",
     "If prompted, enter the Manager Password again.",
     "Upon confirmation of the voided transaction, you will be redirected to your Z6 home screen.",
@@ -7083,7 +7085,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z6",
-   "quote": "6. Select the transaction you’d like to void using the PREVIOUS",
+   "quote": "6. Select the transaction you\u2019d like to void using the PREVIOUS",
    "note": "From PaymentCloud's own guide, not Dejavoo's. It describes the Z6 as a touch-screen device that runs sales itself; our sheet treats the Z6 as a non-touch PIN pad working off a master terminal.",
    "sensitive": "password"
   },
@@ -7103,7 +7105,7 @@
     "Select DATE AND TIME.",
     "If the listed date and time are accurate, leave as is. If adjustment is needed, clear the time details before re-entering them correctly.",
     "Enter the relevant information for DATE in the MM/DD/YY format.",
-    "Enter the regional time zone into your Dejavoo Z6 device. It will display in 24-hour clock/military time format. Use the Z6’s alphanumeric keypad to adjust time details as needed.",
+    "Enter the regional time zone into your Dejavoo Z6 device. It will display in 24-hour clock/military time format. Use the Z6\u2019s alphanumeric keypad to adjust time details as needed.",
     "Press OK to confirm changes."
    ],
    "merchant_can_do": true,
@@ -7145,7 +7147,7 @@
    "kind": "how-to",
    "title": "Load and Change Paper Roll",
    "steps": [
-    "Open the terminal’s top paper compartment.",
+    "Open the terminal\u2019s top paper compartment.",
     "Insert the correct Dejavoo Z8 paper roll size, ensuring the paper feeds from the bottom.",
     "Extend a few inches of paper from the top of the roll."
    ],
@@ -7548,7 +7550,7 @@
     "Use the arrow keys to highlight SETTLEMENT and press OK to confirm.",
     "With the arrow keys, highlight SETTLE DAILY BATCH and press OK to confirm.",
     "Enter the manager password when prompted.",
-    "Establish the terminal’s communication with the host.",
+    "Establish the terminal\u2019s communication with the host.",
     "Settlement Receipt Report prints."
    ],
    "merchant_can_do": true,
@@ -7657,7 +7659,7 @@
    "kind": "how-to",
    "title": "Change the Date and Time",
    "steps": [
-    "Access the core menu from the device’s main menu.",
+    "Access the core menu from the device\u2019s main menu.",
     "Locate the UTILITY option.",
     "Enter the manager password when prompted.",
     "Select the SETTINGS option.",
@@ -7756,7 +7758,7 @@
     "Flip your Dejavoo Z8 right-side up.",
     "Remove the USB key from your laptop or desktop.",
     "Plug the USB key into the Female A adapter.",
-    "Terminal will read “READING USB DIRECTORY.”",
+    "Terminal will read \u201cREADING USB DIRECTORY.\u201d",
     "Press and hold the green button to select the TPN on their Dejavoo display, then press F2 to confirm and apply updates."
    ],
    "merchant_can_do": false,
@@ -7800,12 +7802,12 @@
    "title": "Retrieve Information From a USB Drive",
    "steps": [
     "Insert the USB drive, find it in your list of drives, and select it.",
-    "In the main directory of your USB drive, create a new folder and name it “Download.”",
-    "If you haven’t done so yet, download the Terminal Profile from the STEAM system. Save the Terminal Profile (TPN) in the “Download” folder on the USB drive’s main directory.",
+    "In the main directory of your USB drive, create a new folder and name it \u201cDownload.\u201d",
+    "If you haven\u2019t done so yet, download the Terminal Profile from the STEAM system. Save the Terminal Profile (TPN) in the \u201cDownload\u201d folder on the USB drive\u2019s main directory.",
     "Find the Mini B USB to A USB adapter in the packaging for your Z series terminal.",
     "Flip the device over, then connect the Mini B USB end to the Mini A USB 1 port on the bottom of the terminal.",
     "Set the terminal upright, and make sure it is powered on before continuing.",
-    "Remove the USB drive from your computer and connect it to the A end of the adapter. The device will then show “Reading USB Directory.”",
+    "Remove the USB drive from your computer and connect it to the A end of the adapter. The device will then show \u201cReading USB Directory.\u201d",
     "When the TPN file from the Download folder appears on the terminal display, tap TPN on the screen.",
     "The terminal will ask if there are any updates. Click YES to confirm.",
     "The terminal will begin downloading the software, restart, and prompt you to confirm the date and time.",
@@ -7871,7 +7873,7 @@
     "At the top of the terminal, locate the black tab and pull it towards you.",
     "The paper cover will pop open.",
     "Place the thermal paper into the holder.",
-    "The paper roll size merchants should use is 2” x 50”.",
+    "The paper roll size merchants should use is 2\u201d x 50\u201d.",
     "Close the top of the case by snapping it into place.",
     "The paper should feed from the terminal screen."
    ],
@@ -7927,21 +7929,21 @@
    "steps": [
     "From the main menu, press the Green Button to access the Core Menu.",
     "Press 4 for UTILITY.",
-    "Press 3 for “Communications.”",
-    "Press 2 for “Local Params.”",
-    "Press 3 for “WiFi.”",
-    "Press 1 for “Scan Network.”",
-    "Tap on the network from the list to which you’d like to connect.",
-    "Press 2 for “Configure.”",
-    "Press 1 for “Set Password.”",
-    "Use the keypad to input the network’s password. Click the Green Key when complete.",
-    "Press the yellow back button and select “Connect.”",
+    "Press 3 for \u201cCommunications.\u201d",
+    "Press 2 for \u201cLocal Params.\u201d",
+    "Press 3 for \u201cWiFi.\u201d",
+    "Press 1 for \u201cScan Network.\u201d",
+    "Tap on the network from the list to which you\u2019d like to connect.",
+    "Press 2 for \u201cConfigure.\u201d",
+    "Press 1 for \u201cSet Password.\u201d",
+    "Use the keypad to input the network\u2019s password. Click the Green Key when complete.",
+    "Press the yellow back button and select \u201cConnect.\u201d",
     "Press F2 to confirm the network connection."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z9",
-   "quote": "10. Use the keypad to input the network’s password. Click the",
+   "quote": "10. Use the keypad to input the network\u2019s password. Click the",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -7978,7 +7980,7 @@
     "Tap either FULL or PARTIAL.",
     "Enter the unique 10-12 digit alphanumeric TPN.",
     "Press the Green Key (Note: When inputting a repeated digit, pause between entries to avoid scrolling to letters as this entry is alphanumerically capable.)",
-    "Terminal will ask, “Apply Updates?” Tap YES.",
+    "Terminal will ask, \u201cApply Updates?\u201d Tap YES.",
     "The terminal will download and install your software, reboot, and prompt you to confirm the date and time, then return to the idle prompt."
    ],
    "merchant_can_do": false,
@@ -8003,7 +8005,7 @@
     "Tap either FULL or PARTIAL.",
     "Enter the unique 10-12 digit alphanumeric TPN.",
     "Press the Green Key (Note: When inputting a repeated digit, pause between entries to avoid scrolling to letters as this entry is alphanumerically capable.)",
-    "Terminal will ask, “Apply Updates?” Tap YES.",
+    "Terminal will ask, \u201cApply Updates?\u201d Tap YES.",
     "The terminal will download and install your software, reboot, and prompt you to confirm the date and time, then return to the idle prompt."
    ],
    "merchant_can_do": false,
@@ -8027,7 +8029,7 @@
     "Tap either FULL or PARTIAL",
     "Enter the unique 10-12 digit alphanumeric TPN",
     "Press the Green Key (Note: When inputting a repeated digit, pause between entries to avoid scrolling to letters as this entry is alphanumerically capable.)",
-    "Terminal will ask, “Apply Updates?” Tap YES",
+    "Terminal will ask, \u201cApply Updates?\u201d Tap YES",
     "The terminal will download and install your software, reboot, and prompt you to confirm the date and time, then return to the idle prompt."
    ],
    "merchant_can_do": false,
@@ -8052,7 +8054,7 @@
     "Tap either FULL or PARTIAL.",
     "Enter the unique 10-12 digit alphanumeric TPN.",
     "Press the Green Key (Note: When inputting a repeated digit, pause between entries to avoid scrolling to letters as this entry is alphanumerically capable.)",
-    "Terminal will ask, “Apply Updates?” Tap YES.",
+    "Terminal will ask, \u201cApply Updates?\u201d Tap YES.",
     "The terminal will download and install your software, reboot, and prompt you to confirm the date and time, then return to the idle prompt."
    ],
    "merchant_can_do": false,
@@ -8072,15 +8074,15 @@
    "steps": [
     "Insert the USB key into your computer.",
     "Find the USB key (removable disk) on your list of drives, and click on it to access the USB drive.",
-    "Create a new folder on your USB root directory and name it “download.” without any spaces.",
+    "Create a new folder on your USB root directory and name it \u201cdownload.\u201d without any spaces.",
     "Place the .TAR File (Terminal Profile) you downloaded from the STEAM system into a folder you just created named download on the root directory of your USB key. *Note: The .TAR file does not need to be uncompressed.",
     "In Your Z Series Terminal Packaging, find the Mini B Male USB to Female A USB adaptor.",
     "Plug the smaller male USB end into the Mini USB 1 port found on the underside of the terminal. (Turn the terminal over)",
     "Turn over the Dejavoo terminal so it is right side up, make sure it is powered ON.",
     "Eject your USB key from your Computer and insert the USB key into the larger Female end of the adaptor you connected to the terminal.",
-    "The terminal will display “Reading USB Directory.” The TPN file(s) you placed in the download folder will appear on the terminal display.",
+    "The terminal will display \u201cReading USB Directory.\u201d The TPN file(s) you placed in the download folder will appear on the terminal display.",
     "Tap the TPN on the terminal display.",
-    "Terminal will ask, “Apply Updates?” Tap YES."
+    "Terminal will ask, \u201cApply Updates?\u201d Tap YES."
    ],
    "merchant_can_do": false,
    "escalate_to": "tech",
@@ -8123,7 +8125,7 @@
     "Enter the SALE AMOUNT. Press OK.",
     "Tap (contactless only) or insert your chip card.",
     "If asked, confirm the sale amount by selecting YES or NO.",
-    "You’ve processed the transaction.",
+    "You\u2019ve processed the transaction.",
     "Sales receipts will print with details of the transaction."
    ],
    "merchant_can_do": true,
@@ -8146,12 +8148,12 @@
     "Enter the SALE AMOUNT and press OK.",
     "Manually enter card #.",
     "Follow the CNP prompts (enter exp. date, ZIP code, etc).",
-    "You’ve processed the transaction. Sales receipts will print with details."
+    "You\u2019ve processed the transaction. Sales receipts will print with details."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z9",
-   "quote": "6. You’ve processed the transaction. Sales receipts will print with",
+   "quote": "6. You\u2019ve processed the transaction. Sales receipts will print with",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8514,7 +8516,7 @@
    "title": "Set Up an Ethernet or Wi-Fi Connection: Connect to Ethernet",
    "steps": [
     "Link your Ethernet cable from your router to the LAN port on the back of the Dejavoo Z11.",
-    "Power on the terminal. Once it initializes, the main SALE screen should appear, indicating a successful connection​."
+    "Power on the terminal. Once it initializes, the main SALE screen should appear, indicating a successful connection\u200b."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -8535,7 +8537,7 @@
     "Select UTILITY.",
     "Select WIFI.",
     "Select your WiFi network. When prompted, enter the network password, then CONFIRM.",
-    "Once connected, a WiFi icon will display on the screen, and the terminal will be ready to process transactions wirelessly.​",
+    "Once connected, a WiFi icon will display on the screen, and the terminal will be ready to process transactions wirelessly.\u200b",
     "If you are having trouble connecting to WiFi, try restarting your router. Alternatively, you can also try restarting your Dejavoo Z11."
    ],
    "merchant_can_do": true,
@@ -8555,7 +8557,7 @@
    "steps": [
     "To add servers, access the CREDIT menu.",
     "Select SALE.",
-    "When prompted, enter the server ID. This feature helps individual employees or business sections ​manage sales."
+    "When prompted, enter the server ID. This feature helps individual employees or business sections \u200bmanage sales."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -8593,14 +8595,14 @@
     "From the home screen, select CREDIT.",
     "Select SALE.",
     "Enter the total sale amount, then confirm.",
-    "Insert the customer’s chip card with the chip facing toward the terminal. Cardholders can also tap to exercise the contactless pay option.",
+    "Insert the customer\u2019s chip card with the chip facing toward the terminal. Cardholders can also tap to exercise the contactless pay option.",
     "Confirm the amount if prompted.",
     "Once processed, the terminal will print a receipt."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "4. Insert the customer’s chip card with the chip facing toward",
+   "quote": "4. Insert the customer\u2019s chip card with the chip facing toward",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8657,13 +8659,13 @@
     "From the home screen, select GIFT.",
     "Select REDEEM.",
     "Enter the total amount for the gift card purchase, then confirm.",
-    "Swipe gift card using the Dejavoo Z11’s magstripe reader.",
+    "Swipe gift card using the Dejavoo Z11\u2019s magstripe reader.",
     "Merchants will have the option to print both customer and merchant receipts."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "4. Swipe gift card using the Dejavoo Z11’s magstripe reader.",
+   "quote": "4. Swipe gift card using the Dejavoo Z11\u2019s magstripe reader.",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8705,7 +8707,7 @@
     "If prompted, enter the default/manager password. When prompted, select ALL.",
     "Select TRANSACTION #.",
     "Enter the TIP AMOUNT when the transaction amount appears, then press OK.",
-    "If prompted, confirm the tip amount by tapping YES or NO (this will depend on the terminal’s settings).",
+    "If prompted, confirm the tip amount by tapping YES or NO (this will depend on the terminal\u2019s settings).",
     "Repeat steps 5 and 6 for any additional tips.",
     "When finished, press the final key to save changes."
    ],
@@ -8727,14 +8729,14 @@
     "Tap the STAR icon to access the FAVORITES menu.",
     "Select REPRINT RECEIPT.",
     "If prompted, enter the default/manager password.",
-    "Select the option for which receipt you’d like to reprint (LAST, BY TRANSACTION #, or BY CARD NUMBER).",
+    "Select the option for which receipt you\u2019d like to reprint (LAST, BY TRANSACTION #, or BY CARD NUMBER).",
     "Follow prompts and transaction receipt prints.",
     "Note: If your Dejavoo Z11 is not printing, ensure the paper is loaded correctly and the thermal paper is appropriately oriented. The printer may not function if the cover is not securely closed or if there is a malfunction."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "4. Select the option for which receipt you’d like to reprint (LAST,",
+   "quote": "4. Select the option for which receipt you\u2019d like to reprint (LAST,",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8750,12 +8752,12 @@
     "Select RETURN.",
     "Enter the total amount for the refund, then confirm.",
     "Swipe, tap, or insert the card to proceed with the refund.",
-    "The return will be processed, and a receipt will be printed​."
+    "The return will be processed, and a receipt will be printed\u200b."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "5. The return will be processed, and a receipt will be printed​.",
+   "quote": "5. The return will be processed, and a receipt will be printed\u200b.",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8771,12 +8773,12 @@
     "Select RETURN.",
     "Enter the total amount for the refund, then confirm.",
     "Swipe or insert the card to proceed with the refund. Cardholders may be asked to verify their PIN information to verify the return.",
-    "The return will be processed, and a receipt will be printed​."
+    "The return will be processed, and a receipt will be printed\u200b."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "5. The return will be processed, and a receipt will be printed​.",
+   "quote": "5. The return will be processed, and a receipt will be printed\u200b.",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8793,7 +8795,7 @@
     "Enter the amount you wish to void and confirm.",
     "If prompted, enter the default/manager password.",
     "Tap (for contactless) or insert the chip card.",
-    "The void will be processed, and a receipt detailing the voided transaction​will be printed."
+    "The void will be processed, and a receipt detailing the voided transaction\u200bwill be printed."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -8816,7 +8818,7 @@
     "Select BY TRANSACTION # to search for the specific transaction you want to void.",
     "Enter the transaction number that needs to be voided. Confirm when ready. Some merchants may be asked to confirm twice.",
     "Re-enter the default/manager password if required.",
-    "The void will be processed, and a receipt detailing the voided transaction​will be printed."
+    "The void will be processed, and a receipt detailing the voided transaction\u200bwill be printed."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -8836,12 +8838,12 @@
     "From the home screen, select the STAR icon.",
     "Select SETTLE DAILY BATCH.",
     "Enter the manager password when prompted.",
-    "A receipt will be printed for the merchant’s record."
+    "A receipt will be printed for the merchant\u2019s record."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "4. A receipt will be printed for the merchant’s record.",
+   "quote": "4. A receipt will be printed for the merchant\u2019s record.",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -8946,13 +8948,13 @@
    "steps": [
     "Press and hold the green key to start.",
     "If prompted, select POWER OFF or POWER DOWN.",
-    "You should see the message ‘SYSTEM INITIALIZING’ displayed on your terminal’s screen. This indicates that the startup process has begun. This process generally takes a few minutes.",
+    "You should see the message \u2018SYSTEM INITIALIZING\u2019 displayed on your terminal\u2019s screen. This indicates that the startup process has begun. This process generally takes a few minutes.",
     "Release once the terminal begins to reboot."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_z11",
-   "quote": "3. You should see the message ‘SYSTEM INITIALIZING’ displayed on",
+   "quote": "3. You should see the message \u2018SYSTEM INITIALIZING\u2019 displayed on",
    "note": "From PaymentCloud's own guide, not Dejavoo's."
   },
   {
@@ -9009,7 +9011,7 @@
    "title": "Load Paper Roll",
    "steps": [
     "Pinch both sides of the printer latch located at the top of your QD2 device (near where the receipts are dispensed posttransaction).",
-    "Load 2-1/4″ thermal receipt paper into the open slot.",
+    "Load 2-1/4\u2033 thermal receipt paper into the open slot.",
     "Leave a small length of receipt paper extending outward from the latch.",
     "Close the latch. Your device is now able to start printing."
    ],
@@ -9071,9 +9073,9 @@
     "From the home menu, select CREDIT.",
     "A new menu will appear with the following options: SALE, RETURN, BALANCE, etc. Select SALE.",
     "Enter the total amount for the chip card sale, then select OK to confirm.",
-    "The merchant will then be asked to tap, swipe, insert, or manually enter card number details. Since this is an EMV chip sale, cardholders will insert their card into the QD2’s chip card reader.",
+    "The merchant will then be asked to tap, swipe, insert, or manually enter card number details. Since this is an EMV chip sale, cardholders will insert their card into the QD2\u2019s chip card reader.",
     "A prompt will appear on your screen reading PLEASE REMOVE CARD. After removing card from the chip reader, cardholders may be prompted to sign for their purchase.",
-    "After signing using the QD2’s screen capture capabilities, select OK.",
+    "After signing using the QD2\u2019s screen capture capabilities, select OK.",
     "If approved, the sales receipt will be printed with transaction details. If asked if you wish to print a customer copy of the receipt, select either YES or NO."
    ],
    "merchant_can_do": true,
@@ -9164,7 +9166,7 @@
     "Enter the default password.",
     "By default, the most recent transaction will be selected. You can select from several options, including BY TRANSACTION # or BY CARD NUMBER.",
     "To select a prior transaction, enter either the TRANSACTION ID or the last four digits of the card used in the original transaction.",
-    "Select which type of receipt you’d like to print: MERCHANT COPY or CUSTOMER COPY.",
+    "Select which type of receipt you\u2019d like to print: MERCHANT COPY or CUSTOMER COPY.",
     "Follow the prompts to reprint."
    ],
    "merchant_can_do": true,
@@ -9186,7 +9188,7 @@
     "Select REFUND or RETURN.",
     "Enter the total amount for the refund, and select OK to confirm.",
     "If prompted, enter the default password.",
-    "Insert your EMV chip card into the QD2’s EMV chip card reader to initiate the return.",
+    "Insert your EMV chip card into the QD2\u2019s EMV chip card reader to initiate the return.",
     "Verify transaction details, and press OK to confirm the return.",
     "If approved, the receipt will be printed with requisite return details."
    ],
@@ -9382,7 +9384,7 @@
     "Enter the total SALE amount, then confirm.",
     "The cardholder will be asked to swipe, insert, tap their card, or enter the card details manually. Select ENTER CARD #.",
     "Enter the card number and confirm.",
-    "If prompted, enter the card’s expiration date, then confirm.",
+    "If prompted, enter the card\u2019s expiration date, then confirm.",
     "Press YES if this is a card-present transaction. Press NO if this is a card-not-present transaction. Merchants performing a manual entry for a card-not-present transaction may be asked to enter the AVS or card code security details.",
     "If this is a card-present transaction, the merchant must use the keypad on their QD3 device to enter a zip code, billing address, and CID number.",
     "The sale will either be approved or declined."
@@ -9406,7 +9408,7 @@
     "You will then be presented with SALE, RETURN, BALANCE, etc. Select SALE.",
     "Enter the SALE amount, then confirm.",
     "The cardholder will be prompted to swipe, insert, or tap their card.",
-    "The total amount will be confirmed after the cardholder has swiped, tapped, or inserted their card. Customers will be prompted to enter PIN details on the QD3’s encrypted PIN pad before confirming."
+    "The total amount will be confirmed after the cardholder has swiped, tapped, or inserted their card. Customers will be prompted to enter PIN details on the QD3\u2019s encrypted PIN pad before confirming."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -9494,7 +9496,7 @@
     "The cardholder will then be prompted to swipe, tap, or insert their card.",
     "If prompted, select the appropriate application.",
     "Enter the DATE AND TIME of the original transaction, then confirm.",
-    "Customers may then be prompted to enter PIN details on the QD3’s encrypted PIN pad before being issued their return.",
+    "Customers may then be prompted to enter PIN details on the QD3\u2019s encrypted PIN pad before being issued their return.",
     "The return will either be approved or declined."
    ],
    "merchant_can_do": true,
@@ -9537,7 +9539,7 @@
    "steps": [
     "Select the CREDIT icon on your home screen.",
     "You will be presented with SALE, VOID, BALANCE, etc. Select VOID.",
-    "Use your device’s keypad to enter the VOID amount, then confirm.",
+    "Use your device\u2019s keypad to enter the VOID amount, then confirm.",
     "If prompted, enter the Manager Password (1234).",
     "The cardholder will be prompted to tap, insert, or swipe their card. Confirm when ready.",
     "Enter the VOID TRANSACTION #, then confirm.",
@@ -9559,7 +9561,7 @@
    "kind": "how-to",
    "title": "Void Transaction: Void Credit Transaction (Card Not Present)",
    "steps": [
-    "Access FAVORITES in your Dejavoo QD3’s menu.",
+    "Access FAVORITES in your Dejavoo QD3\u2019s menu.",
     "Select VOID TRANSACTION. If prompted, enter the Manager Password (1234).",
     "Find and select BY TRANSACTION #.",
     "Enter the number of the transaction you wish to VOID, then confirm.",
@@ -9581,7 +9583,7 @@
    "kind": "how-to",
    "title": "View Reports",
    "steps": [
-    "Access your device’s CORE MENU.",
+    "Access your device\u2019s CORE MENU.",
     "Select REPORTS.",
     "In the OPEN/CLOSED batch, select REPORT to proceed.",
     "Select a report type: Daily, Non-Cash, Summary, Tipped, or Un-Tipped.",
@@ -9602,7 +9604,7 @@
    "kind": "how-to",
    "title": "Change the Date and Time",
    "steps": [
-    "Access your device’s CORE MENU.",
+    "Access your device\u2019s CORE MENU.",
     "If prompted, select UTILITY.",
     "Select SETTINGS.",
     "Find and select the DATE AND TIME option.",
@@ -9672,7 +9674,7 @@
    "kind": "how-to",
    "title": "Reset the Password for the Dejavoo QD3 Terminal",
    "steps": [
-    "Access your device’s CORE MENU.",
+    "Access your device\u2019s CORE MENU.",
     "If prompted, select UTILITY.",
     "Select SECURITY.",
     "Select EDIT PASSWORD.",
@@ -9835,7 +9837,7 @@
     "Enter the card number and press OK.",
     "Enter the expiry date and press OK.",
     "When asked if the card is present, press YES if it is and NO if it is not.",
-    "If the card is present, you will be prompted to enter the CID number, ZIP CODE, and ADDRESS. If the card is not present, enter AVS (Address Verification Service) and card’s code security information. (Note: Code is 3 digits on the back of MasterCard or Visa found in the signature line, and 4 digits on the front right of American Express found above card number).",
+    "If the card is present, you will be prompted to enter the CID number, ZIP CODE, and ADDRESS. If the card is not present, enter AVS (Address Verification Service) and card\u2019s code security information. (Note: Code is 3 digits on the back of MasterCard or Visa found in the signature line, and 4 digits on the front right of American Express found above card number).",
     "The sale will be processed. The transaction will be declined or approved.",
     "Sales receipts will be printed with details."
    ],
@@ -9948,7 +9950,7 @@
    "steps": [
     "Press DEBIT on the home screen. A new screen will display the following options: SALE, RETURN, and BALANCE.",
     "Press RETURN.",
-    "Enter the RETURN amount. If the amount shown is correct, press OK to confirm.If it’s incorrect, press CANCEL and re-enter the correct amount. If prompted, enter Manager Password (default: 1234).",
+    "Enter the RETURN amount. If the amount shown is correct, press OK to confirm.If it\u2019s incorrect, press CANCEL and re-enter the correct amount. If prompted, enter Manager Password (default: 1234).",
     "Customer will be prompted to tap, insert, swipe, or enter their card number manually. Select the appropriate option.",
     "If prompted, select your chosen application.",
     "Enter the original transaction date and press OK.",
@@ -10182,7 +10184,7 @@
    "kind": "how-to",
    "title": "Load Paper Roll",
    "steps": [
-    "Use thermal paper (2 ” x 50’).",
+    "Use thermal paper (2 \u201d x 50\u2019).",
     "Locate the paper compartment on your Dejavoo device.",
     "Insert thermal paper roll into the open compartment with paper feeding from the bottom.",
     "Leave a few inches of paper hanging out over the top of the roll."
@@ -10229,7 +10231,7 @@
     "You will then be asked to select a connection option, such as WIFI or ETHERNET. When prompted, select ETHERNET.",
     "For Mode: select MODE to confirm.",
     "For Static IP: select STATIC to confirm.",
-    "Use the device’s touchscreen to select your desired configuration option, then confirm."
+    "Use the device\u2019s touchscreen to select your desired configuration option, then confirm."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -10311,14 +10313,14 @@
     "Enter and confirm the Sale Amount.",
     "When prompted, select ENTER CARD #.",
     "Manually enter the card number into your Dejavoo device, then confirm.",
-    "Your terminal may display a notification reading “EXP DATE [MMYY].” If so, enter the card’s expiration date when prompted, then confirm.",
+    "Your terminal may display a notification reading \u201cEXP DATE [MMYY].\u201d If so, enter the card\u2019s expiration date when prompted, then confirm.",
     "You may be asked to confirm whether the transaction in question was a card-present or card-not-present (CNP) transaction. Confirm the correct selection when prompted. Cardholders for card-present transactions may be asked to provide billing address information. Cardholders for card-not-present transactions may be prompted to enter AVS and card code security details.",
     "Terminal will notify the merchant when the transaction has been approved. Sales receipts will be printed with details of the transaction."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pc_qd5",
-   "quote": "6. Your terminal may display a notification reading “EXP DATE",
+   "quote": "6. Your terminal may display a notification reading \u201cEXP DATE",
    "note": "From PaymentCloud's own guide, not Dejavoo's. It describes the QD5 as a standalone terminal with a printer; our sheet and Dejavoo list the QD5 as a PIN pad paired to a QD4."
   },
   {
@@ -10375,7 +10377,7 @@
     "Access the Core Menu on your Dejavoo QD5.",
     "If prompted, select APPLICATIONS, then choose the appropriate option between CREDIT/DEBIT/EBT.",
     "Following this, select the REPRINT RECEIPT option. If prompted, enter the manager password (1234).",
-    "Using the LAST prompt, merchants can reprint a receipt for their most recent transaction. Merchants can also select the option to reprint receipts using the transaction ID numbers of the last four digits of a customer’s debit or credit card.",
+    "Using the LAST prompt, merchants can reprint a receipt for their most recent transaction. Merchants can also select the option to reprint receipts using the transaction ID numbers of the last four digits of a customer\u2019s debit or credit card.",
     "If prompted, select Receipt Type: Merchant Copy or Customer Copy.",
     "Confirm the transaction.",
     "Upon doing this, a copy of the receipt will be printed."
@@ -10420,7 +10422,7 @@
    "steps": [
     "To begin, select the DEBIT ICON.",
     "Select RETURN.",
-    "Enter the return amount, then confirm. If the total is incorrect, use the device’s touchscreen to select CANCEL. If your device prompts you to enter an input password, the Dejavoo QD5’s default password is 1234.",
+    "Enter the return amount, then confirm. If the total is incorrect, use the device\u2019s touchscreen to select CANCEL. If your device prompts you to enter an input password, the Dejavoo QD5\u2019s default password is 1234.",
     "Insert or swipe debit card.",
     "The customer enters their PIN number.",
     "Press YES to confirm transaction.",
@@ -10462,11 +10464,11 @@
    "kind": "how-to",
    "title": "Void Transaction: Void Credit Transaction (Card Present)",
    "steps": [
-    "Select the CREDIT ICON on your device’s screen.",
+    "Select the CREDIT ICON on your device\u2019s screen.",
     "When prompted, select VOID.",
     "Enter the Void amount, then confirm. If the amount is incorrect, select CANCEL, then enter the proper amount. If your device prompts you to enter a password, enter the default password (1234).",
     "At this point, merchants will either insert or swipe the card used in the transaction or manually enter the card number. The option to tap can only be exercised by those who used a contactless payment method.",
-    "Upon approval, the terminal will print a copy of the voided receipt for the merchant’s records."
+    "Upon approval, the terminal will print a copy of the voided receipt for the merchant\u2019s records."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
@@ -10484,7 +10486,7 @@
    "kind": "how-to",
    "title": "Void Transaction: Void Credit Transaction (Card Not Present)",
    "steps": [
-    "Press the STAR ICON on your QD5’s touchscreen.",
+    "Press the STAR ICON on your QD5\u2019s touchscreen.",
     "When prompted, select VOID TRANSACTION.",
     "Your most recent transaction will be selected by default. Dejavoo QD5 users can select which transaction they want to void based on several criteria, including Transaction Number and CInvoice Number. To view a list of all transactions, select VIEW ALL.",
     "Select and confirm the transaction in question.",
@@ -10505,7 +10507,7 @@
    "kind": "how-to",
    "title": "Print Reports",
    "steps": [
-    "Access your device’s Core Menu.",
+    "Access your device\u2019s Core Menu.",
     "Select REPORT.",
     "Select the report type: Daily, Summary, etc. and tap to print.",
     "A copy will be printed."
@@ -10525,8 +10527,8 @@
    "kind": "how-to",
    "title": "Change the Date and Time",
    "steps": [
-    "From the device’s CORE MENU, select UTILITY.",
-    "Select SETTINGS. You may be prompted to enter your device’s default password (1234) or click the three bars at the top right corner of the screen.",
+    "From the device\u2019s CORE MENU, select UTILITY.",
+    "Select SETTINGS. You may be prompted to enter your device\u2019s default password (1234) or click the three bars at the top right corner of the screen.",
     "Select the appropriate DATE AND TIME option. Clear the date if the date listed is incorrect, then re-enter the appropriate date in the MM/DD/YY format.",
     "When prompted, enter the appropriate regional time zone. Be sure to do this using the 24-hour clock/military time format."
    ],

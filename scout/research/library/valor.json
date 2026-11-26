@@ -467,7 +467,7 @@
   {
    "id": "s57",
    "url": "https://valorpaytech722824296465.freshdesk.com/support/solutions/articles/153000180776-connect-to-a-merchant-s-device",
-   "title": "Valor Knowledge Base: Connect to a Merchant’s Device (Remote Diagnostics)",
+   "title": "Valor Knowledge Base: Connect to a Merchant\u2019s Device (Remote Diagnostics)",
    "publisher": "Valor PayTech",
    "tier": 1,
    "local": "raw/valor/kb-153000180776.txt"
@@ -993,7 +993,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s1",
-   "quote": "Tap OK to conﬁrm, press the Cancel button, then tap Connect.",
+   "quote": "Tap OK to con\ufb01rm, press the Cancel button, then tap Connect.",
    "note": "The guide shows an icon before \"7 Comm Config\"; Comm Config is item 7 of the Favorites menu."
   },
   {
@@ -1125,7 +1125,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s1",
-   "quote": "COMM CONFIG | Conﬁgure your internet connection settings."
+   "quote": "COMM CONFIG | Con\ufb01gure your internet connection settings."
   },
   {
    "id": "valor-vl100pro-fav-reboot",
@@ -1344,7 +1344,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s2",
-   "quote": "Tap OK to conﬁrm, press the Cancel button, then tap Connect.",
+   "quote": "Tap OK to con\ufb01rm, press the Cancel button, then tap Connect.",
    "note": "The guide shows an icon before \"7 Comm Config\"; Comm Config is item 7 of the Favorites menu."
   },
   {
@@ -1484,7 +1484,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s2",
-   "quote": "COMM CONFIG | Conﬁgure your internet connection settings."
+   "quote": "COMM CONFIG | Con\ufb01gure your internet connection settings."
   },
   {
    "id": "valor-vl100-110-fav-reboot",
@@ -1783,7 +1783,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s4",
-   "quote": "Tap OK to conﬁrm, press the Cancel button, then tap Connect.",
+   "quote": "Tap OK to con\ufb01rm, press the Cancel button, then tap Connect.",
    "note": "The guide shows an icon before \"7 Comm Config\"; Comm Config is item 7 of the Favorites menu."
   },
   {
@@ -1917,7 +1917,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s4",
-   "quote": "COMM CONFIG | Conﬁgure your internet connection settings."
+   "quote": "COMM CONFIG | Con\ufb01gure your internet connection settings."
   },
   {
    "id": "valor-vp100-fav-reboot",
@@ -2306,7 +2306,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s6",
-   "quote": "COMM CONFIG | Conﬁgure your internet connection settings."
+   "quote": "COMM CONFIG | Con\ufb01gure your internet connection settings."
   },
   {
    "id": "valor-vp550c-fav-reboot",
@@ -2566,7 +2566,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s8",
-   "quote": "COMM CONFIG | Conﬁgure your internet connection settings."
+   "quote": "COMM CONFIG | Con\ufb01gure your internet connection settings."
   },
   {
    "id": "valor-vl300-fav-reboot",
@@ -2905,7 +2905,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s9",
-   "quote": "Change Password, Wiﬁ Conﬁg, SIM Conﬁg, and Utilities."
+   "quote": "Change Password, Wi\ufb01 Con\ufb01g, SIM Con\ufb01g, and Utilities."
   },
   {
    "id": "valor-vl550-dp-card-sale",
@@ -3167,7 +3167,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s11",
-   "quote": "Change Password, Wiﬁ Conﬁg, SIM Conﬁg, and Utilities."
+   "quote": "Change Password, Wi\ufb01 Con\ufb01g, SIM Con\ufb01g, and Utilities."
   },
   {
    "id": "valor-vp550e-dp-card-sale",
@@ -3429,7 +3429,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s13",
-   "quote": "Change Password, Wiﬁ Conﬁg, SIM Conﬁg, and Utilities."
+   "quote": "Change Password, Wi\ufb01 Con\ufb01g, SIM Con\ufb01g, and Utilities."
   },
   {
    "id": "valor-vp350-dp-card-sale",
@@ -3706,7 +3706,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s15",
-   "quote": "View Diﬀerent Report Types"
+   "quote": "View Di\ufb00erent Report Types"
   },
   {
    "id": "valor-vp800-menu-tip-adjust",
@@ -3738,7 +3738,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s15",
-   "quote": "Reprint Last Transaction’s Receipt"
+   "quote": "Reprint Last Transaction\u2019s Receipt"
   },
   {
    "id": "valor-vp800-menu-reprint-any",
@@ -3787,10 +3787,11 @@
     "Select Yes on the confirmation box.",
     "The PIN pad checks its Ethernet connection. If the connection is good it reboots as a standalone terminal and opens the EPI screen."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s8",
-   "quote": "Select Standalone or Press 2 to convert the PIN pad into a standalone."
+   "quote": "Select Standalone or Press 2 to convert the PIN pad into a standalone.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-vp800-dp-card-sale",
@@ -4137,11 +4138,12 @@
     "Select Yes on the confirmation.",
     "The terminal settles the batch and prints a batch summary and a batch closed confirmation."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s23",
    "quote": "The Terminal will now attempt to Settle the current Batch, Print a Batch Summary as well as a Batch Closed Confirmation.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-kp-reprint",
@@ -4159,11 +4161,12 @@
     "Choose Last Transaction, or Tran Number to enter a transaction number from the open batch, or Card Number to enter the last 4 digits of the card.",
     "Choose to print the receipt or send it by SMS."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s24",
    "quote": "Card Number = Enter Last 4 Digits of PAN Number of Card from Open Batch to Reprint.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-kp-utility-menu",
@@ -4181,11 +4184,12 @@
     "Comm Config: Wi-Fi, Ethernet (VL100 / VP100) and GPRS (VL110) settings.",
     "Host Config: app server and parameter server settings."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s25",
    "quote": "TMS = Request a Full or Partial App Download from the Server",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-kp-wifi-settings-options",
@@ -4263,10 +4267,11 @@
     "8 RKI is manual remote key injection.",
     "9 Clerk/Server manages clerk and server names and IDs and prints the list."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s26",
-   "quote": "6. Reset Terminal = Reset Terminal Configuration Database"
+   "quote": "6. Reset Terminal = Reset Terminal Configuration Database",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-kp-clear-reversal",
@@ -4435,10 +4440,11 @@
     "Heartbeat refreshes the heartbeat details in the portal.",
     "Call Me opens a tech support ticket. You can pick Hardware Issue, Payment Issue, Statement Issue, Transaction Issue, Sales or Other Issue."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s28",
-   "quote": "2. EPI = Endpoint Identifier = Device Identification Number"
+   "quote": "2. EPI = Endpoint Identifier = Device Identification Number",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-vl300-connect-to-vl100",
@@ -4491,10 +4497,11 @@
     "Power cycle the PIN pad by pressing and holding its Power button. This triggers an RKI (key) download.",
     "When it has finished, you can remove the Ethernet cable from the Y-cable."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s29",
-   "quote": "If the Pin Pad communicates Keys Not Present follow the RKI steps below."
+   "quote": "If the Pin Pad communicates Keys Not Present follow the RKI steps below.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-vp300-connect-to-vp100",
@@ -4627,11 +4634,12 @@
     "Select Tran Number to enter the transaction number, or Card Number to enter the last 4 digits of the card used.",
     "Press OK to confirm the void."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s35",
    "quote": "On the Homescreen tap SALE until it turns to VOID.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-kp-soft-reset",
@@ -4670,11 +4678,12 @@
     "Enter the password (the default is the last 4 digits of the EPI), press the Down Arrow, then RKI.",
     "Enter the Valor master password (82567729) and press OK to run the manual RKI."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s37",
    "quote": "Enter the Valor Master Password (82567729) followed by OK button to successfully perform a Manual RKI.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-kp-keyboard-beep",
@@ -4729,11 +4738,12 @@
     "Enter the password. The default password is the last 4 digits of the EPI.",
     "Choose Open Summary (open batch summary), Closed Summary (last closed batch summary) or Detailed Report (detailed report of a recently closed batch)."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s40",
    "quote": "Detailed Report = Print Detailed Report of a Recently Closed Batch",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-a5-home-transactions",
@@ -4797,12 +4807,13 @@
     "Enter the password. The default password is the last 4 digits of the EPI.",
     "Choose Open Batch (open batch summary), Closed Batch (last closed batch summary), Detailed Report (a recently closed batch) or Tip Report (tips for a clerk or server from a recent batch)."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s43",
    "quote": "Tip Report = Print Tip Report for a Clerk/Server from a Recent Batch",
    "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\".",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-a5-settlement",
@@ -4819,12 +4830,13 @@
     "Select Yes on the confirmation.",
     "The terminal settles the batch and prints a batch summary and a batch closed confirmation."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s44",
    "quote": "Enter Password (Default: Last 4 Digits of EPI)",
    "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\".",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-a5-tip-adjust",
@@ -4861,12 +4873,13 @@
     "Choose Last Transaction, or Tran Number to enter a transaction number from the open batch, or Card Number to enter the last 4 digits of the card.",
     "Choose to print the receipt or send it by SMS."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s46",
    "quote": "Tran Number = Enter Transaction Number from Open Batch to Reprint",
    "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\".",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-a5-presale",
@@ -4902,11 +4915,12 @@
     "Check that the EPI shown is the right one for the merchant account.",
     "Press ENTER to run the package download."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s48",
    "quote": "Confirm EPI is accurate to Merchant account followed by ENTER to Perform Package Download.",
-   "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\"."
+   "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\".",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-a5-settings-list",
@@ -4927,11 +4941,12 @@
     "7 App Config: host configuration settings.",
     "8 Utility: Brightness, Flashlight, Disable Sound, Backlight, Reset Terminal, Power Off."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s49",
    "quote": "7. App Config = Modify Host Config Settings, Print Host Config Settings,",
-   "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\"."
+   "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\".",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-a5-wifi-config",
@@ -5212,12 +5227,13 @@
     "Select Settings, then RKI Download.",
     "Enter the Valor master passcode (82567729) and press Enter."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s53",
    "quote": "Enter the Valor Master Passcode (82567729) followed by Enter.",
    "note": "Valor files this article under \"VL500 / VL550 / VP500 / VP550 / VP550E\".",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-vl550-comm-cradle",
@@ -5297,7 +5313,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s55",
-   "quote": "First time booting the device the screen will prompt with “Network Error Please Configure in Settings”.",
+   "quote": "First time booting the device the screen will prompt with \u201cNetwork Error Please Configure in Settings\u201d.",
    "note": "The article labels this section \"VL500/VP500 Guide\"."
   },
   {
@@ -5552,7 +5568,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s59",
-   "quote": "This is determined by the Card holder’s bank account."
+   "quote": "This is determined by the Card holder\u2019s bank account."
   },
   {
    "id": "valor-faq-reprint-keypad",
@@ -5606,10 +5622,11 @@
     "Open the Batch Report.",
     "Enter the EPI in the search field and select the date range of the batch."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s59",
-   "quote": "enter EPI in the Search field while selecting the Date range of the Batch Report."
+   "quote": "enter EPI in the Search field while selecting the Date range of the Batch Report.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-faq-battery-inconsistent",
@@ -5886,10 +5903,11 @@
     "Open the Transactions tab in the online portal.",
     "Hover over the decline icon on the transaction. The reason is shown."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s59",
-   "quote": "Within the Transactions tab in the Online Portal, if you hover over the Decline Icon it will post the reason."
+   "quote": "Within the Transactions tab in the Online Portal, if you hover over the Decline Icon it will post the reason.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-faq-invalid-parameter",
@@ -5903,11 +5921,12 @@
     "Close the terminal's batch from the online portal.",
     "Then try the download again."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s59",
-   "quote": "Close the Terminal’s batch via the Online Portal, then reattempt the Download.",
-   "note": "The FAQ entry is titled \"My VL500 communicates Invalid Parameter.\""
+   "quote": "Close the Terminal\u2019s batch via the Online Portal, then reattempt the Download.",
+   "note": "The FAQ entry is titled \"My VL500 communicates Invalid Parameter.\"",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-faq-close-batch-portal",
@@ -5923,10 +5942,11 @@
     "Select the vertical ellipsis (three dots), then Open Batch.",
     "Select the Action button, then Close Batch."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s59",
-   "quote": "Then select the Action Button followed by Close Batch."
+   "quote": "Then select the Action Button followed by Close Batch.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-faq-auto-batch",
@@ -5993,13 +6013,13 @@
    "kind": "reference",
    "title": "Paper roll size for Valor terminals",
    "steps": [
-    "Valor terminals accept 2¼ inch by 55 foot thermal paper rolls."
+    "Valor terminals accept 2\u00bc inch by 55 foot thermal paper rolls."
    ],
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s59",
-   "quote": "Our Terminals will accept 2¼\" by 55' Thermal Paper rolls.",
-   "note": "Our VL550 sheet gives the printer as 57 mm x 40 mm and the VP800 as 58 mm wide; 2¼ inch is 57 mm."
+   "quote": "Our Terminals will accept 2\u00bc\" by 55' Thermal Paper rolls.",
+   "note": "Our VL550 sheet gives the printer as 57 mm x 40 mm and the VP800 as 58 mm wide; 2\u00bc inch is 57 mm."
   },
   {
    "id": "valor-faq-receipt-disclaimer-lines",
@@ -6192,7 +6212,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s60",
-   "quote": "Locate the most recent transaction within the Open Batch, select the Vertical Ellipsis(⋮) followed by Open Batch.",
+   "quote": "Locate the most recent transaction within the Open Batch, select the Vertical Ellipsis(\u22ee) followed by Open Batch.",
    "note": "The article says \"Only Applicable to Merchant Accounts\"."
   },
   {
@@ -6245,7 +6265,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s62",
-   "quote": "Locate the Transaction, select the Vertical Ellipsis(⋮), followed by Void Transaction."
+   "quote": "Locate the Transaction, select the Vertical Ellipsis(\u22ee), followed by Void Transaction."
   },
   {
    "id": "valor-portal-view-receipt",
@@ -6262,7 +6282,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s63",
-   "quote": "select the Vertical Ellipsis(⋮) followed by View Receipt."
+   "quote": "select the Vertical Ellipsis(\u22ee) followed by View Receipt."
   },
   {
    "id": "valor-portal-create-ticket",
@@ -6280,10 +6300,11 @@
     "Describe the issue.",
     "Select Submit. The provider receives the request and calls back."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s64",
-   "quote": "Your ISO will receive this request and respond with a call back."
+   "quote": "Your ISO will receive this request and respond with a call back.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-portal-ticket-from-transaction",
@@ -6301,7 +6322,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s65",
-   "quote": "Locate the Transaction, select the Vertical Ellipsis(⋮), followed by Open Ticket."
+   "quote": "Locate the Transaction, select the Vertical Ellipsis(\u22ee), followed by Open Ticket."
   },
   {
    "id": "valor-portal-batch-report",
@@ -6317,10 +6338,11 @@
     "Select Filter and set the date range and the EPI, merchant name or store number.",
     "Select Search."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s66",
-   "quote": "Select Search to show the updated list of Batch Reports."
+   "quote": "Select Search to show the updated list of Batch Reports.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-portal-tip-report",
@@ -6336,10 +6358,11 @@
     "Select Filter and set the date range and EPI.",
     "Select Search."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s67",
-   "quote": "Select Search to show the updated list of Tip Reports."
+   "quote": "Select Search to show the updated list of Tip Reports.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-portal-decline-reasons-list",
@@ -6354,11 +6377,12 @@
     "If it says DECLINE, a reason is shown, for example Insufficient funds, Expired card, Do not honor, Invalid card number, Incorrect PIN, Pick Up Card, Duplicate transaction, Call for Authorization, Transaction not permitted-Terminal or No response from the processor host.",
     "Other listed reasons relate to the account or terminal set-up, for example Invalid Merchant ID, EPI Not Active, Merchant Not Active and Host profile info not configured properly."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s68",
    "quote": "Hovering over a Transaction Status icon, if a DECLINE is stated below are possible Decline Errors Statuses.",
-   "note": "Valor's list has about 130 reasons and gives no explanation or fix for any of them."
+   "note": "Valor's list has about 130 reasons and gives no explanation or fix for any of them.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-decline-void-after-settlement",
@@ -6671,7 +6695,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s71",
-   "quote": "select the Vertical Ellipsis(⋮) followed by Resend E-Invoice."
+   "quote": "select the Vertical Ellipsis(\u22ee) followed by Resend E-Invoice."
   },
   {
    "id": "valor-vt-cancel-einvoice",
@@ -6689,7 +6713,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s72",
-   "quote": "select the Vertical Ellipsis(⋮) followed by Cancel E-Invoice."
+   "quote": "select the Vertical Ellipsis(\u22ee) followed by Cancel E-Invoice."
   },
   {
    "id": "valor-vt-paynow-link",
@@ -6744,7 +6768,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s75",
-   "quote": "select the Vertical Ellipsis(⋮) followed by Deactivate Recurring Billing."
+   "quote": "select the Vertical Ellipsis(\u22ee) followed by Deactivate Recurring Billing."
   },
   {
    "id": "valor-vt-edit-recurring",
@@ -6778,10 +6802,11 @@
     "Open the drop-down at the top right that shows a Virtual Terminal EPI. It lists all active virtual terminals available to your user.",
     "Pick one and carry on with the transaction."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s77",
-   "quote": "Select the drop-down box on the top-right with a Virtual Terminal EPI to present all Active Virtual Terminals available to your User Account."
+   "quote": "Select the drop-down box on the top-right with a Virtual Terminal EPI to present all Active Virtual Terminals available to your User Account.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-portal-create-password",
@@ -6878,7 +6903,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s79",
-   "quote": "Conﬁrm the amount you want to refund."
+   "quote": "Con\ufb01rm the amount you want to refund."
   },
   {
    "id": "valor-vtq-refund-standalone",
@@ -7101,7 +7126,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s79",
-   "quote": "Whitelist IP Address: Merchants can create rules to always allow speciﬁc IP addresses."
+   "quote": "Whitelist IP Address: Merchants can create rules to always allow speci\ufb01c IP addresses."
   },
   {
    "id": "valor-rckt-download-app",
@@ -7138,10 +7163,11 @@
     "Set up a 6-digit passcode for the app.",
     "Re-enter the 6-digit passcode to confirm and sign in."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s81",
-   "quote": "A One Time Passcode will be sent to the Mobile Phone Number on File."
+   "quote": "A One Time Passcode will be sent to the Mobile Phone Number on File.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-rckt-pair-kb",
@@ -7160,11 +7186,12 @@
     "Press the green O button at the bottom right of the RCKT to confirm pairing.",
     "The reader then loads its EPI, AID and RKI details. When that finishes you can take payments."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s82",
    "quote": "Click the Green O button on the bottom-right of the RCKT to confirm pairing to your smartphone.",
-   "note": "Describes the older app layout (MPOS banner). The 06/2025 QRG describes a newer layout; see the separate entry."
+   "note": "Describes the older app layout (MPOS banner). The 06/2025 QRG describes a newer layout; see the separate entry.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-rckt-app-menu-kb",
@@ -7346,10 +7373,11 @@
     "Select the Settings icon at the top right, next to the Bluetooth icon.",
     "Select RKI DOWNLOAD."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s91",
-   "quote": "Select the Settings icon in the top right of the screen next to the Bluetooth icon. 4. Select RKI DOWNLOAD."
+   "quote": "Select the Settings icon in the top right of the screen next to the Bluetooth icon. 4. Select RKI DOWNLOAD.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-rckt-connect-qrg",
@@ -7366,10 +7394,11 @@
     "Select the RCKT device whose C-ME30S-685xxx number exactly matches your reader.",
     "Once your endpoint identifier (EPI) has loaded, you are ready to take payments."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s92",
-   "quote": "Select the switch icon at the top right of the screen and choose your store."
+   "quote": "Select the switch icon at the top right of the screen and choose your store.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-rckt-transaction-types",
@@ -7408,7 +7437,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s92",
-   "quote": "“Approved” is displayed on the ValorPay App and RCKT Mobile POS screens when done."
+   "quote": "\u201cApproved\u201d is displayed on the ValorPay App and RCKT Mobile POS screens when done."
   },
   {
    "id": "valor-rckt-payment-methods",
@@ -7519,7 +7548,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s94",
-   "quote": "After entering the transaction amount the next step is to select either “CARD,” “EBT,” or “CASH”.",
+   "quote": "After entering the transaction amount the next step is to select either \u201cCARD,\u201d \u201cEBT,\u201d or \u201cCASH\u201d.",
    "note": "Older app layout than the 06/2025 guide."
   },
   {
@@ -7553,10 +7582,11 @@
     "Enable Bluetooth and GPS (location) permissions on the phone.",
     "Make sure the phone has a stable internet connection (Wi-Fi or mobile data)."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s95",
-   "quote": "Bluetooth and GPS permissions are enabled on your device."
+   "quote": "Bluetooth and GPS permissions are enabled on your device.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-app-login",
@@ -7629,10 +7659,11 @@
     "Select the RCKT device EPI from the list to pair it with the physical reader.",
     "When pairing succeeds, the app automatically runs the AID load, parameter download and RKI download."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s95",
-   "quote": "Once the pairing is successful, an automatic process will complete, including AID load, Param download, and RKI download for the RCKT."
+   "quote": "Once the pairing is successful, an automatic process will complete, including AID load, Param download, and RKI download for the RCKT.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-rckt-not-found-when-pairing",
@@ -7683,10 +7714,11 @@
     "Process the transaction through the Virtual Terminal or the RCKT.",
     "Inventory stays in sync with the Valor Portal automatically."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s95",
-   "quote": "Merchants can adjust the checkout quantity or remove items from the"
+   "quote": "Merchants can adjust the checkout quantity or remove items from the",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-rckt-cashback",
@@ -7744,7 +7776,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s95",
-   "quote": "Provides access to app settings, including My Proﬁle, Device Permissions, Change Passcode, Face"
+   "quote": "Provides access to app settings, including My Pro\ufb01le, Device Permissions, Change Passcode, Face"
   },
   {
    "id": "valor-app-call-me-back",
@@ -7924,12 +7956,13 @@
     "Select the transaction to void.",
     "Enter the customer's phone number for an SMS receipt and select Go Green, or tap Print Receipt."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s96",
    "quote": "Tap Sale until you see Void, then tap OK.",
    "note": "Processor (Paysafe) article for \"Valor terminal\"; the steps use the star-key layout of the VL100-type models and may describe a different software build.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-ps-refund",
@@ -7950,12 +7983,13 @@
     "Ask the customer to sign and confirm.",
     "Choose the receipt option."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s96",
    "quote": "Confirm the amount. Non-cash charges are not applied to refunds.",
    "note": "Processor (Paysafe) article for \"Valor terminal\"; the steps use the star-key layout of the VL100-type models and may describe a different software build.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-ps-presale",
@@ -7974,12 +8008,13 @@
     "Enter the amount. The ticket prints automatically.",
     "On VL100 Pro, VP100 and VP550 models instead: tap the Menu icon, tap Page Down, tap Option 2 (Host Utility), enter the password, select Pre-Sale Ticket, enter the amount and tap OK."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s96",
    "quote": "Tap the keypad icon, then press 2, enter your password, and press 2 again.",
    "note": "Processor (Paysafe) article for \"Valor terminal\"; the steps use the star-key layout of the VL100-type models and may describe a different software build.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-ps-reprint",
@@ -8083,11 +8118,12 @@
     "Close the terminal's batch first (it can be closed from the online portal).",
     "Then try the download or parameter update again."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s97",
    "quote": "If you encounter an \"Invalid Parameter\" error",
-   "note": "Paysafe notes this was documented for the VL500 and is \"generally applicable to similar Valor devices\"."
+   "note": "Paysafe notes this was documented for the VL500 and is \"generally applicable to similar Valor devices\".",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-ps-app-download-not-arriving",
@@ -8123,12 +8159,13 @@
     "Enter your new 4-digit password.",
     "Re-enter it to confirm."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s98",
    "quote": "Enter your new 4-digit password.",
    "note": "Processor (Paysafe) article for \"Valor terminal\"; the steps use the star-key layout of the VL100-type models and may describe a different software build.",
-   "sensitive": "password"
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-ps-custom-password",
@@ -8147,7 +8184,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s98",
-   "quote": "Tap Change Password, then choose which password you’d like to update.",
+   "quote": "Tap Change Password, then choose which password you\u2019d like to update.",
    "note": "Processor (Paysafe) article for \"Valor terminal\"; the steps use the star-key layout of the VL100-type models and may describe a different software build."
   },
   {
@@ -8162,11 +8199,12 @@
     "In the online portal, open the Transactions tab and hover over the decline icon to see the detailed reason.",
     "Common messages include \"Transaction not permitted-Terminal\", \"Invalid transaction\", \"Insufficient funds\" and \"Expired card\"."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s99",
    "quote": "Common decline messages include \"Transaction not permitted-Terminal,\" \"Invalid transaction,\" \"Insufficient funds,\" or \"Expired card\".",
-   "note": "Processor (Paysafe) article; not from Valor."
+   "note": "Processor (Paysafe) article; not from Valor.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-ps-transaction-not-permitted",
@@ -8220,7 +8258,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "s99",
-   "quote": "The V0062 error usually means you're trying to process a transaction with a card type that isn’t authorized (e.g., AMEX).",
+   "quote": "The V0062 error usually means you're trying to process a transaction with a card type that isn\u2019t authorized (e.g., AMEX).",
    "note": "Processor (Paysafe) article; not from Valor. Valor's own knowledge base does not list V0062."
   },
   {
@@ -8347,7 +8385,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s100",
-   "quote": "When prompted with “Network Domain www.google.com”, tap OK.",
+   "quote": "When prompted with \u201cNetwork Domain www.google.com\u201d, tap OK.",
    "note": "Processor (Paysafe) article written for the Valor VL100, VL100 Pro, VP100 and VP550."
   },
   {
@@ -8386,7 +8424,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s100",
-   "quote": "For VL 100 models, simply tap the (★) icon and Press 9 on the keypad.",
+   "quote": "For VL 100 models, simply tap the (\u2605) icon and Press 9 on the keypad.",
    "note": "Processor (Paysafe) article written for the Valor VL100, VL100 Pro, VP100 and VP550."
   },
   {
@@ -8446,7 +8484,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s102",
-   "quote": "016665XX VL100/ VL110 Transaction Canceled The user has cancelled the transaction.\n Please do the trans"
+   "quote": "016665XX VL100/ VL110 Transaction Canceled The user has cancelled the transaction.\n\u00a0Please do the trans"
   },
   {
    "id": "valor-err-016666xx",
@@ -15517,10 +15555,11 @@
     "Enter an amount below the limit.",
     "To check or change the limit, contact tech support with the EPI and the card type (Visa, Mastercard and so on)."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "28A00000E8XX VL100/ VL110 Amount Exceeds/Equal To Tran Limit Please get the EPI D and card type(i.e. master, visa etc.)fr"
+   "quote": "28A00000E8XX VL100/ VL110 Amount Exceeds/Equal To Tran Limit Please get the EPI D and card type(i.e. master, visa etc.)fr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-28a00000f1xx",
@@ -16628,10 +16667,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "351F01XX VL100/ VL110 RKI Service Not Ready This error is related to the RKI. To resolve the issue, retr"
+   "quote": "351F01XX VL100/ VL110 RKI Service Not Ready This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-351f02xx",
@@ -16648,10 +16688,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "351F02XX VL100/ VL110 RKI Sending Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "351F02XX VL100/ VL110 RKI Sending Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-351f03xx",
@@ -16668,10 +16709,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "351F03XX VL100/ VL110 RKI Receiving Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "351F03XX VL100/ VL110 RKI Receiving Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-351f04xx",
@@ -16688,10 +16730,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "351F04XX VL100/ VL110 RKI Incorrect Response Format This error is related to the RKI. To resolve the issue, retr"
+   "quote": "351F04XX VL100/ VL110 RKI Incorrect Response Format This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-351f05xx",
@@ -16708,10 +16751,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "351F05XX VL100/ VL110 RKI Invalid Parameters This error is related to the RKI. To resolve the issue, retr"
+   "quote": "351F05XX VL100/ VL110 RKI Invalid Parameters This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-351f06xx",
@@ -16728,10 +16772,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "351F06XX VL100/ VL110 RKI File Missing This error is related to the RKI. To resolve the issue, retr"
+   "quote": "351F06XX VL100/ VL110 RKI File Missing This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355601xx",
@@ -16748,10 +16793,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355601XX VL100/ VL110 Failed To Create Socket This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355601XX VL100/ VL110 Failed To Create Socket This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355603xx",
@@ -16768,10 +16814,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355603XX VL100/ VL110 Connection Server Timeout This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355603XX VL100/ VL110 Connection Server Timeout This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355604xx",
@@ -16788,10 +16835,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355604XX VL100/ VL110 Connection Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355604XX VL100/ VL110 Connection Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355605xx",
@@ -16808,10 +16856,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355605XX VL100/ VL110 Failed To Establish Connection This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355605XX VL100/ VL110 Failed To Establish Connection This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355606xx",
@@ -16828,10 +16877,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355606XX VL100/ VL110 Load Verify Location Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355606XX VL100/ VL110 Load Verify Location Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355607xx",
@@ -16848,10 +16898,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355607XX VL100/ VL110 RSAPrivateKey File Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355607XX VL100/ VL110 RSAPrivateKey File Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355608xx",
@@ -16868,10 +16919,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355608XX VL100/ VL110 Certificate File Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355608XX VL100/ VL110 Certificate File Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355609xx",
@@ -16888,10 +16940,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355609XX VL100/ VL110 Private Key Check Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355609XX VL100/ VL110 Private Key Check Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35560axx",
@@ -16908,10 +16961,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35560AXX VL100/ VL110 Failed to Set File Descriptor This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35560AXX VL100/ VL110 Failed to Set File Descriptor This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35560bxx",
@@ -16928,10 +16982,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35560BXX VL100/ VL110 Connection Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35560BXX VL100/ VL110 Connection Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35560fxx",
@@ -16948,10 +17003,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35560FXX VL100/ VL110 Signing Host Login Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35560FXX VL100/ VL110 Signing Host Login Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355612xx",
@@ -16968,10 +17024,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355612XX VL100/ VL110 Failed To Get Version Information This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355612XX VL100/ VL110 Failed To Get Version Information This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355613xx",
@@ -16988,10 +17045,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355613XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355613XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355614xx",
@@ -17008,10 +17066,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355614XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355614XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355615xx",
@@ -17028,10 +17087,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355615XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355615XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355616xx",
@@ -17048,10 +17108,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355616XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355616XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355616xx-2",
@@ -17068,10 +17129,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355616XX VL100/ VL110 Failed To Get Response Information This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355616XX VL100/ VL110 Failed To Get Response Information This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355617xx",
@@ -17088,10 +17150,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355617XX VL100/ VL110 Failed To Load Credentials This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355617XX VL100/ VL110 Failed To Load Credentials This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355618xx",
@@ -17108,10 +17171,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355618XX VL100/ VL110 Failed To Store Credentials This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355618XX VL100/ VL110 Failed To Store Credentials This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355619xx",
@@ -17128,10 +17192,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355619XX VL100/ VL110 Generate Transport Key Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355619XX VL100/ VL110 Generate Transport Key Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35561axx",
@@ -17148,10 +17213,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35561AXX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35561AXX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35561bxx",
@@ -17168,10 +17234,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35561BXX VL100/ VL110 Lost The Terminal Certificate Info This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35561BXX VL100/ VL110 Lost The Terminal Certificate Info This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35561cxx",
@@ -17188,10 +17255,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35561CXX VL100/ VL110 Incorrect Format Terminal Certificate This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35561CXX VL100/ VL110 Incorrect Format Terminal Certificate This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35561dxx",
@@ -17208,10 +17276,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35561DXX VL100/ VL110 Terminal Base64 Decode Error This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35561DXX VL100/ VL110 Terminal Base64 Decode Error This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35561exx",
@@ -17228,10 +17297,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35561EXX VL100/ VL110 Command Failed To Send Data This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35561EXX VL100/ VL110 Command Failed To Send Data This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35561fxx",
@@ -17248,10 +17318,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35561FXX VL100/ VL110 Command Failed To Receive Data This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35561FXX VL100/ VL110 Command Failed To Receive Data This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355620xx",
@@ -17268,10 +17339,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355620XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355620XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355621xx",
@@ -17288,10 +17360,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355621XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355621XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355622xx",
@@ -17308,10 +17381,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355622XX VL100/ VL110 Encryption Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355622XX VL100/ VL110 Encryption Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355623xx",
@@ -17328,10 +17402,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355623XX VL100/ VL110 Failed To Write Key Info This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355623XX VL100/ VL110 Failed To Write Key Info This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355624xx",
@@ -17348,10 +17423,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355624XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355624XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355625xx",
@@ -17368,10 +17444,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355625XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355625XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355626xx",
@@ -17388,10 +17465,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355626XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355626XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355627xx",
@@ -17408,10 +17486,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355627XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355627XX VL100/ VL110 Incorrect Response Format This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355628xx",
@@ -17428,10 +17507,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355628XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355628XX VL100/ VL110 Response Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355629xx",
@@ -17448,10 +17528,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355629XX VL100/ VL110 Failed To Save File Info This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355629XX VL100/ VL110 Failed To Save File Info This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35562axx",
@@ -17468,10 +17549,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35562AXX VL100/ VL110 Failed To Read CSR Decoder This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35562AXX VL100/ VL110 Failed To Read CSR Decoder This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35562bxx",
@@ -17488,10 +17570,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35562BXX VL100/ VL110 Processing Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35562BXX VL100/ VL110 Processing Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35562cxx",
@@ -17508,10 +17591,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35562CXX VL100/ VL110 Failed To Get Private Key This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35562CXX VL100/ VL110 Failed To Get Private Key This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35562dxx",
@@ -17528,10 +17612,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35562DXX VL100/ VL110 Please Reboot Device To Generate RSA Key This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35562DXX VL100/ VL110 Please Reboot Device To Generate RSA Key This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35562exx",
@@ -17548,10 +17633,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35562EXX VL100/ VL110 Failed To Get Certificate This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35562EXX VL100/ VL110 Failed To Get Certificate This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35562fxx",
@@ -17568,10 +17654,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35562FXX VL100/ VL110 Total Keys Are Different This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35562FXX VL100/ VL110 Total Keys Are Different This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355630xx",
@@ -17588,10 +17675,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355630XX VL100/ VL110 Failed To Check Certificate This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355630XX VL100/ VL110 Failed To Check Certificate This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355631xx",
@@ -17608,10 +17696,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355631XX VL100/ VL110 Read Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355631XX VL100/ VL110 Read Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355632xx",
@@ -17628,10 +17717,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355632XX VL100/ VL110 Failed To Send Request Certificate This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355632XX VL100/ VL110 Failed To Send Request Certificate This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355660xx",
@@ -17648,10 +17738,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355660XX VL100/ VL110 Certificate Generate Not Support This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355660XX VL100/ VL110 Certificate Generate Not Support This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355661xx",
@@ -17668,10 +17759,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355661XX VL100/ VL110 Key Injection Success This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355661XX VL100/ VL110 Key Injection Success This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355662xx",
@@ -17688,10 +17780,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355662XX VL100/ VL110 Generating CSR Decoder Please Wait... This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355662XX VL100/ VL110 Generating CSR Decoder Please Wait... This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355663xx",
@@ -17708,10 +17801,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355663XX VL100/ VL110 Key Injection Success. But PEDV Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355663XX VL100/ VL110 Key Injection Success. But PEDV Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-355664xx",
@@ -17728,10 +17822,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "355664XX VL100/ VL110 Key Injection Service Not Support This error is related to the RKI. To resolve the issue, retr"
+   "quote": "355664XX VL100/ VL110 Key Injection Service Not Support This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-35xxxxxx",
@@ -17748,10 +17843,11 @@
     "If a key is already in the terminal, it has to be removed manually and the terminal restarted again.",
     "If the problem continues, contact tech support."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "tech",
    "source": "s102",
-   "quote": "35XXXXXX VL100/ VL110 RKI Failed This error is related to the RKI. To resolve the issue, retr"
+   "quote": "35XXXXXX VL100/ VL110 RKI Failed This error is related to the RKI. To resolve the issue, retr",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "valor-err-360001xx",

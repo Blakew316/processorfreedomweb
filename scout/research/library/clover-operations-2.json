@@ -2205,7 +2205,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s19",
-   "quote": "If you set your Clover device to accept tips on the tablet screen, you’ll see the tips in the Tips app, but you can’t adjust them."
+   "quote": "If you set your Clover device to accept tips on the tablet screen, you\u2019ll see the tips in the Tips app, but you can\u2019t adjust them."
   },
   {
    "id": "clover-operations-2-tips-unentered-device",
@@ -2419,7 +2419,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s22",
-   "quote": "A pre-auth may be declined if the customer’s card does not have enough available funds for the set amount.",
+   "quote": "A pre-auth may be declined if the customer\u2019s card does not have enough available funds for the set amount.",
    "note": "Second step is drawn from the Dining pre-auth article, which says another payment method can be used for the final payment."
   },
   {
@@ -2469,7 +2469,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s23",
-   "quote": "Swipe or insert the card. A new Bar & More order appears with the customer’s name and the pre-auth."
+   "quote": "Swipe or insert the card. A new Bar & More order appears with the customer\u2019s name and the pre-auth."
   },
   {
    "id": "clover-operations-2-dining-preauth-void",
@@ -2722,7 +2722,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s27",
-   "quote": "In the Scan barcode or search field, enter one of these—item name, SKU, or product code."
+   "quote": "In the Scan barcode or search field, enter one of these\u2014item name, SKU, or product code."
   },
   {
    "id": "clover-operations-2-add-item-scan-camera",
@@ -2839,7 +2839,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s27",
-   "quote": "Print when hitting Pay—Prints all items, including custom items, in the order."
+   "quote": "Print when hitting Pay\u2014Prints all items, including custom items, in the order."
   },
   {
    "id": "clover-operations-2-weighed-item",
@@ -2887,7 +2887,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s27",
-   "quote": "Note: After adding a priced per-unit item to an order, you won’t be able to edit the tare weight."
+   "quote": "Note: After adding a priced per-unit item to an order, you won\u2019t be able to edit the tare weight."
   },
   {
    "id": "clover-operations-2-change-quantity",
@@ -2979,7 +2979,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s27",
-   "quote": "If the item is age-restricted, a pop-up appears. The employee needs to confirm the customer’s age."
+   "quote": "If the item is age-restricted, a pop-up appears. The employee needs to confirm the customer\u2019s age."
   },
   {
    "id": "clover-operations-2-modifiers-add",
@@ -3122,7 +3122,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s29",
-   "quote": "Identical items that don’t have the same modifiers chosen will not be grouped together."
+   "quote": "Identical items that don\u2019t have the same modifiers chosen will not be grouped together."
   },
   {
    "id": "clover-operations-2-register-modifier-groups-one-at-a-time",
@@ -4076,7 +4076,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s53",
-   "quote": "Orders containing pre-auths can’t be combined; be sure to void any pre-auths in the Orders app before combining orders."
+   "quote": "Orders containing pre-auths can\u2019t be combined; be sure to void any pre-auths in the Orders app before combining orders."
   },
   {
    "id": "clover-operations-2-dining-duplicate-orders",
@@ -4474,7 +4474,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s65",
-   "quote": "(Optional) To add an item that isn’t assigned to a category, enter the item name in the search field to find it."
+   "quote": "(Optional) To add an item that isn\u2019t assigned to a category, enter the item name in the search field to find it."
   },
   {
    "id": "clover-operations-2-dining-guests-hidden",
@@ -4692,7 +4692,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s67",
-   "quote": "This setting is device-specific, so you’ll need to change this on other Clover devices if you want them to work the same way."
+   "quote": "This setting is device-specific, so you\u2019ll need to change this on other Clover devices if you want them to work the same way."
   },
   {
    "id": "clover-operations-2-order-receipt-shorten",
@@ -4866,7 +4866,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s70",
-   "quote": "If you’re printing the report, choose a printer, select landscape layout, and then select Print."
+   "quote": "If you\u2019re printing the report, choose a printer, select landscape layout, and then select Print."
   },
   {
    "id": "clover-operations-2-report-columns-missing",
@@ -4977,7 +4977,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s72",
-   "quote": "If you accepted payments while the system was offline and any of those payments were declined, you’ll see a notice at the top of the report"
+   "quote": "If you accepted payments while the system was offline and any of those payments were declined, you\u2019ll see a notice at the top of the report"
   },
   {
    "id": "clover-operations-2-report-partially-paid",

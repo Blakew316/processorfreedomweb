@@ -168,7 +168,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s1",
-   "quote": "Verify the security mode matches your Wi-Fi system’s settings"
+   "quote": "Verify the security mode matches your Wi-Fi system\u2019s settings"
   },
   {
    "id": "fiserv-2-fd150-wifi-ssid-case",
@@ -371,7 +371,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s2",
-   "quote": "If connecting through DSL:\n\n• Router\n• Modem\n• Ethernet Cable (2)"
+   "quote": "If connecting through DSL:\n\n\u2022 Router\n\u2022 Modem\n\u2022 Ethernet Cable (2)"
   },
   {
    "id": "fiserv-2-fd150-surge-protector",
@@ -441,7 +441,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s2",
-   "quote": "Typical set-up time: 10 –15 minutes"
+   "quote": "Typical set-up time: 10 \u201315 minutes"
   },
   {
    "id": "fiserv-2-fd150-optional-device-ports",
@@ -762,7 +762,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "s3",
-   "quote": "Please note that First Data equipment and/or software may not be compatible\nwith another processor’s systems."
+   "quote": "Please note that First Data equipment and/or software may not be compatible\nwith another processor\u2019s systems."
   },
   {
    "id": "fiserv-2-p-fd150-paper-load-detail",
@@ -856,7 +856,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s4",
-   "quote": "reader’s lights will show blue when the terminal is powered",
+   "quote": "reader\u2019s lights will show blue when the terminal is powered",
    "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
   },
   {

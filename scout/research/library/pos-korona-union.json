@@ -2675,7 +2675,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-windows-troubleshooting",
-   "quote": "When you hit the “Feed” button, does the printer try to feed the paper?"
+   "quote": "When you hit the \u201cFeed\u201d button, does the printer try to feed the paper?"
   },
   {
    "id": "pos-korona-union-k-win-printer-driver",
@@ -2711,7 +2711,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-windows-troubleshooting",
-   "quote": "sometimes the below “unable to find valid certification path” error can appear"
+   "quote": "sometimes the below \u201cunable to find valid certification path\u201d error can appear"
   },
   {
    "id": "pos-korona-union-k-win-java-check",
@@ -2729,7 +2729,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-windows-troubleshooting",
-   "quote": "You can type ” java -version” and it will tell you the current version of Java that is installed on your computer."
+   "quote": "You can type \u201d java -version\u201d and it will tell you the current version of Java that is installed on your computer."
   },
   {
    "id": "pos-korona-union-k-win-failed-db",
@@ -2770,7 +2770,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-is-my-credit-terminal-connected-to-the-network",
-   "quote": "If the device returns “PING OK” (see the picture to the right), the PAX s300 is successfully connected to the internet.",
+   "quote": "If the device returns \u201cPING OK\u201d (see the picture to the right), the PAX s300 is successfully connected to the internet.",
    "sensitive": "password"
   },
   {
@@ -2813,7 +2813,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-is-my-credit-terminal-connected-to-the-network",
-   "quote": "As long as your IP isn’t 0.0.0.0, you’re connected.",
+   "quote": "As long as your IP isn\u2019t 0.0.0.0, you\u2019re connected.",
    "sensitive": "password"
   },
   {
@@ -2866,7 +2866,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-credit-terminal-connection-issues",
-   "quote": "PAX terminals automatically check for the transaction when they lose their connection. You don’t need to set anything up."
+   "quote": "PAX terminals automatically check for the transaction when they lose their connection. You don\u2019t need to set anything up."
   },
   {
    "id": "pos-korona-union-k-conn-notfound",
@@ -2884,7 +2884,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-credit-terminal-connection-issues",
-   "quote": "If the transaction isn’t found, the POS shows a “Transaction not found” error. The cashier should press the credit button again to rerun the payment."
+   "quote": "If the transaction isn\u2019t found, the POS shows a \u201cTransaction not found\u201d error. The cashier should press the credit button again to rerun the payment."
   },
   {
    "id": "pos-korona-union-k-conn-stuck-dejavoo",
@@ -2902,7 +2902,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-credit-terminal-connection-issues",
-   "quote": "After the error pop-up, the cashier presses “Dejavoo Status” on the payment page.",
+   "quote": "After the error pop-up, the cashier presses \u201cDejavoo Status\u201d on the payment page.",
    "note": "The Dejavoo Status button must have been added to the payment layout in KORONA Studio first."
   },
   {
@@ -2925,7 +2925,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-credit-terminal-connection-issues",
-   "quote": "Enter “DEJAVOOSTATUS” in the “Service Parameter” field."
+   "quote": "Enter \u201cDEJAVOOSTATUS\u201d in the \u201cService Parameter\u201d field."
   },
   {
    "id": "pos-korona-union-k-conn-duplicate",
@@ -2943,7 +2943,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-credit-terminal-connection-issues",
-   "quote": "Duplicate error popup: the first transaction did go through. Don’t charge the card again. Close out the sale with the Offline Credit payment method instead."
+   "quote": "Duplicate error popup: the first transaction did go through. Don\u2019t charge the card again. Close out the sale with the Offline Credit payment method instead."
   },
   {
    "id": "pos-korona-union-k-conn-offline-credit",
@@ -2960,7 +2960,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-credit-terminal-connection-issues",
-   "quote": "Use it only when the terminal reports a duplicate, so the customer isn’t charged twice."
+   "quote": "Use it only when the terminal reports a duplicate, so the customer isn\u2019t charged twice."
   },
   {
    "id": "pos-korona-union-k-conn-offline-credit-setup",
@@ -2979,7 +2979,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-credit-terminal-connection-issues",
-   "quote": "Set “Payment Service” to “None”. Leave all other settings at their defaults."
+   "quote": "Set \u201cPayment Service\u201d to \u201cNone\u201d. Leave all other settings at their defaults."
   },
   {
    "id": "pos-korona-union-k-conn-offline-credit-review",
@@ -2996,7 +2996,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-credit-terminal-connection-issues",
-   "quote": "Compare each receipt with your processor’s portal or batch report to confirm the charge is there."
+   "quote": "Compare each receipt with your processor\u2019s portal or batch report to confirm the charge is there."
   },
   {
    "id": "pos-korona-union-k-conn-frequent-ip",
@@ -3057,7 +3057,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pax-communication-error",
-   "quote": "On-screen 3, you should have ‘Retrieve Master Data’ and ‘Restart POS’ buttons."
+   "quote": "On-screen 3, you should have \u2018Retrieve Master Data\u2019 and \u2018Restart POS\u2019 buttons."
   },
   {
    "id": "pos-korona-union-k-paxcomm-meaning",
@@ -3133,7 +3133,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "k-pax-knowledge-base",
-   "quote": "Allow Fast Payment – Enabled or Disabled to allow tap payments."
+   "quote": "Allow Fast Payment \u2013 Enabled or Disabled to allow tap payments."
   },
   {
    "id": "pos-korona-union-k-pax-tip-setting",
@@ -3151,7 +3151,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "k-pax-knowledge-base",
-   "quote": "Three Percentage Configurable Amounts – Allows setting three tip percentages for customer selection."
+   "quote": "Three Percentage Configurable Amounts \u2013 Allows setting three tip percentages for customer selection."
   },
   {
    "id": "pos-korona-union-k-pax-setup",
@@ -3269,7 +3269,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pax-manual-batch",
-   "quote": "The S300 will process the batch. When finished will display a message stating “Batch Closed.”"
+   "quote": "The S300 will process the batch. When finished will display a message stating \u201cBatch Closed.\u201d"
   },
   {
    "id": "pos-korona-union-k-batch-android-pax",
@@ -3436,7 +3436,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "k-manual-credit-cards-on-pax",
-   "quote": "They should be able to adjust the “MOTO” setting in the device parameters."
+   "quote": "They should be able to adjust the \u201cMOTO\u201d setting in the device parameters."
   },
   {
    "id": "pos-korona-union-k-pax-static-eth",
@@ -3480,7 +3480,7 @@
    "merchant_can_do": false,
    "escalate_to": "tech",
    "source": "k-pax-set-static-ip-with-wifi",
-   "quote": "Enter PAX default password – pax9876@@",
+   "quote": "Enter PAX default password \u2013 pax9876@@",
    "note": "Needs the network's addressing details; hand off unless the merchant has IT help.",
    "sensitive": "password"
   },
@@ -3523,7 +3523,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-how-do-i-set-up-a-new-ip-for-my-pax",
-   "quote": "By default, all PAX passwords are either “9876” or “pax9876@@”.",
+   "quote": "By default, all PAX passwords are either \u201c9876\u201d or \u201cpax9876@@\u201d.",
    "sensitive": "password"
   },
   {
@@ -3621,7 +3621,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-adding-a-pax-device-to-a-new-account",
-   "quote": "If you do not see a section under devices called “Credit Terminal” you will need to add one as shown below:"
+   "quote": "If you do not see a section under devices called \u201cCredit Terminal\u201d you will need to add one as shown below:"
   },
   {
    "id": "pos-korona-union-k-pax-wizard",
@@ -3745,7 +3745,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-contact-us",
-   "quote": "Selecting “Support” opens the support contact form."
+   "quote": "Selecting \u201cSupport\u201d opens the support contact form."
   },
   {
    "id": "pos-korona-union-k-remote-support",
@@ -3764,7 +3764,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-contact-us",
-   "quote": "In the bottom toolbar, you will find a large button in the middle labeled “Activate Remote Support.”"
+   "quote": "In the bottom toolbar, you will find a large button in the middle labeled \u201cActivate Remote Support.\u201d"
   },
   {
    "id": "pos-korona-union-k-processor-contacts",
@@ -3960,7 +3960,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pos-login",
-   "quote": "*The default cashier login code is “1.”",
+   "quote": "*The default cashier login code is \u201c1.\u201d",
    "sensitive": "password"
   },
   {
@@ -4012,7 +4012,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-change-cashiers-at-the-pos",
-   "quote": "Cashiers with the “Foreign Receipt” permission will resume automatically with the most recent transaction, even if it is not theirs."
+   "quote": "Cashiers with the \u201cForeign Receipt\u201d permission will resume automatically with the most recent transaction, even if it is not theirs."
   },
   {
    "id": "pos-korona-union-k-login-pin",
@@ -4047,7 +4047,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-cashierstartup",
-   "quote": "To change the quantity of an item, press the amount you want to change the quantity to after selecting the item on the receipt, and then hit ‘Change Quantity‘."
+   "quote": "To change the quantity of an item, press the amount you want to change the quantity to after selecting the item on the receipt, and then hit \u2018Change Quantity\u2018."
   },
   {
    "id": "pos-korona-union-k-functions-glossary",
@@ -4176,7 +4176,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-void-receipt",
-   "quote": "Once you have selected the receipt, you can use the “Void Receipt” button to void the receipt."
+   "quote": "Once you have selected the receipt, you can use the \u201cVoid Receipt\u201d button to void the receipt."
   },
   {
    "id": "pos-korona-union-k-void-limits",
@@ -4231,7 +4231,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-reopen-receipt",
-   "quote": "The function cannot be used to add or remove items from a sale. Item returns and “add on” sales must be performed in a new transaction."
+   "quote": "The function cannot be used to add or remove items from a sale. Item returns and \u201cadd on\u201d sales must be performed in a new transaction."
   },
   {
    "id": "pos-korona-union-k-copy-receipt",
@@ -4411,7 +4411,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-open-cash-drawer",
-   "quote": "The cash drawer and the receipt printer work in tandem. If one isn’t working, typically the other won’t work either."
+   "quote": "The cash drawer and the receipt printer work in tandem. If one isn\u2019t working, typically the other won\u2019t work either."
   },
   {
    "id": "pos-korona-union-k-drawer-click",
@@ -4483,7 +4483,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-how-to-split-payments",
-   "quote": "After pressing the button then press the amount you want to charge to the credit card and press ‘enter’."
+   "quote": "After pressing the button then press the amount you want to charge to the credit card and press \u2018enter\u2019."
   },
   {
    "id": "pos-korona-union-k-tip-prompt",
@@ -4534,7 +4534,7 @@
    "steps": [
     "In KORONA Studio go to Settings > Payment Methods > Credit and add 'printtip' to the Service Parameter line.",
     "In button configurations create a button named Tip Adjustment on the payment screen.",
-    "Add these functions in order: Account – Tips; Payment method – Credit; Function – Adjust Payment."
+    "Add these functions in order: Account \u2013 Tips; Payment method \u2013 Credit; Function \u2013 Adjust Payment."
    ],
    "merchant_can_do": false,
    "escalate_to": "pos",
@@ -4551,12 +4551,12 @@
    "title": "Set up tip adjust for a Dejavoo terminal",
    "steps": [
     "In KORONA Studio go to Settings > Payment Methods > Credit and add 'printtip' to the Service Parameter line.",
-    "Create a button with the functions: Account – Tips/Gratuity; Function – Adjust Payment."
+    "Create a button with the functions: Account \u2013 Tips/Gratuity; Function \u2013 Adjust Payment."
    ],
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-tipping",
-   "quote": "Go to Settings > Payment Methods > Credit, and then add “printtip” to the Service Parameter line of the payment method."
+   "quote": "Go to Settings > Payment Methods > Credit, and then add \u201cprinttip\u201d to the Service Parameter line of the payment method."
   },
   {
    "id": "pos-korona-union-k-eod-what",
@@ -4710,7 +4710,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-finish-day-end-of-day-statement-key",
-   "quote": "If it’s in parentheses that indicates that the balance is negative and money is leaving KORONA POS."
+   "quote": "If it\u2019s in parentheses that indicates that the balance is negative and money is leaving KORONA POS."
   },
   {
    "id": "pos-korona-union-k-eod-cashier-actions",
@@ -4730,7 +4730,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-finish-day-end-of-day-statement-key",
-   "quote": "Item Cancellations – Items removed from receipts"
+   "quote": "Item Cancellations \u2013 Items removed from receipts"
   },
   {
    "id": "pos-korona-union-k-balance-cashier",
@@ -4989,7 +4989,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-frequently-asked-questions",
-   "quote": "All of your subscription and payment information can be found in the “My KORONA.studio Packages” section.",
+   "quote": "All of your subscription and payment information can be found in the \u201cMy KORONA.studio Packages\u201d section.",
    "note": "Processor Freedom merchants may be billed through Processor Freedom rather than directly; check before pointing them here."
   },
   {
@@ -5024,7 +5024,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-frequently-asked-questions",
-   "quote": "This is typically because KORONA ends the day and reports the revenue for the day of, but your batches won’t happen until after that and you won’t see the money deposited until at least the next day."
+   "quote": "This is typically because KORONA ends the day and reports the revenue for the day of, but your batches won\u2019t happen until after that and you won\u2019t see the money deposited until at least the next day."
   },
   {
    "id": "pos-korona-union-k-faq-password-reset",
@@ -5041,7 +5041,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-frequently-asked-questions",
-   "quote": "If you forgot your password or need to reset it, go the KORONA Studio login screen and click the “Forgot Password?” link."
+   "quote": "If you forgot your password or need to reset it, go the KORONA Studio login screen and click the \u201cForgot Password?\u201d link."
   },
   {
    "id": "pos-korona-union-k-faq-email-change",
@@ -5112,7 +5112,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-frequently-asked-questions",
-   "quote": "If you don’t see the widgets on the front page of the cloud, the permissions are missing, and you do not have the right to display organizational units."
+   "quote": "If you don\u2019t see the widgets on the front page of the cloud, the permissions are missing, and you do not have the right to display organizational units."
   },
   {
    "id": "pos-korona-union-k-faq-exclude-promo",
@@ -5256,7 +5256,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-frequently-asked-questions",
-   "quote": "Locate the Actions for Missing Entries drop-down menu and choose ‘Set Zero for Actual Goods.’"
+   "quote": "Locate the Actions for Missing Entries drop-down menu and choose \u2018Set Zero for Actual Goods.\u2019"
   },
   {
    "id": "pos-korona-union-k-faq-stock-order-missing",
@@ -5309,7 +5309,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-frequently-asked-questions",
-   "quote": "Press “Save” at any time to save your progress and come back later. Press “Book” when you are finished and want to finalize the quantities."
+   "quote": "Press \u201cSave\u201d at any time to save your progress and come back later. Press \u201cBook\u201d when you are finished and want to finalize the quantities."
   },
   {
    "id": "pos-korona-union-k-faq-stock-on-product",
@@ -5571,7 +5571,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-kitchen-printer-setup",
-   "quote": "If this was done correctly, the printer should print a long status sheet. On there, look for “IP Address” or “IPv4 Address”."
+   "quote": "If this was done correctly, the printer should print a long status sheet. On there, look for \u201cIP Address\u201d or \u201cIPv4 Address\u201d."
   },
   {
    "id": "pos-korona-union-k-kp-add",
@@ -5591,7 +5591,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-kitchen-printer-setup",
-   "quote": "After adding the printer, change the “Port” to “Network”. Then, in the “Default Value” enter the IP address followed by :9100."
+   "quote": "After adding the printer, change the \u201cPort\u201d to \u201cNetwork\u201d. Then, in the \u201cDefault Value\u201d enter the IP address followed by :9100."
   },
   {
    "id": "pos-korona-union-k-kp-not-network",
@@ -5646,7 +5646,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-kitchen-printer-setup",
-   "quote": "For the trigger, either use “after payment” for the kitchen ticket to print once the customer has paid, or “after booking” if you want it to print when the cashier goes to the checkout page."
+   "quote": "For the trigger, either use \u201cafter payment\u201d for the kitchen ticket to print once the customer has paid, or \u201cafter booking\u201d if you want it to print when the cashier goes to the checkout page."
   },
   {
    "id": "pos-korona-union-k-pr-compat",
@@ -5665,7 +5665,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-windows-printer-drivers-and-setup",
-   "quote": "We are not compatible with the Star MC series, e.g. “MCP31LB”, as they only support StarPRNT Emulation mode and not ESC/POS."
+   "quote": "We are not compatible with the Star MC series, e.g. \u201cMCP31LB\u201d, as they only support StarPRNT Emulation mode and not ESC/POS."
   },
   {
    "id": "pos-korona-union-k-pr-paper",
@@ -5774,7 +5774,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-adding-devices",
-   "quote": "For Printers that are installed as System Printers, you’ll need to assign a Variable under the Port Parameter by referencing the printer’s name in Windows."
+   "quote": "For Printers that are installed as System Printers, you\u2019ll need to assign a Variable under the Port Parameter by referencing the printer\u2019s name in Windows."
   },
   {
    "id": "pos-korona-union-k-dev-variables",
@@ -5826,7 +5826,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-barcode-scanner-setup",
-   "quote": "When you scan a barcode, if you see that a number has been entered into the POS, but nothing else has happened, you will need to enable the scanner to send a “carriage return.”"
+   "quote": "When you scan a barcode, if you see that a number has been entered into the POS, but nothing else has happened, you will need to enable the scanner to send a \u201ccarriage return.\u201d"
   },
   {
    "id": "pos-korona-union-k-scan-extra-digits",
@@ -5845,7 +5845,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-barcode-scanner-setup",
-   "quote": "When you scan a barcode, if numbers are added or subtracted to the end or beginning of the code, you will need to enable or disable “leading numbers,” “check numbers”, or possibly even the “country code.”"
+   "quote": "When you scan a barcode, if numbers are added or subtracted to the end or beginning of the code, you will need to enable or disable \u201cleading numbers,\u201d \u201ccheck numbers\u201d, or possibly even the \u201ccountry code.\u201d"
   },
   {
    "id": "pos-korona-union-k-scan-settings-how",
@@ -5992,7 +5992,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-getting-started",
-   "quote": "To get the install token, go back to the KORONA Studio edit point of sale page and select the button “Generate Installation Token” above the “Download Terminal Software” button."
+   "quote": "To get the install token, go back to the KORONA Studio edit point of sale page and select the button \u201cGenerate Installation Token\u201d above the \u201cDownload Terminal Software\u201d button."
   },
   {
    "id": "pos-korona-union-k-couple-pos",
@@ -6027,7 +6027,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-getting-started",
-   "quote": "If you do not know your login code, try “1”. This is the default login code for new accounts.",
+   "quote": "If you do not know your login code, try \u201c1\u201d. This is the default login code for new accounts.",
    "sensitive": "password"
   },
   {
@@ -6064,7 +6064,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-going-live",
-   "quote": "Don’t forget to to do an End of Day on the POS before completing this step."
+   "quote": "Don\u2019t forget to to do an End of Day on the POS before completing this step."
   },
   {
    "id": "pos-korona-union-k-go-live-warning",
@@ -6190,10 +6190,11 @@
     "When it has booted, press the 0 button three times.",
     "Enter the administrator password and note the IP address."
    ],
-   "merchant_can_do": true,
-   "escalate_to": null,
+   "merchant_can_do": false,
+   "escalate_to": "pos",
    "source": "k-genius-terminal-setup",
-   "quote": "When it finishes booting up, press the 0 button three times."
+   "quote": "When it finishes booting up, press the 0 button three times.",
+   "review": "routed to support by rule: steps need staff access"
   },
   {
    "id": "pos-korona-union-k-genius-setup",
@@ -6230,7 +6231,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-genius-terminal-setup",
-   "quote": "If you wish to be able to process returns or refunds, you will also need to tick the “Change Due?” checkbox."
+   "quote": "If you wish to be able to process returns or refunds, you will also need to tick the \u201cChange Due?\u201d checkbox."
   },
   {
    "id": "pos-korona-union-k-genius-tip",
@@ -6267,7 +6268,7 @@
    "merchant_can_do": false,
    "escalate_to": "pos",
    "source": "k-blockchyp-set-up-guide",
-   "quote": "Once you hit Activate Terminal the screen on the terminal should change and flash “Now Activated”."
+   "quote": "Once you hit Activate Terminal the screen on the terminal should change and flash \u201cNow Activated\u201d."
   },
   {
    "id": "pos-korona-union-k-blockchyp-korona",
@@ -6377,7 +6378,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-gift-card-setup",
-   "quote": "On the main screen, select “Check Prepaid Card.” Since we are using preprinted cards, we will scan the barcode on that card."
+   "quote": "On the main screen, select \u201cCheck Prepaid Card.\u201d Since we are using preprinted cards, we will scan the barcode on that card."
   },
   {
    "id": "pos-korona-union-k-gc-default",
@@ -6465,7 +6466,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-age-verification",
-   "quote": "The cashier can type in the birth date using the keypad, as seen above, or, if you have specific 2D Driver’s License Barcode Scanners, you can scan the back of the driver’s license to auto-populate the birth date."
+   "quote": "The cashier can type in the birth date using the keypad, as seen above, or, if you have specific 2D Driver\u2019s License Barcode Scanners, you can scan the back of the driver\u2019s license to auto-populate the birth date."
   },
   {
    "id": "pos-korona-union-k-age-locked",
@@ -6499,7 +6500,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-age-verification",
-   "quote": "You’ll want to ensure you assign all products that need to trigger the age verification to the 21+ sector."
+   "quote": "You\u2019ll want to ensure you assign all products that need to trigger the age verification to the 21+ sector."
   },
   {
    "id": "pos-korona-union-k-pm-ebt",
@@ -6584,7 +6585,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-payment-methods",
-   "quote": "Right-click on that square and click “Select Payment Method” from the context menu."
+   "quote": "Right-click on that square and click \u201cSelect Payment Method\u201d from the context menu."
   },
   {
    "id": "pos-korona-union-k-preauth-take",
@@ -6623,7 +6624,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pre-authorization-and-post-authorization",
-   "quote": "If the customer did not leave a tip, you must still enter “0” to close out the receipt."
+   "quote": "If the customer did not leave a tip, you must still enter \u201c0\u201d to close out the receipt."
   },
   {
    "id": "pos-korona-union-k-preauth-eod",
@@ -6711,7 +6712,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-vouchers",
-   "quote": "Vouchers are not shown as items on a receipt. Therefore in order to cancel a voucher, a button with the function ‘Cancel Voucher’ would need to be used."
+   "quote": "Vouchers are not shown as items on a receipt. Therefore in order to cancel a voucher, a button with the function \u2018Cancel Voucher\u2019 would need to be used."
   },
   {
    "id": "pos-korona-union-k-voucher-status",
@@ -6727,7 +6728,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-vouchers",
-   "quote": "To see the status of a voucher the ‘Show Voucher’ function would need to be used."
+   "quote": "To see the status of a voucher the \u2018Show Voucher\u2019 function would need to be used."
   },
   {
    "id": "pos-korona-union-k-voucher-package",
@@ -6797,7 +6798,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-customer-display-new-configuration",
-   "quote": "Go to Settings > Accounts and uncheck the box for “Show transaction on customer display”."
+   "quote": "Go to Settings > Accounts and uncheck the box for \u201cShow transaction on customer display\u201d."
   },
   {
    "id": "pos-korona-union-k-cd-a5-install",
@@ -6859,7 +6860,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-partnertech-a5-setup-guide-2",
-   "quote": "You can use either of the marked LAN ports “LAN 1” or “LAN 2.”",
+   "quote": "You can use either of the marked LAN ports \u201cLAN 1\u201d or \u201cLAN 2.\u201d",
    "sensitive": "password"
   },
   {
@@ -6937,7 +6938,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-handheld-inventory-scanner-app",
-   "quote": "To upload your changes to the cloud from the inventory lists screen, swipe left on the inventory and press ‘upload.’"
+   "quote": "To upload your changes to the cloud from the inventory lists screen, swipe left on the inventory and press \u2018upload.\u2019"
   },
   {
    "id": "pos-korona-union-k-mde-warning",
@@ -7099,7 +7100,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-discounts-or-promotions-not-working",
-   "quote": "Ensure you’ve gone to the Total Screen on the POS. Discounts only apply after going to the Total Screen."
+   "quote": "Ensure you\u2019ve gone to the Total Screen on the POS. Discounts only apply after going to the Total Screen."
   },
   {
    "id": "pos-korona-union-k-cb-receipt",
@@ -7117,7 +7118,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-dealing-with-charge-backs",
-   "quote": "At the bottom, it will show you “Account: xxxx“, which is the last 4 of the card number. “Approval” is the Transaction Token."
+   "quote": "At the bottom, it will show you \u201cAccount: xxxx\u201c, which is the last 4 of the card number. \u201cApproval\u201d is the Transaction Token."
   },
   {
    "id": "pos-korona-union-k-cb-signature",
@@ -7152,7 +7153,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-open-product",
-   "quote": "Open products are used if you need to quickly sell either a new product or a product you don’t want to enter into KORONA Studio."
+   "quote": "Open products are used if you need to quickly sell either a new product or a product you don\u2019t want to enter into KORONA Studio."
   },
   {
    "id": "pos-korona-union-k-discount-types",
@@ -7170,7 +7171,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-discount-reasons",
-   "quote": "(RD) – This indicates a Receipt Discount was triggered manually at the POS via a button or external system call."
+   "quote": "(RD) \u2013 This indicates a Receipt Discount was triggered manually at the POS via a button or external system call."
   },
   {
    "id": "pos-korona-union-k-digital-not-sent",
@@ -7187,7 +7188,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-digitalreceipts",
-   "quote": "Ensure the section labeled “Email Alias” is not left blank."
+   "quote": "Ensure the section labeled \u201cEmail Alias\u201d is not left blank."
   },
   {
    "id": "pos-korona-union-k-digital-enable",
@@ -7259,7 +7260,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-create-cashiers",
-   "quote": "By default, the system comes with 2 sample cashiers configured – John Doe and Jane Doe – with login codes “1” and “2,” respectively.",
+   "quote": "By default, the system comes with 2 sample cashiers configured \u2013 John Doe and Jane Doe \u2013 with login codes \u201c1\u201d and \u201c2,\u201d respectively.",
    "note": "Advice to change or remove them is ours, not the source's.",
    "sensitive": "password"
   },
@@ -7277,7 +7278,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-create-cashiers",
-   "quote": "If you do not want the cashier’s full name printed on the receipt, fill out the alias field in the back office."
+   "quote": "If you do not want the cashier\u2019s full name printed on the receipt, fill out the alias field in the back office."
   },
   {
    "id": "pos-korona-union-k-cashier-leave",
@@ -7294,7 +7295,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-create-cashiers",
-   "quote": "we recommend changing the employees’ login codes to restrict access or locking the cashier using the Lock option before deleting the cashier record"
+   "quote": "we recommend changing the employees\u2019 login codes to restrict access or locking the cashier using the Lock option before deleting the cashier record"
   },
   {
    "id": "pos-korona-union-k-not-authorized",
@@ -7312,7 +7313,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-manage-cashier-roles-and-permissions",
-   "quote": "they will get a pop up notification stating “You are not authorized to perform this action.”"
+   "quote": "they will get a pop up notification stating \u201cYou are not authorized to perform this action.\u201d"
   },
   {
    "id": "pos-korona-union-k-perm-list",
@@ -7420,7 +7421,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pos-functions",
-   "quote": "Return Item: Sets a product on a normal transaction to be a “Return of Goods” and prompts you to enter a return reason."
+   "quote": "Return Item: Sets a product on a normal transaction to be a \u201cReturn of Goods\u201d and prompts you to enter a return reason."
   },
   {
    "id": "pos-korona-union-k-fn-return-page",
@@ -7522,7 +7523,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pos-functions",
-   "quote": "Is used as a way to check if the amount of money that’s inside the cash drawer is the expected amount according to the POS."
+   "quote": "Is used as a way to check if the amount of money that\u2019s inside the cash drawer is the expected amount according to the POS."
   },
   {
    "id": "pos-korona-union-k-fn-change-price",
@@ -7914,7 +7915,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-pos-functions",
-   "quote": "You can enter the amount being paid in the item input field and then press the “payment” button to process that amount in the default method."
+   "quote": "You can enter the amount being paid in the item input field and then press the \u201cpayment\u201d button to process that amount in the default method."
   },
   {
    "id": "pos-korona-union-k-fn-round-down",
@@ -8057,7 +8058,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-store-accounts-and-transactions",
-   "quote": "Select Total on the point of sale and Press “credit account”",
+   "quote": "Select Total on the point of sale and Press \u201ccredit account\u201d",
    "note": "Requires the account and its button to be set up in the back office first."
   },
   {
@@ -8141,7 +8142,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-boca-ticket-printer-guide",
-   "quote": "If the tickets are not being cut properly, please ensure the cutter isn’t blocked and can move freely."
+   "quote": "If the tickets are not being cut properly, please ensure the cutter isn\u2019t blocked and can move freely."
   },
   {
    "id": "pos-korona-union-k-boca-care",
@@ -8179,7 +8180,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-how-to-do-a-return-on-events",
-   "quote": "You will now need to refund the customer by pressing ‘Initiate Payment’:"
+   "quote": "You will now need to refund the customer by pressing \u2018Initiate Payment\u2019:"
   },
   {
    "id": "pos-korona-union-k-price-change",
@@ -8394,7 +8395,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "k-trigger-production",
-   "quote": "Even if the function is performed multiple times for the same receipt, the POS will only run an item’s production types once."
+   "quote": "Even if the function is performed multiple times for the same receipt, the POS will only run an item\u2019s production types once."
   },
   {
    "id": "pos-korona-union-k-bottle-return",

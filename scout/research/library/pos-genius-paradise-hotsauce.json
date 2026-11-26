@@ -413,7 +413,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "The device’s SYS LED indicator will change from"
+   "quote": "The device\u2019s SYS LED indicator will change from"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-install-pa2200",
@@ -966,7 +966,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "doesn’t cover the full amount, the system will display the remaining balance so another"
+   "quote": "doesn\u2019t cover the full amount, the system will display the remaining balance so another"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-pay-dual-price",
@@ -1080,7 +1080,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "The item must be sent—unsent items can only be deleted."
+   "quote": "The item must be sent\u2014unsent items can only be deleted."
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-void-vs-comp",
@@ -1346,7 +1346,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "To reprint a shift report, select the employee’s shift and tap Print Report"
+   "quote": "To reprint a shift report, select the employee\u2019s shift and tap Print Report"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-tip-out",
@@ -1367,7 +1367,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "If you’re tipping yourself out, be sure to select No when asked to clock out"
+   "quote": "If you\u2019re tipping yourself out, be sure to select No when asked to clock out"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-resend-kitchen",
@@ -1424,7 +1424,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "Refund All Payments – Refunds original payment(s); card refunds require"
+   "quote": "Refund All Payments \u2013 Refunds original payment(s); card refunds require"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-open-refund",
@@ -1517,7 +1517,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "Be sure the “To” date is later than the “From” date. If not, no results will appear."
+   "quote": "Be sure the \u201cTo\u201d date is later than the \u201cFrom\u201d date. If not, no results will appear."
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-force-close-drawer",
@@ -1906,7 +1906,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "Swipe up on the app’s preview to force close it."
+   "quote": "Swipe up on the app\u2019s preview to force close it."
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-restart-app-android",
@@ -2017,7 +2017,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "it’s likely that no drawer was opened when the station was first used for the day"
+   "quote": "it\u2019s likely that no drawer was opened when the station was first used for the day"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-bt-printer-basic",
@@ -2081,7 +2081,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "pm",
-   "quote": "for the PQ (Print Queue) indicator. If it’s red, the Pi may need to be restarted"
+   "quote": "for the PQ (Print Queue) indicator. If it\u2019s red, the Pi may need to be restarted"
   },
   {
    "id": "pos-genius-paradise-hotsauce-par-eth-printer-ip",
@@ -2345,7 +2345,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "hf",
-   "quote": "Receipt Printers (Thermal Printer) require 3-⅛” x 230’ Thermal Paper."
+   "quote": "Receipt Printers (Thermal Printer) require 3-\u215b\u201d x 230\u2019 Thermal Paper."
   },
   {
    "id": "pos-genius-paradise-hotsauce-hs-paper-where",
@@ -3139,7 +3139,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_mfa",
-   "quote": "you can ask the program to “remember” it for up to 45 days"
+   "quote": "you can ask the program to \u201cremember\u201d it for up to 45 days"
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-system-logout",
@@ -3395,7 +3395,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_sg",
-   "quote": "To send a test print job to an enabled printer, tap Send Test in the printer’s tile."
+   "quote": "To send a test print job to an enabled printer, tap Send Test in the printer\u2019s tile."
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-default-register-printer",
@@ -3528,7 +3528,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_u220",
-   "quote": "A status sheet should auto-print with the printer’s IP address on your network."
+   "quote": "A status sheet should auto-print with the printer\u2019s IP address on your network."
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-sp700-status",
@@ -3814,7 +3814,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_ug",
-   "quote": "To assign the ticket to a new server, select an appropriate server’s button, then tap Go."
+   "quote": "To assign the ticket to a new server, select an appropriate server\u2019s button, then tap Go."
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-ticket-search",
@@ -3868,7 +3868,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_ug",
-   "quote": "If you want to perform a “pay out” transaction, tap Pay Out."
+   "quote": "If you want to perform a \u201cpay out\u201d transaction, tap Pay Out."
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-card-reader-status",
@@ -3958,7 +3958,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_ug",
-   "quote": "To designate an item as out of stock, set the item’s stock value to “0”."
+   "quote": "To designate an item as out of stock, set the item\u2019s stock value to \u201c0\u201d."
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-time-punch",
@@ -4145,7 +4145,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_ug",
-   "quote": "Device: Technical information about the POS device itself, such as its name, IP addresses, and the POS app’s version number."
+   "quote": "Device: Technical information about the POS device itself, such as its name, IP addresses, and the POS app\u2019s version number."
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-ipad-attach-drawer",
@@ -4303,7 +4303,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_mm",
-   "quote": "Remove All – Selecting this will remove any previous splits",
+   "quote": "Remove All \u2013 Selecting this will remove any previous splits",
    "note": "From the guide for the iPad version of Genius for Restaurants (formerly Heartland Restaurant); screens on an XC23 or GC26 station can differ."
   },
   {
@@ -4341,7 +4341,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_mm",
-   "quote": "you’ll get a message advising that you cannot Checkout until the tickets are paid and closed",
+   "quote": "you\u2019ll get a message advising that you cannot Checkout until the tickets are paid and closed",
    "note": "From the guide for the iPad version of Genius for Restaurants (formerly Heartland Restaurant); screens on an XC23 or GC26 station can differ."
   },
   {
@@ -4397,7 +4397,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_mm",
-   "quote": "Typically at closing time, you’ll want to see a green checkmark or no indicator for Tips, Tickets, and Cash.",
+   "quote": "Typically at closing time, you\u2019ll want to see a green checkmark or no indicator for Tips, Tickets, and Cash.",
    "note": "From the guide for the iPad version of Genius for Restaurants (formerly Heartland Restaurant); screens on an XC23 or GC26 station can differ."
   },
   {
@@ -4570,7 +4570,7 @@
    "merchant_can_do": true,
    "escalate_to": "client-services",
    "source": "g_safr",
-   "quote": "Transactions that are fully declined will also be reported as “Bad Debt.”"
+   "quote": "Transactions that are fully declined will also be reported as \u201cBad Debt.\u201d"
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-saf-manual",
@@ -4675,7 +4675,7 @@
    ],
    "topic": "error-code",
    "kind": "error-code",
-   "title": "You’re already attached to a drawer on another device",
+   "title": "You\u2019re already attached to a drawer on another device",
    "steps": [
     "You already have a drawer attached somewhere else.",
     "Close any tickets open under that staff member.",
@@ -5043,7 +5043,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_m2u",
-   "quote": "The Mobile 2.0 device is displaying the “End of Day” screen.",
+   "quote": "The Mobile 2.0 device is displaying the \u201cEnd of Day\u201d screen.",
    "note": "Applies to the Genius Mobile 2.0 handheld."
   },
   {
@@ -5217,7 +5217,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_m2b",
-   "quote": "Press the POS app’s tile and swipe up until it disappears from the screen.",
+   "quote": "Press the POS app\u2019s tile and swipe up until it disappears from the screen.",
    "note": "Applies to the Genius Mobile 2.0 handheld."
   },
   {
@@ -5236,7 +5236,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "g_m2b",
-   "quote": "the Payments app automatically runs and displays the “Please Wait” screen",
+   "quote": "the Payments app automatically runs and displays the \u201cPlease Wait\u201d screen",
    "note": "Applies to the Genius Mobile 2.0 handheld."
   },
   {

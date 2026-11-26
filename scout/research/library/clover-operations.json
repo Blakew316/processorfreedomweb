@@ -1064,7 +1064,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s3",
-   "quote": "Check your email — you'll receive a message with a unique link to set a password and log in."
+   "quote": "Check your email \u2014 you'll receive a message with a unique link to set a password and log in."
   },
   {
    "id": "clover-operations-dashboard-login-no-email",
@@ -1081,7 +1081,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s3",
-   "quote": "If you don’t receive an email right away, the email you entered doesn’t match the email in the Clover system."
+   "quote": "If you don\u2019t receive an email right away, the email you entered doesn\u2019t match the email in the Clover system."
   },
   {
    "id": "clover-operations-dashboard-forgot-password",
@@ -1100,7 +1100,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s3",
-   "quote": "If you don’t remember your password or did not set one, follow the steps to log in to your Clover account."
+   "quote": "If you don\u2019t remember your password or did not set one, follow the steps to log in to your Clover account."
   },
   {
    "id": "clover-operations-find-mid",
@@ -1534,7 +1534,7 @@
    "merchant_can_do": false,
    "escalate_to": "client-services",
    "source": "s9",
-   "quote": "Contact Clover support for help adding unentered tips after a closeout event; however, this is a manual process that will delay your batch’s funding schedule."
+   "quote": "Contact Clover support for help adding unentered tips after a closeout event; however, this is a manual process that will delay your batch\u2019s funding schedule."
   },
   {
    "id": "clover-operations-autoclose-device-offline",
@@ -1797,7 +1797,7 @@
    "merchant_can_do": true,
    "escalate_to": "client-services",
    "source": "s13",
-   "quote": "If you don’t close your batch within these timeframes, transactions in the open batch may be lost."
+   "quote": "If you don\u2019t close your batch within these timeframes, transactions in the open batch may be lost."
   },
   {
    "id": "clover-operations-manual-close-multiple",
@@ -1815,7 +1815,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s13",
-   "quote": "You can close your batch multiple times for your records, but you’ll receive only one deposit per day."
+   "quote": "You can close your batch multiple times for your records, but you\u2019ll receive only one deposit per day."
   },
   {
    "id": "clover-operations-manual-close-all-devices",
@@ -2150,7 +2150,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s17",
-   "quote": "However, the pending charge may still appear on their online banking for 1–3 business days, depending on their bank."
+   "quote": "However, the pending charge may still appear on their online banking for 1\u20133 business days, depending on their bank."
   },
   {
    "id": "clover-operations-void-permission",
@@ -3133,7 +3133,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s38",
-   "quote": "Note: The FD40 PIN pad doesn’t support the purchasing card tender type."
+   "quote": "Note: The FD40 PIN pad doesn\u2019t support the purchasing card tender type."
   },
   {
    "id": "clover-operations-pcard-take-device",
@@ -3291,7 +3291,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s42",
-   "quote": "If the item is age-restricted, confirm the customer’s age. The item is added to the order after age confirmation."
+   "quote": "If the item is age-restricted, confirm the customer\u2019s age. The item is added to the order after age confirmation."
   },
   {
    "id": "clover-operations-remove-item",
@@ -4347,7 +4347,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s67",
-   "quote": "If you switch from 4-digit to 6-digit passcodes, choosing Autofill passcodes adds “00” to the end of each passcode."
+   "quote": "If you switch from 4-digit to 6-digit passcodes, choosing Autofill passcodes adds \u201c00\u201d to the end of each passcode."
   },
   {
    "id": "clover-operations-passcode-length-rules",
@@ -4365,7 +4365,8 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s67",
-   "quote": "Note: Effective April 2026, new merchants must use 6-digit passcodes."
+   "quote": "Note: Effective April 2026, new merchants must use 6-digit passcodes.",
+   "sensitive": "password"
   },
   {
    "id": "clover-operations-passcode-requirements",
@@ -4709,7 +4710,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s71",
-   "quote": "you’ll receive a message in the Clover Go app that says, 'Are you trying to access?'"
+   "quote": "you\u2019ll receive a message in the Clover Go app that says, 'Are you trying to access?'"
   },
   {
    "id": "clover-operations-2fa-go-enable",
@@ -5027,7 +5028,7 @@
    "merchant_can_do": true,
    "escalate_to": "client-services",
    "source": "s81",
-   "quote": "These may appear as “non-receipt of PCI validation” on your processing fee statements."
+   "quote": "These may appear as \u201cnon-receipt of PCI validation\u201d on your processing fee statements."
   },
   {
    "id": "clover-operations-pci-status",
@@ -5158,7 +5159,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s83",
-   "quote": "when the customer enters a CVV code that does not match the one on file at the customer’s bank, the system voids the transaction"
+   "quote": "when the customer enters a CVV code that does not match the one on file at the customer\u2019s bank, the system voids the transaction"
   },
   {
    "id": "clover-operations-fraud-score-decline",
@@ -5197,7 +5198,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s83",
-   "quote": "In Block List, select Edit and then select Add for each rule you’d like to set."
+   "quote": "In Block List, select Edit and then select Add for each rule you\u2019d like to set."
   },
   {
    "id": "clover-operations-vt-take-payment",
@@ -5240,7 +5241,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s84",
-   "quote": "Under Payment Information, select the Card Number field and swipe the customer’s card in the card reader."
+   "quote": "Under Payment Information, select the Card Number field and swipe the customer\u2019s card in the card reader."
   },
   {
    "id": "clover-operations-vt-verify-card",
@@ -5336,7 +5337,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s87",
-   "quote": "After selecting Complete Payment, you must read the consent language to the customer and record the customer’s responses."
+   "quote": "After selecting Complete Payment, you must read the consent language to the customer and record the customer\u2019s responses."
   },
   {
    "id": "clover-operations-ach-activate",
@@ -5410,7 +5411,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s89",
-   "quote": "Text message delivery: Sending invoices by text message (SMS) is available only for US-based businesses on the Essentials plan and above. You must be enrolled in a toll‑free number."
+   "quote": "Text message delivery: Sending invoices by text message (SMS) is available only for US-based businesses on the Essentials plan and above. You must be enrolled in a toll\u2011free number."
   },
   {
    "id": "clover-operations-invoice-manage",
@@ -5485,7 +5486,7 @@
    "merchant_can_do": true,
    "escalate_to": null,
    "source": "s92",
-   "quote": "Select the checkbox next to ‘Send an updated invoice’ to send the updated invoice."
+   "quote": "Select the checkbox next to \u2018Send an updated invoice\u2019 to send the updated invoice."
   },
   {
    "id": "clover-operations-go-invoice-create",
