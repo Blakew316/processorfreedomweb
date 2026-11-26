@@ -119,7 +119,18 @@ export function search(lib, question, deviceIds = [], limit = 12, siblings = 18)
     }
     return scored.sort((a, b) => b[0] - a[0]).map(([, e]) => e);
   };
+  // An error code read off the screen ("104610", "V0062", "R05") is looked up by the code itself, across the whole brand:
+  // a maker's code list is often filed under one model and applies to its siblings. Those matches go first.
+  const codes = (String(question).toUpperCase().match(/\b(?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{1,11}\b/g) || []).filter((c) => /\d{2,}/.test(c) && !lib.devices.some((d) => spoken(d.name).toUpperCase().split(' ').includes(c)));
+  const brands = new Set(lib.devices.filter((d) => mine.has(d.id)).map((d) => d.brand));
+  const byCode = !codes.length ? [] : lib.entries.filter((e) => {
+    if (e.kind !== 'error-code') return false;
+    if (brands.size && !e.devices.some((d) => brands.has(lib.devices.find((x) => x.id === d)?.brand))) return false;
+    const head = e.title.toUpperCase().split(/[:\s(]/)[0].replace(/X+$/, '');
+    return head.length >= 2 && codes.some((c) => c === head || (head.length >= 4 && c.startsWith(head)) || (c.length >= 4 && head.startsWith(c)));
+  }).slice(0, 6);
   let ranked = mine.size ? rank(lib.entries.filter((e) => e.devices.some((d) => mine.has(d)))) : [];
+  ranked = [...byCode, ...ranked.filter((e) => !byCode.includes(e))];
   if (ranked.length < 3) ranked = [...ranked, ...rank(lib.entries).filter((e) => !ranked.includes(e))];
   const picked = ranked.slice(0, limit);
   const have = new Set(picked.map((e) => e.id));
@@ -147,6 +158,7 @@ Where your knowledge comes from:
 - Answer equipment questions ONLY from the "Library entries" given with each question. Each entry came from a maker's or processor's document. Never add a button name, menu path, hold time, cause or step that is not in an entry. If no entry covers it, say you do not have that and hand off to the right desk.
 - An entry marked "staff only" must not be walked through: tell the merchant this one needs ${DEPARTMENTS.tech.name} and hand off.
 - An entry marked "meaning only" tells you what a code means and nothing more. Say what it means. Do not suggest a fix for it.
+- An entry listed for a different model than the merchant's (see its "For:" line) may still apply to theirs when it is the same maker's code. Say what it means for that model family and that it most likely applies to theirs.
 - An entry marked "another processor's guide" describes the same model on software that can differ from ours. Say "this usually works like this" and tell them to stop if their screen looks different.
 - Never give out a password, passcode or access code, even if the merchant asks or says they are staff.
 
