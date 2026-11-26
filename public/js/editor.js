@@ -864,7 +864,7 @@ export async function editor(id, mount, title, startTab = '') {
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Insights'), null));
       // "Ask a question" sits at the foot of the page, where the reference photo has it, and opens Scout. It is not shown
       // until Scout is switched on (a key is set on the server), so nobody meets a button that cannot answer.
-      const ask = !state.config.scoutEnabled ? null : h('div', { class: 'scout-askrow' }, h('button', { class: 'scout-open', type: 'button', onclick: () => openScout({ siteId: id, goTab, closeAll: () => goTab('start') }) }, 'Ask a question'));
+      const ask = !state.config.scoutEnabled ? null : h('div', { class: 'scout-askrow' }, h('button', { class: 'scout-open', type: 'button', onclick: () => openScout({ siteId: id, goTab }) }, 'Ask a question'));
       if (!insightData) { api('GET', `/api/sites/${id}/stats?range=last7`).then((r) => { insightData = r; if (tab === 'insights') paintPanel(); }).catch((e) => { toast(e.message, true); insightData = { failed: true }; if (tab === 'insights') paintPanel(); }); return [h('div', { class: 'inv' }, head, ask, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
       const st = insightData;
       if (st.failed || !st.totals) return [h('div', { class: 'inv' }, head, ask, h('div', { class: 'inv-list' }, emptyState('alert', 'We could not load your insights', 'Press Refresh to try again.')))];
