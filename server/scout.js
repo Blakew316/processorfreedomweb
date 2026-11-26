@@ -49,7 +49,7 @@ export function loadLibrary(file = join(dirname(fileURLToPath(import.meta.url)),
   return lib;
 }
 
-const STOP = new Set('a an and are as at be but by can do does for from how i if in is it its my of on or so that the then this to was what when where which who why will with you your me we our not no have has had get got'.split(' '));
+const STOP = new Set('turn turning still work working wont doesnt isnt cant just now help please need want try tried again a an and are as at be but by can do does for from how i if in is it its my of on or so that the then this to was what when where which who why will with you your me we our not no have has had get got'.split(' '));
 const stem = (w) => w.replace(/(ing|ed|es|s)$/, '');
 function wordsOf(text) {
   const out = new Map();
@@ -57,37 +57,75 @@ function wordsOf(text) {
   return out;
 }
 
-/** Words in a question that name a device, so "my VP550" finds the Valor VP550 without being told the terminal. */
-export function devicesNamed(lib, text) {
-  const t = ` ${String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
-  return lib.devices.filter((d) => {
-    const model = d.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter((w) => /\d/.test(w) || w.length > 4);
-    return model.some((w) => /\d/.test(w) && t.includes(` ${w} `)) || t.includes(` ${d.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `);
-  }).map((d) => d.id);
-}
+/** How a device is said out loud: its name without the maker's version tail ("Clover Flex V4" is "clover flex"). */
+const spoken = (name) => name.toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\b(v\d+|gen \d+|pro max)\b/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**
- * The library entries that best match a question. `deviceIds` are the merchant's own equipment when known: their entries
- * rank first, but a question still finds entries for any device it names. Returns at most `limit` entries.
+ * The devices a question names, so "my VP550" or "my Clover Flex" finds the right sheet without being told the terminal.
+ * A longer name wins over a shorter one inside it ("Flex Pocket" is not also "Flex").
  */
-export function search(lib, question, deviceIds = [], limit = 14) {
+export function devicesNamed(lib, text) {
+  const t = ` ${String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
+  const hits = [];
+  for (const d of lib.devices) {
+    const full = spoken(d.name), words = full.split(' ');
+    const model = words.filter((w) => /\d/.test(w) && w.length >= 2);          // "vp550e", "a920", "qd4"
+    if (words.length > 1 && t.includes(` ${full} `)) hits.push([d.id, full]);
+    else if (model.some((w) => t.includes(` ${w} `))) hits.push([d.id, model.find((w) => t.includes(` ${w} `))]);
+  }
+  return hits.filter(([, name]) => !hits.some(([, other]) => other !== name && other.includes(name) && t.includes(` ${other} `))).map(([id]) => id);
+}
+
+// What kind of trouble a question is about, read from everyday words. The library files every entry under one of these.
+const TOPIC_WORDS = [
+  ['power', /won'?t (turn|power|come) on|will not (turn|power|come) on|not turning on|no power|\bdead\b|black screen|blank screen|won'?t charge|not charging|battery|won'?t start|will not start/],
+  ['frozen', /frozen|froze|freez|stuck|not responding|unresponsive|locked up|hang|spinning/],
+  ['connect', /wi-?fi|internet|network|offline|no connection|not connect|won'?t connect|ethernet|cellular|\bsim\b|signal/],
+  ['printer', /paper|print|receipt|jam|cutter|faded/],
+  ['card-read', /card (won'?t|will not|not) read|chip|swipe|\btap\b|contactless|card reader|read error/],
+  ['decline', /declin|not approved|denied/],
+  ['refund-void', /refund|\bvoid/],
+  ['tips', /\btips?\b|gratuity/],
+  ['batch', /batch|settle|close ?out|end of day/],
+  ['pairing', /bluetooth|pair/],
+  ['password', /password|passcode|locked out|\bpin\b|log ?in|sign ?in/],
+  ['tamper', /tamper|security alert/],
+  ['update', /update|upgrade|firmware/],
+  ['install', /set ?up|install|unbox|getting started|new terminal|activate/],
+  ['error-code', /error|code\b|message says/],
+];
+export const topicsOf = (text) => TOPIC_WORDS.filter(([, re]) => re.test(String(text).toLowerCase())).map(([t]) => t);
+
+/**
+ * The library entries that best match what the merchant has said. `deviceIds` are their own equipment when known; devices
+ * the question names count too. When a device is known, only its entries are searched, and the other fixes filed under the
+ * same kind of trouble come along, so Scout has a next step when the first one fails. At most `limit` + `siblings` entries.
+ */
+export function search(lib, question, deviceIds = [], limit = 12, siblings = 18) {
   const q = wordsOf(question);
   if (!q.size) return [];
   const mine = new Set([...deviceIds, ...devicesNamed(lib, question)]);
-  const brands = new Set(lib.devices.filter((d) => mine.has(d.id)).map((d) => d.brand));
-  const scored = [];
-  for (const e of lib.entries) {
-    let s = 0;
-    for (const [w, n] of q) { const hit = e.words.get(w); if (hit) s += Math.min(hit, 4) * n * (w.length > 5 || /\d/.test(w) ? 1.6 : 1); }
-    if (!s) continue;
-    const own = e.devices.some((d) => mine.has(d));
-    if (mine.size) s *= own ? 3 : 0.35;
-    if (e.tier === 1) s *= 1.15;
-    if (e.meaning) s *= 0.8;
-    scored.push([s, e, own]);
-  }
-  scored.sort((a, b) => b[0] - a[0]);
-  return scored.slice(0, limit).map(([, e]) => e);
+  const topics = new Set(topicsOf(question));
+  const rank = (pool) => {
+    const scored = [];
+    for (const e of pool) {
+      let s = 0;
+      for (const [w, n] of q) { const hit = e.words.get(w); if (hit) s += Math.min(hit, 4) * n * (w.length > 5 || /\d/.test(w) ? 1.6 : 1); }
+      if (topics.has(e.topic)) s = s * 3 + 6;
+      if (!s) continue;
+      if (e.tier === 1) s *= 1.15;
+      if (e.meaning) s *= 0.8;
+      scored.push([s, e]);
+    }
+    return scored.sort((a, b) => b[0] - a[0]).map(([, e]) => e);
+  };
+  let ranked = mine.size ? rank(lib.entries.filter((e) => e.devices.some((d) => mine.has(d)))) : [];
+  if (ranked.length < 3) ranked = [...ranked, ...rank(lib.entries).filter((e) => !ranked.includes(e))];
+  const picked = ranked.slice(0, limit);
+  const have = new Set(picked.map((e) => e.id));
+  const want = topics.size ? topics : new Set(picked.slice(0, 3).map((e) => e.topic));
+  const more = ranked.filter((e) => !have.has(e.id) && !e.meaning && want.has(e.topic)).slice(0, siblings);
+  return [...picked, ...more];
 }
 
 const SCHEMA = {
@@ -123,6 +161,8 @@ Support hours are 9 AM to 5 PM Central, Monday to Friday. Right now support is $
 Sections you can open for them (set "section" to the key): ${Object.entries(SECTIONS).map(([k, v]) => `${k} = ${v}`).join('; ')}. Use the menu names exactly as written when you mention one.
 
 This merchant: ${business || 'a Processor Freedom merchant'}${firstName ? `, speaking with ${firstName}` : ''}. Equipment on file: ${devices.length ? devices.map((d) => d.name).join(', ') : 'none on file yet. If you need to know which terminal they have to help them, ask once, plainly'}.
+
+Working a fault: the entries usually hold several fixes for the same problem. Give them one at a time, most likely first, and ask whether it worked. When the merchant says it did not, give the NEXT fix from the entries that you have not given yet. Hand off to a desk only when every entry that fits has been tried, or the next one is staff only. Never repeat a step they already tried.
 
 How you talk:
 - Use the merchant's first name once, in your first reply of a chat, and not again.
@@ -176,7 +216,8 @@ export async function answer({ lib, turns, business, firstName, deviceIds = [], 
   if (isMoneyQuestion(last)) {
     return { text: `That one is for ${DEPARTMENTS['client-services'].name}, and they would love to help you with it. Would you like a call back, or would you rather call now?`, actions: [callback('client-services'), phone], department: 'client-services', solved: false, entryIds: [] };
   }
-  const recent = turns.filter((t) => t.role === 'user').slice(-3).map((t) => t.text).join(' ');
+  // Everything the merchant has said in this chat: a short follow-up ("no, still nothing") finds nothing by itself.
+  const recent = turns.filter((t) => t.role === 'user').slice(-8).map((t) => t.text).join(' ');
   const found = search(lib, recent, deviceIds);
   const out = await model(rules({ open, business, firstName, devices }), turns, entriesText(lib, found));
   let text = String(out.text || '').trim() || `I don't have an answer for that one. ${DEPARTMENTS.tech.name} can help at ${SCOUT_PHONE}.`;
