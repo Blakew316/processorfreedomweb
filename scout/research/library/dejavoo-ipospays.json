@@ -6616,7 +6616,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "0 0 Successful request Transaction approved. No action needed \u2014 payment processed successfully.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-1-partial-authorization",
@@ -6635,7 +6636,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "1 0 Partial Authorization Transaction partially approved. Collect the remaining balance via another payment method.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-80000-gateway-services-available",
@@ -6654,7 +6656,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "80000 0 Gateway Services Available System is online and ready to process. No action needed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10002-invalid-card-number-blank-null",
@@ -6673,7 +6676,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10002 23 Invalid Card Number \u2013 Blank/Null No card number was entered. Ask the customer to re-enter or re-swipe their card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10007-invalid-card-number-not-numeric",
@@ -6692,7 +6696,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10007 23 Invalid Card Number \u2013 Not Numeric The card number contains invalid characters. Ask the customer to re-enter their card number manually.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10008-invalid-length-for-card-type",
@@ -6711,7 +6716,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10008 23 Invalid Length for Card Type The card number length doesn't match the card type. Verify the card number and try again.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10012-invalid-card-number-failed-mod10",
@@ -6730,7 +6736,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10012 23 Invalid Card Number \u2013 Failed Mod10 The card number failed the standard validation check. Ask the customer to re-enter and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10035-invalid-account-number-blank-nul",
@@ -6749,7 +6756,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10035 23 Invalid Account Number \u2013 Blank/Null No account number was provided. Ask the customer to re-enter their payment details.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10036-invalid-account-number-not-numer",
@@ -6768,7 +6776,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10036 23 Invalid Account Number \u2013 Not Numeric The account number contains invalid characters. Ask the customer to re-enter their details.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10039-invalid-account-number-does-not",
@@ -6787,7 +6796,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10039 23 Invalid Account Number \u2013 Does Not Exist The account number could not be found. Ask the customer to verify their payment details.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30012-bad-card-number-from-gateway",
@@ -6806,7 +6816,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30012 23 Bad Card Number (from Gateway) The gateway rejected the card number. Ask the customer to try a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30023-invalid-account-number",
@@ -6825,7 +6836,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30023 23 Invalid Account Number The account number is not valid. Ask the customer to re-enter or use a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30008-missing-payment-card-data",
@@ -6844,7 +6856,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30008 23 Missing Payment Card Data Card details are incomplete. Ask the customer to re-swipe or manually enter their card information.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10004-invalid-expiration-date-blank-nu",
@@ -6863,7 +6876,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10004 24 Invalid Expiration Date \u2013 Blank/Null No expiration date was entered. Ask the customer to re-enter their card details including the expiry date.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10009-invalid-expiration-date-card-exp",
@@ -6882,7 +6896,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10009 24 Invalid Expiration Date \u2013 Card Expired The customer's card has expired. Ask them to use a different, valid card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10013-invalid-expiration-date-value",
@@ -6901,7 +6916,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10013 24 Invalid Expiration Date Value The expiration date entered is not valid. Ask the customer to check and re-enter the correct date.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10017-invalid-expiration-date-invalid",
@@ -6920,7 +6936,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10017 24 Invalid Expiration Date \u2013 Invalid Month The month entered is not a valid calendar month. Ask the customer to correct the expiry date.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10018-invalid-expiration-date-invalid",
@@ -6939,7 +6956,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10018 24 Invalid Expiration Date \u2013 Invalid Year The year entered is not valid. Ask the customer to re-enter their expiry date.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10019-invalid-expiration-date",
@@ -6958,7 +6976,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10019 24 Invalid Expiration Date The expiration date is not valid. Ask the customer to verify and re-enter their card details.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10005-invalid-security-code-blank-null",
@@ -6977,7 +6996,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10005 7 Invalid Security Code \u2013 Blank/Null No CVV/security code was entered. Ask the customer to enter the 3- or 4-digit code from their card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10010-invalid-security-code-not-numeri",
@@ -6996,7 +7016,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10010 7 Invalid Security Code \u2013 Not Numeric The security code contains invalid characters. Ask the customer to re-enter the numeric CVV only.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10011-invalid-transaction-id",
@@ -7015,7 +7036,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10011 7 Invalid Transaction ID The transaction reference is not valid. Retry the transaction or contact support if the issue persists.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10014-invalid-security-code-length",
@@ -7034,7 +7056,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10014 7 Invalid Security Code Length The CVV entered is the wrong length. Ask the customer to check and re-enter their security code.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30025-invalid-security-code",
@@ -7053,7 +7076,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30025 12 Invalid Security Code The CVV provided does not match the card. Ask the customer to re-enter the correct security code.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10027-invalid-amount-blank-null",
@@ -7072,7 +7096,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10027 4 Invalid Amount \u2013 Blank/Null No amount was entered. Enter a valid transaction amount and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10028-invalid-amount-not-numeric",
@@ -7091,7 +7116,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10028 4 Invalid Amount \u2013 Not Numeric The amount entered contains invalid characters. Enter a numeric amount and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30026-invalid-amount",
@@ -7110,7 +7136,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30026 4 Invalid Amount The transaction amount is not valid. Verify the amount and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10020-invalid-client-identifier",
@@ -7129,7 +7156,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10020 1 Invalid Client Identifier The system credentials are not recognized. Contact your payment provider to verify your account configuration.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10024-invalid-credentials",
@@ -7149,7 +7177,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10024 1001 Invalid Credentials The login credentials are incorrect. Verify your username and password. Contact support if access issues continue.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30006-new-password-doesn-t-match-confi",
@@ -7168,7 +7197,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30006 1001 New Password Doesn't Match Confirmation Password The passwords entered do not match. Re-enter both fields and make sure they are identical.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30007-new-password-too-weak",
@@ -7187,7 +7217,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30007 1001 New Password Too Weak The new password does not meet security requirements. Choose a stronger password and try again.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30070-new-password-previously-used",
@@ -7206,7 +7237,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30070 1001 New Password Previously Used This password was used before. Choose a new password that hasn't been used previously.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30071-missing-clerk-id",
@@ -7225,7 +7257,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30071 1001 Missing Clerk ID A clerk or user ID is required. Enter a valid clerk ID and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-80002-invalid-purchase-token",
@@ -7244,7 +7277,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "80002 1001 Invalid Purchase Token The payment token is not valid or has expired. Restart the transaction to generate a new token.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10021-invalid-request-element-missing",
@@ -7263,7 +7297,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10021 1007 Invalid Request Element \u2013 Missing Element A required field is missing. Contact your integration team to resolve the missing field.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10022-invalid-request-type",
@@ -7282,7 +7317,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10022 1007 Invalid Request Type The transaction request type is not recognized. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10023-password-expired",
@@ -7301,7 +7337,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10023 1007 Password Expired Your account password has expired. Log in and update your password to restore access.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30004-invalid-request-message",
@@ -7320,7 +7357,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30004 1007 Invalid Request Message The transaction request is malformed. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30005-invalid-response-message",
@@ -7339,7 +7377,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30005 1007 Invalid Response Message An unexpected response was received from the gateway. Retry the transaction or contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30020-invalid-transaction-industry-typ",
@@ -7358,7 +7397,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30020 1007 Invalid Transaction Industry Type The industry type specified is not valid for this account. Contact your payment provider.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30021-missing-transaction-industry-typ",
@@ -7377,7 +7417,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30021 1007 Missing Transaction Industry Type No industry type was specified. Contact your integration team to correct the configuration.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30050-invalid-transaction-category",
@@ -7396,7 +7437,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30050 1007 Invalid Transaction Category The transaction category is not valid. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30051-invalid-verification-status",
@@ -7415,7 +7457,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30051 1007 Invalid Verification Status The verification status provided is not recognized. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30052-invalid-terminal-type",
@@ -7434,7 +7477,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30052 1007 Invalid Terminal Type The terminal type specified is not supported. Contact your payment provider.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30053-invalid-petroleum-product-type",
@@ -7453,7 +7497,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30053 1007 Invalid Petroleum Product Type The petroleum product type is not valid. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30060-invalid-iapp-user-id",
@@ -7472,7 +7517,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30060 1007 Invalid IApp User ID The user ID provided is not valid. Verify the user ID and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30100-invalid-account-data-blank-null",
@@ -7491,7 +7537,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30100 1007 Invalid Account Data \u2013 Blank/Null Account data is missing. Ensure all required fields are filled in and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30101-invalid-emv-tag-data-blank-null",
@@ -7510,7 +7557,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30101 1007 Invalid EMV Tag Data \u2013 Blank/Null EMV chip data is missing or unreadable. Ask the customer to re-insert their card or try a swipe.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10003-invalid-card-type-doesn-t-match",
@@ -7529,7 +7577,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10003 1010 Invalid Card Type \u2013 Doesn't Match Accepted Card Types This card type is not accepted by your account. Ask the customer to use a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10037-invalid-payment-type-blank-null",
@@ -7548,7 +7597,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10037 1010 Invalid Payment Type \u2013 Blank/Null No payment type was specified. Select a valid payment method and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10038-invalid-payment-type-unrecognize",
@@ -7567,7 +7617,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10038 1010 Invalid Payment Type \u2013 Unrecognized Payment Type The payment type is not recognized. Ask the customer to use a supported payment method.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30011-invalid-merchant-number-from-gat",
@@ -7586,7 +7637,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30011 5 Invalid Merchant Number (from Gateway) Your merchant account number is not recognized by the gateway. Contact your payment provider to verify your account setup.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30013-invalid-store-number",
@@ -7605,7 +7657,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30013 5 Invalid Store Number The store number configured is not valid. Contact your payment provider to correct your account settings.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10025-invalid-zip-not-numeric",
@@ -7624,7 +7677,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10025 7 Invalid Zip \u2013 Not Numeric The ZIP code contains non-numeric characters. Ask the customer to re-enter their billing ZIP code.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10026-invalid-zip-wrong-length",
@@ -7643,7 +7697,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10026 7 Invalid Zip \u2013 Wrong Length The ZIP code is the wrong length. Ask the customer to verify and re-enter their billing ZIP code.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10029-invalid-request-date-time",
@@ -7662,7 +7717,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10029 7 Invalid Request Date/Time The date/time on the transaction request is not valid. This is a system issue \u2014 contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10030-invalid-token",
@@ -7681,7 +7737,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10030 7 Invalid Token The payment token is not valid. Restart the transaction to generate a new token.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10031-invalid-track",
@@ -7700,7 +7757,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10031 7 Invalid Track The card swipe data is not valid. Ask the customer to re-swipe their card or enter details manually.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10032-invalid-track-identifier",
@@ -7719,7 +7777,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10032 7 Invalid Track Identifier The swipe track identifier is not recognized. Ask the customer to re-swipe or enter card details manually.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10034-invalid-encryption-id",
@@ -7738,7 +7797,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10034 7 Invalid Encryption ID The encryption key ID is not valid. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10040-missing-required-pass-thru-data",
@@ -7757,7 +7817,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10040 7 Missing Required Pass-Thru Data Element A required data field is missing from the request. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10041-missing-invalid-bin",
@@ -7776,7 +7837,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10041 7 Missing / Invalid BIN The card BIN (first 6 digits) is missing or not recognized. Verify the card number and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10001-missing-reference-number",
@@ -7795,7 +7857,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10001 19 Missing Reference Number A transaction reference number is required but was not provided. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30032-denied-by-customer-s-bank",
@@ -7814,7 +7877,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30032 12 Denied by Customer's Bank The customer's bank declined the transaction. Ask the customer to contact their bank or use a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30034-hold-pick-up-card",
@@ -7834,7 +7898,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30034 12 Hold \u2013 Pick Up Card The customer's bank has flagged the card. Do not return the card. Ask the customer to contact their bank.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30037-card-reported-lost",
@@ -7854,7 +7919,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30037 12 Card Reported Lost This card has been reported lost. Do not process. Ask the customer to use a different payment method.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30038-card-reported-stolen",
@@ -7874,7 +7940,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30038 12 Card Reported Stolen This card has been reported stolen. Do not process. Ask the customer to contact their bank.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30073-card-is-restricted",
@@ -7893,7 +7960,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30073 12 Card is Restricted The customer's card has usage restrictions. Ask them to use a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30074-declined-due-to-fraud-rules",
@@ -7912,7 +7980,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30074 12 Declined Due to Fraud Rules The transaction was flagged and declined by fraud detection. Ask the customer to contact their bank or use a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30075-bank-account-blacklisted",
@@ -7931,7 +8000,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30075 12 Bank Account Blacklisted This account has been blocked. Ask the customer to use a different payment method.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30044-unmapped-decline",
@@ -7950,7 +8020,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30044 12 Unmapped Decline The transaction was declined for an unspecified reason. Ask the customer to contact their bank or try a different card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30033-insufficient-funds",
@@ -7969,7 +8040,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30033 50 Insufficient Funds The customer does not have enough funds. Ask them to use a different card or payment method.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30024-no-account",
@@ -7988,7 +8060,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30024 2 No Account The account number could not be found. Verify the customer's payment details and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30072-call-for-authorization",
@@ -8007,7 +8080,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30072 13 Call for Authorization Voice authorization is required. Call the authorization number on the terminal to complete the transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-10033-invalid-void-request",
@@ -8027,7 +8101,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "10033 108 Invalid Void Request The void request could not be processed. The transaction may have already been voided or settled. Contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30036-duplicate-transaction",
@@ -8046,7 +8121,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30036 110 Duplicate Transaction This appears to be a duplicate transaction. Check your records before retrying to avoid double-charging the customer.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-20001-tokenization-service-connection",
@@ -8066,7 +8142,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "20001 99 Tokenization Service Connection Error A connection error occurred with the payment service. Retry the transaction. If the issue persists, contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-20002-bridgepay-internal-server-error",
@@ -8086,7 +8163,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "20002 99 BridgePay Internal Server Error An internal server error occurred. Retry the transaction. If the issue persists, contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-20003-client-service-unavailable",
@@ -8105,7 +8183,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "20003 99 Client Service Unavailable The payment service is temporarily unavailable. Wait a few minutes and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-20004-payment-service-sensitive-data-t",
@@ -8124,7 +8203,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "20004 99 Payment Service Sensitive Data Timeout The session timed out. Restart the transaction from the beginning.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30009-internal-payment-card-data-error",
@@ -8143,7 +8223,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30009 99 Internal Payment Card Data Error An internal error occurred while processing card data. Retry or contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30010-invalid-record-format",
@@ -8162,7 +8243,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30010 99 Invalid Record Format The transaction data format is not recognized. Contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30022-processing-network-unavailable",
@@ -8181,7 +8263,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30022 99 Processing Network Unavailable The payment network is temporarily down. Wait a few minutes and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30028-settlement-failed",
@@ -8200,7 +8283,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30028 99 Settlement Failed The batch settlement did not complete. Contact your payment provider to resolve.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30029-transaction-error",
@@ -8220,7 +8304,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30029 99 Transaction Error A general transaction error occurred. Retry the transaction. Contact support if the issue continues.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30030-transaction-data-integrity-valid",
@@ -8239,7 +8324,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30030 99 Transaction Data Integrity Validation Error The transaction data failed an integrity check. Retry or contact your integration team.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30035-incorrect-pin",
@@ -8258,7 +8344,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30035 99 Incorrect PIN The customer entered an incorrect PIN. Ask the customer to re-enter their PIN.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30039-service-not-allowed",
@@ -8277,7 +8364,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30039 99 Service Not Allowed This type of transaction is not permitted on your account. Contact your payment provider.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30040-stop-recurring",
@@ -8296,7 +8384,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30040 99 Stop Recurring A stop instruction was received for a recurring payment. Verify with the customer whether they intended to cancel.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30041-unattempted-batch-decline",
@@ -8315,7 +8404,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30041 99 Unattempted Batch Decline A transaction in the batch was declined before being attempted. Review the batch and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30042-maximum-transaction-limit-exceed",
@@ -8334,7 +8424,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30042 99 Maximum Transaction Limit Exceeded \u2013 Try Again Tomorrow The daily transaction limit has been reached. The customer should retry the payment the following day.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30043-re-enter-transaction",
@@ -8353,7 +8444,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30043 99 Re-enter Transaction The transaction could not be processed. Ask the customer to re-enter their payment details and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30045-billing-profile-configuration-er",
@@ -8372,7 +8464,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30045 99 Billing Profile Configuration Error There is a configuration issue with the billing profile. Contact your payment provider.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30046-pin-try-exceeded",
@@ -8391,7 +8484,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30046 99 Pin Try Exceeded The maximum number of PIN attempts has been exceeded. Ask the customer to contact their bank.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30047-refund-was-not-processed-receive",
@@ -8410,7 +8504,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30047 99 Refund Was Not Processed/Received The refund could not be completed. Contact your payment provider to investigate.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30048-chargeback-received",
@@ -8429,7 +8524,8 @@
    "escalate_to": "client-services",
    "source": "s1",
    "quote": "30048 99 Chargeback Received A chargeback has been filed against this transaction. Contact your payment provider for next steps.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30049-processing-canceled-by-user",
@@ -8448,7 +8544,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "30049 99 Processing Canceled by User The transaction was canceled by the user before completing. No charge was made.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30061-account-insert-failed",
@@ -8467,7 +8564,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30061 99 Account Insert Failed The system could not save the account details. Retry or contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-30062-merchant-insert-failed",
@@ -8486,7 +8584,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30062 99 Merchant Insert Failed The system could not save merchant details. Contact your payment provider.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-40001-lodging-reauth-failed",
@@ -8505,7 +8604,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "40001 99 Lodging Reauth Failed The lodging re-authorization failed. Retry or contact your payment provider.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-40002-missing-lodging-folio-number",
@@ -8524,7 +8624,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "40002 99 Missing Lodging Folio Number A folio number is required for lodging transactions. Enter the folio number and retry.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-80001-gateway-services-unavailable",
@@ -8544,7 +8645,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "80001 99 Gateway Services Unavailable The payment gateway is temporarily offline. Wait and retry. Contact support if the issue persists.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-90000-token-store-failed-to-encrypt-a",
@@ -8563,7 +8665,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "90000 99 Token Store Failed to Encrypt a Token A system error occurred during token encryption. Retry or contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-90001-token-store-failed-to-decrypt-a",
@@ -8582,7 +8685,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "90001 99 Token Store Failed to Decrypt a Token A system error occurred during token decryption. Retry or contact support.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-bridgepay-99999-unknown-error",
@@ -8602,7 +8706,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "99999 \u2014 Unknown Error An unrecognized error occurred. Retry the transaction. If the issue persists, contact your payment provider with the error details.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-elavon-host-aa-approval",
@@ -13066,7 +13171,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "0 Approved Transaction approved.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-1-refer-to-issuer",
@@ -13084,7 +13190,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "1 Refer to Issuer Refer the cardholder to the card issuer for authorization.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-3-invalid-merchant",
@@ -13102,7 +13209,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "3 Invalid Merchant Merchant is not valid or not authorized to process the transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-4-pick-up-capture",
@@ -13120,7 +13228,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "4 Pick-up (capture) Card must be retained by the merchant.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-5-do-not-honour",
@@ -13138,7 +13247,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "5 Do not Honour Issuer declined the transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-6-error-reversal-only",
@@ -13156,7 +13266,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "6 Error (reversal only) An error occurred. Reversal transaction only.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-9-transaction-in-progress",
@@ -13174,7 +13285,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "9 Transaction in progress The transaction is currently being processed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-10-partial-approval",
@@ -13192,7 +13304,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "10 Partial Approval Only part of the requested amount was approved.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-12-invalid-transaction",
@@ -13210,7 +13323,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "12 Invalid Transaction The transaction type is not valid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-13-invalid-amount",
@@ -13228,7 +13342,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "13 Invalid Amount The transaction amount is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-14-invalid-card-number",
@@ -13246,7 +13361,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "14 Invalid Card Number The card number is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-15-invalid-issuer",
@@ -13264,7 +13380,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "15 Invalid Issuer The card issuer could not be identified, so the transaction could not be processed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-17-customer-cancellation",
@@ -13282,7 +13399,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "17 Customer Cancellation The customer cancelled the transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-19-re-enter-transaction",
@@ -13300,7 +13418,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "19 Re-Enter Transaction Re-enter the transaction and try again.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-30-message-format-error",
@@ -13318,7 +13437,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "30 Message Format Error The request message format is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-41-lost-card-capture",
@@ -13336,7 +13456,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "41 Lost Card (capture) Card reported as lost. Retain the card if possible.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-43-stolen-card-capture",
@@ -13354,7 +13475,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "43 Stolen Card (capture) Card reported as stolen. Retain the card if possible.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-46-closed-account",
@@ -13372,7 +13494,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "46 Closed Account The account has been closed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-51-insufficient-funds",
@@ -13390,7 +13513,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "51 Insufficient Funds The account has insufficient funds to complete the transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-52-no-checking-account",
@@ -13408,7 +13532,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "52 No Checking Account No checking account is associated with the card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-53-no-savings-account",
@@ -13426,7 +13551,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "53 No Savings Account No savings account is associated with the card.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-54-expired-card",
@@ -13444,7 +13570,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "54 Expired Card The card has expired.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-55-incorrect-pin",
@@ -13462,7 +13589,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "55 Incorrect PIN The PIN entered is incorrect.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-57-transaction-not-permitted",
@@ -13480,7 +13608,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "57 Transaction Not Permitted The transaction is not permitted for this cardholder.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-58-transaction-not-allowed-at-the-terminal",
@@ -13498,7 +13627,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "58 Transaction Not Allowed at the Terminal The terminal is not authorized to perform this transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-59-suspected-fraud",
@@ -13516,7 +13646,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "59 Suspected Fraud The transaction was declined due to suspected fraud.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-61-exceeded-usage-limit",
@@ -13534,7 +13665,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "61 Exceeded Usage Limit The transaction exceeds the card's usage or withdrawal limit.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-62-restricted-card",
@@ -13552,7 +13684,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "62 Restricted Card The card is restricted and cannot be used for this transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-64-does-not-fulfill-aml-requirements",
@@ -13570,7 +13703,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "64 Does Not Fulfill AML Requirements The transaction does not meet Anti-Money Laundering (AML) requirements.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-65-exceeded-frequency-limit",
@@ -13588,7 +13722,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "65 Exceeded Frequency Limit The allowed number of transactions has been exceeded.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-68-late-response-time-out",
@@ -13606,7 +13741,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "68 Late Response (Time-out) The issuer did not respond within the expected time.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-6p-verification-data-failed",
@@ -13624,7 +13760,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "6P Verification Data Failed Card verification data validation failed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-71-pin-not-changed",
@@ -13642,7 +13779,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "71 PIN Not Changed The requested PIN change was not successful. The existing PIN remains unchanged.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-72-account-not-yet-activated",
@@ -13660,7 +13798,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "72 Account Not Yet Activated The account has not yet been activated.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-75-exceeded-pin-tries",
@@ -13678,7 +13817,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "75 Exceeded PIN Tries The maximum number of PIN entry attempts has been exceeded.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-76-additional-customer-authentication-requir",
@@ -13696,7 +13836,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "76 Additional Customer Authentication Required The transaction requires additional cardholder authentication before it can be approved.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-77-pin-data-requested",
@@ -13714,7 +13855,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "77 PIN Data Requested The issuer requires PIN data to complete the transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-78-blocked-first-used-or-special-condition",
@@ -13732,7 +13874,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "78 Blocked, First Used, or Special Condition The card is blocked, not yet activated, or subject to a special condition.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-79-life-cycle-decline",
@@ -13750,7 +13893,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "79 Life Cycle Decline The transaction was declined due to the card's lifecycle status.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-80-cancellation-in-of-a-recurring-series",
@@ -13768,7 +13912,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "80 Cancellation in/of a Recurring Series The recurring payment series has been cancelled.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-81-cryptographic-error",
@@ -13786,7 +13931,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "81 Cryptographic Error A cryptographic validation error occurred.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-82-invalid-cvv2",
@@ -13804,7 +13950,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "82 Invalid CVV2 The CVV2 value is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-84-re-enter-transaction",
@@ -13822,7 +13969,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "84 Re-enter Transaction Re-enter the transaction and try again.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-85-invalid-cvv1-cvv3",
@@ -13840,7 +13988,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "85 Invalid CVV1 / CVV3 The CVV1 or CVV3 value is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-86-cannot-verify-pin",
@@ -13858,7 +14007,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "86 Cannot Verify PIN The PIN could not be verified by the issuer.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-87-account-does-not-exist-to-from-account",
@@ -13876,7 +14026,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "87 Account Does Not Exist (To/From Account) The specified source or destination account does not exist.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-91-authorization-system-or-issuer-system-ino",
@@ -13894,7 +14045,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "91 Authorization System or Issuer System Inoperative The issuer or authorization system is unavailable.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-92-unable-to-route-transaction",
@@ -13912,7 +14064,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "92 Unable to Route Transaction The financial institution or intermediate network required to process the transaction could not be found.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-93-transaction-cannot-be-completed-violation",
@@ -13930,7 +14083,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "93 Transaction Cannot Be Completed \u2013 Violation of Law The transaction cannot be processed because it violates legal or regulatory requirements.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-94-duplicate-transmission-detected-already-r",
@@ -13948,7 +14102,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "94 Duplicate Transmission Detected / Already Reversed The transaction is a duplicate or has already been reversed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-95-reconcile-error-unable-to-match",
@@ -13966,7 +14121,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "95 Reconcile Error / Unable to Match The transaction could not be reconciled because matching records were not found.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-96-system-malfunction",
@@ -13984,7 +14140,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "96 System Malfunction A system error prevented the transaction from being processed.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-b1-surcharge-amount-not-permitted-on-visa-ca",
@@ -14002,7 +14159,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "B1 Surcharge Amount Not Permitted on Visa Cards or EBT Food Stamps The surcharge amount is not permitted for Visa cards or EBT food stamp transactions.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-b2-surcharge-amount-not-supported-by-debit-n",
@@ -14020,7 +14178,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "B2 Surcharge Amount Not Supported by Debit Network Issuer The debit network issuer does not support the requested surcharge amount.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-n3-cash-service-not-available",
@@ -14038,7 +14197,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "N3 Cash Service Not Available Cash service is not available for this POS transaction.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-n4-cash-request-exceeds-issuer-or-approved-l",
@@ -14056,7 +14216,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "N4 Cash Request Exceeds Issuer or Approved Limit The requested cash amount exceeds the issuer's or approved cash limit.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-n8-transaction-amount-exceeds-preauthorized",
@@ -14074,7 +14235,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "N8 Transaction Amount Exceeds Preauthorized Approval Amount The transaction amount exceeds the previously authorized amount.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-p5-denied-pin-unblock",
@@ -14092,7 +14254,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "P5 Denied PIN Unblock The issuer declined the PIN unblock or PIN change request.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-p6-denied-pin-change",
@@ -14110,7 +14273,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "P6 Denied PIN Change The issuer declined the PIN change because the requested PIN is considered unsafe.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-r2-transaction-does-not-qualify-for-visa-pin",
@@ -14128,7 +14292,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "R2 Transaction Does Not Qualify for Visa PIN The transaction is not eligible for Visa PIN processing.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-c1-invalid-country-code",
@@ -14146,7 +14311,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "C1 Invalid Country Code The country code in the transaction request is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-c2-invalid-region-code",
@@ -14164,7 +14330,8 @@
    "escalate_to": "tech",
    "source": "s1",
    "quote": "C2 Invalid Region Code The region code in the transaction request is invalid.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-5c-transaction-not-supported-blocked-by-issu",
@@ -14182,7 +14349,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "5C Transaction Not Supported / Blocked by Issuer The issuer does not support the transaction or has blocked it.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-rs2-9g-blocked-by-cardholder-contact-cardholder",
@@ -14200,7 +14368,8 @@
    "escalate_to": null,
    "source": "s1",
    "quote": "9G Blocked by Cardholder / Contact Cardholder The transaction was blocked by the cardholder. Advise the customer to contact their card issuer.",
-   "note": "applies to all Dejavoo terminals on iPOSpays"
+   "note": "applies to all Dejavoo terminals on iPOSpays",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-ach-r01-insufficient-funds",
@@ -16147,7 +16316,8 @@
    "escalate_to": "pos",
    "source": "s2",
    "quote": "1004 Not Allowed A Void Auth requested for a processor that does not allow Void Auth.",
-   "note": "SPIn semi-integration: returned to the POS or register that drives a Dejavoo terminal"
+   "note": "SPIn semi-integration: returned to the POS or register that drives a Dejavoo terminal",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-spin-status-1005-low-battery",
@@ -16327,7 +16497,8 @@
    "escalate_to": "pos",
    "source": "s2",
    "quote": "1013 Bad Request Incorrect printer service request.",
-   "note": "SPIn semi-integration: returned to the POS or register that drives a Dejavoo terminal"
+   "note": "SPIn semi-integration: returned to the POS or register that drives a Dejavoo terminal",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "dejavoo-ipospays-spin-status-1014-communication-error",

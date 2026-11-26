@@ -4459,7 +4459,8 @@
    "escalate_to": "pos",
    "source": "g_off",
    "quote": "In the General Settings screen, enable the Force Offline Credit Card Processing setting.",
-   "note": "From the guide for the iPad version of Genius for Restaurants (formerly Heartland Restaurant); screens on an XC23 or GC26 station can differ."
+   "note": "From the guide for the iPad version of Genius for Restaurants (formerly Heartland Restaurant); screens on an XC23 or GC26 station can differ.",
+   "not_ours": "network not used by Processor Freedom (RS2 / BridgePay)"
   },
   {
    "id": "pos-genius-paradise-hotsauce-gen-offline-not-enabled",
