@@ -68,6 +68,10 @@ test('support hours are 9 to 5 Central on weekdays; after hours the brand line c
   assert.match(out.text, /If you can't wait: Clover Support, 1-855-853-8340\.$/);
   assert.ok(out.actions.some((a) => /when they open/.test(a.label)));
   assert.match(rules({ open: false, business: 'X', firstName: '', devices: [] }), /support is CLOSED/);
+  const said = rules({ open: true, business: 'X', firstName: 'Maria', devices: [] });
+  assert.match(said, /first name once/);
+  assert.match(said, /Never say you have opened/);
+  assert.match(said, /Processing statements are not in this back office yet/);
   assert.doesNotMatch(rules({ open: false, business: 'X', firstName: '', devices: [] }), /reach out to your (local|sales)/i);
   const noBrand = await ask('it is broken', { at: night, model: reply({ offer_brand_line: true }) });
   assert.doesNotMatch(noBrand.text, /If you can't wait/);
