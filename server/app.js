@@ -18,7 +18,7 @@ import { renderPage } from '../shared/render.js';
 
 const scryptAsync = promisify(scrypt);
 const ROOT = resolvePath(fileURLToPath(new URL('..', import.meta.url)));
-const MIME = { '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon', '.json': 'application/json', '.plist': 'text/xml', '.ipa': 'application/octet-stream' };
 const DAY = 86400000;
 const SESSION_DAYS = 30;
 const IDLE_MS = 16 * 60000;   // no requests for this long ends a session (the app warns at 14 and logs out at 15 minutes)
