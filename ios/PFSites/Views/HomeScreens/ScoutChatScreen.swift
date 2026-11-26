@@ -31,12 +31,13 @@ struct ScoutChatScreen: View {
     @State private var chatID = ""
     @FocusState private var typing: Bool
 
-    private static let starters = [
-        "What are my total sales for today?",
-        "Can you help me troubleshoot my device?",
-        "How do I view my recent deposits?",
-        "How do I set up my new terminal?",
-        "How do I run a refund?",
+    /// Short labels to tap; each sends the full question.
+    private static let starters: [(label: String, question: String)] = [
+        ("Today's sales", "What are my total sales for today?"),
+        ("Troubleshoot my device", "Can you help me troubleshoot my device?"),
+        ("Recent deposits", "How do I view my recent deposits?"),
+        ("Set up a terminal", "How do I set up my new terminal?"),
+        ("Run a refund", "How do I run a refund?"),
     ]
 
     private var greeting: String {
@@ -127,15 +128,14 @@ struct ScoutChatScreen: View {
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .padding(.top, 16)
             VStack(alignment: .trailing, spacing: 9) {
-                ForEach(Self.starters, id: \.self) { question in
-                    Button { ask(question) } label: {
-                        Text(question)
+                ForEach(Self.starters, id: \.label) { starter in
+                    Button { ask(starter.question) } label: {
+                        Text(starter.label)
                             .pfFont(15.5)
                             .foregroundStyle(Color.primary)
-                            .multilineTextAlignment(.leading)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                            .background(Color(.systemGray5), in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
