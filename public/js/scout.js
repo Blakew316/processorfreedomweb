@@ -25,6 +25,7 @@ export function openScout({ siteId, goTab, closeAll }) {
   if (document.querySelector('.scout')) return;
   const turns = [];                       // what has been said, oldest first: { role: 'user' | 'assistant', text, actions }
   let waiting = false;
+  let chatId = '';                        // names this conversation on the server, once the first answer is back
   const name = firstName();
   const list = h('div', { class: 'scout-turns', role: 'log', 'aria-live': 'polite' });
   const box = h('textarea', { class: 'scout-box', rows: 3, placeholder: 'Ask Scout', 'aria-label': 'Ask Scout', maxlength: 2000 });
@@ -34,9 +35,10 @@ export function openScout({ siteId, goTab, closeAll }) {
 
   const bubble = (t) => h('div', { class: `scout-msg ${t.role === 'user' ? 'me' : 'sc'}` },
     h('p', {}, t.text),
-    (t.actions || []).length > 0 && h('div', { class: 'scout-acts' }, t.actions.map((a) => a.tab
+    (t.actions || []).length > 0 && h('div', { class: 'scout-acts' }, t.actions.map((a) => (a.tab
       ? h('button', { class: 'btn sm', type: 'button', onclick: () => { close(); goTab(a.tab); } }, a.label)
-      : h('a', { class: 'btn sm', href: a.href }, a.label))));
+      : a.callback ? h('button', { class: 'btn sm', type: 'button', onclick: (e) => callback(a.callback, e.currentTarget) }, a.label)
+        : h('a', { class: 'btn sm', href: a.href }, a.label)))));
 
   function paint() {
     list.replaceChildren(...(turns.length ? turns.map(bubble) : [
@@ -47,12 +49,20 @@ export function openScout({ siteId, goTab, closeAll }) {
     list.scrollTop = list.scrollHeight;
   }
 
+  // Asks for a call back. The server texts the request with what was already asked, so nobody has to repeat it.
+  async function callback(department, button) {
+    button.disabled = true;
+    try { await api('POST', `/api/sites/${siteId}/scout/callback`, { department, chatId }); turns.push({ role: 'assistant', text: 'Done. Your callback request has been sent.' }); } catch (e) { turns.push({ role: 'assistant', text: e.message }); button.disabled = false; }
+    paint();
+  }
+
   async function ask(text) {
     const q = String(text || '').trim();
     if (!q || waiting) return;
     turns.push({ role: 'user', text: q }); box.value = ''; send.disabled = true; waiting = true; paint();
     try {
-      const r = await api('POST', `/api/sites/${siteId}/scout/chat`, { messages: turns.map((t) => ({ role: t.role, text: t.text })) });
+      const r = await api('POST', `/api/sites/${siteId}/scout/chat`, { chatId, messages: turns.map((t) => ({ role: t.role, text: t.text })) });
+      chatId = r.chatId || chatId;
       turns.push({ role: 'assistant', text: r.text, actions: r.actions || [] });
     } catch (e) {
       turns.push({ role: 'assistant', text: e.message || 'Scout could not answer just now. Please try again.' });
