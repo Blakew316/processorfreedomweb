@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../server/app.js';
-import { loadLibrary, search, answer, supportOpen, isMoneyQuestion, devicesNamed, rules, SCOUT_PHONE } from '../server/scout.js';
+import { loadLibrary, search, answer, supportOpen, isMoneyQuestion, devicesNamed, topicsOf, rules, SCOUT_PHONE } from '../server/scout.js';
 
 const lib = loadLibrary();
 const reply = (over = {}) => async () => ({ text: 'Try this.', department: 'none', section: 'none', offer_brand_line: false, solved: false, ...over });
@@ -27,6 +27,16 @@ test('a question finds entries for the device it names, and the merchant\'s own 
   const mine = search(lib, 'printer is out of paper', ['clover-flex']);
   assert.ok(mine.slice(0, 3).every((e) => e.devices.includes('clover-flex')), mine.slice(0, 3).map((e) => e.id).join(', '));
   assert.deepEqual(search(lib, ''), []);
+  // A device is found by its everyday name, and the longer name wins.
+  assert.deepEqual(devicesNamed(lib, 'My Clover Flex will not turn on'), ['clover-flex']);
+  assert.deepEqual(devicesNamed(lib, 'my clover flex pocket is dead'), ['clover-flex-pocket']);
+  assert.deepEqual(topicsOf("it won't turn on"), ['power']);
+  // A fault brings its other fixes along, so there is a next step when the first one fails, and nothing off the subject.
+  const power = search(lib, 'My Clover Flex will not turn on. no, it still will not turn on');
+  assert.ok(power.every((e) => e.devices.includes('clover-flex')), power.filter((e) => !e.devices.includes('clover-flex')).map((e) => e.id).join(', '));
+  assert.ok(power.filter((e) => e.topic === 'power').length >= 6, `only ${power.filter((e) => e.topic === 'power').length} power fixes for the Flex`);
+  assert.ok(power.slice(0, 5).every((e) => e.topic === 'power'), power.slice(0, 5).map((e) => `${e.topic}:${e.title}`).join(' | '));
+  assert.ok(power.length <= 30);
 });
 
 test('rates, fees, holds, contracts and cancelling never reach the model', async () => {
