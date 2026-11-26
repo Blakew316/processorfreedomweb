@@ -1,5 +1,6 @@
 import { BACKGROUNDS, SECTION_BACKGROUNDS, HEADER_LAYOUTS, HEADER_STYLES, FOOTER_STYLES, FOOTER_COLORS, QUICK_STYLES, applyQuickStyle, ACCENTS, FONTS, RADII, HERO_LAYOUTS, SERVICE_LAYOUTS, SECTION_TYPES, SECTION_DEFAULTS, ICONS, LEGAL_PAGES, legalText, uid, cleanSlug, str, ORDER_METHODS, ORDER_STATUSES, MENU_TEMPLATE_CSV, readyLabel, visibleMenu, parseMenuCsv, parseCsv, parsePrice, money, openMethods, DAYS, TIMEZONES, LANGS, parseChoices, choicesText, slotLabel, itemPrice, DEFAULT_STOCK, pricedMenu, invoiceTotals, invoiceLate, applyMods, isOpenNow, steadyId, hoursText as coreHoursText, normalizeCode } from '/shared/core.js';
 import { renderPage, anchorFor } from '/shared/render.js';
+import { openScout } from './scout.js';
 import { h, api, go, state, toast, sheet, confirmSheet, ic, svg, uploadImage, pickFiles, debounce, fmtDate, qrCanvas, readSheetFile, saveSheetFile, SHEET_TYPES, alertsOn, setAlerts, announceOrders, printTicket, pushSupported, pushOn, enablePush, disablePush, skel, emptyState, labelTables, canOfferInstall, installApp, setTheme, navIcon, navTile, getTheme, inApp, toApp, askApp, busy, printInApp } from './ui.js';
 
 // Two separate sides. The back office is for running the business day to day; the website side is for how the site looks.
@@ -861,13 +862,15 @@ export async function editor(id, mount, title, startTab = '') {
 
     insights() {
       const head = h('div', { class: 'inv-top' }, h('div', {}, h('h2', {}, 'Insights'), null));
-      if (!insightData) { api('GET', `/api/sites/${id}/stats?range=last7`).then((r) => { insightData = r; if (tab === 'insights') paintPanel(); }).catch((e) => { toast(e.message, true); insightData = { failed: true }; if (tab === 'insights') paintPanel(); }); return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
+      // "Ask a question" sits at the foot of the page, where the reference photo has it, and opens Scout.
+      const ask = h('div', { class: 'scout-askrow' }, h('button', { class: 'scout-open', type: 'button', onclick: () => openScout({ siteId: id, goTab, closeAll: () => goTab('start') }) }, 'Ask a question'));
+      if (!insightData) { api('GET', `/api/sites/${id}/stats?range=last7`).then((r) => { insightData = r; if (tab === 'insights') paintPanel(); }).catch((e) => { toast(e.message, true); insightData = { failed: true }; if (tab === 'insights') paintPanel(); }); return [h('div', { class: 'inv' }, head, ask, h('div', { class: 'inv-kpis' }, skel(4, 'kpi')), skel(4, 'row'))]; }
       const st = insightData;
-      if (st.failed || !st.totals) return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-list' }, emptyState('alert', 'We could not load your insights', 'Press Refresh to try again.')))];
+      if (st.failed || !st.totals) return [h('div', { class: 'inv' }, head, ask, h('div', { class: 'inv-list' }, emptyState('alert', 'We could not load your insights', 'Press Refresh to try again.')))];
       const t = st.totals, day = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' });
       const kpi = (label, value, sub) => h('div', { class: 'kpi big' }, h('span', { class: 'small muted' }, label), h('b', {}, value), h('span', { class: 'small muted' }, sub));
       const pct = (now, was) => (was ? `${now >= was ? 'up' : 'down'} ${Math.abs(Math.round(((now - was) / was) * 100))}% on the week before` : now ? 'no sales the week before to compare' : 'no change');
-      if (!t.orders) return [h('div', { class: 'inv' }, head, h('div', { class: 'inv-kpis' }, kpi('Net sales', money(0), 'last 7 days'), kpi('Orders', 0, 'last 7 days'), kpi('Average order', money(0), ''), kpi('Discounts', money(0), '')), h('div', { class: 'inv-list' }, emptyState('chart', 'Not enough to go on yet', '')))];
+      if (!t.orders) return [h('div', { class: 'inv' }, head, ask, h('div', { class: 'inv-kpis' }, kpi('Net sales', money(0), 'last 7 days'), kpi('Orders', 0, 'last 7 days'), kpi('Average order', money(0), ''), kpi('Discounts', money(0), '')), h('div', { class: 'inv-list' }, emptyState('chart', 'Not enough to go on yet', '')))];
       const best = [...st.series].sort((a, b) => b.net - a.net)[0], quiet = [...st.series].sort((a, b) => a.net - b.net)[0];
       const top = st.items[0], cat = st.categories[0], way = [...st.methods].sort((a, b) => b.orders - a.orders)[0];
       const low = menu.filter((x) => x.available !== false && x.stock <= (ordering.lowStockAt ?? 5));
@@ -879,7 +882,7 @@ export async function editor(id, mount, title, startTab = '') {
         ['Discounts and tips', `You gave ${money(t.discounts)} in discounts and customers added ${money(t.tips)} in tips.${t.cancelled ? ` ${t.cancelled} order${t.cancelled === 1 ? ' was' : 's were'} cancelled.` : ''}`],
         low.length > 0 && ['Stock', `${low.length} item${low.length === 1 ? ' is' : 's are'} running low: ${low.slice(0, 4).map((x) => x.name).join(', ')}${low.length > 4 ? ' and more' : ''}.`],
       ].filter(Boolean);
-      return [h('div', { class: 'inv' }, head,
+      return [h('div', { class: 'inv' }, head, ask,
         h('div', { class: 'inv-kpis' }, kpi('Net sales', money(t.net), pct(t.net, st.previous.net)), kpi('Orders', t.orders, pct(t.orders, st.previous.orders)), kpi('Average order', money(t.average), 'including tax and tips'), kpi('Discounts', money(t.discounts), 'given this week')),
         h('div', { class: 'scard', style: 'padding:10px 24px' }, notes.map(([k, text2]) => h('div', { class: 'insight' }, h('b', {}, k), h('p', {}, text2)))),
         h('div', { class: 'row' }, h('button', { class: 'btn soft', onclick: () => goTab('sales') }, 'Open sales overview'), h('button', { class: 'btn soft', onclick: () => goTab('r-items') }, 'Open item sales')))];
