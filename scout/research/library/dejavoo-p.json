@@ -1,0 +1,2189 @@
+{
+ "family": "dejavoo-p",
+ "devices": [
+  "dejavoo-p1",
+  "dejavoo-p3",
+  "dejavoo-p5",
+  "dejavoo-p8",
+  "dejavoo-p12",
+  "dejavoo-p17",
+  "dejavoo-p18"
+ ],
+ "platform_notes": "Our sheets and Dejavoo's own pages put the P line on Dejavoo's gateway payment app (DvPay) managed through the iPOSpays portal, with SPIn for POS integration; the P18 can instead run DejaPay Pro. Dejavoo's P-line quick reference guide gives the manager password as the last 4 digits of the TPN. One reseller guide (PaymentCloud, P3) describes an older CREDIT/DEBIT menu build with password 1234.",
+ "sources": [
+  {
+   "id": "s1",
+   "url": "https://dejavoo.io/resource-center/all-fee-programs-p-line-android-terminals/",
+   "title": "Quick Reference Guide // P Terminal Line, All Fee Programs (web page)",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-pline-qrg.txt"
+  },
+  {
+   "id": "s2",
+   "url": "https://dejavoo.io/wp-content/uploads/2024/06/Dejavoo-QRG-P-Line-All-Fee-Programs-_-v1.pdf",
+   "title": "Quick Reference Guide // P Terminal Line, All Fee Programs (PDF, 06/24 v1)",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-qrg-pdf.txt"
+  },
+  {
+   "id": "s3",
+   "url": "https://dejavoo.io/resource-center/how-to-connect-pinpads/",
+   "title": "How to connect pinpads (P terminals)",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-connect-pinpads.txt"
+  },
+  {
+   "id": "s4",
+   "url": "https://paymentcloudinc.com/shop/guide/dejavoo-p3-user-manual.pdf",
+   "title": "Dejavoo P3 User Manual & Setup Guide V.102024",
+   "publisher": "PaymentCloud",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pc-p3.txt"
+  },
+  {
+   "id": "s5",
+   "url": "https://paymentcloudinc.com/shop/guide/dejavoo-p5-user-manual.pdf",
+   "title": "Dejavoo P5 User Manual & Setup Guide V.102024",
+   "publisher": "PaymentCloud",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pc-p5.txt"
+  },
+  {
+   "id": "s6",
+   "url": "https://dejavoo.io/products/p-terminals-family/p17-android-pin-pad/",
+   "title": "P17 Android PIN Pad product page",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-prod-p17.txt"
+  },
+  {
+   "id": "s7",
+   "url": "https://dejavoo.io/products/p-terminals-family/p12-mobile-payment-terminal/",
+   "title": "P12 Android mPOS/PIN Pad product page",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-prod-p12.txt"
+  },
+  {
+   "id": "s8",
+   "url": "https://dejavoo.io/products/p-terminals-family/p18-secure-android-wireless/",
+   "title": "P18 Secure Android Wireless product page",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-prod-p18.txt"
+  },
+  {
+   "id": "s9",
+   "url": "https://dejavoo.io/wp-content/uploads/2026/05/Dejavoo_P12.pdf",
+   "title": "P12 mPOS/PIN Pad product flyer 05/26 v3",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-p12-flyer.txt"
+  },
+  {
+   "id": "s10",
+   "url": "https://paycompass.freshdesk.com/support/solutions/articles/70000684298-dejavoo-p12-features-benefits",
+   "title": "Dejavoo P12 - Features & Benefits",
+   "publisher": "PayCompass",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pcomp-p12.txt"
+  },
+  {
+   "id": "s11",
+   "url": "https://paycompass.freshdesk.com/support/solutions/articles/70000685667-dejavoo-p18-features-benefits",
+   "title": "Dejavoo P18 - Features & benefits",
+   "publisher": "PayCompass",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pcomp-p18.txt"
+  },
+  {
+   "id": "s12",
+   "url": "https://paycompass.freshdesk.com/support/solutions/articles/70000684296-dejavoo-p5-features-benefits",
+   "title": "Dejavoo P5 - Features & Benefits",
+   "publisher": "PayCompass",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pcomp-p5.txt"
+  },
+  {
+   "id": "s13",
+   "url": "https://paycompass.freshdesk.com/support/solutions/articles/70000684297-dejavoo-p8-features-benefits",
+   "title": "Dejavoo P8 - Features & Benefits",
+   "publisher": "PayCompass",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pcomp-p8.txt"
+  },
+  {
+   "id": "s14",
+   "url": "https://paycompass.freshdesk.com/support/solutions/articles/70000684159-dejavoo-p1-features-benefits",
+   "title": "Dejavoo P1 - Features & Benefits",
+   "publisher": "PayCompass",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pcomp-p1.txt"
+  },
+  {
+   "id": "s15",
+   "url": "https://paycompass.freshdesk.com/support/solutions/articles/70000684175-dejavoo-p3-features-benefits",
+   "title": "Dejavoo P3 - Features & Benefits",
+   "publisher": "PayCompass",
+   "tier": 2,
+   "local": "raw/dejavoo-p/pcomp-p3.txt"
+  },
+  {
+   "id": "s16",
+   "url": "https://dejavoo.io/support/tech-support/",
+   "title": "Dejavoo Tech Support contact page",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-techsupport.txt"
+  },
+  {
+   "id": "s17",
+   "url": "https://dejavoo.io/release_notes/august-release/",
+   "title": "Release notes: August Release (POS build 10112)",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-rn-august-release.txt"
+  },
+  {
+   "id": "s18",
+   "url": "https://dejavoo.io/release_notes/september-release/",
+   "title": "Release notes: September Release",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-rn-september-release.txt"
+  },
+  {
+   "id": "s19",
+   "url": "https://dejavoo.io/release_notes/december-release/",
+   "title": "Release notes: December Release",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-rn-december-release.txt"
+  },
+  {
+   "id": "s20",
+   "url": "https://dejavoo.io/release_notes/test/",
+   "title": "Release notes: November Release",
+   "publisher": "Dejavoo",
+   "tier": 1,
+   "local": "raw/dejavoo-p/dj-rn-test.txt"
+  }
+ ],
+ "entries": [
+  {
+   "id": "dejavoo-p-qrg-idle-icons",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "What the icons on the idle screen do",
+   "steps": [
+    "The idle screen shows the payment screen plus a set of icons.",
+    "One icon opens the FAVORITES menu.",
+    "One icon opens the CORE menu.",
+    "One icon is the CALL ME feature.",
+    "One icon downloads the quick reference guide."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "As well as the payment screen, the terminal\u2019s idle screen also displays the following icons:",
+   "note": "The PDF version of the same guide labels the second icon 'Access to other sales features' instead of the CORE menu."
+  },
+  {
+   "id": "dejavoo-p-qrg-credit-sale",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Run a credit card sale",
+   "steps": [
+    "Enter the sale amount and press Ok.",
+    "Review the amount and tap Proceed.",
+    "Tap Cash Payment or Card Payment. The price is based on the payment type.",
+    "Have the customer tap (contactless only), swipe or insert the chip card.",
+    "Depending on how the terminal is set up, choose how to send the customer copy: SMS, email, paper print or no receipt.",
+    "The transaction is processed and the sales receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Tap (contactless only), swipe or insert chip card.",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer."
+  },
+  {
+   "id": "dejavoo-p-qrg-cash-or-card-price",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Why the terminal asks Cash Payment or Card Payment",
+   "steps": [
+    "During a sale the terminal asks you to choose Cash Payment or Card Payment.",
+    "Tap the one the customer is using.",
+    "The price charged is based on the payment type you choose."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Chose Cash Payment or Card Payment by tapping option. Pricing will be based on payment type."
+  },
+  {
+   "id": "dejavoo-p-qrg-receipt-options",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Receipt choices after a sale: SMS, email, paper or none",
+   "steps": [
+    "After a sale the terminal can offer to send the customer copy by SMS, by email, as a paper print, or not at all.",
+    "Which choices appear depends on how the terminal's TPN is configured."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "Depending on TPN configuration, you will have the option to send customer copy as SMS, email, paper print or no receipt.",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrg-debit-sale",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Run a debit sale",
+   "steps": [
+    "Enter the sale amount and press Ok.",
+    "Review the amount and tap Proceed.",
+    "Tap Cash Payment or Card Payment. The price is based on the payment type.",
+    "Tap the Debit icon, then have the customer tap (contactless only), insert or swipe the card.",
+    "The customer enters their PIN on the terminal or on the PIN pad and presses Enter.",
+    "The transaction is processed and the sales receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Tap on Debit icon and then tap (contactless only), insert or swipe card.",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer."
+  },
+  {
+   "id": "dejavoo-p-qrg-credit-return",
+   "devices": [
+    "*"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Refund (return) a credit card sale",
+   "steps": [
+    "Tap the menu icon on the terminal home screen.",
+    "Tap the Refund icon.",
+    "Enter the password. The default password is the last 4 digits of your TPN.",
+    "Enter the return amount and press Ok.",
+    "Have the customer tap (contactless only) or insert the chip card.",
+    "Depending on how the terminal is set up, choose how to send the customer copy: SMS, email, paper print or no receipt.",
+    "The return is processed and the return receipt prints."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "Tap on the Refund icon. Enter Password (default password is last 4 digits of your TPN).",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrg-manual-entry",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Key in a card number by hand (card not present)",
+   "steps": [
+    "Enter the sale amount and press Ok.",
+    "Review the amount and tap Proceed.",
+    "Tap Card Payment. The price is based on the payment type.",
+    "Tap Enter Card under other options.",
+    "Type in the card number.",
+    "Follow the prompts, such as expiry date and ZIP code. Which prompts appear depends on the terminal's configuration.",
+    "Depending on how the terminal is set up, choose how to send the customer copy.",
+    "The transaction is processed and the sales receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Follow the CNP prompts (input exp. date, ZIP code etc). Conditional on the terminal\u2019s configuration.",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer."
+  },
+  {
+   "id": "dejavoo-p-qrg-void",
+   "devices": [
+    "*"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Void a credit transaction",
+   "steps": [
+    "Tap the menu icon on the terminal home screen.",
+    "Tap the Void icon.",
+    "Enter the transaction number or the last 4 digits of the card.",
+    "Choose the transaction from the list, tap Confirm, then tap Yes.",
+    "If asked, enter the password. The default password is the last 4 digits of your TPN.",
+    "The void completes and the terminal offers the receipt options."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "Input the Transaction Number or last 4 digits of the card, choose transaction from the list and tap Confirm prompt and tap Yes.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrg-void-no-card",
+   "devices": [
+    "*"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "A void does not need the customer's card",
+   "steps": [
+    "You can void a transaction without the card being present.",
+    "Find the transaction by its transaction number or by the last 4 digits of the card."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Note: Card doesn\u2019t need to be present to complete void successfully."
+  },
+  {
+   "id": "dejavoo-p-qrg-reprint",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Reprint a receipt",
+   "steps": [
+    "Tap the star icon to open the Favorites menu.",
+    "Tap Reprint Receipt.",
+    "If asked, enter the password. The default password is the last 4 digits of your TPN.",
+    "Enter the transaction number or the last 4 digits of the card number.",
+    "Select the transaction.",
+    "Follow the prompts and the receipt prints."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "enter transaction # or last 4 digits of card #, select transaction and tap.",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrg-call-me",
+   "devices": [
+    "*"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "Ask for a call back from the help desk (Call Me)",
+   "steps": [
+    "This feature must be enabled on your terminal.",
+    "Tap the phone icon.",
+    "Tap Call Me under the Support Menu and choose a reason.",
+    "Enter your call back number.",
+    "The terminal notifies the help desk and a representative calls you back."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Tap Call Me, under the Support Menu and choose reason. Enter your call back number."
+  },
+  {
+   "id": "dejavoo-p-qrg-tip-adjust",
+   "devices": [
+    "*"
+   ],
+   "topic": "tips",
+   "kind": "how-to",
+   "title": "Add or change a tip on a transaction (Adjust Tip)",
+   "steps": [
+    "Tap the star icon to open the Favorites menu.",
+    "Tap Adjust Tip.",
+    "If asked, enter the password. The default password is the last 4 digits of your TPN.",
+    "Enter the transaction number, or scroll or swipe through the transactions.",
+    "Tap the transaction number.",
+    "Tap the button to submit, then tap Yes when asked if you want to submit the tip adjust.",
+    "A screen confirms the tip adjust succeeded."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "a prompt will appear asking if you want to submit tip adjust, tap Yes. A screen will appear confirming the success of the procedure.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrg-settle",
+   "devices": [
+    "*"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "Settle the daily batch",
+   "steps": [
+    "Tap the star icon to open the Favorites menu.",
+    "Tap Show/Settle Daily Batch.",
+    "If asked, enter the password. The default password is the last 4 digits of your TPN.",
+    "The terminal fetches and shows a summary report. Swipe left to see a detailed report.",
+    "Tap the Settle button in the top right corner.",
+    "If a prompt about untipped transactions appears, answer Yes or No to continue.",
+    "The settlement report prints."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "The terminal will fetch and display a summary report. Swipe left to view a detailed report.",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrg-settle-untipped-prompt",
+   "devices": [
+    "*"
+   ],
+   "topic": "batch",
+   "kind": "fix",
+   "title": "Settling shows a prompt about untipped transactions",
+   "steps": [
+    "When you tap Settle, a prompt may appear if some transactions have no tip.",
+    "Answer Yes or No to continue with the settlement.",
+    "To add the tips first, use Adjust Tip in the Favorites menu before settling."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "A prompt may appear if there are untipped transactions. Answer Yes or No to continue to settle."
+  },
+  {
+   "id": "dejavoo-p-qrg-reports",
+   "devices": [
+    "*"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "Print a report (open batch or closed batch)",
+   "steps": [
+    "Tap the star icon to open the Favorites menu.",
+    "Tap Reports.",
+    "Choose Open Batch or Closed Batch.",
+    "Tap the report type you want and choose how the report groups your transactions (summary report or daily report).",
+    "Tap Next.",
+    "Swipe left to go from the summary to the details report, then tap the print icon.",
+    "The report prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Tap desired report type, select how you want the report to group your transactions. For summary report or daily report. Tap Next.",
+   "note": "The guide is written for the whole P line; steps that mention printing apply only to models with a printer."
+  },
+  {
+   "id": "dejavoo-p-qrg-power-off-reboot",
+   "devices": [
+    "*"
+   ],
+   "topic": "power",
+   "kind": "how-to",
+   "title": "Power off or reboot the terminal",
+   "steps": [
+    "Press and hold the button on the side of the terminal until a menu appears on the screen.",
+    "The menu offers Power Off and Reboot.",
+    "Tap the one you want."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "hold until a menu appears on the screen, with the following options: Power Off, Reboot."
+  },
+  {
+   "id": "dejavoo-p-qrg-wifi-icon",
+   "devices": [
+    "*"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Wi-Fi icon is blinking",
+   "steps": [
+    "A blinking Wi-Fi icon means the terminal is not connected to Wi-Fi.",
+    "When the terminal is connected, the icon stays still."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Wi-Fi icon will blink when not connected. It will remain static when connected successfully."
+  },
+  {
+   "id": "dejavoo-p-qrg-ethernet",
+   "devices": [
+    "*"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Connect by Ethernet cable",
+   "steps": [
+    "Plug the terminal into power first.",
+    "Then plug an Ethernet cable into the terminal's Ethernet port."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "To get an internet connection via ethernet, first plug the device into power and then use an ethernet cable to plug into the ethernet port.",
+   "note": "Applies only to P-line models that have an Ethernet port."
+  },
+  {
+   "id": "dejavoo-p-qrg-default-password",
+   "devices": [
+    "*"
+   ],
+   "topic": "password",
+   "kind": "reference",
+   "title": "Default password on P-line terminals: last 4 digits of the TPN",
+   "steps": [
+    "When the terminal asks for a password for a refund, void, reprint, tip adjust or settlement, the default is the last 4 digits of your TPN."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "If prompted, enter Password (default password is last 4 digits of your TPN).",
+   "note": "PaymentCloud's P3 guide gives 1234 instead; see the separate tier 2 entry.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-qrgpdf-idle-icons",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Idle screen icons (PDF version of the quick reference guide)",
+   "steps": [
+    "The idle screen shows icons for the FAVORITES menu, for other sales features, and for the CALL ME feature."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Access to the FAVORITES menu            Access to other sales features            CALL ME feature",
+   "note": "The web version of the same guide calls the second icon 'Access to the CORE menu'. The two versions disagree on the label."
+  },
+  {
+   "id": "dejavoo-p-qrgpdf-debit-receipt",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Debit sale: receipt options appear after the PIN is entered",
+   "steps": [
+    "After the customer enters the PIN and presses Enter, the terminal may offer to send the customer copy by SMS, email, paper print or no receipt, depending on the TPN configuration.",
+    "Then the transaction is processed and the sales receipt prints."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s2",
+   "quote": "Customer enters PIN on encrypted terminal or on encrypted PIN Pad and press Enter.",
+   "note": "The PDF lists this receipt step for debit; the web page version omits it.",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-pinpad-pair",
+   "devices": [
+    "*"
+   ],
+   "topic": "pairing",
+   "kind": "how-to",
+   "title": "Pair a P terminal as a PIN pad to a main terminal",
+   "steps": [
+    "On the main screen, tap the red gear at the bottom left corner.",
+    "Enter your password to open settings.",
+    "Tap PinPad.",
+    "Follow the pairing instructions shown on that screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "Enter your password to access settings, tap on PinPad. You will find the instructions on how to pair."
+  },
+  {
+   "id": "dejavoo-p-pinpad-same-network",
+   "devices": [
+    "*"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "PIN pad will not pair or connect to the main terminal",
+   "steps": [
+    "Make sure both terminals are connected to the same network.",
+    "If the site has extenders and routers, select the same one on both devices.",
+    "For example, if the main terminal is on the main router, the PIN pad cannot be on the extender."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "Make sure both terminals are connected to the same network. If you have extenders/channels and routers, make sure you select the same one for both devices."
+  },
+  {
+   "id": "dejavoo-p-pinpad-any-combination",
+   "devices": [
+    "*"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "Which P terminals can act as a PIN pad or main terminal",
+   "steps": [
+    "Dejavoo states that all P terminal hardware combinations can be used as PIN pads and as master terminals."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "All P terminal hardwares combinations can be used as PinPads and master terminals.",
+   "note": "PayCompass (tier 2) says the P5 and P8 do not support external PIN pads; the two sources differ."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-load-paper",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "printer",
+   "kind": "install",
+   "title": "Load a paper roll in the P3",
+   "steps": [
+    "Hold the device in both hands.",
+    "Pinch the sides of the top of the device, next to the card tap section.",
+    "Flip the top away from the device screen.",
+    "Put the receipt paper into the slot of the printer. The guide says the paper size should be about 50 ft.",
+    "Pull out some paper so the end is left outside, then close the top."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Flip the top away from the device screen."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-power-menu",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "power",
+   "kind": "how-to",
+   "title": "Turn the P3 on or off",
+   "steps": [
+    "Press and hold the POWER button on the side of the terminal until a menu appears.",
+    "The menu offers POWER OFF, REBOOT, AIRPLANE MODE and SILENT MODE.",
+    "Select the option you want."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "OFF, REBOOT, AIRPLANE MODE, and SILENT MODE."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-network-setup",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Set up the network connection on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Tap the gear icon on the main menu.",
+    "Enter the manager password. This guide gives 1234.",
+    "Select COMM SETUP.",
+    "Select your network of choice.",
+    "Tap GPRS.",
+    "Enter the password if asked; the terminal then configures the connection."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Enter the password if prompted, after which it will configure.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-default-password",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "password",
+   "kind": "reference",
+   "title": "P3 default password according to PaymentCloud: 1234",
+   "steps": [
+    "PaymentCloud's P3 guide states the default password is 1234."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "The default password for the Dejavoo P3 is 1234",
+   "note": "Disagrees with Dejavoo's P-line quick reference guide (last 4 digits of the TPN) and with PaymentCloud's own download steps for the same P3, which ask for the last 4 digits of the TPN.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-sim-register",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Register a SIM card for 4G service (Dejavoo Systems portal)",
+   "steps": [
+    "Open the Dejavoo Systems portal.",
+    "Select your monthly plan. An AT&T SIM needs an AT&T plan; a Verizon SIM needs a Verizon plan.",
+    "Choose your subscription plan from the drop-down menu.",
+    "Enter your email address and create a password.",
+    "Enter your credit card details.",
+    "Enter your billing address, or tick the box if it is the same as your postal address.",
+    "Enter your billing contact phone number.",
+    "Tick the box to agree to the terms and conditions.",
+    "When everything is filled in, the INCOMPLETE button changes to SIGN-UP. Click SIGN-UP.",
+    "A window confirms the account was created.",
+    "Check your email for instructions on setting up your service."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "must choose an AT&T monthly plan. If you have a Verizon",
+   "note": "From PaymentCloud's P3 guide. SIM plans carry a monthly charge; ask before signing up."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-download",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "update",
+   "kind": "how-to",
+   "title": "Download the app or parameters on the P3",
+   "steps": [
+    "Tap the STAR icon.",
+    "Tap UPGRADE APP.",
+    "Enter the last 4 digits of the TPN.",
+    "Select DOWNLOAD app or DOWNLOAD parameter."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s4",
+   "quote": "Select DOWNLOAD app or DOWNLOAD parameter.",
+   "note": "The guide shows the on-terminal steps, but a download should be done with tech support. The guide says the download brings the required firmware, software and encryption keys after the Terminal Profile Number is set up.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-chip-credit-sale",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Chip credit sale on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Tap CREDIT.",
+    "Tap SALE.",
+    "If asked, enter the clerk ID and press OK.",
+    "Enter the sale amount and press OK.",
+    "Have the customer tap (contactless only) or insert the chip card.",
+    "If asked, confirm the sale amount by tapping OK or NO.",
+    "The transaction is processed and the receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "If prompted, tap CLERK ID# and press OK.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-manual-entry",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Manual entry credit sale on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Tap CREDIT.",
+    "Tap the SALE icon.",
+    "If asked, enter the clerk ID and press OK.",
+    "Enter the sale amount and press OK.",
+    "Type in the card number.",
+    "If asked, follow the prompts such as expiry date and ZIP code.",
+    "The transaction is processed and the receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "If prompted, follow the CNP prompts (enter exp. date, ZIP",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-debit-sale",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Debit sale on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Tap DEBIT.",
+    "Tap SALE.",
+    "If asked, enter the clerk ID and press OK.",
+    "Enter the sale amount and press OK.",
+    "Have the customer tap or insert the chip card.",
+    "If asked, confirm the sale amount by tapping OK or NO.",
+    "The customer enters their PIN on the terminal or the external PIN pad and presses OK.",
+    "The transaction is processed and the receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Customer enters PIN on the encrypted terminal PIN Pad or",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-reprint",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Reprint a receipt on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "From the idle screen, tap the STAR to open the FAVORITES menu.",
+    "Tap REPRINT RECEIPT.",
+    "If asked, enter the manager password. This guide gives 1234.",
+    "Tap LAST, BY TRANSACTION # or BY CARD NUMBER.",
+    "Follow the prompts and the receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Tap your preferred option (LAST, BY TRANSACTION #, or BY",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-credit-return",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Credit card return on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Tap the CREDIT icon on the home screen.",
+    "Tap RETURN.",
+    "Enter the return amount and press OK.",
+    "If asked, confirm the return amount by tapping OK or NO.",
+    "If asked, enter the manager password. This guide gives 1234.",
+    "Have the customer tap or insert the chip card.",
+    "The return is processed and the return receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "If prompted, confirm the return amount by tapping OK or NO.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-debit-return",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Debit card return on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Press DEBIT. The screen shows SALE, RETURN and BALANCE.",
+    "Press RETURN.",
+    "Enter the return amount.",
+    "If the amount is correct press OK; if not, press CANCEL and re-enter it.",
+    "If asked, enter the manager password. This guide gives 1234.",
+    "Have the customer tap, insert or swipe their card.",
+    "If asked, select the application.",
+    "Enter the date of the original transaction and press OK.",
+    "Enter the time of the original transaction and press OK.",
+    "The customer enters their PIN and presses OK.",
+    "The return is approved or declined, and the terminal shows the host response and prints the receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Enter the date of the original transaction and press OK.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-cash-return",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Cash return on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Press CASH. The screen shows SALE and RETURN.",
+    "Press RETURN.",
+    "Enter the return amount and press OK if it is correct.",
+    "If asked, enter the manager password. This guide gives 1234.",
+    "Press YES to confirm the return amount.",
+    "The transaction is processed and the receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Press YES to confirm the return amount.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-void-card-present",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Void a credit transaction with the card present on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "Tap CREDIT.",
+    "Tap VOID.",
+    "Enter the void amount and press OK.",
+    "If asked, confirm the void amount by tapping OK or NO.",
+    "If asked, enter the manager password. This guide gives 1234.",
+    "Have the customer tap or insert the chip card.",
+    "Enter the transaction number of the sale to void and press OK.",
+    "The void is processed and the void receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Enter the void transaction # and press OK.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-void-card-not-present",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Void a credit transaction without the card on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "From the idle screen, tap the STAR to open the FAVORITES menu.",
+    "Tap VOID TRANSACTION.",
+    "If asked, enter the manager password. This guide gives 1234.",
+    "Tap BY TRANSACTION #.",
+    "Enter the transaction number to void and press OK.",
+    "Tap SELECT to confirm.",
+    "If asked, confirm the void amount by tapping OK or CANCEL.",
+    "The void is processed and the void receipt prints."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Enter TRANSACTION # to be voided and press OK.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match.",
+   "sensitive": "password"
+  },
+  {
+   "id": "dejavoo-p-p3-pc-date-time",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "Change the date and time on the P3 (PaymentCloud's steps)",
+   "steps": [
+    "From the idle screen, press OK to open the Core Menu.",
+    "Tap UTILITY.",
+    "Tap SETTINGS.",
+    "Tap DATE AND TIME.",
+    "If the date shown is correct press OK. If not, clear it with the yellow backspace key and enter the date as MM/DD/YY.",
+    "If the time shown is correct press OK. If not, clear it with the yellow backspace key and enter the time in 24-hour format.",
+    "The terminal returns to the settings menu."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "the correct time using the 24-hour clock (military) format.",
+   "note": "From PaymentCloud's P3 guide. It describes a build with CREDIT/DEBIT menus and manager password 1234, which differs from Dejavoo's own P-line guide (last 4 digits of the TPN); the merchant's software build may not match."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-reboot",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "Reboot the P3 (troubleshooting tip)",
+   "steps": [
+    "Find the small button on the side of the P3 marked with a dash inside a circle and press it.",
+    "The screen offers POWER OFF or REBOOT.",
+    "Select REBOOT."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "You will then be presented with the following options: POWER",
+   "note": "From the Troubleshooting & Tips section of PaymentCloud's P3 guide."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-factory-reset",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "Factory reset the P3 (erases everything)",
+   "steps": [
+    "Do not start this without support: the guide warns a factory reset erases all data on the device, including transaction history and customized settings.",
+    "The guide's steps are: swipe down from the top of the screen and open the Android settings gear.",
+    "Select About Device at the bottom of the screen.",
+    "Tap Custom Build Version 6 times.",
+    "Select the Dialer.",
+    "Enter *#87#.",
+    "Select Factory Reset."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s4",
+   "quote": "Note: Performing a factory reset will erase all data on the device,",
+   "note": "PaymentCloud's P5 guide adds that if a factory reset is done incorrectly Dejavoo will not be able to reinstall the app. Treat as a tech-support procedure."
+  },
+  {
+   "id": "dejavoo-p-p3-pc-support-contact",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Who PaymentCloud's P3 guide says to contact about the terminal",
+   "steps": [
+    "For customer service issues with the terminal, the guide says to contact Dejavoo directly by email (support@dejavoo.io) or by phone (877-358-6797)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Dejavoo terminal, contact Dejavoo directly, either via email",
+   "note": "This is the maker's line as given by a reseller; our own tech support is the first contact for our merchants."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-no-printer",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "The P5 has no printer and takes no paper",
+   "steps": [
+    "The P5 has no built-in receipt printer, so there is no paper roll to load.",
+    "It cannot print or reprint customer receipts, and it cannot print reports.",
+    "Send receipts by email or text instead."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "The Dejavoo P5 has no built-in printer and cannot print reports.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-no-reprint",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Reprinting a receipt is not possible on the P5",
+   "steps": [
+    "The P5 has no built-in printer, so it cannot print or reprint customer receipts."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "The Dejavoo P5 has no built-in printer and cannot print or reprint",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-power",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "power",
+   "kind": "how-to",
+   "title": "Turn the P5 on or off",
+   "steps": [
+    "To turn it on, press and hold the power button until the device activates.",
+    "To turn it off, press and hold the power button until the device powers off."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Power On: Press and hold down the power button on your",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-no-ethernet",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "The P5 cannot use Ethernet",
+   "steps": [
+    "The P5 is not compatible with an Ethernet connection.",
+    "Connect it by Wi-Fi instead."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "The Dejavoo P5 is not compatible with Ethernet connectivity.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-wifi",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Connect the P5 to Wi-Fi",
+   "steps": [
+    "Have your network name and password ready.",
+    "Open SETTINGS.",
+    "Enter the manager password, which is the last four digits of your TPN.",
+    "Select COMM SETUP.",
+    "Select your network.",
+    "If asked, select GPRS.",
+    "Enter your network password."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s5",
+   "quote": "Enter your password to gain access to your chosen network.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-p5-pc-default-password",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "password",
+   "kind": "reference",
+   "title": "P5 default password: last four digits of the TPN",
+   "steps": [
+    "The default password for the P5 is the last four digits of the terminal profile number (TPN)."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s5",
+   "quote": "The default password for the Dejavoo P5 will be the last four",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ.",
+   "sensitive": "password",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "dejavoo-p-p5-pc-chip-credit-sale",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Chip credit sale on the P5",
+   "steps": [
+    "Select the SALE icon on the home screen.",
+    "Enter the sale amount, then confirm.",
+    "If asked to choose between CASH PAYMENT and CARD PAYMENT, select CARD PAYMENT.",
+    "Have the cardholder insert the chip card or tap.",
+    "Remove the card when prompted.",
+    "The transaction is approved or declined. The cardholder may be asked to sign.",
+    "Send the cardholder a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "EMV chip card or exercise the contactless tap option.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-tip-prompt",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "tips",
+   "kind": "reference",
+   "title": "Tip prompt during a sale on the P5",
+   "steps": [
+    "Before the transaction is approved or declined, the cardholder may be asked to leave a tip (for example 15% or 20%).",
+    "The guide says this mainly applies to restaurant and service businesses."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "may be prompted to leave a tip for services rendered (15%, 20%,",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-manual-entry",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Manual entry credit sale on the P5",
+   "steps": [
+    "Select the SALE icon on the home screen.",
+    "Enter the sale amount, then confirm.",
+    "When the terminal asks for the card, select ENTER CARD #.",
+    "Type in the card number, the expiration date and the billing zip code.",
+    "The sale is approved or declined.",
+    "Send the cardholder a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "or enter the card details manually. Select ENTER CARD #.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ. The guide notes a manual entry sale depends on the terminal's configuration."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-debit-sale",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Debit sale on the P5",
+   "steps": [
+    "Select the SALE icon on the home screen.",
+    "Enter the sale amount, then confirm.",
+    "If asked to choose between CASH PAYMENT and CARD PAYMENT, select CARD PAYMENT.",
+    "When prompted, select DEBIT.",
+    "Have the cardholder swipe, insert or tap their card.",
+    "The customer enters their PIN on the P5.",
+    "Send the cardholder a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Customers will be prompted to enter PIN details on the P5 PIN",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-cash-sale",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Cash sale on the P5",
+   "steps": [
+    "Select the SALE icon on the home screen.",
+    "If asked to choose between CASH PAYMENT and CARD PAYMENT, select CASH.",
+    "Enter the sale amount, then confirm.",
+    "Enter the cash received from the customer under CASH IN. The CHANGE display shows any balance.",
+    "Confirm the cash transaction.",
+    "Send the customer a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Enter the total cash received from the customer under CASH",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-credit-return",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Credit card return on the P5",
+   "steps": [
+    "Open the MENU on the P5.",
+    "If asked, enter the manager password.",
+    "Select the REFUND icon.",
+    "Enter the return amount, then confirm.",
+    "Insert or tap the card used for the original transaction.",
+    "Send the cardholder a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Insert or tap the card used during the transaction.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-debit-return",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Debit card return on the P5",
+   "steps": [
+    "Open the MENU on the P5.",
+    "If asked, enter the manager password.",
+    "Select the REFUND icon.",
+    "Enter the return amount, then confirm.",
+    "Insert, swipe or tap the card used for the original transaction.",
+    "The PIN is entered on the P5 to verify the return.",
+    "Send the cardholder a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Insert, swipe, or tap the card used during the transaction.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-cash-return",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Cash return on the P5",
+   "steps": [
+    "Open the MENU on the P5.",
+    "If asked, enter the manager password.",
+    "Select the REFUND icon.",
+    "When asked for the refund method, select CASH. If prompted, select SALE.",
+    "Enter the return amount, then confirm.",
+    "Send the customer a receipt by email or text if wanted."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "When prompted to select a method for the refund, select",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-void",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "Void a credit transaction on the P5 (card present or not)",
+   "steps": [
+    "Open the MENU on the P5.",
+    "Select VOID.",
+    "Enter either the last four digits of the card used or the transaction number.",
+    "If asked, enter the manager password.",
+    "The void is processed, with the option to send a receipt by text or email."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "VOID will then be processed, with the option to send a",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ. The guide gives the same steps for card present and card not present."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-date-time",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "Change the date and time on the P5",
+   "steps": [
+    "Open the MENU on the P5.",
+    "If asked, select UTILITY.",
+    "Select SETTINGS.",
+    "Select DATE AND TIME.",
+    "If the date and time shown are right, leave them. If not, clear them and re-enter.",
+    "Enter the date as MM/DD/YY.",
+    "Enter the time in 24-hour format."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Find and select the DATE AND TIME option.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-menu-security",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "password",
+   "kind": "how-to",
+   "title": "Change menu security settings on the P5",
+   "steps": [
+    "Open the MENU on the P5.",
+    "If asked, select UTILITY.",
+    "Select SECURITY.",
+    "Select MENU UTILITY.",
+    "Choose the security option you want."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Choose your desired security option.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-display",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "Adjust the display contrast on the P5",
+   "steps": [
+    "Open the MENU on the P5.",
+    "If asked, select UTILITY.",
+    "Select SETTINGS.",
+    "Select DISPLAY.",
+    "Tap + to increase contrast or - to decrease it.",
+    "Save your settings."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Tap + to increase display contrast or - to decrease contrast.",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-factory-reset-warning",
+   "devices": [
+    "dejavoo-p1",
+    "dejavoo-p3",
+    "dejavoo-p5"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "Factory reset on a P-line terminal: do not do it without support",
+   "steps": [
+    "Do not factory reset the terminal on your own.",
+    "The guide warns that if a factory reset is performed incorrectly, Dejavoo will not be able to reinstall the app on the device.",
+    "It also says that if the terminal is then sent back for repair, Dejavoo reserves the right not to swap it.",
+    "Contact support for help instead."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s5",
+   "quote": "not be able to reinstall the app onto that customer\u2019s device. If the",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ. The guide names the P1, P3 and P5 as examples of P line terminals."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-factory-reset-steps",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "Factory reset the P5 from Android settings (guide's steps)",
+   "steps": [
+    "This is a support procedure; see the warning entry before attempting it.",
+    "On the P5 screen, select ANDROID SETTINGS.",
+    "Select ABOUT DEVICE at the bottom of the screen.",
+    "Tap HARDWARE VERSION or CUSTOM BUILD VERSION 6 to 8 times, depending on the terminal.",
+    "Select the DIALER.",
+    "Enter *#87#.",
+    "The device begins its factory reset.",
+    "If prompted, download the TPN."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s5",
+   "quote": "VERSION. This step must be completed anywhere from 6-8 times",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-recovery-reset",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "Factory reset from Android Recovery mode (guide's alternative)",
+   "steps": [
+    "This is a support procedure; see the warning entry before attempting it.",
+    "Press and hold the POWER and VOLUME buttons together for about ten to fifteen seconds.",
+    "The device may go into Android Recovery mode.",
+    "Select WIPE DATA/FACTORY RESET, then confirm.",
+    "The device begins its factory reset."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s5",
+   "quote": "Recovery mode. Following this, select WIPE DATA/FACTORY RESET,",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p5-pc-reboot",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "Reboot the P5 (troubleshooting tip)",
+   "steps": [
+    "Find the small button on the side of the P5 marked with a dash inside a circle and press it.",
+    "The screen offers POWER OFF or REBOOT.",
+    "Select REBOOT."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "A small button on the side of your Dejavoo P5 will display a dash",
+   "note": "From PaymentCloud's P5 guide (tier 2); the merchant's software build may differ."
+  },
+  {
+   "id": "dejavoo-p-p17-usb-powered",
+   "devices": [
+    "dejavoo-p17"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "The P17 is powered over USB from the P1",
+   "steps": [
+    "Dejavoo describes the P17 as USB-powered through the P1 terminal.",
+    "A single USB connection means the pad needs no power adapter of its own."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s6",
+   "quote": "Single USB connection eliminates power adapter requirements and reduces cable clutter for cleaner workspaces"
+  },
+  {
+   "id": "dejavoo-p-p17-wifi-band",
+   "devices": [
+    "dejavoo-p17"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "P17 Wi-Fi is 2.4GHz",
+   "steps": [
+    "Dejavoo's product page lists the P17's connectivity as Wi-Fi 2.4GHz, a USB Type-C port and an audio jack."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s6",
+   "quote": "WiFi: 2.4GHz\nUSB Type-C port and audio jack",
+   "note": "Our sheet says the P17 flyer names no Wi-Fi band; the product page names 2.4GHz only."
+  },
+  {
+   "id": "dejavoo-p-p17-card-types",
+   "devices": [
+    "dejavoo-p17"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Card types the P17 reads",
+   "steps": [
+    "The P17 supports chip (IC), contactless (NFC) and magstripe cards.",
+    "Listed contactless methods are Paypass (Mastercard), Paywave (Visa), Expresspay (AMEX) and D-PAS (Discover)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s6",
+   "quote": "Payment Methods: Paypass (MC), Paywave (Visa), Expresspay"
+  },
+  {
+   "id": "dejavoo-p-p17-cloudpos",
+   "devices": [
+    "dejavoo-p17"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "The P17 works with CloudPOS",
+   "steps": [
+    "Dejavoo lists CloudPOS compatibility for the P17."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s6",
+   "quote": "CloudPOS compatibility provides scalability and advanced business management capabilities"
+  },
+  {
+   "id": "dejavoo-p-p12-cradle",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "The P12 charging cradle is a separate purchase",
+   "steps": [
+    "The P12's cradle is sold separately."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s7",
+   "quote": "*Cradle sold separately."
+  },
+  {
+   "id": "dejavoo-p-p12-card-types",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Card types the P12 reads: chip, tap and QR code",
+   "steps": [
+    "Dejavoo's P12 flyer lists its payment readers as an IC (chip) card reader, an NFC (tap) reader and QR code.",
+    "It works with digital wallets including Apple Pay, Google Wallet and Samsung Pay."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s9",
+   "quote": "IC Card reader, NFC reader, QR Code",
+   "note": "The flyer does not list a magnetic stripe reader for the P12. Our sheet calls the P12 a 'swiper'."
+  },
+  {
+   "id": "dejavoo-p-p12-is-standalone-android",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "What the P12 is: a standalone Android mPOS / PIN pad",
+   "steps": [
+    "Dejavoo describes the P12 as an Android mPOS/PIN Pad with a 4-inch touchscreen.",
+    "It runs an Android-based system and is compatible with iPOSpays, SPIn and DeNovo."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s7",
+   "quote": "iPOSpay, SPIn, and DeNovo business management tools",
+   "note": "Our sheet describes the P12 as a reader paired to the merchant's phone through an app; the maker's page describes a touchscreen Android terminal."
+  },
+  {
+   "id": "dejavoo-p-p12-connectivity",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "How the P12 connects: dual-band Wi-Fi, cellular, Bluetooth",
+   "steps": [
+    "The P12 has dual-band Wi-Fi (2.4GHz and 5GHz).",
+    "It supports 2G/3G/4G cellular networks.",
+    "It has Bluetooth 4.2."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s7",
+   "quote": "Dual-band Wi-Fi (2.4GHz and 5GHz) Cellular Network: 2G/3G/4G"
+  },
+  {
+   "id": "dejavoo-p-p12-cellular-optional",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "Cellular on the P12 is an optional configuration",
+   "steps": [
+    "The P12 can support cellular data, but PayCompass notes this is an optional configuration.",
+    "If a P12 will not connect over cellular, check whether the unit was ordered with cellular."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s10",
+   "quote": "NOTE: While the P12 does support cellular data (2G, 3G,4G), it's an optional configuration."
+  },
+  {
+   "id": "dejavoo-p-p12-receipts",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Receipts on the P12: email, SMS or none; paper only with a separate printer",
+   "steps": [
+    "The P12 offers email, SMS or no receipt.",
+    "A paper receipt is available only when the P12 is paired with a separate printer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s10",
+   "quote": "Paper receipt option is available when the P12 is paired with a separate printer"
+  },
+  {
+   "id": "dejavoo-p-p12-pin-pad",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "Optional PIN pad for the P12: the P17",
+   "steps": [
+    "PayCompass lists the Dejavoo P17 as the optional PIN pad for the P12."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s10",
+   "quote": "Optional PIN Pad: Yes, the Dejavoo P17 PIN Pad"
+  },
+  {
+   "id": "dejavoo-p-p12-no-signature",
+   "devices": [
+    "dejavoo-p12"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "The P12 does not capture signatures",
+   "steps": [
+    "PayCompass lists signature capture as not available on the P12.",
+    "Tips are supported."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s10",
+   "quote": "Signature capture:  No\nReceipt options: Email, SMS, or no receipt."
+  },
+  {
+   "id": "dejavoo-p-p18-connectivity",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "How the P18 connects: Ethernet, 4G/LTE, Wi-Fi, Bluetooth",
+   "steps": [
+    "The P18 supports Ethernet, 4G/LTE, Wi-Fi and Bluetooth 5.2.",
+    "It takes a Nano SIM."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "Ethernet, 4G/LTE, Wi-Fi, Nano SIM, Nano SAM, Bluetooth 5.2"
+  },
+  {
+   "id": "dejavoo-p-p18-android-13",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "The P18 runs Android 13",
+   "steps": [
+    "Dejavoo lists the P18's software as Android 13."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "> SOFTWARE\nAndroid 13\n> PROCESSOR"
+  },
+  {
+   "id": "dejavoo-p-p18-second-screen",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "The P18's second screen shows the amount to the customer",
+   "steps": [
+    "The P18 has a hidden second screen that displays transaction amounts to the customer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "features a hidden second screen that displays transaction amounts creating a unique checkout experience for customers"
+  },
+  {
+   "id": "dejavoo-p-p18-payment-types",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Payment types the P18 accepts",
+   "steps": [
+    "The P18 supports chip (IC), contactless (NFC), magstripe cards, QR code, digital wallets and Apple Pay."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "Supports: IC, NFC, Magstripe Card, QR code, Digital wallet, Apple Pay"
+  },
+  {
+   "id": "dejavoo-p-p18-no-printer",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "The P18 has no built-in printer; use an external one",
+   "steps": [
+    "The P18 does not have a built-in printer.",
+    "Receipts can go by email, SMS or digital link.",
+    "An external printer can be connected by Bluetooth, Wi-Fi or Ethernet cable."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s11",
+   "quote": "Although the P18 does not have a built-in printer, it can accommodate an external printer by connecting either via Bluetooth, Wi-Fi, or ethernet cable."
+  },
+  {
+   "id": "dejavoo-p-p18-pin-pad",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "Optional PIN pad for the P18: the P17",
+   "steps": [
+    "PayCompass lists the Dejavoo P17 Android PIN Pad as the optional PIN pad for the P18."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s11",
+   "quote": "Optional PIN Pad: Yes, specifically the Dejavoo P17 Android PIN Pad"
+  },
+  {
+   "id": "dejavoo-p-p18-fleet-cards",
+   "devices": [
+    "dejavoo-p18"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "Fleet cards on the P18 need to be set up first",
+   "steps": [
+    "The P18 does not take fleet cards out of the box.",
+    "PayCompass says it has to be configured by the processor to accept WEX, Voyager, Fuelman, Comdata and Fleet One.",
+    "If a fleet card will not go through, ask whether fleet acceptance was set up on the account."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s11",
+   "quote": "Fleet cards: Yes, but not natively.",
+   "note": "PayCompass is describing its own accounts; whether we offer this must be confirmed."
+  },
+  {
+   "id": "dejavoo-p-p5-receipts",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Receipts on the P5: email and SMS only",
+   "steps": [
+    "The P5 has no built-in receipt printer.",
+    "Receipts are sent by email or SMS."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s12",
+   "quote": "Receipt options: Email & SMS only; no built-in receipt printer"
+  },
+  {
+   "id": "dejavoo-p-p5-no-external-pinpad",
+   "devices": [
+    "dejavoo-p5"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "The P5 does not take an external PIN pad (per PayCompass)",
+   "steps": [
+    "PayCompass states the P5 does not support external PIN pads."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s12",
+   "quote": "Optional PIN Pad: The P5 does not support external PIN pads",
+   "note": "Dejavoo's own pin pad page says all P terminal combinations can be used as PIN pads and master terminals; the sources differ."
+  },
+  {
+   "id": "dejavoo-p-p8-no-external-pinpad",
+   "devices": [
+    "dejavoo-p8"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "The P8 does not take an external PIN pad (per PayCompass)",
+   "steps": [
+    "PayCompass states the P8 does not support external PIN pads."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s13",
+   "quote": "Optional PIN Pad: No, the P8 does not support external PIN pads",
+   "note": "Dejavoo's own pin pad page says all P terminal combinations can be used as PIN pads and master terminals; the sources differ."
+  },
+  {
+   "id": "dejavoo-p-p8-receipts",
+   "devices": [
+    "dejavoo-p8"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Receipt options on the P8",
+   "steps": [
+    "The P8 can give a paper receipt, an email receipt, an SMS receipt or no receipt.",
+    "PayCompass lists signature capture as not available on the P8."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s13",
+   "quote": "Receipt options: Paper, email, SMS, or no receipt"
+  },
+  {
+   "id": "dejavoo-p-p1-receipts-pinpad",
+   "devices": [
+    "dejavoo-p1"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "P1 receipt options and optional PIN pad",
+   "steps": [
+    "The P1 can give a paper receipt, an email receipt, an SMS receipt or no receipt.",
+    "Its optional PIN pad is the P17.",
+    "It connects by Ethernet and Wi-Fi."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s14",
+   "quote": "Optional PIN Pad: Yes, the P17 PIN Pad"
+  },
+  {
+   "id": "dejavoo-p-p3-no-ethernet",
+   "devices": [
+    "dejavoo-p3"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "The P3 has no Ethernet; it uses cellular and Wi-Fi",
+   "steps": [
+    "PayCompass lists the P3's connectivity as USB charger, cellular and Wi-Fi, with no Ethernet.",
+    "Its optional PIN pad is the Dejavoo P17."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s15",
+   "quote": "Connectivity: USB charger, Cellular & Wi-Fi; no ethernet",
+   "note": "PaymentCloud's P3 guide titles its network section 'Ethernet or Wifi'; PayCompass says the P3 has no Ethernet."
+  },
+  {
+   "id": "dejavoo-p-dejavoo-tech-support",
+   "devices": [
+    "*"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Dejavoo's own tech support line",
+   "steps": [
+    "Dejavoo's tech support page gives the number 1-877-358-6797, option 2."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "brand",
+   "source": "s16",
+   "quote": "Call us \n1-877-358-6797 option 2",
+   "note": "For issues only the maker can resolve; our tech support is the first contact."
+  },
+  {
+   "id": "dejavoo-p-rn-otp-tpn-change",
+   "devices": [
+    "*"
+   ],
+   "topic": "password",
+   "kind": "reference",
+   "title": "Changing the TPN on the terminal needs a one-time passcode",
+   "steps": [
+    "A one-time passcode (OTP) is required to change the Terminal Profile Number (TPN) on a terminal.",
+    "This is not something to do yourself; contact support if the terminal is asking to change or re-enter its TPN."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s17",
+   "quote": "a one-time passcode (OTP) is now required to change the Terminal Profile Number (TPN) on a POS terminal"
+  },
+  {
+   "id": "dejavoo-p-rn-incremental-auth",
+   "devices": [
+    "*"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Incremental Auth: raise the amount of a pre-auth",
+   "steps": [
+    "On gateway-powered terminals, Incremental Auth lets you increase the amount first authorized in a Pre-Auth."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s17",
+   "quote": "Merchants using Gateway-powered terminals can utilize Incremental Auth to increase the amount initially authorized in a Pre-Auth."
+  },
+  {
+   "id": "dejavoo-p-rn-spring-framework-error",
+   "devices": [
+    "*"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "\"Spring Framework\" error during Incremental Auth",
+   "steps": [
+    "This error appeared on Dejavoo payment terminals during an Incremental Auth.",
+    "Dejavoo fixed it in a software update.",
+    "If you still see it, contact support so the terminal's software can be updated."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s19",
+   "quote": "This update resolves an issue where a \"Spring Framework\" error would appear on the merchant\u2019s Dejavoo payment terminal"
+  },
+  {
+   "id": "dejavoo-p-rn-untipped-other-tpns",
+   "devices": [
+    "*"
+   ],
+   "topic": "tips",
+   "kind": "reference",
+   "title": "See untipped and server reports for other terminals in the same store",
+   "steps": [
+    "From one terminal, you can view untipped and server reports of the other TPNs within the same store."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s19",
+   "quote": "This update enables merchants to view untipped and server reports of other TPNs within the same store from a single terminal."
+  },
+  {
+   "id": "dejavoo-p-rn-tip-adjust-by-store",
+   "devices": [
+    "*"
+   ],
+   "topic": "tips",
+   "kind": "reference",
+   "title": "Tip Adjust by Store: adjust tips for several terminals from one device",
+   "steps": [
+    "Merchants can adjust the tip for multiple TPNs from a single device or batch.",
+    "All the TPNs must be within the same store."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s20",
+   "quote": "adjust the tip for multiple TPNs from a single device or batch, as long as all TPNs are within the same store"
+  },
+  {
+   "id": "dejavoo-p-rn-duplicate-settlement-email",
+   "devices": [
+    "*"
+   ],
+   "topic": "batch",
+   "kind": "fix",
+   "title": "Two settlement report emails arrived for one batch",
+   "steps": [
+    "In some instances merchants received duplicate settlement reports by email after settling a batch.",
+    "Dejavoo says a software update addresses this."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s20",
+   "quote": "merchants received duplicate settlement reports via email after settling a batch"
+  },
+  {
+   "id": "dejavoo-p-rn-settlement-report-contents",
+   "devices": [
+    "*"
+   ],
+   "topic": "batch",
+   "kind": "reference",
+   "title": "What the batch settlement report shows",
+   "steps": [
+    "Batch settlement reports include Card Brand, Subtotal and Fee details."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s18",
+   "quote": "Batch settlement reports now include Card Brand, Subtotal, and Fee details."
+  },
+  {
+   "id": "dejavoo-p-rn-tip-screen",
+   "devices": [
+    "*"
+   ],
+   "topic": "tips",
+   "kind": "reference",
+   "title": "Tip screen: tapping a suggested tip moves straight to the next screen",
+   "steps": [
+    "On gateway-powered terminals, when the customer taps one of the tip choices the app goes to the next screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s18",
+   "quote": "when a user taps on any of the tip choices, the app will take them to the next screen"
+  },
+  {
+   "id": "dejavoo-p-rn-customer-copy-confirm",
+   "devices": [
+    "*"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "PIN pad transactions ask before printing the customer copy",
+   "steps": [
+    "When the Customer Copy Print option is enabled, the merchant is asked to confirm printing the customer copy during PIN pad transactions."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s18",
+   "quote": "Merchants are now prompted to confirm printing the customer copy during PIN pad transactions when the Customer Copy Print option is enabled."
+  }
+ ],
+ "not_found": [
+  "Any list of error messages or numbered error/response codes for the P line or the DvPay terminal app on dejavoo.io (only one named error, in a release note).",
+  "A Dejavoo troubleshooting guide for the P line: will not power on, battery or charging faults, printer jams, card will not read, frozen screen, tamper or security alerts, password lockout. Dejavoo's P-line guide covers transactions only.",
+  "A user manual or quick reference guide specific to the P12, P17 or P18. Dejavoo publishes only a product page and flyer for each; the one P-line QRG is generic.",
+  "A Dejavoo document on Wi-Fi or 4G/SIM setup for P terminals (the SIM guides on dejavoo.io are for the Z9; the Wi-Fi guide is for the Z line).",
+  "P1, P8, P12, P17, P18 manuals on paymentcloudinc.com (404; only P3 and P5 exist).",
+  "P-line articles on faq.paysafe.com, support.xplorpay.com and docs.staxpayments.com (they cover only Z and QD lines, or Z-line pin pads).",
+  "A 'print reports' procedure in PaymentCloud's P3 guide: its section repeats the reprint-receipt steps, so no entry was made.",
+  "Paper-loading steps for the P1 and P8, and battery or charging instructions for any model."
+ ],
+ "blocked": [
+  {
+   "url": "https://www.manualslib.com/brand/dejavoo/",
+   "what": "Dejavoo's own P-line documents mirrored there (bot check): 'DvPayLite P17 Quick Reference Manual', 'DvPayLite P8', P1 Quick Reference Manual (manual/3205111 and 3669824), P3 manual (3686613) with sections on hard reset, unresponsive touchscreen, security features and passwords"
+  },
+  {
+   "url": "https://www.gettrx.com/wp-content/uploads/2023/06/Dejavoo-P3-IPOSPays-Android.pdf",
+   "what": "Processor quick reference guide for QD and P series Android on iPOSpays, including PIN pad pairing (START PAIRING, IP address) "
+  },
+  {
+   "url": "https://help.materialretail.com/troubleshooting/435xoNdeumxPWVFApDoffM/dejavoo-terminal-not-processing-transactions-troubleshooting-guide/77FB6ZL5MBfvFnpQULHjjm",
+   "what": "POS vendor troubleshooting for a P12 with a black screen or not processing, and P-series bypass mode"
+  },
+  {
+   "url": "https://help.viberetail.com/en/articles/12770048-dejavoo-payment-terminal-faq",
+   "what": "POS vendor Dejavoo payment terminal FAQ"
+  },
+  {
+   "url": "https://help.paystri.com/dejavoo-reference-guides",
+   "what": "Processor's collection of Dejavoo reference guides"
+  },
+  {
+   "url": "https://smllc.zendesk.com/hc/en-us/articles/39132134992269-Credit-Card-Processing-Guide-Dejavoo-P1",
+   "what": "Processor guide for the P1 covering connectivity issues and paper replacement"
+  },
+  {
+   "url": "https://portal.ehopper.com/portal/en/kb/articles/dejavoo-p8-and-p18-with-ehopper-pos-deep-linking-setup",
+   "what": "P8 and P18 deep-linking setup with a POS (DvPayLite)"
+  },
+  {
+   "url": "https://irp.cdn-website.com/be8123e2/files/uploaded/Dejavoo-Android-QRG-Restaurant.pdf_%281%29_merged.pdf",
+   "what": "Dejavoo Android quick reference guide (restaurant) hosted by a reseller"
+  }
+ ]
+}

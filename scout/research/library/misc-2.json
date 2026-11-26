@@ -1,0 +1,2150 @@
+{
+ "family": "misc-2",
+ "devices": [
+  "clover-station-duo",
+  "clover-station-solo",
+  "clover-mini",
+  "clover-flex",
+  "clover-flex-pocket",
+  "clover-compact",
+  "clover-kiosk",
+  "clover-kds",
+  "acc-clover-kds-stand",
+  "acc-clover-kds-wall-mount",
+  "acc-bump-bar",
+  "acc-kds",
+  "acc-network",
+  "acc-brother-ql1110nwb",
+  "acc-epson-tmu220",
+  "acc-epson-tmm30iii",
+  "pos-on-iphone"
+ ],
+ "platform_notes": "Gap-fill round across three earlier families. Clover devices run Clover's own Android-based software; the Clover PDF guides (bump bar, Local Connect, KDS C700, Kiosk mounts) and Clover's developer site add to the help-centre material already mined. Brother QL-1110NWB and Epson TM-U220II are stand-alone printers documented by their makers. POS on iPhone is Union's \"Union Pocket\" app with Tap to Pay on iPhone.",
+ "sources": [
+  {
+   "id": "bump",
+   "url": "https://assets.ctfassets.net/vyqnxxjc374u/1btW58DQCNjj0sTtwYwA0N/7c72e93003c2f86861cd3907b5fefb5d/BumpBarGuideFinal2024.pdf",
+   "title": "Clover KDS Bump Bar Guide (2024)",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-bumpbar-guide.txt"
+  },
+  {
+   "id": "lc",
+   "url": "https://assets.ctfassets.net/vyqnxxjc374u/6AIUCzVHUH7uWxI9MKmOIY/7de6eec8494ec6b103d510d0c094b50c/Clover_Local-Connect_Network_Set-Up_Guide.pdf",
+   "title": "Clover Local-Connect Network Set-Up Guide (2024)",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-localconnect-guide.txt"
+  },
+  {
+   "id": "kds14",
+   "url": "https://assets.ctfassets.net/vyqnxxjc374u/1m4ulpMyw4v6Zgf9loXNyy/f600c0ab7f71760e4c1755e5bbb37ba4/Clover-KDS-QuickStartGuide-v4-web.pdf",
+   "title": "Clover Kitchen Display System (C700) Quick Start Guide v4",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-kds14-qsg.txt"
+  },
+  {
+   "id": "kmount",
+   "url": "https://assets.ctfassets.net/vyqnxxjc374u/64mAdzJo0HUvngo6qkR5EI/142eb64507caf4bed9260d530e5fcc81/Clover-Kiosk-MountingKit-V7-web.pdf",
+   "title": "Clover Kiosk Mounting Kit Quick Start Guide",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-kiosk-mountingkit.txt"
+  },
+  {
+   "id": "kstand",
+   "url": "https://assets.ctfassets.net/vyqnxxjc374u/68U6EwfBQD8gKSj3dyiesi/92ed80d03cc8cfc78461dd92fa6880b3/Clover-Kiosk-Stand-QuickStartGuide-V8-web.pdf",
+   "title": "Clover Kiosk Floor Stand Quick Start Guide v8",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-kiosk-stand.txt"
+  },
+  {
+   "id": "fpqsg",
+   "url": "https://assets.ctfassets.net/vyqnxxjc374u/3y8NsMzEwxV0suksdzSoMg/5e91cb3c057f8ee55444cb61dddf8819/Clover-Flex4-Pocket-QuickStartGuide-v2-Web.pdf",
+   "title": "Clover Flex Pocket Quick Start Guide v2",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-flexpocket-qsg.txt"
+  },
+  {
+   "id": "diag",
+   "url": "https://docs.clover.com/dev/docs/device-diagnostics.md",
+   "title": "Clover developer docs: Use device diagnostics",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-docs-device-diagnostics.txt"
+  },
+  {
+   "id": "app",
+   "url": "https://docs.clover.com/docs/appendix.md",
+   "title": "Clover developer docs: HTTP Status and Error codes (Ecommerce \"Message to buyer\" table)",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-docs-appendix-md.txt"
+  },
+  {
+   "id": "stat",
+   "url": "https://docs.clover.com/docs/status-code-and-error-reference.md",
+   "title": "Clover developer docs: Status codes and errors reference (REST Pay Display)",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-docs-status-md.txt"
+  },
+  {
+   "id": "off",
+   "url": "https://docs.clover.com/dev/docs/handling-offline-payments.md",
+   "title": "Clover developer docs: Handle offline payments",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-docs-handling-offline-payments.txt"
+  },
+  {
+   "id": "dup",
+   "url": "https://docs.clover.com/dev/docs/checking-for-duplicate-payments.md",
+   "title": "Clover developer docs: Check for duplicate payments",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-docs-checking-for-duplicate-payments.txt"
+  },
+  {
+   "id": "part",
+   "url": "https://docs.clover.com/dev/docs/handling-partial-payment-issues.md",
+   "title": "Clover developer docs: Handle partial payments",
+   "publisher": "Clover",
+   "tier": 1,
+   "local": "raw/misc-2/clover-docs-handling-partial-payment-issues.txt"
+  },
+  {
+   "id": "bqsg",
+   "url": "https://download.brother.com/welcome/docp100360/ql1110nwb_useng_qsg_d00zc6001.pdf",
+   "title": "Brother QL-1110NWB Quick Setup Guide (US English, D00ZC6001)",
+   "publisher": "Brother",
+   "tier": 1,
+   "local": "raw/misc-2/brother-qsg-us.txt"
+  },
+  {
+   "id": "bug",
+   "url": "https://download.brother.com/welcome/docp100364/ql-1110nwb_use_ug_03.pdf",
+   "title": "Brother QL-1110NWB User's Guide (US English, ver. 03)",
+   "publisher": "Brother",
+   "tier": 1,
+   "local": "raw/misc-2/brother-ug-us.txt"
+  },
+  {
+   "id": "eum",
+   "url": "https://files.support.epson.com/pdf/pos/bulk/tm-u220ii_um_en_01.pdf",
+   "title": "Epson TM-U220II User's Manual (M00155901 EN)",
+   "publisher": "Epson",
+   "tier": 1,
+   "local": "raw/misc-2/epson-guess-tm-u220ii_um_en_01.txt"
+  },
+  {
+   "id": "usup",
+   "url": "https://getunion.com/support/",
+   "title": "Union: Support page",
+   "publisher": "Union",
+   "tier": 1,
+   "local": "raw/misc-2/union-support.txt"
+  },
+  {
+   "id": "uttp",
+   "url": "https://getunion.com/product-feature/tap-to-pay-on-iphone/",
+   "title": "Union: Tap to Pay on iPhone",
+   "publisher": "Union",
+   "tier": 1,
+   "local": "raw/misc-2/union-pf-tap-to-pay.txt"
+  },
+  {
+   "id": "upok",
+   "url": "https://getunion.com/product-feature/pos-on-iphone/",
+   "title": "Union: Union Pocket handheld POS (POS on iPhone)",
+   "publisher": "Union",
+   "tier": 1,
+   "local": "raw/misc-2/union-pf-pos-on-iphone.txt"
+  },
+  {
+   "id": "utrain",
+   "url": "https://getunion.com/training-virtual-office-hours-and-training-support/",
+   "title": "Union: Weekly virtual training sessions",
+   "publisher": "Union",
+   "tier": 1,
+   "local": "raw/misc-2/union-training.txt"
+  },
+  {
+   "id": "ucs",
+   "url": "https://getunion.com/product-feature/customer-support/",
+   "title": "Union: 24/7 Customer Support",
+   "publisher": "Union",
+   "tier": 1,
+   "local": "raw/misc-2/union-pf-customer-support.txt"
+  }
+ ],
+ "entries": [
+  {
+   "id": "misc-2-bb-connect",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover KDS bump bar: confirm it is connected",
+   "steps": [
+    "Connect the bump bar to the Kitchen Display.",
+    "Press BUMP to confirm the connection."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "Once your bump bar is connected to your KDS, press BUMP to confirm the connection.",
+   "note": "From Clover's own bump bar guide for the Clover Kitchen Display; key names are those printed on the Clover bump bar."
+  },
+  {
+   "id": "misc-2-bb-focus-ticket",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: select (focus on) a ticket",
+   "steps": [
+    "Press the number key that matches the ticket on screen.",
+    "That ticket is now the focused ticket."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To focus on a ticket use the number keys to put the corresponding ticket in a focused state."
+  },
+  {
+   "id": "misc-2-bb-focus-item",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: select an item inside a ticket",
+   "steps": [
+    "Select the ticket first.",
+    "Press REDRAW to start focusing on single items in that ticket."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "press REDRAW on your bump bar to start focusing on specific items."
+  },
+  {
+   "id": "misc-2-bb-item-ready",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: mark one item as ready",
+   "steps": [
+    "Focus on the item.",
+    "Press REDRAW to mark the focused item as ready."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To mark a focused item as ready press REDRAW on your bump bar."
+  },
+  {
+   "id": "misc-2-bb-nav-items",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: move between items in a ticket",
+   "steps": [
+    "Press the UP or DOWN arrow to move to a different item in the ticket."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To focus different items in a ticket use the UP/DOWN arrows on your bump bar."
+  },
+  {
+   "id": "misc-2-bb-ticket-gone",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Clover KDS: a ticket disappeared after every item was marked ready",
+   "steps": [
+    "This is normal: when all items in a ticket are marked ready, the ticket is removed from the screen.",
+    "Press RECALL on the bump bar to bring it back."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "Once all items within a ticket are marked as ready the ticket will be removed from the screen."
+  },
+  {
+   "id": "misc-2-bb-recall",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "fix",
+   "title": "Clover KDS bump bar: undo a completed order (ticket bumped by mistake)",
+   "steps": [
+    "Press RECALL on the bump bar to undo the completed order."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To undo the completed order press RECALL on your bump bar."
+  },
+  {
+   "id": "misc-2-bb-nav-tickets",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: move from ticket to ticket",
+   "steps": [
+    "Press a number key to jump to that ticket.",
+    "Or press the DOWN or UP arrow to move through the tickets."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "the number keys to put the ticket in a focused state or use the DOWN/UP arrows to navigate through tickets."
+  },
+  {
+   "id": "misc-2-bb-note-open",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: view an order note",
+   "steps": [
+    "Select the ticket.",
+    "Press SUM to bring up the order details."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To view an order note on a ticket press SUM on your bump bar to bring up the order details."
+  },
+  {
+   "id": "misc-2-bb-note-close",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: close an order note",
+   "steps": [
+    "Press SUM again to close the open order note."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To close an open order note press SUM on your bump bar."
+  },
+  {
+   "id": "misc-2-bb-bump",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: bump (complete) a whole ticket",
+   "steps": [
+    "Select the ticket.",
+    "Press BUMP to mark the whole ticket as complete."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To mark a whole ticket as complete (bump) press BUMP on your bump bar."
+  },
+  {
+   "id": "misc-2-bb-completed",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: view completed tickets",
+   "steps": [
+    "Press UP until \"View completed\" is selected.",
+    "Press REDRAW to open the completed tickets screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To view your completed tickets press UP on your bump bar until you have navigated to \u201cView completed\u201d"
+  },
+  {
+   "id": "misc-2-bb-page-open",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: open the page control when tickets fill more than one page",
+   "steps": [
+    "Press PAGE to open the pagination control."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To open pagination press PAGE on your bump bar to open the pagination control"
+  },
+  {
+   "id": "misc-2-bb-page-nav",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: go to the next or previous page of tickets",
+   "steps": [
+    "Open pagination with PAGE.",
+    "Press the DOWN arrow for the next page.",
+    "Press the UP arrow to return to the previous page."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To navigate to the next page press DOWN arrow on your bump bar."
+  },
+  {
+   "id": "misc-2-bb-page-exit",
+   "devices": [
+    "acc-bump-bar",
+    "clover-kds"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "Clover KDS bump bar: leave page navigation",
+   "steps": [
+    "Press PAGE again to exit page navigation."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bump",
+   "quote": "To exit the page navigation press PAGE on your bump bar."
+  },
+  {
+   "id": "misc-2-lc-what",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "Clover Local Connect: orders still reach the Kitchen Display when the internet is down",
+   "steps": [
+    "With Local Connect, orders made on front-of-house Clover devices are sent to the Kitchen Display straight away even if the internet is down.",
+    "For this to work the local network must let the Clover devices talk directly to each other."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Orders created at front of house devices such as the Clover Mini or Station Duo will be fired to the Clover Kitchen Display System immediately even when the Internet connection is down."
+  },
+  {
+   "id": "misc-2-lc-dedicated-router",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "install",
+   "title": "Clover Local Connect: use a dedicated router for the POS network",
+   "steps": [
+    "Use a router that is only for the point-of-sale network.",
+    "Connect that router directly to the internet modem or gateway."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Use a dedicated router for your local POS network."
+  },
+  {
+   "id": "misc-2-lc-wired",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "install",
+   "title": "Clover Local Connect: wired or Wi-Fi?",
+   "steps": [
+    "Use wired Ethernet connections whenever possible.",
+    "If you use Wi-Fi, a router that supports Wi-Fi 6 is recommended."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Whenever possible, wired Ethernet connections should be used rather than Wi-Fi."
+  },
+  {
+   "id": "misc-2-lc-switch",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "install",
+   "title": "Clover Local Connect: not enough ports on the router",
+   "steps": [
+    "Add an unmanaged Ethernet switch.",
+    "Run a cable from any LAN jack on the router to any jack on the switch; if the switch has a marked input or \"uplink\" jack, use that one.",
+    "Run cables from the switch to the Clover devices."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "If there are more Clover devices than there are jacks on the router, one or more \u201cunmanaged\u201d Ethernet switches may be added."
+  },
+  {
+   "id": "misc-2-lc-no-other-devices",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: do not put other equipment on the Clover router",
+   "steps": [
+    "Do not connect non-Clover devices, or devices Clover has not recommended, to the router used for the Clover network.",
+    "Their traffic can interfere with the Clover devices."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Do not connect non-Clover devices or devices not specifically recommended by Clover to the router used for"
+  },
+  {
+   "id": "misc-2-lc-no-guest-wifi",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: do not offer guest Wi-Fi from the POS network",
+   "steps": [
+    "Do not use any Wi-Fi that is connected to the POS network for public or guest access.",
+    "It can cause too much traffic and security risks."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Do not use any Wi-Fi connected to the POS network for public or guest access."
+  },
+  {
+   "id": "misc-2-lc-wifi-close",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover devices on Wi-Fi: keep the router or access point close",
+   "steps": [
+    "Place the Wi-Fi router or access point as close to the Clover devices as possible.",
+    "Walls and other obstructions weaken the signal."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "ensure that the Wi-Fi router or access point is as close to your devices as possible."
+  },
+  {
+   "id": "misc-2-lc-access-point",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "install",
+   "title": "Clover Local Connect: covering a patio or separate dining area",
+   "steps": [
+    "Install a Wi-Fi access point in the remote area.",
+    "Connect it to the router by Ethernet cable.",
+    "Do not use a second router as an access point."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Do not use a second router as an access point."
+  },
+  {
+   "id": "misc-2-lc-cables",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "install",
+   "title": "Clover Local Connect: which Ethernet cables to use",
+   "steps": [
+    "Use ready-made Ethernet cables rated Cat-5 or higher.",
+    "Keep cables no longer than needed and never over 100 meters (328 feet).",
+    "If custom-length cables are needed, for example through walls, have a trained technician make and test them."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "Cables should be no longer than necessary, never exceeding 100 meters (328 feet).",
+   "review": "routed to support by rule: steps need staff access"
+  },
+  {
+   "id": "misc-2-lc-jacks",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "install",
+   "title": "Clover Local Connect: which router jack goes where",
+   "steps": [
+    "Connect the router jack labeled \"WAN\" or \"Internet\" to the modem.",
+    "Connect the Clover devices to the router jacks labeled \"LAN\" or \"Ethernet\"."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "The router will have one jack typically labeled \u201cWAN\u201d or \u201cInternet\u201d. This jack should be connected to the modem."
+  },
+  {
+   "id": "misc-2-lc-addendum",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "Clover Local Connect: what to give your network provider",
+   "steps": [
+    "Give the addendum \"Clover Local Network Technical Reference\" from the set-up guide to your network provider."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "lc",
+   "quote": "Provide the enclosed addendum, Clover Local Network Technical Reference, to your network provider."
+  },
+  {
+   "id": "misc-2-lc-single-router",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: all Clover devices on one router with client isolation off",
+   "steps": [
+    "Connect all Clover devices to the same single router.",
+    "The network should be a single subnet with at least a 24-bit subnet mask (255.255.255.0).",
+    "Features such as \"Client Isolation\" must be turned off so the devices can talk directly to each other."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "The Clover devices must be able to communicate directly with each other, so features such as \u201cClient Isolation\u201d must be disabled.",
+   "note": "Router configuration; the guide addresses it to the merchant or their local technical support."
+  },
+  {
+   "id": "misc-2-lc-subnet",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect does not work with a 255.255.0.0 subnet mask",
+   "steps": [
+    "Set the router to a 24-bit or larger local subnet mask (255.255.255.0).",
+    "Local Connect will not work with masks such as 255.255.0.0."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "Local Connect will not operate with smaller subnet masks, such as 255.255.0.0.",
+   "note": "The PDF guide says \"smaller subnet masks, such as 255.255.0.0\"; Clover's help article (see clover-hardware) words the same rule as \"larger subnet masks\". Both name 255.255.0.0 as not working."
+  },
+  {
+   "id": "misc-2-lc-dhcp",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: router DHCP settings",
+   "steps": [
+    "The router's LAN DHCP server should be enabled.",
+    "The DHCP lease time should be 120 minutes or more."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "The LAN DHCP server should be enabled. The DHCP lease time should be 120 minutes or greater."
+  },
+  {
+   "id": "misc-2-lc-isolation",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: isolation features that must be off",
+   "steps": [
+    "Make sure devices on the LAN can talk directly to each other.",
+    "Turn off isolation features, which can include AP Isolation, Client Isolation and VLANs."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "directly with each other. Isolation features should be disabled. These can include:"
+  },
+  {
+   "id": "misc-2-lc-gateway",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: gateway settings to enable or disable",
+   "steps": [
+    "Make the LAN gateway visible to all devices.",
+    "Enable \"respond to pings from LAN\".",
+    "If Wi-Fi is used for the Clover devices, enable WPA2 security with a password.",
+    "Disable MAC filtering or MAC reservation.",
+    "Check NAT is enabled.",
+    "Disable port forwarding or DMZ features."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "Clover Local Connect requires that the LAN gateway be visible to all devices."
+  },
+  {
+   "id": "misc-2-lc-extra-off",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: other router features to turn off",
+   "steps": [
+    "Turn off parental controls.",
+    "Turn off time-of-day restrictions.",
+    "Turn off guest and IoT networks.",
+    "Turn off UPnP (sometimes called NAT forwarding).",
+    "Turn off QoS or other bandwidth restrictions."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "UPnP, sometime known as NAT forwarding"
+  },
+  {
+   "id": "misc-2-lc-factory-default",
+   "devices": [
+    "clover-kds",
+    "acc-kds",
+    "acc-network"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "Clover Local Connect: start from the router's factory default settings",
+   "steps": [
+    "Most retail or small-business routers work in their default configuration.",
+    "If unsure, factory-reset the router following the maker's documentation, then set a router password.",
+    "Set the WAN or Internet connection type to what the network provider specifies, generally \"Dynamic IP\".",
+    "If the router has several WAN ports, make sure only one is enabled.",
+    "Check that the router firmware is current."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "lc",
+   "quote": "Perform a factory reset of the router to place it in the default configuration."
+  },
+  {
+   "id": "misc-2-kds14-caps",
+   "devices": [
+    "clover-kds"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kitchen Display (C700): remove the waterproof caps before connecting cables",
+   "steps": [
+    "Remove the waterproof caps first.",
+    "Then connect the cables."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kds14",
+   "quote": "Remove waterproof caps first."
+  },
+  {
+   "id": "misc-2-kds14-power-last",
+   "devices": [
+    "clover-kds"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kitchen Display (C700): plug the power in last",
+   "steps": [
+    "Connect everything else first.",
+    "Plug the power in last, into a grounded AC power outlet."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kds14",
+   "quote": "Plug in last, to a grounded AC power outlet."
+  },
+  {
+   "id": "misc-2-kds14-poe",
+   "devices": [
+    "clover-kds"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "Clover Kitchen Display (C700): power it from the network cable (PoE+)",
+   "steps": [
+    "On a network that supplies Power over Ethernet, the display's Power Over Ethernet port (IEEE 802.3at, PoE+) can power it instead of the power adapter.",
+    "Connect it only to PoE networks that do not route to outside plant."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kds14",
+   "quote": "On PoE-enabled networks, the Power Over Ethernet port (IEEE 802.3at, PoE+) can be used as an alternative source of power."
+  },
+  {
+   "id": "misc-2-kds14-stand",
+   "devices": [
+    "clover-kds",
+    "acc-clover-kds-stand",
+    "acc-clover-kds-wall-mount"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kitchen Display (C700): attach it to a stand or mount",
+   "steps": [
+    "The stand is not included with the display.",
+    "Follow the instructions that came with your stand to attach the screen.",
+    "The display uses a 100 mm VESA pattern with four M4 screws, maximum screw length 14 mm."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kds14",
+   "quote": "Use the instructions that came with your stand to attach screen."
+  },
+  {
+   "id": "misc-2-kds14-model",
+   "devices": [
+    "clover-kds"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Clover Kitchen Display System model number",
+   "steps": [
+    "The Clover Kitchen Display System covered by this quick start guide is model C700."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kds14",
+   "quote": "Clover Kitchen Display System Model Number: C700"
+  },
+  {
+   "id": "misc-2-kiosk-mount-stud",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kiosk Mounting Kit: fix to a wooden stud",
+   "steps": [
+    "Line the mount up with the stud.",
+    "Mark the holes.",
+    "Follow the pictures in the mounting kit guide for drilling and fixing."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "kmount",
+   "quote": "Line up to stud, mark holes",
+   "note": "The guide is almost entirely pictures; drill sizes shown are 3.18 mm (1/8 in) and 8 mm (5/16 in) but the text does not say which step each belongs to."
+  },
+  {
+   "id": "misc-2-kiosk-mount-wall",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kiosk Mounting Kit: sheet rock or concrete walls",
+   "steps": [
+    "Do not fix it yourself to sheet rock or concrete.",
+    "Consult your local contractor for mounting on these walls."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "kmount",
+   "quote": "Please consult your local contractor for mounting on sheet rock and concrete walls."
+  },
+  {
+   "id": "misc-2-kiosk-mount-vesa",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "Clover Kiosk Mounting Kit: countertop mounting and VESA pattern",
+   "steps": [
+    "The kit includes a drilling template for countertop mounting.",
+    "The mount is 100 mm VESA compatible."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kmount",
+   "quote": "100mm VESA compatible Compatible avec la norme VESA"
+  },
+  {
+   "id": "misc-2-kiosk-stand-cords",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kiosk Floor Stand: hide the cords",
+   "steps": [
+    "Run the cords inside the stand so they are hidden."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kstand",
+   "quote": "Hide cords inside stand."
+  },
+  {
+   "id": "misc-2-kiosk-stand-height",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "how-to",
+   "title": "Clover Kiosk Floor Stand: change the height",
+   "steps": [
+    "The stand height can be changed for accessibility.",
+    "Follow the pictures in the floor stand guide; hook in both sides to the stand."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kstand",
+   "quote": "Change stand height for accessibility."
+  },
+  {
+   "id": "misc-2-kiosk-stand-hook",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kiosk Floor Stand: hook in both sides",
+   "steps": [
+    "When fitting the kiosk to the stand, hook in both sides to the stand."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "kstand",
+   "quote": "Hook in both sides to stand"
+  },
+  {
+   "id": "misc-2-kiosk-stand-concrete",
+   "devices": [
+    "clover-kiosk"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Clover Kiosk Floor Stand: secure it to a concrete floor",
+   "steps": [
+    "The stand can be secured to concrete.",
+    "Use the drilling template in the guide; the hole depth shown is 60 mm (2 3/8 in).",
+    "The kit includes two 3/8 inch nuts."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "kstand",
+   "quote": "Secure to concrete. 73 mm",
+   "note": "Picture-based guide; anchor type is not named in the text."
+  },
+  {
+   "id": "misc-2-flexpocket-model",
+   "devices": [
+    "clover-flex-pocket"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Clover Flex Pocket model number",
+   "steps": [
+    "The Flex Pocket (Clover Flex 4 Pocket) is model C407.",
+    "Its quick start guide is pictures only and points to clover.com/help/flex-4-pocket for instructions."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "fpqsg",
+   "quote": "Clover Flex 4 Pocket Model Number: C407"
+  },
+  {
+   "id": "misc-2-diag-open",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "Clover: open the built-in device diagnostics",
+   "steps": [
+    "On the home screen tap the Help app.",
+    "Tap the menu icon, then Diagnostics.",
+    "The status bar shows basic information about the device's connection to Wi-Fi and to the server."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "Tap the menu icon > **Diagnostics**. The Diagnostics page appears.",
+   "note": "From Clover's developer site; Clover says you may be asked to use these tools while working with Clover Support."
+  },
+  {
+   "id": "misc-2-diag-connection",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Clover: view connection status and history",
+   "steps": [
+    "Open the Help app, tap the menu icon, then Diagnostics.",
+    "Tap Connection Status.",
+    "Review the Wi-Fi connection status, IP address, server and notification status."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "Review the Wi-Fi connection status, IP address, server, and notification status information.",
+   "note": "From Clover's developer site; Clover says you may be asked to use these tools while working with Clover Support."
+  },
+  {
+   "id": "misc-2-diag-speedtest",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Clover: test the network speed from the device",
+   "steps": [
+    "Open the Help app, tap the menu icon, then Diagnostics.",
+    "Tap Connection Status.",
+    "Tap Speed Test, then Begin Test.",
+    "The device sends test requests to the server and shows the result."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "A slow connection to the Clover server can cause some device issues.",
+   "note": "From Clover's developer site; Clover says you may be asked to use these tools while working with Clover Support."
+  },
+  {
+   "id": "misc-2-diag-printqueue",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "printer",
+   "kind": "fix",
+   "title": "Clover: a print job did not finish (check the print queue)",
+   "steps": [
+    "Open the Help app, tap the menu icon, then Diagnostics.",
+    "Tap Print Queue.",
+    "Tap Retry Print Jobs to retry pending jobs after adding paper or fixing a connection problem.",
+    "Tap Clear Queue to remove all pending print jobs.",
+    "Tap Set Up Printers to change a printer's configuration."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "To retry pending jobs (after adding paper or fixing a connection issue), tap **Retry Print Jobs**.",
+   "note": "From Clover's developer site; Clover says you may be asked to use these tools while working with Clover Support."
+  },
+  {
+   "id": "misc-2-diag-printqueue-60",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Clover: pending print jobs are dropped after 60 minutes",
+   "steps": [
+    "A print job that stays pending is removed from the queue automatically after 60 minutes."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "A pending print job is automatically removed from the queue after 60 minutes."
+  },
+  {
+   "id": "misc-2-diag-networkqueue",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "Clover: check for messages stuck waiting to send (network queue)",
+   "steps": [
+    "Open the Help app, tap the menu icon, then Diagnostics.",
+    "Tap Network Queue.",
+    "Review the pending network calls and their status.",
+    "Messages stay in the queue until the network problem is resolved."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "If a network failure or other issue prevents the message from being sent as expected, it remains in the queue until the problem is resolved.",
+   "note": "From Clover's developer site; Clover says you may be asked to use these tools while working with Clover Support."
+  },
+  {
+   "id": "misc-2-diag-merchant",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "Clover: check which merchant account the device is set up for, and its serial number",
+   "steps": [
+    "Open the Help app, tap the menu icon, then Diagnostics.",
+    "Scroll down and tap Additional Details.",
+    "Review the merchant name and the device serial number in the This Device field."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "diag",
+   "quote": "Scroll down on the page and tap **Additional Details**. The Additional Details page appears.",
+   "note": "From Clover's developer site; Clover says you may be asked to use these tools while working with Clover Support."
+  },
+  {
+   "id": "misc-2-offline-default",
+   "devices": [
+    "clover-mini",
+    "clover-flex"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "Clover: taking payments with no connection (offline payments)",
+   "steps": [
+    "By default Clover Mini and Flex take offline payments for up to 7 days.",
+    "While offline the device cannot check that the card is valid or has enough funds.",
+    "Merchants can turn offline payments off, or set limits on the amount per transaction or the total taken offline."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "off",
+   "quote": "By default, Clover Mini and Flex are set to take offline payments for up to 7 days.",
+   "note": "From Clover's developer site; it points to the merchant help page \"get funded for offline transactions\" for settings."
+  },
+  {
+   "id": "misc-2-offline-prompt",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "Clover with an integrated POS: prompt to accept or decline an offline payment",
+   "steps": [
+    "If the device is offline and the integrated POS allows offline payments, the merchant is asked to accept or decline the payment.",
+    "Accepting means taking the risk that the payment is later declined."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "off",
+   "quote": "If the device is offline and a payment is attempted, the merchant is prompted to accept or decline the payment",
+   "note": "Applies to semi-integrated (REST Pay) setups; behaviour depends on how the POS integration is configured."
+  },
+  {
+   "id": "misc-2-dup-prompt",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "Clover: possible duplicate payment warning",
+   "steps": [
+    "Clover flags a potential duplicate when a card with the same last 4 digits is used for more than one payment in an hour.",
+    "Check the transaction details.",
+    "Then accept the payment, or refund it if it really is a duplicate."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "dup",
+   "quote": "When this happens, the POS must prompt the merchant to verify the transaction details and give them the option to accept or refund the payment.",
+   "note": "From Clover's developer site, describing integrated POS setups."
+  },
+  {
+   "id": "misc-2-partial",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "Clover: card only paid part of the total (partial payment)",
+   "steps": [
+    "A partial payment can happen when the customer's card does not have enough funds for the whole amount.",
+    "Either accept the partial payment and take the remaining balance with a different card or other payment.",
+    "Or void the original transaction and let the customer pay again another way."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "part",
+   "quote": "Accept the partial payment and start a second transaction to pay the remaining balance with a different card or other form of payment.",
+   "note": "From Clover's developer site, describing integrated POS setups."
+  },
+  {
+   "id": "misc-2-cloudpay-unreachable",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "\"An error has occurred and we could not establish a connection to your Clover device ... Please manually start Cloud Pay Display on your Clover device and try again.\"",
+   "steps": [
+    "This message comes from a separate POS that is linked to the Clover device over the cloud.",
+    "It appears when the Cloud Pay Display app is not running on the Clover device.",
+    "Start Cloud Pay Display on the Clover device.",
+    "Try the payment again from the POS."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "stat",
+   "quote": "Please manually start Cloud Pay Display on your Clover device and try again."
+  },
+  {
+   "id": "misc-2-conflicting-request",
+   "devices": [
+    "clover-station-duo",
+    "clover-station-solo",
+    "clover-mini",
+    "clover-flex",
+    "clover-flex-pocket",
+    "clover-compact"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "\"Conflicting request (...) currently in progress\"",
+   "steps": [
+    "This message comes from a separate POS linked to the Clover device.",
+    "It means the POS sent a new request while the Clover device was still working on the previous one, for example a payment still waiting for the customer.",
+    "Let the customer finish the payment on the Clover device, or wait for it to time out, before sending anything else."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "stat",
+   "quote": "If the POS makes a request while the Clover device is still processing a previous request, an error message is returned."
+  },
+  {
+   "id": "misc-2-br-led-off",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB Status LED: not lit",
+   "steps": [
+    "The power is off.",
+    "Press the Power button to turn the printer on; the Status LED turns green."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "On: Press the Power ( ) Button to turn the Label Printer On. The Status LED turns green."
+  },
+  {
+   "id": "misc-2-br-led-green",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB Status LED: steady green",
+   "steps": [
+    "Normal. The printer is idle, starting up, feeding, printing, cutting, in mass storage mode or in WPS setting mode."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "The Label Printer is in one of the following modes:"
+  },
+  {
+   "id": "misc-2-br-led-green-flash",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB Status LED: flashing green",
+   "steps": [
+    "The printer is receiving data or canceling the print job.",
+    "Wait until it stops flashing."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "The Label Printer is doing one of the following:",
+   "note": "\"Wait until the Status LED stops flashing and then try printing again\" is the guide's advice for a data transmission error."
+  },
+  {
+   "id": "misc-2-br-led-orange",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: steady orange",
+   "steps": [
+    "Check the DK Roll Compartment Cover and close it correctly.",
+    "Steady orange also shows while the printer is in resetting mode, or in System off mode."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "The DK Roll Compartment Cover is open. Close the DK Roll Compartment Cover correctly."
+  },
+  {
+   "id": "misc-2-br-led-orange-cool",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: orange flashing continuously at 0.5 second intervals",
+   "steps": [
+    "The printer is in Cooling mode."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "If the orange light flashes at 0.5 second intervals continuously, the Label Printer is in Cooling mode"
+  },
+  {
+   "id": "misc-2-br-led-orange-3",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB Status LED: orange flashes three times at 0.5 second intervals",
+   "steps": [
+    "Nothing is wrong: the printer is being discovered by another device."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "If the orange light flashes at 0.5 second intervals three times, the Label Printer is being"
+  },
+  {
+   "id": "misc-2-br-led-red",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: steady red",
+   "steps": [
+    "The printer is in Boot mode.",
+    "Contact Brother Customer Service."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "brand",
+   "source": "bqsg",
+   "quote": "The Label Printer is in Boot mode"
+  },
+  {
+   "id": "misc-2-br-led-red-1s",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: red flashing at one second intervals",
+   "steps": [
+    "One of these errors has occurred: roll end, no media, wrong media, feed error, cover open, transferred data error, memory full, or access point connection error.",
+    "To reset an error, open the DK Roll Compartment Cover and close it.",
+    "If it is not reset, press the Cutter button.",
+    "If it is still not reset, turn the printer off and on again.",
+    "If it is still not reset, contact Brother Customer Service."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "If the red light flashes at one second intervals, one of the following errors has occurred:"
+  },
+  {
+   "id": "misc-2-br-led-red-twice",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: red off for one second, then two rapid flashes",
+   "steps": [
+    "One of these errors has occurred: cutter error, mass storage error, USB host power supply excessive voltage error, or USB host unsupported device connection error.",
+    "For a cutter error keep the DK Roll Compartment Cover closed and press the Power button; the cutter returns to its normal position and the printer turns off.",
+    "When the printer is off, check the Label Output Slot and remove any jammed labels."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "If the red light is off for one second, flashes twice rapidly*, and goes off again, then one of the",
+   "note": "Rapidly means at 0.3 second intervals."
+  },
+  {
+   "id": "misc-2-br-led-red-hub",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: red, one second off then three rapid flashes",
+   "steps": [
+    "A USB host hub connection error has occurred."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "rapidly on, then a USB host hub connection error has occurred.",
+   "note": "The guide names the error only; it gives no fix here."
+  },
+  {
+   "id": "misc-2-br-led-red-rapid",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Brother QL-1110NWB Status LED: red flashing rapidly",
+   "steps": [
+    "There is a system error.",
+    "Contact Brother Customer Service."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "brand",
+   "source": "bqsg",
+   "quote": "If the red light flashes rapidly*, there is a system error.",
+   "note": "Rapidly means at 0.3 second intervals. Pressing a button other than Power changes the flash pattern according to the cause."
+  },
+  {
+   "id": "misc-2-br-wifi-led",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB Wi-Fi LED: what it means",
+   "steps": [
+    "Not lit: Wi-Fi is off.",
+    "Steady green: Wi-Fi is on and connected.",
+    "Green on for one second, off for two seconds, repeating: Wi-Fi is on but not connected."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "If the green light is on for one second, off for two seconds, and then repeats, the Wi-Fi is on but"
+  },
+  {
+   "id": "misc-2-br-bt-led",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB Bluetooth LED: what it means",
+   "steps": [
+    "Not lit: Bluetooth is off.",
+    "Steady blue: Bluetooth is on.",
+    "Blue flashing at 0.5 second intervals: the printer is pairing.",
+    "Blue flashing at 1 second intervals: the printer is automatically reconnecting."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "If the blue light flashes at 1 second intervals, the Label Printer is automatically reconnecting."
+  },
+  {
+   "id": "misc-2-br-power-off",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "power",
+   "kind": "how-to",
+   "title": "Brother QL-1110NWB: turn it off without unplugging too early",
+   "steps": [
+    "Press and hold the Power button to turn the printer off.",
+    "Do not disconnect the AC power cord until the orange Status LED turns off."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "When turning the Label Printer Off, do not disconnect the AC Power Cord until the orange Status LED turns Off."
+  },
+  {
+   "id": "misc-2-br-feed-align",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "Brother QL-1110NWB: align the label roll after turning on",
+   "steps": [
+    "After turning the printer on, press the Feed button to align the end of the DK Roll."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "Press the Feed ( ) Button to align the end of the DK Roll."
+  },
+  {
+   "id": "misc-2-br-usb",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Brother QL-1110NWB: connect by USB cable",
+   "steps": [
+    "Turn the printer off.",
+    "Connect the USB cable to the USB port on the back of the printer.",
+    "Connect the other end to the computer's USB port.",
+    "Turn the printer on."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "Connect the USB Cable to the USB Port on the back of the Label Printer."
+  },
+  {
+   "id": "misc-2-br-lan",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Brother QL-1110NWB: connect by network (LAN) cable",
+   "steps": [
+    "Turn the printer off.",
+    "Connect the LAN cable to the LAN port on the back of the printer.",
+    "Connect the other end to an active LAN port on the network.",
+    "Turn the printer on."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "Connect the LAN cable to an active LAN Port on the network."
+  },
+  {
+   "id": "misc-2-br-box",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB: what is in the box (US)",
+   "steps": [
+    "The box holds the label printer, AC power cord, USB cable, a starter DK roll, and the printed guides and warranty card.",
+    "Two starter rolls are included: die-cut 4.07 x 6.4 inch labels (40 labels) and a 2.4 inch continuous black roll.",
+    "If anything is missing or damaged, contact your Brother dealer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "The Brother QL-1110NWB includes the following two starter rolls:"
+  },
+  {
+   "id": "misc-2-br-us-power",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "Brother QL-1110NWB (US edition): power supply and auto power-off",
+   "steps": [
+    "The US model runs on 120 V AC, 60 Hz.",
+    "It has an Auto Power-off setting that can be Off, 1, 2, 4, 8 or 12 hours."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bug",
+   "quote": "Power Supply 120 V AC 60 Hz 1.6 A",
+   "note": "US edition of the user's guide; the earlier accessories entries came from the UK (220-240 V) edition."
+  },
+  {
+   "id": "misc-2-br-cutter-jam-us",
+   "devices": [
+    "acc-brother-ql1110nwb"
+   ],
+   "topic": "printer",
+   "kind": "fix",
+   "title": "Brother QL-1110NWB: cutter error (US guide)",
+   "steps": [
+    "Keep the DK Roll Compartment Cover closed.",
+    "Press the Power button; the cutter moves back to its normal position and the printer turns off by itself.",
+    "Once it is off, check the Label Output Slot and remove any jammed labels.",
+    "If labels are jammed in the cutter itself, contact Brother Customer Service."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "bqsg",
+   "quote": "check the Label Output Slot and remove any jammed labels.",
+   "note": "Same wording as the UK guide already in the accessories library; confirmed in the US edition."
+  },
+  {
+   "id": "misc-2-ep-leds",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Epson TM-U220II: what the three control panel lights mean",
+   "steps": [
+    "POWER: lit when the power is on.",
+    "ERROR: lit when the printer is offline (roll paper at the end, or the roll paper cover open); off in normal operation; flashing when an error occurs.",
+    "PAPER OUT: lit when the roll paper is out or nearly out."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Lights when the printer is offline (when the roll paper is at the end, or the"
+  },
+  {
+   "id": "misc-2-ep-feed-noout",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Epson TM-U220II: FEED button does nothing",
+   "steps": [
+    "The FEED button cannot feed paper while the printer detects that paper is out.",
+    "The PAPER OUT light is lit when roll paper is out or nearly out."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Paper cannot be fed by using this button when a paper out is detected."
+  },
+  {
+   "id": "misc-2-ep-nolights",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "power",
+   "kind": "fix",
+   "title": "Epson TM-U220II: no lights on the control panel",
+   "steps": [
+    "Check the power supply cable connections.",
+    "Check the power outlet."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Check the power supply cable connections and the power outlet."
+  },
+  {
+   "id": "misc-2-ep-error-led",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "error-code",
+   "kind": "fix",
+   "title": "Epson TM-U220II: ERROR light is flashing or lit (user manual checklist)",
+   "steps": [
+    "The print head may be too hot or too cold: wait, and printing resumes by itself.",
+    "Make sure the roll paper cover is properly closed.",
+    "On Types A and B the autocutter may be locked up; a simple lock-up clears itself, otherwise return the blade to its normal position by hand.",
+    "Check for a paper jam and remove the jammed paper.",
+    "Turn the power off, wait several seconds, then turn it on again.",
+    "If the error remains, contact a qualified service person."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Turn off the power, wait several seconds, and then turn it on again."
+  },
+  {
+   "id": "misc-2-ep-cutter-blade",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "fix",
+   "title": "Epson TM-U220II (Types A and B): return the autocutter blade to its normal position",
+   "steps": [
+    "Open the roll paper cover using the tab.",
+    "With a ballpoint pen or tweezers, turn the autocutter knob in the direction of the arrow until you see a round shaft in the hole."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Use a ballpoint pen or tweezers to turn the knob of the autocutter in"
+  },
+  {
+   "id": "misc-2-ep-jam",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "fix",
+   "title": "Epson TM-U220II: remove jammed paper (user manual)",
+   "steps": [
+    "Let the print head cool first; it gets very hot during printing.",
+    "Open the roll paper cover using the tab.",
+    "On a Type A printer, remove the take-up spool and open the unit with the unit open lever.",
+    "Remove the jammed paper.",
+    "Put the roll paper back in and close the roll paper cover."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Re-insert the roll paper and close the roll paper cover."
+  },
+  {
+   "id": "misc-2-ep-switch-cover",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "Epson TM-U220II: power switch is behind a cover",
+   "steps": [
+    "The power switch is on the front of the printer.",
+    "If the power switch cover is fitted, insert a thin tool into one of the holes in the cover to work the switch.",
+    "If the printer will be stored or unused for a long time, turn it off with the power switch."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "cover attached, you can insert a thin tool into one of the holes in the"
+  },
+  {
+   "id": "misc-2-ep-psu",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "power",
+   "kind": "fix",
+   "title": "Epson TM-U220II: printing stops part-way or the same line prints again and again (wrong power supply)",
+   "steps": [
+    "Make sure the correct power supply unit is connected.",
+    "For the TM-U220II (Types A, B and D) the manual lists \"AC adapter,C1\", \"PS-180\" or \"PS-190\"."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "If the correct power supply unit is not used, the printer cannot operate"
+  },
+  {
+   "id": "misc-2-ep-cover-closed",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Epson TM-U220II: do not open the cover while printing",
+   "steps": [
+    "Do not open the roll paper cover during printing or paper feeding, or while the autocutter is working.",
+    "After feeding, cut the paper with the manual cutter."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "Do not open the roll paper cover during printing or paper feeding."
+  },
+  {
+   "id": "misc-2-ep-ribbon",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "Epson TM-U220II: fit the ribbon cassette (user manual steps)",
+   "steps": [
+    "Let the print head cool before replacing the ribbon.",
+    "Open the ribbon cassette cover using the tabs on its sides.",
+    "Turn the cassette knob two or three times in the direction of the arrow; never turn it the other way.",
+    "Put the ribbon in position and push the cassette down until it clicks; the ribbon must sit between the print head and the platen without wrinkles.",
+    "Turn the knob two or three times again and close the cover.",
+    "To remove a cassette, lift its left side first, then the whole cassette.",
+    "Use the EPSON ERC-38 ribbon cassette."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "push the ribbon cassette down until it clicks."
+  },
+  {
+   "id": "misc-2-ep-2ply",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "Epson TM-U220II: loading 2-ply roll paper",
+   "steps": [
+    "Note the direction the paper comes off the roll.",
+    "With 2-ply paper make sure the top and bottom sheets are aligned at the paper exit."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "When using 2-ply roll paper, be sure that the top and bottom sheets are"
+  },
+  {
+   "id": "misc-2-ep-selftest",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "Epson TM-U220II: self-test (user manual)",
+   "steps": [
+    "Make sure all covers are closed.",
+    "Press and hold the FEED button while turning the power on, and keep holding until printing starts.",
+    "The printer status prints, then a self-test continuation guide prints and the PAPER OUT light blinks."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "printed and the (PAPER OUT) LED blinks."
+  },
+  {
+   "id": "misc-2-ep-box",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "Epson TM-U220II: what is in the box",
+   "steps": [
+    "Printer, exclusive ribbon cassette ERC-38(B/R) and power supply switch cover.",
+    "Roll paper, AC adapter and locking wire saddle may not be included.",
+    "If any item is damaged, contact your dealer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "eum",
+   "quote": "The following items are included for the standard specification printer."
+  },
+  {
+   "id": "misc-2-ep-smoke",
+   "devices": [
+    "acc-epson-tmu220"
+   ],
+   "topic": "power",
+   "kind": "fix",
+   "title": "Epson TM-U220II: smoke, strange smell, unusual noise, or liquid spilled inside",
+   "steps": [
+    "Shut the printer down immediately and unplug it.",
+    "Do not keep using it.",
+    "Contact qualified service personnel; never try to repair it yourself."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "eum",
+   "quote": "Shut down your equipment immediately if it produces smoke, a strange odor, or unusual"
+  },
+  {
+   "id": "misc-2-union-support-contact",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Union support: phone, text, email and hours",
+   "steps": [
+    "Union Support is open 24 hours a day, 365 days a year.",
+    "Call or text 855-384-6839.",
+    "Or email support@getunion.com.",
+    "Support is at no charge."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "usup",
+   "quote": "24 hours a day, 365 days a year",
+   "note": "From Union's own support page; the phone number appears on the page as \"PHONE or TEXT SUPPORT 855-384-6839\"."
+  },
+  {
+   "id": "misc-2-union-support-text",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Union support: texting the support number",
+   "steps": [
+    "You can text Union's support number instead of calling.",
+    "By texting it you agree to get text replies to that mobile number; reply STOP to cancel."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "usup",
+   "quote": "By texting our support number, you agree to receive text msgs back to the originating mobile number"
+  },
+  {
+   "id": "misc-2-union-training",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Union: free weekly live training sessions",
+   "steps": [
+    "Union runs free virtual training sessions open to operators, managers and staff.",
+    "Front-of-house sessions: every Monday at 12PM CST and every Friday at 2PM CST.",
+    "Back-of-house (owners, managers) session: every Tuesday at 1PM CST.",
+    "Join links are on Union's virtual training page."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "utrain",
+   "quote": "EVERY MONDAY at 12PM CST"
+  },
+  {
+   "id": "misc-2-union-ttp-start",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "Union Pocket: get started with Tap to Pay on iPhone",
+   "steps": [
+    "Download the Union Pocket Handheld POS app.",
+    "Complete the sign-up information.",
+    "Accept in-person contactless payments on the iPhone.",
+    "No card reader or other hardware is needed."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "uttp",
+   "quote": "Download the Union Pocket Handheld POS app.",
+   "note": "Union's page gives only these three steps; existing merchants are told to \"Get Activated\"."
+  },
+  {
+   "id": "misc-2-union-ttp-requirements",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Union Tap to Pay on iPhone: requirements and limits",
+   "steps": [
+    "Tap to Pay on iPhone needs the latest version of iOS.",
+    "Some contactless cards may not be accepted.",
+    "Transaction limits may apply.",
+    "It is not available in all markets."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "uttp",
+   "quote": "Tap to Pay on iPhone requires a supported payment app and the latest version of iOS. Some contactless cards may not be accepted by your payment app."
+  },
+  {
+   "id": "misc-2-union-ttp-accepts",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Union Tap to Pay on iPhone: what it can take",
+   "steps": [
+    "It takes in-person contactless payments: physical contactless debit and credit cards, Apple Pay and other digital wallets.",
+    "The guest taps their card, smartphone or wearable on the iPhone."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "upok",
+   "quote": "Guest taps their card, smartphone, or wearable onto NFC within the iPhone."
+  },
+  {
+   "id": "misc-2-union-iphone-model",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "Union Pocket (POS on iPhone): which iPhones work",
+   "steps": [
+    "Union Pocket works with any iPhone 12 or later.",
+    "Merchants can use their own compatible iPhones.",
+    "The app installs directly from the App Store."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "upok",
+   "quote": "Union Pocket is compatible with any iPhone 12 and later models"
+  },
+  {
+   "id": "misc-2-union-other-pay",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "Union Pocket: taking payment without a card reader",
+   "steps": [
+    "Tap to Pay on iPhone: the guest taps their card or phone on the iPhone.",
+    "Scan to Pay: the guest scans a QR code with their own phone.",
+    "Guest-led digital payment: the guest pays from their own phone."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "upok",
+   "quote": "Guest uses personal mobile device to scan QR code for swift transactions."
+  },
+  {
+   "id": "misc-2-union-field-support",
+   "devices": [
+    "pos-on-iphone"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "Union: local field support markets",
+   "steps": [
+    "Union lists local field support in NYC, Austin, Dallas, Tampa, Charleston and Portland, OR.",
+    "Elsewhere, call or text Union's 24/7 support line."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "ucs",
+   "quote": "Local Field Support available in major markets"
+  }
+ ],
+ "not_found": [
+  "Epson TM-m30III user's manual: support.epson.net/publist/bsredirect.php?code=m001464 and download4.epson.biz/sec_pubs/bs/html/m001464/en/ (index and chap08_2.html) still answer \"Access Denied\" (Akamai) to both plain and --browser fetches. Nothing new for acc-epson-tmm30iii.",
+  "Epson TM-U220 (original, non-II) user's manual: not reachable; the epson.com support page for the TM-U220 renders \"item not available in this country\". The TM-U220II User's Manual was reached on files.support.epson.com and is used instead.",
+  "Epson TM-U220II user manual gives no blink-count table for the ERROR light; it only says the light flashes on error and lists checks. The per-error patterns remain those already taken from the Technical Reference Guide in the accessories library.",
+  "Brother support.brother.com FAQs for the QL-1110NWB: the FAQ top page loads (category names only) but every FAQ category, search and popular/latest list page returns HTTP 403, with and without --browser, so no individual FAQ article could be read.",
+  "Brother US user's guide: the LED table shows colours and patterns as pictures; the US Quick Setup Guide states them in words and was used for the LED entries.",
+  "Clover Flex Pocket Quick Start Guide: pictures only; the text holds just the model number (C407) and regulatory notices. Nothing on card-reader faults.",
+  "Clover Kiosk Mounting Kit and Floor Stand guides: almost entirely pictures; only a handful of captions are in text.",
+  "Clover 14-inch KDS Quick Start Guide (C700): setup captions only (caps, power last, PoE+); no troubleshooting.",
+  "docs.clover.com: no table of decline or response codes shown on the Clover device screen or receipt. The only code tables are HTTP/API codes (skipped) and the Ecommerce \"Message to buyer\" table (taken, 20 rows, flagged as online-checkout messages). The UI state reference shows device screens as images with no message text.",
+  "Union (getunion.com): no troubleshooting for Tap to Pay on iPhone, sign-in, app updates, or receipt/kitchen printers; the site is marketing pages plus the support contact page. The Tap to Pay how-to is a video (mp4) only.",
+  "Logic Controls KB9000 bump bar: still no maker document; the bump bar entries here are Clover's guide for the Clover KDS bump bar."
+ ],
+ "blocked": [
+  {
+   "url": "https://support.epson.net/publist/bsredirect.php?code=m001464",
+   "what": "Epson TM-m30III user's manual redirect: Access Denied (bot protection) even with --browser, although the host is now allowed."
+  },
+  {
+   "url": "https://download4.epson.biz/sec_pubs/bs/html/m001464/en/chap08_2.html",
+   "what": "Epson TM-m30III user's manual troubleshooting chapter: Access Denied even with --browser."
+  },
+  {
+   "url": "https://support.brother.com/g/b/faqcategory.aspx?c=us&lang=en&prod=lpql1110nwbeus&ftype2=10053",
+   "what": "Brother QL-1110NWB FAQ category \"Error Messages/LED Indications\" (and all other FAQ category/list pages): HTTP 403 from the site; only faqtop.aspx loads."
+  },
+  {
+   "url": "https://getunion.com/wp-content/uploads/2025/08/How-to-Video_Short15_Social_Tap-to-Pay-on-iPhone-1.mp4",
+   "what": "Union's Tap to Pay on iPhone how-to (video only, no text)."
+  }
+ ]
+}

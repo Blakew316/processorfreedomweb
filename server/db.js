@@ -131,6 +131,8 @@ export function openDb(dataDir) {
   addColumn('appointments', 'paid_method', "TEXT NOT NULL DEFAULT ''");
   addColumn('members', 'details', "TEXT NOT NULL DEFAULT '{}'");
   addColumn('contacts', 'more', "TEXT NOT NULL DEFAULT '{}'");
+  // Scout: the equipment on file for a business, and each question asked (kept 30 days, for the report and callbacks).
+  db.exec('CREATE TABLE IF NOT EXISTS scout_profiles (site_id TEXT PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE, devices TEXT NOT NULL DEFAULT \'[]\', network TEXT NOT NULL DEFAULT \'\', updated_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS scout_turns (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, user_id TEXT NOT NULL, chat_id TEXT NOT NULL, question TEXT NOT NULL, reply TEXT NOT NULL, department TEXT NOT NULL DEFAULT \'none\', solved INTEGER NOT NULL DEFAULT 0, entries TEXT NOT NULL DEFAULT \'[]\', created_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS scout_turns_site ON scout_turns(site_id, created_at);');
   db.exec('CREATE TABLE IF NOT EXISTS resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)');
   // Links staff make for a locked-out merchant sign in even with two-step on; links from the email do not.
   addColumn('resets', 'staff', 'INTEGER NOT NULL DEFAULT 0');

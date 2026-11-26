@@ -1,0 +1,1030 @@
+{
+ "family": "fiserv-2",
+ "devices": [
+  "fd150",
+  "rp10"
+ ],
+ "platform_notes": "Gap-fill for library/fiserv-swipesimple.json. The FD150 runs First Data / Fiserv's own terminal application (home screen with Sale and Other; batch close under Other), and the RP10 is its USB PIN pad. The First Data guides found are short getting-started documents; the long guide Paysafe posts under the FD150 name is an Australian EFTPOS edition with different menus.",
+ "sources": [
+  {
+   "id": "s1",
+   "url": "https://cdn.shopify.com/s/files/1/0398/6571/2793/files/MIS-FD150UGUIDE.pdf",
+   "title": "Getting started with your First Data terminal (FD150 user guide, MIS-FD150UGUIDE Mar 2020)",
+   "publisher": "First Data / Fiserv (maker's guide; copy hosted on a reseller's Shopify store)",
+   "tier": 1,
+   "local": "raw/fiserv-2/fd150-userguide.txt"
+  },
+  {
+   "id": "s2",
+   "url": "https://cdn.shopify.com/s/files/1/0398/6571/2793/files/fd150_quick_setup_guide.pdf",
+   "title": "First Data FD150 Terminal Quick set-up guide (2019-10)",
+   "publisher": "First Data / Fiserv (maker's guide; copy hosted on a reseller's Shopify store)",
+   "tier": 1,
+   "local": "raw/fiserv-2/fd150-quicksetup.txt"
+  },
+  {
+   "id": "s3",
+   "url": "https://www.townebank.com/TowneBank/media/Documents-and-Policies/QuickSetUpGuideRP10PINPad.pdf",
+   "title": "First Data RP10 PIN Pad Quick set-up guide (2019-10)",
+   "publisher": "First Data / Fiserv (maker's guide; copy hosted by TowneBank)",
+   "tier": 1,
+   "local": "raw/fiserv-2/rp10-quicksetup.txt"
+  },
+  {
+   "id": "s4",
+   "url": "https://static-or00.inbenta.com/b6e2965a19c08c9e0e6ba10d41127ac7849b16117a1ce6818e2e1039504129ad/POS%20Terminal%20QRG%20Files/First%20Data%20-%20FD150%20Quick%20Reference%20Guide-Long.pdf",
+   "title": "First Data FD150 User Guide for countertop and mobile terminals (2017, Australian EFTPOS edition), linked from Paysafe Help Center question 244",
+   "publisher": "Paysafe Help Center (hosting a First Data Australia guide; treated as tier 2 because it describes a different software build from the US FD150)",
+   "tier": 2,
+   "local": "raw/fiserv-2/paysafe-fd150-qrg-long.txt"
+  }
+ ],
+ "entries": [
+  {
+   "id": "fiserv-2-fd150-port-colours",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "FD150: which cable goes in which port (colour codes)",
+   "steps": [
+    "The telephone port is blue.",
+    "The Ethernet port is yellow.",
+    "The USB ports are black.",
+    "The RS-232 port is green.",
+    "Port positions can vary by terminal model, but the colour codes are the same on all terminals."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Color codes are the same on all terminals."
+  },
+  {
+   "id": "fiserv-2-fd150-needs-internet",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "FD150: what connection the terminal needs",
+   "steps": [
+    "The terminal needs a connection such as DSL, cable or dial-up.",
+    "If you use dial-up, a dedicated phone line is recommended."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Using your terminal requires an Internet connection, such as DSL,"
+  },
+  {
+   "id": "fiserv-2-fd150-paper-leading-edge",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "FD150: load a paper roll (user guide)",
+   "steps": [
+    "Open the printer cover's latch.",
+    "Put the roll of paper into the printer.",
+    "Make sure the leading edge of the paper comes out at the bottom edge of the printer.",
+    "Close the cover and tear off any extra paper."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "the leading edge of the paper"
+  },
+  {
+   "id": "fiserv-2-fd150-power-home-screen",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "power",
+   "kind": "install",
+   "title": "FD150: connect power and check it starts",
+   "steps": [
+    "Plug the power cord into the power adapter.",
+    "Connect the small end of the power plug to the terminal.",
+    "Turn the plug so the cord points toward the back of the terminal and lies flat underneath it.",
+    "Plug the power cord into a surge protector (recommended) or a standard outlet.",
+    "The screen lights up and shows the home screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Rotate the plug so that the cord is pointed toward the back of the"
+  },
+  {
+   "id": "fiserv-2-fd150-wifi-requirements",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "FD150: what you need for Wi-Fi",
+   "steps": [
+    "You need a wireless access point, modem or router that supports 802.11 b/g/n.",
+    "You also need broadband internet service."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "router supporting 802.11 b/g/n; and"
+  },
+  {
+   "id": "fiserv-2-fd150-wifi-setup-security",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "FD150: set up Wi-Fi from the Tool icon",
+   "steps": [
+    "Touch the Tool icon on the home screen.",
+    "Touch Wi-Fi, then Security.",
+    "Check that the security mode matches your Wi-Fi system's settings.",
+    "Make sure the network name (SSID) and the password (key) match your Wi-Fi system settings."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "the Tool icon displayed on the home screen. Touch Wi-Fi then Security."
+  },
+  {
+   "id": "fiserv-2-fd150-wifi-security-mode",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "FD150: Wi-Fi will not connect: check the security mode",
+   "steps": [
+    "Touch the Tool icon, then Wi-Fi, then Security.",
+    "Check that the security mode matches your Wi-Fi system (WPA1-TKIP, WPA1-AES or WPA2-AES).",
+    "To change it, touch the drop-down arrow and pick a new option."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Verify the security mode matches your Wi-Fi system\u2019s settings"
+  },
+  {
+   "id": "fiserv-2-fd150-wifi-ssid-case",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "FD150: Wi-Fi network name is case sensitive; a USB keyboard can be used to type it",
+   "steps": [
+    "The network name (SSID) is case sensitive and can be up to 32 bytes long.",
+    "Enter the SSID and the password (key) exactly as set on your Wi-Fi system.",
+    "A USB keyboard may be connected to the terminal to enter this information."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "your Wi-Fi system settings. A USB keyboard may be connected to"
+  },
+  {
+   "id": "fiserv-2-fd150-wifi-signal",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "FD150: check Wi-Fi signal strength",
+   "steps": [
+    "Go back to the home screen.",
+    "Touch the Tool icon.",
+    "Touch Wi-Fi, then View Status."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "icon, then Wi-Fi and View Status."
+  },
+  {
+   "id": "fiserv-2-fd150-settle-manual",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "FD150: settle (close) the batch by hand (First Data user guide)",
+   "steps": [
+    "From the home screen, select Other.",
+    "Select CLOSE or Close Batch (the wording depends on the terminal model).",
+    "Select OK on the touch screen.",
+    "The terminal completes the batch settlement."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Depending on your specific terminal model, select"
+  },
+  {
+   "id": "fiserv-2-fd150-auto-close",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "batch",
+   "kind": "reference",
+   "title": "FD150: turn on automatic batch close",
+   "steps": [
+    "The terminal can be set to auto-close the batch, or you can close it by hand.",
+    "Auto-close settings are set up by the help desk.",
+    "Call the help desk number on the sticker on the side of the device."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s1",
+   "quote": "For auto-close settings, please call the help desk (see sticker on"
+  },
+  {
+   "id": "fiserv-2-fd150-chip-stay-in",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "FD150: the chip card must stay in the slot until prompted",
+   "steps": [
+    "The customer inserts the chip card into the slot at the front of the terminal or PIN pad (the dip slot).",
+    "Leave the card in the slot until the device prompts the customer to remove it."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Reminder. the chip card must remain in the dip slot until the"
+  },
+  {
+   "id": "fiserv-2-fd150-pin-prompt-bypass",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "FD150: PIN prompt during a sale",
+   "steps": [
+    "Follow the on-screen prompts.",
+    "If prompted, the customer enters their PIN.",
+    "The customer can press Cancel X to bypass the PIN."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "If prompted, your customer will enter their PIN or can press"
+  },
+  {
+   "id": "fiserv-2-fd150-receipt-prompt",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "FD150: customer receipt prompt, and how to skip it",
+   "steps": [
+    "The device prints a receipt automatically or prompts for the customer receipt.",
+    "To skip the customer receipt, press ENTER or CANCEL (the red button)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "customer receipt. To skip this step, press ENTER or CANCEL"
+  },
+  {
+   "id": "fiserv-2-fd150-refund-userguide",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "FD150: refund a card (First Data user guide)",
+   "steps": [
+    "From the home screen, select Other.",
+    "Select Refund.",
+    "Enter the amount.",
+    "Have the customer insert, swipe or tap their card.",
+    "Select Credit.",
+    "The device prints a receipt or prompts for the customer receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Instruct your customer to insert, swipe or tap their card."
+  },
+  {
+   "id": "fiserv-2-fd150-more-help",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "FD150: where the guide sends you for more help",
+   "steps": [
+    "The guide covers only the most common transactions.",
+    "For more detail it points to businesstrack.com/terminalguides.",
+    "For questions, call the help desk at the number on the sticker on the device."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "help desk at the number on the sticker on your device."
+  },
+  {
+   "id": "fiserv-2-fd150-box-contents",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "FD150: what is in the box",
+   "steps": [
+    "First Data FD150 terminal.",
+    "Thermal paper roll.",
+    "Telephone cord and/or Ethernet cable.",
+    "Two-piece AC power supply."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Two-piece AC Power Supply"
+  },
+  {
+   "id": "fiserv-2-fd150-what-else-needed",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "FD150: what else you need for each connection type",
+   "steps": [
+    "Cable internet: a router, a modem, an Ethernet cable and a coaxial cable.",
+    "DSL: a router, a modem and two Ethernet cables.",
+    "Dial-up: a splitter is optional."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "If connecting through DSL:\n\n\u2022 Router\n\u2022 Modem\n\u2022 Ethernet Cable (2)"
+  },
+  {
+   "id": "fiserv-2-fd150-surge-protector",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "FD150: use a surge protector or UPS",
+   "steps": [
+    "To prevent damage to the terminal and connected devices, plug it into a surge protector or a UPS with battery backup and phone/fax protection."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "we strongly recommend using a surge protector or UPS"
+  },
+  {
+   "id": "fiserv-2-fd150-placement",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "FD150: where to put the terminal",
+   "steps": [
+    "Place the terminal on a desk or tabletop.",
+    "Keep it away from direct sunlight and objects that give off heat.",
+    "Keep it away from heavy dust.",
+    "Keep it away from other electrical devices that can cause excessive voltage."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Place the terminal on a desk or tabletop. Avoid areas with\ndirect sunlight, objects that radiate heat, excessive dust"
+  },
+  {
+   "id": "fiserv-2-fd150-paper-load-setup",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "FD150: load paper (quick set-up guide), and the recommended paper",
+   "steps": [
+    "Pop the printer cover's latch and lift the cover.",
+    "Load a roll of paper into the printer. Appleton POS Grade Plus 600-2.4 is the recommended paper.",
+    "The thermal print side of the paper should feed out facing the operator.",
+    "Close the cover and tear off any extra paper."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "The thermal print-side of the\npaper will feed out facing the operator."
+  },
+  {
+   "id": "fiserv-2-fd150-setup-time",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "FD150: how long set-up takes",
+   "steps": [
+    "Typical set-up time is 10 to 15 minutes."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Typical set-up time: 10 \u201315 minutes"
+  },
+  {
+   "id": "fiserv-2-fd150-optional-device-ports",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "FD150: where an RP10 PIN pad or check reader plugs in",
+   "steps": [
+    "An extra device such as the RP10 PIN pad or a MagTek MiniMICR check reader connects to either the USB or the RS-232 port.",
+    "Follow the instructions that came with that device."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "you can\nnow connect them to either the USB or RS-232 port"
+  },
+  {
+   "id": "fiserv-2-fd150-peripherals-before-power",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "FD150: connect all accessories before plugging in power",
+   "steps": [
+    "Connect all peripherals to the terminal first.",
+    "Connect the power supply last.",
+    "Plugging in power before the peripherals may damage the terminal or the connected devices."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Before using the power supply, please connect all peripherals\nto the terminal. Not doing so may result in damage to the\nunit or connected devices."
+  },
+  {
+   "id": "fiserv-2-fd150-power-plug-in",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "power",
+   "kind": "install",
+   "title": "FD150: plug in the power (quick set-up guide)",
+   "steps": [
+    "Connect the power cord to the power supply using the three-prong end.",
+    "Find the power input on the right side of the terminal and plug the single-pole adapter plug into it.",
+    "Turn the plug so the cord points toward the back of the terminal.",
+    "Plug the adapter into a surge protector (strongly recommended) or a standard 120V outlet."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "The power supply should be the last item connected to the unit."
+  },
+  {
+   "id": "fiserv-2-fd150-internal-battery",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "FD150: internal battery warning (CR2032)",
+   "steps": [
+    "The terminal has a 3V CR2032 battery.",
+    "There is a risk of explosion if it is replaced with the wrong type.",
+    "Used batteries must be disposed of according to local regulations."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s2",
+   "quote": "Caution: Risk of explosion if the battery is replaced by an\nincorrect type."
+  },
+  {
+   "id": "fiserv-2-fd150-swipe-howto",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "FD150: swipe a card",
+   "steps": [
+    "With the idle message on the screen, select the transaction type.",
+    "Put the card in the reader slot with the magnetic stripe in the slot and facing the terminal.",
+    "Slide the card through in either direction without stopping.",
+    "Follow the prompts on the display to finish."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Slide the card in either direction through the slot\nwithout stopping."
+  },
+  {
+   "id": "fiserv-2-fd150-swipe-fails",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "fix",
+   "title": "FD150: card swipe fails",
+   "steps": [
+    "Check which way the magnetic stripe is facing and slide the card again.",
+    "If it keeps failing, the card's stripe may be damaged.",
+    "Enter the account number by hand on the keypad."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "If the card swipe fails, check the position of the magnetic\nstripe and slide the card again."
+  },
+  {
+   "id": "fiserv-2-fd150-chip-howto",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "FD150: insert a chip card",
+   "steps": [
+    "Find the card slot at the front of the FD150.",
+    "Insert the card all the way, so the chip is no longer visible, with the front of the card facing up.",
+    "Leave the card in for the whole transaction."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "The card must remain\ninserted throughout the entire transaction."
+  },
+  {
+   "id": "fiserv-2-fd150-chip-not-enabled",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "FD150: chip card reading has to be enabled on the terminal",
+   "steps": [
+    "Chip (smart card) capability is optional and must be enabled.",
+    "Contact your sales or customer service representative to have it enabled."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s2",
+   "quote": "Smart card capability must\n                          be enabled. Contact your sales or\n                          customer service representative."
+  },
+  {
+   "id": "fiserv-2-fd150-tap-howto",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "FD150: tap a contactless card or phone",
+   "steps": [
+    "The customer taps their contactless card or device against the contactless icon on the FD150.",
+    "In some cases the terminal asks for a second tap to complete the transaction."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "In some cases, the\n                   device may prompt for a second tap to\n                   complete the transaction."
+  },
+  {
+   "id": "fiserv-2-fd150-keypad-letters",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "FD150: type letters on the keypad",
+   "steps": [
+    "Press ALPHA, then the number key that carries the letter. For A, press ALPHA then 2.",
+    "For the second letter on a key, press ALPHA twice, then the key. For B, press ALPHA twice then 2.",
+    "For the third letter, press ALPHA three times, then the key. For C, press ALPHA three times then 2."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "For the second letter\non the keyboard, such as B, press [ALPHA] twice then [2]."
+  },
+  {
+   "id": "fiserv-2-fd150-touchscreen",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "FD150: the touchscreen can be used as well as the keypad",
+   "steps": [
+    "The FD150 has a touchscreen with a simplified menu.",
+    "Many functions can be selected on the touchscreen instead of the keypad."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Many functions can\nbe selected using the touchscreen for added convenience."
+  },
+  {
+   "id": "fiserv-2-rp10-connect",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "RP10: connect the PIN pad to the terminal",
+   "steps": [
+    "Remove the bottom cover from the terminal, if needed.",
+    "Disconnect power from the terminal.",
+    "Plug the PIN pad's USB cable into one of the USB ports on the back of the terminal.",
+    "Once the cables are fully connected, reconnect power to the terminal."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "Disconnect power from terminal"
+  },
+  {
+   "id": "fiserv-2-rp10-startup-status",
+   "devices": [
+    "rp10"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "RP10: what it shows when it starts",
+   "steps": [
+    "The PIN pad starts up automatically when it is connected to the terminal.",
+    "It shows a status message until the terminal initializes it."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "It will display a status message until initialized\nby the terminal or PC."
+  },
+  {
+   "id": "fiserv-2-rp10-start-transaction",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "RP10: two ways to start a transaction",
+   "steps": [
+    "The customer can start the transaction by swiping, tapping or inserting their card on the PIN pad.",
+    "Or start the transaction on the FD terminal; the PIN pad and terminal then prompt when the customer should present their card."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "To initiate the transaction, the customer can swipe, tap for\ncontactless or insert their smart card themselves."
+  },
+  {
+   "id": "fiserv-2-rp10-tap",
+   "devices": [
+    "rp10"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "RP10: tap a contactless card or phone",
+   "steps": [
+    "Only cards and devices marked with the contactless icon can tap.",
+    "The customer taps the card or device against the top of the RP10 screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "The cardholder will tap his or her\ncontactless card/device against the top of the RP10 screen."
+  },
+  {
+   "id": "fiserv-2-rp10-swipe",
+   "devices": [
+    "rp10"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "RP10: swipe a card",
+   "steps": [
+    "Find the card reader slot on the right side of the RP10.",
+    "Slide the card from the top of the device to the bottom, with the face of the card facing outward (to the right)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "Slide\nthe magnetic card from the top of the device to the bottom\nwith the face of the card facing outward (right)."
+  },
+  {
+   "id": "fiserv-2-rp10-chip",
+   "devices": [
+    "rp10"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "RP10: insert a chip card",
+   "steps": [
+    "Find the card reader slot at the front of the RP10.",
+    "Insert the card completely, with the front of the card facing up."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "Find the card reader slot at the front of the RP10 and insert\nthe card completely with the front of the card facing up."
+  },
+  {
+   "id": "fiserv-2-rp10-other-processor",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "RP10: may not work with another processor's systems",
+   "steps": [
+    "First Data equipment and software may not be compatible with another processor's systems."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s3",
+   "quote": "Please note that First Data equipment and/or software may not be compatible\nwith another processor\u2019s systems."
+  },
+  {
+   "id": "fiserv-2-p-fd150-paper-load-detail",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "FD150: load receipt paper, step by step (Paysafe-posted guide)",
+   "steps": [
+    "Gently pull the printer cover's latch and lift the cover away from the printer.",
+    "Load a roll of thermal paper.",
+    "Make sure the roll feeds out so the print side of the paper faces the operator.",
+    "Close the cover by pressing down evenly on both side tabs, or on the centre of the cover.",
+    "Tear off extra paper on the serrated bar."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Use the serrated bar to tear off any excess paper.",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-paper-storage",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "FD150: store and handle thermal paper carefully",
+   "steps": [
+    "Store thermal paper in a dry, dark area.",
+    "Handle it carefully: impact, friction, temperature, humidity and oils can affect the paper."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Always store thermal paper for your terminal in a dry, dark area.",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-paper-damaged-roll",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "printer",
+   "kind": "fix",
+   "title": "FD150: do not load a damaged paper roll",
+   "steps": [
+    "Never load a roll that has folds, wrinkles, tears or holes at the edges of the print area."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Never load a roll of paper that has folds, wrinkles, tears or holes at the edges of the print area.",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-ethernet-lights",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "FD150: check the lights next to the Ethernet port",
+   "steps": [
+    "Plug the Ethernet cable into the Ethernet port on the back of the terminal and the other end into the router.",
+    "The lights next to the Ethernet port should flash to show a connection.",
+    "If the lights do not come on, there is no connection between the terminal and the router.",
+    "Check the cable and the router."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "If the lights fail to turn on, there is\n                                                                    no connection between the First Data\n                                                                    countertop EFTPOS terminal and your\n                                                                    router. Please check your cable and\n                                                                    router to restore connectivity.",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-contactless-lights",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "FD150: blue contactless lights mean the tap reader is working",
+   "steps": [
+    "The contactless reader antenna is behind the display and PIN pad.",
+    "The reader's lights show blue when the terminal is powered on, to show the reader is working normally.",
+    "To take a tap payment, hold the card near the reader during a transaction."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "reader\u2019s lights will show blue when the terminal is powered",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-swipe-direction",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "fix",
+   "title": "FD150: swipe fails: check the stripe position (Paysafe-posted guide)",
+   "steps": [
+    "The magnetic card slot is on the right side of the terminal.",
+    "Slide the card through in either direction without stopping.",
+    "If the swipe fails, check the position of the magnetic stripe and slide the card again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "without stopping. If the card swipe fails, check the position",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-privacy-shield-adhesive",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "FD150: privacy shield described as adhesive (Paysafe-posted guide)",
+   "steps": [
+    "Remove the adhesive tab around the privacy shield.",
+    "Carefully place the shield's adhesive side around the keypad."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Remove the adhesive tab around the privacy shield.",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept. Our sheets describe a snap-on privacy guard instead."
+  },
+  {
+   "id": "fiserv-2-p-fd150-declined-what-to-do",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "FD150: what to do when a transaction is declined",
+   "steps": [
+    "Check that the transaction is approved before completing the sale.",
+    "If it is declined, tell the customer the reason shown.",
+    "Advise them to contact their bank if required.",
+    "Ask for another form of payment."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "is declined, tell the customer the reason, advise them to contact their bank if required and seek an",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-void-before-settlement",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "FD150: a void is only possible before settlement (Paysafe-posted guide)",
+   "steps": [
+    "A transaction can only be voided before the terminal is settled.",
+    "If the terminal has already been settled, refund the incorrect transaction and process it again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "You can only void a transaction prior to performing",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept. The void steps in this guide are for the Australian menu and are not recorded here."
+  },
+  {
+   "id": "fiserv-2-p-fd150-code-y1",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Y1: offline approved",
+   "steps": [
+    "The terminal approved the transaction without contacting the card issuer.",
+    "Approved offline transactions are forwarded to the issuer later."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Below is a list of off-host transaction responses:",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-code-z1",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Z1: offline declined",
+   "steps": [
+    "The terminal declined the transaction without contacting the card issuer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Below is a list of off-host transaction responses:",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-code-y3",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Y3: unable to go online and approved offline",
+   "steps": [
+    "The terminal could not go online and approved the transaction offline.",
+    "Approved offline transactions are forwarded to the issuer later."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Y3 = unable to go online and approved offline",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  },
+  {
+   "id": "fiserv-2-p-fd150-code-z3",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Z3: unable to go online and declined offline",
+   "steps": [
+    "The terminal could not go online and declined the transaction offline."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Z3 = unable to go online and declined offline.",
+   "note": "From a First Data guide written for Australia (EFTPOS, AUD) that Paysafe posts as its FD150 guide. Its menus differ from the US FD150 software, so only hardware-level points are kept."
+  }
+ ],
+ "not_found": [
+  "FD150 void, tip adjust, force / ticket only, pre-auth, post-auth, open/close tab and EBT step-by-step procedures for the US software: not in any reachable document. The First Data user guide (MIS-FD150UGUIDE) covers only Sale, Refund and Settlement, and points to businesstrack.com/terminalguides for the rest.",
+  "Fiserv MAVE FD 130/150 pages (Void, Tip Adjust, Close Batch, Force, Pre/Post-Auth, tabs, EBT): merchants.fiserv.com still answers with a 'Let's make sure you're human' bot check, even in a real browser. Skipped as instructed.",
+  "FD150 list of error or response messages (No Line, No Host, host codes such as Host 74, decline texts): no First Data list in any of the guides read. Only the four offline EMV responses (Y1, Z1, Y3, Z3) appear, in the Australian guide.",
+  "FD150 receipt reprint and reports for the US software: not in the First Data guides. The Australian guide has them under an Admin menu that the US guide does not show, so they were not recorded.",
+  "FD150 Param Init / download, tamper alerts, password or lockout handling, frozen terminal, software update: nothing in any guide read.",
+  "RP10 troubleshooting (dark pad, error messages, Host 74): the First Data RP10 quick set-up guide is one page of connection and card-presentation instructions only. The hot-plug damage warning in our sheets is not stated in it; it says only to disconnect power before connecting the cable.",
+  "Paysafe's RP10 guide (static-or00.inbenta.com, 'First Data FD RP10 PIN Pad QRG.pdf') is the same First Data quick set-up guide as the TowneBank copy; saved as raw/fiserv-2/paysafe-rp10-qrg.txt, no extra entries.",
+  "Paysafe's 'First Data - FD150 Quick Reference Guide-Long.pdf' is a 2017 First Data Australia EFTPOS guide (AUD, cheque/savings accounts, Purchase / Cash out / Checkout menus, Australian helpdesk numbers). Its transaction procedures (purchase, cash out, refund, pre-authorisation, completion, MOTO, ECI, void, tip addition, settlement cut-off times, reports, training mode, shifts) were deliberately not turned into entries because they do not match the US FD150 menus shown in First Data's US guide.",
+  "Paysafe's 'First Data FD 130 QRG.pdf' is a 2014 First Data UK guide for the FD130 (pounds, UK helpdesk); not our device or market, no entries. Saved as raw/fiserv-2/paysafe-fd130-qrg.txt.",
+  "Evolv FD150 Quick Reference Guide (irp.cdn-website.com): its two FD150 pages repeat the First Data user guide almost word for word; the remaining pages are for Evolv's other (Valor-based) terminals. No entries; saved as raw/fiserv-2/evolv-fd150-qrg.txt."
+ ],
+ "blocked": [
+  {
+   "url": "https://businesstrack.com/terminalguides",
+   "what": "First Data's own terminal guides page, named in the FD150 user guide as the place for detailed transaction instructions (likely the full FD150 quick reference guide with void, tip adjust, reports and EBT)"
+  },
+  {
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/Retail_Restaurant/",
+   "what": "Fiserv MAVE FD 130/150 step pages (Void, Tip Adjust, Settlement, Force, Pre/Post-Auth, Close Tab, EBT): host is allowed but sits behind a bot check"
+  }
+ ]
+}

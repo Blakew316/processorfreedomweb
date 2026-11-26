@@ -10,6 +10,7 @@ import { createSite, normalizeSite, slugify, cleanSlug, slugProblem, slugSuggest
 import { inSpanish } from './es.js';
 import { createMailer, orderEmail, resetEmail, summaryEmail, lowStockEmail, inviteEmail, invoiceEmail, giftEmail, bookingEmail, nameChangeEmail, noticeEmail, rewardEmail } from './mail.js';
 import { scanMenu, scanEnabled } from './scan.js';
+import { loadLibrary, answer as scoutAnswer, askModel, scoutEnabled, DEPARTMENTS } from './scout.js';
 import { newVapidKeys, sendPush } from './push.js';
 import { createApns } from './apns.js';
 import { createSms, normalizePhone, maskPhone } from './sms.js';
@@ -115,6 +116,9 @@ export function createApp(options = {}) {
   // Texted sign-in codes and notifications to the iPhone app; each is only offered when its keys are set.
   const sms = options.sms || createSms(env);
   const apns = options.apns || createApns(env);
+  // Scout's model call: the real one when a key is set, or a stand-in handed in by the tests.
+  const scoutModel = options.scoutModel || (scoutEnabled(env) ? (system, turns, entries) => askModel(env, system, turns, entries) : null);
+  const scoutLib = options.scoutLibrary || loadLibrary();
   const scanner = options.scanner || (scanEnabled(env) ? (buf, type) => scanMenu(env, buf, type) : null);
   // Notification keys are made once and kept with the data, so there is nothing to configure.
   const vapid = (() => {
@@ -608,7 +612,7 @@ export function createApp(options = {}) {
   const route = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), fn });
 
   route('GET', '/api/config', (req, res) => json(res, 200, {
-    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey, scanEnabled: !!scanner,
+    sitesDomain: SITES_DOMAIN, addressPrefix: SITES_DOMAIN ? '' : `${hostOf(req)}/s/`, addressSuffix: SITES_DOMAIN ? `.${SITES_DOMAIN}` : '', cnameTarget: cnameTarget(req), emailEnabled: !!mailer.enabled, pushKey: vapid.publicKey, scanEnabled: !!scanner, scoutEnabled: !!scoutModel,
     // Whether text codes can be turned on (Twilio and APP_URL are set up) and whether the iPhone app can get notifications (Apple push is set up).
     smsEnabled: smsReady, appPush: !!apns.enabled,
   }));
@@ -2275,6 +2279,51 @@ export function createApp(options = {}) {
     let out;
     try { out = await scanner(buf, type); } catch (e) { console.error('Menu scan failed:', e.message); bad(502, 'We could not read that menu just now. Please try again.'); }
     json(res, 200, { items: (out.items || []).slice(0, 1000), reason: out.reason || '' });
+  });
+
+  // ---- Scout: Insights > "Ask a question" ----
+  // What the chat screen needs before the first question: whether Scout can answer, and the equipment on file.
+  route('GET', '/api/sites/:id/scout', (req, res, p) => {
+    const { site } = ownSite(req, p.id);
+    const row = db.get('SELECT devices FROM scout_profiles WHERE site_id = ?', site.id);
+    json(res, 200, { enabled: !!scoutModel, devices: row ? JSON.parse(row.devices) : [] });
+  });
+
+  // One question. The browser sends the chat so far; the reply and what it was built from are kept for 30 days.
+  route('POST', '/api/sites/:id/scout/chat', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    if (!scoutModel) bad(503, 'Scout is not switched on yet.');
+    limit(`scout:${user.id}`, 60, 3600000);
+    limit(`scout-day:${site.id}`, 300, DAY);
+    const b = await readJson(req);
+    const turns = (Array.isArray(b.messages) ? b.messages : []).slice(-20)
+      .map((m) => ({ role: m && m.role === 'assistant' ? 'assistant' : 'user', text: str(m && m.text, 2000).trim() })).filter((m) => m.text);
+    if (!turns.length || turns[turns.length - 1].role !== 'user') bad(400, 'Type a question for Scout.');
+    const row = db.get('SELECT devices FROM scout_profiles WHERE site_id = ?', site.id);
+    let out;
+    try {
+      out = await scoutAnswer({ lib: scoutLib, turns, business: site.name, firstName: String(user.name || '').trim().split(/\s+/)[0] || '', deviceIds: row ? JSON.parse(row.devices) : [], model: scoutModel });
+    } catch (e) { console.error('Scout failed:', e.message); bad(502, 'Scout could not answer just now. Please try again.'); }
+    const chatId = /^[\w-]{6,40}$/.test(String(b.chatId || '')) ? String(b.chatId) : newId();
+    db.run('DELETE FROM scout_turns WHERE created_at < ?', Date.now() - 30 * DAY);
+    db.run('INSERT INTO scout_turns (id, site_id, user_id, chat_id, question, reply, department, solved, entries, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      newId(), site.id, user.id, chatId, turns[turns.length - 1].text, out.text, out.department, out.solved ? 1 : 0, JSON.stringify(out.entryIds), Date.now());
+    json(res, 200, { chatId, text: out.text, actions: out.actions, department: out.department });
+  });
+
+  // A callback request: a text to the number set in SCOUT_CALLBACK_TO, saying who to call and what was already tried.
+  route('POST', '/api/sites/:id/scout/callback', async (req, res, p) => {
+    const { site, user } = ownSite(req, p.id);
+    limit(`scout-cb:${site.id}`, 5, 3600000);
+    const b = await readJson(req);
+    const dept = DEPARTMENTS[b.department] ? b.department : 'tech';
+    const to = String(env.SCOUT_CALLBACK_TO || '').trim();
+    if (!to || !sms.enabled) bad(503, `Callback requests are not set up yet. Please call ${DEPARTMENTS[dept].name}.`);
+    const asked = db.all('SELECT question FROM scout_turns WHERE site_id = ? AND chat_id = ? ORDER BY created_at DESC LIMIT 3', site.id, str(b.chatId, 40)).map((r) => r.question).reverse();
+    const business = site.published ? JSON.parse(site.published).business || {} : {};
+    const text = [`Scout callback - ${DEPARTMENTS[dept].name.replace('Processor Freedom ', '')}`, site.name, `Call ${String(user.name || user.email).slice(0, 60)}${business.phone ? ` at ${business.phone}` : ''}`, asked.length ? `Asked: ${asked.join(' / ').slice(0, 300)}` : ''].filter(Boolean).join('\n');
+    try { await sms.send(to, text); } catch (e) { console.error('Scout callback text failed:', e.message); bad(502, `We could not send that request. Please call ${DEPARTMENTS[dept].name}.`); }
+    json(res, 200, { sent: true });
   });
 
   route('POST', '/api/sites/:id/menu', async (req, res, p) => {
