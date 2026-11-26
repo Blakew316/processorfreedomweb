@@ -114,6 +114,8 @@ test('the routes: off without a key, owner only, the question is kept, another a
     const r = await me('POST', `${S}/chat`, { messages: [{ role: 'user', text: 'My Clover Flex will not turn on' }] });
     assert.equal(r.status, 200); assert.equal(r.data.text, 'Hold the power button.'); assert.ok(r.data.chatId);
     assert.match(seen.system, /Joe's Pizza, speaking with Maria/);
+    assert.match(seen.system, /Today so far: net sales \$0\.00 from 0 orders/);
+    assert.match(seen.system, /The last 7 days: net sales/);
     assert.match(seen.entries, /Clover Flex/);
     assert.ok((await other('POST', `${S}/chat`, { messages: [{ role: 'user', text: 'hello' }] })).status >= 403);
     assert.ok((await on.client()('GET', S)).status === 401);
