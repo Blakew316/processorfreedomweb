@@ -2281,6 +2281,14 @@ export function createApp(options = {}) {
     json(res, 200, { items: (out.items || []).slice(0, 1000), reason: out.reason || '' });
   });
 
+  /** The sales report for one business, as the stats route answers it: the same code, called from inside the server. */
+  function statsFor(req, siteId, range) {
+    const found = routes.find((r) => r.method === 'GET' && r.re.test(`/api/sites/${siteId}/stats`));
+    let body = '';
+    found.fn(req, { req, writeHead() {}, end(buf) { body = String(buf || ''); } }, { id: siteId }, new URL(`http://x/api/sites/${siteId}/stats?range=${range}`));
+    return JSON.parse(body);
+  }
+
   // ---- Scout: Insights > "Ask a question" ----
   // What the chat screen needs before the first question: whether Scout can answer, and the equipment on file.
   route('GET', '/api/sites/:id/scout', (req, res, p) => {
@@ -2300,9 +2308,17 @@ export function createApp(options = {}) {
       .map((m) => ({ role: m && m.role === 'assistant' ? 'assistant' : 'user', text: str(m && m.text, 2000).trim() })).filter((m) => m.text);
     if (!turns.length || turns[turns.length - 1].role !== 'user') bad(400, 'Type a question for Scout.');
     const row = db.get('SELECT devices FROM scout_profiles WHERE site_id = ?', site.id);
+    // The same sales figures Insights shows, for today and the last seven days, so Scout can answer "how did I do today".
+    const figures = [];
+    for (const [range, label] of [['today', 'Today so far'], ['last7', 'The last 7 days']]) {
+      try {
+        const t = statsFor(req, site.id, range).totals;
+        figures.push(`${label}: net sales ${money(t.net)} from ${t.orders} order${t.orders === 1 ? '' : 's'}, average order ${money(t.average)}, tips ${money(t.tips)}, discounts ${money(t.discounts)}.`);
+      } catch { /* no figures: Scout points to the report instead */ }
+    }
     let out;
     try {
-      out = await scoutAnswer({ lib: scoutLib, turns, business: site.name, firstName: String(user.name || '').trim().split(/\s+/)[0] || '', deviceIds: row ? JSON.parse(row.devices) : [], model: scoutModel });
+      out = await scoutAnswer({ lib: scoutLib, turns, facts: figures.join('\n'), business: site.name, firstName: String(user.name || '').trim().split(/\s+/)[0] || '', deviceIds: row ? JSON.parse(row.devices) : [], model: scoutModel });
     } catch (e) { console.error('Scout failed:', e.message); bad(502, 'Scout could not answer just now. Please try again.'); }
     const chatId = /^[\w-]{6,40}$/.test(String(b.chatId || '')) ? String(b.chatId) : newId();
     db.run('DELETE FROM scout_turns WHERE created_at < ?', Date.now() - 30 * DAY);
