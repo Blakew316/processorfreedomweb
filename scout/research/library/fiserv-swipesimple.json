@@ -1,0 +1,4736 @@
+{
+ "family": "fiserv-swipesimple",
+ "devices": [
+  "fd150",
+  "rp10",
+  "swipesimple-b350",
+  "acc-b350-cradle"
+ ],
+ "platform_notes": "The FD150 and its RP10 PIN pad are Fiserv / First Data hardware running the First Data terminal application on the FD platform (our sheets: \"FD mid only\", routed through Datawire); Fiserv documents the FD130 and FD150 together as \"FD 130/150\". The SwipeSimple B350 is an Ingenico (Moby/5500) Bluetooth reader sold under the SwipeSimple (CardFlight) brand; it has no screen and is driven entirely by the SwipeSimple mobile app on iOS or Android, with the SwipeSimple web dashboard for settings and reports. The charging cradle is a powered stand for the B350 only.",
+ "sources": [
+  {
+   "id": "s1",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011856213-What-does-the-light-on-my-reader-indicate",
+   "title": "SwipeSimple Support Center: What does the light on my reader indicate?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-what-does-the-light-on-my-reader-indicate.txt"
+  },
+  {
+   "id": "s2",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011777033-Connecting-a-bluetooth-card-reader-to-your-mobile-device",
+   "title": "SwipeSimple Support Center: Connecting a bluetooth card reader to your mobile device",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-connecting-a-bluetooth-card-reader-to-your-mo.txt"
+  },
+  {
+   "id": "s3",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360033997313-Device-Pairing",
+   "title": "SwipeSimple Support Center: Device Pairing",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-device-pairing.txt"
+  },
+  {
+   "id": "s4",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/38228487187479-Stay-Connected-Between-Transactions-B350-Card-Readers",
+   "title": "SwipeSimple Support Center: Stay Connected Between Transactions (B350 Card Readers)",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-stay-connected-between-transactions-b350-card.txt"
+  },
+  {
+   "id": "s5",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/4412283284119-Card-Reader-Firmware-Update",
+   "title": "SwipeSimple Support Center: Card Reader Firmware Update",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-card-reader-firmware-update.txt"
+  },
+  {
+   "id": "s6",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/18446596240151-My-App-Says-EMV-Unavailable",
+   "title": "SwipeSimple Support Center: My App Says EMV Unavailable",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-my-app-says-emv-unavailable.txt"
+  },
+  {
+   "id": "s7",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011738473-How-do-I-charge-my-card-reader",
+   "title": "SwipeSimple Support Center: How do I charge my card reader?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-charge-my-card-reader.txt"
+  },
+  {
+   "id": "s8",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011797573-B250-B350-Charging-Stands",
+   "title": "SwipeSimple Support Center: B250 & B350 Charging Stands",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-b250-b350-charging-stands.txt"
+  },
+  {
+   "id": "s9",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011854653-Can-I-buy-a-countertop-cradle-or-charging-stand-for-my-card-reader",
+   "title": "SwipeSimple Support Center: Can I buy a countertop cradle or charging stand for my card reader?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-i-buy-a-countertop-cradle-or-charging-sta.txt"
+  },
+  {
+   "id": "s10",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011855173-What-s-included-with-my-card-reader",
+   "title": "SwipeSimple Support Center: What's included with my card reader?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-what-s-included-with-my-card-reader.txt"
+  },
+  {
+   "id": "s11",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011756394-Are-card-readers-tied-to-specific-SwipeSimple-accounts",
+   "title": "SwipeSimple Support Center: Are card readers tied to specific SwipeSimple accounts?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-are-card-readers-tied-to-specific-swipesimple.txt"
+  },
+  {
+   "id": "s12",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011856313-Can-I-use-any-card-reader-with-SwipeSimple",
+   "title": "SwipeSimple Support Center: Can I use any card reader with SwipeSimple?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-i-use-any-card-reader-with-swipesimple.txt"
+  },
+  {
+   "id": "s13",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011756314-Can-I-accept-NFC-contactless-payments-and-mobile-wallets-with-SwipeSimple",
+   "title": "SwipeSimple Support Center: Can I accept NFC/contactless payments and mobile wallets with SwipeSimple?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-i-accept-nfc-contactless-payments-and-mob.txt"
+  },
+  {
+   "id": "s14",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011858433-Will-I-need-to-contact-someone-to-set-up-my-card-reader-after-I-receive-my-welcome-email",
+   "title": "SwipeSimple Support Center: Will I need to contact someone to set up my card reader after I receive my welcome email?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-will-i-need-to-contact-someone-to-set-up-my-c.txt"
+  },
+  {
+   "id": "s15",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/21233685166487-How-do-I-update-my-SwipeSimple-Mobile-App",
+   "title": "SwipeSimple Support Center: How do I update my SwipeSimple Mobile App?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-update-my-swipesimple-mobile-app.txt"
+  },
+  {
+   "id": "s16",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011872154-Log-in-or-log-out",
+   "title": "SwipeSimple Support Center: Log in or log out",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-log-in-or-log-out.txt"
+  },
+  {
+   "id": "s17",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011858273-How-do-I-change-or-reset-my-password",
+   "title": "SwipeSimple Support Center: How do I change or reset my password?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-change-or-reset-my-password.txt"
+  },
+  {
+   "id": "s18",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011858413-How-do-I-get-a-username-and-password",
+   "title": "SwipeSimple Support Center: How do I get a username and password?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-get-a-username-and-password.txt"
+  },
+  {
+   "id": "s19",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360019624133-Navigating-the-SwipeSimple-Mobile-App",
+   "title": "SwipeSimple Support Center: Navigating the SwipeSimple Mobile App",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-navigating-the-swipesimple-mobile-app.txt"
+  },
+  {
+   "id": "s20",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011872174-Account-overview-on-SwipeSimple-Mobile",
+   "title": "SwipeSimple Support Center: Account overview on SwipeSimple Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-account-overview-on-swipesimple-mobile.txt"
+  },
+  {
+   "id": "s21",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011979813-Taking-your-First-Payment",
+   "title": "SwipeSimple Support Center: Taking your First Payment",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-taking-your-first-payment.txt"
+  },
+  {
+   "id": "s22",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011977753-New-sale-using-the-Quick-Item-feature",
+   "title": "SwipeSimple Support Center: New sale using the Quick Item feature",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-new-sale-using-the-quick-item-feature.txt"
+  },
+  {
+   "id": "s23",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360033255554-SwipeSimple-Mobile-Choosing-a-Tax-Rate",
+   "title": "SwipeSimple Support Center: SwipeSimple Mobile: Choosing a Tax Rate",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-swipesimple-mobile-choosing-a-tax-rate.txt"
+  },
+  {
+   "id": "s24",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011878714-New-sale-using-Items-on-Mobile",
+   "title": "SwipeSimple Support Center: New sale using Items on Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-new-sale-using-items-on-mobile.txt"
+  },
+  {
+   "id": "s25",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011878794-View-and-edit-items-in-the-cart",
+   "title": "SwipeSimple Support Center: View and edit items in the cart",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-view-and-edit-items-in-the-cart.txt"
+  },
+  {
+   "id": "s26",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011879494-Add-a-reference-number-on-Mobile",
+   "title": "SwipeSimple Support Center: Add a reference number on Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-add-a-reference-number-on-mobile.txt"
+  },
+  {
+   "id": "s27",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011979973-Keyed-Entry-Transactions-on-Mobile",
+   "title": "SwipeSimple Support Center: Keyed Entry Transactions on Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-keyed-entry-transactions-on-mobile.txt"
+  },
+  {
+   "id": "s28",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011981513-Cash-Transactions-on-Mobile",
+   "title": "SwipeSimple Support Center: Cash Transactions on Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-cash-transactions-on-mobile.txt"
+  },
+  {
+   "id": "s29",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/31590408724375-Tap-to-Pay-on-iPhone",
+   "title": "SwipeSimple Support Center: Tap to Pay on iPhone",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-tap-to-pay-on-iphone.txt"
+  },
+  {
+   "id": "s30",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011981273-Transaction-results",
+   "title": "SwipeSimple Support Center: Transaction results",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-transaction-results.txt"
+  },
+  {
+   "id": "s31",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/32847641426327-Address-Verification-Service-AVS",
+   "title": "SwipeSimple Support Center: Address Verification Service (AVS)",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-address-verification-service-avs.txt"
+  },
+  {
+   "id": "s32",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/23238129749015-Can-SwipeSimple-accept-international-cards",
+   "title": "SwipeSimple Support Center: Can SwipeSimple accept international cards?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-swipesimple-accept-international-cards.txt"
+  },
+  {
+   "id": "s33",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/18858706312599-What-payment-methods-are-accepted-by-SwipeSimple",
+   "title": "SwipeSimple Support Center: What payment methods are accepted by SwipeSimple?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-what-payment-methods-are-accepted-by-swipesim.txt"
+  },
+  {
+   "id": "s34",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011881274-Can-I-accept-gift-cards-with-SwipeSimple",
+   "title": "SwipeSimple Support Center: Can I accept gift cards with SwipeSimple?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-i-accept-gift-cards-with-swipesimple.txt"
+  },
+  {
+   "id": "s35",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/25501007288855-How-do-I-fix-a-Selected-Merchant-Account-Error-Message",
+   "title": "SwipeSimple Support Center: How do I fix a Selected Merchant Account Error Message?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-fix-a-selected-merchant-account-erro.txt"
+  },
+  {
+   "id": "s36",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011882774-SwipeSimple-Mobile-Offline-Mode",
+   "title": "SwipeSimple Support Center: SwipeSimple Mobile - Offline Mode",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-swipesimple-mobile-offline-mode.txt"
+  },
+  {
+   "id": "s37",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011981573-Issue-receipt-s",
+   "title": "SwipeSimple Support Center: Issue receipt(s)",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-issue-receipt-s.txt"
+  },
+  {
+   "id": "s38",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011801213-Print-receipts-automatically",
+   "title": "SwipeSimple Support Center: Print receipts automatically",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-print-receipts-automatically.txt"
+  },
+  {
+   "id": "s39",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011706714-How-can-I-customize-my-receipts",
+   "title": "SwipeSimple Support Center: How can I customize my receipts?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-can-i-customize-my-receipts.txt"
+  },
+  {
+   "id": "s40",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/14882713744151-Does-SwipeSimple-support-receipt-printers",
+   "title": "SwipeSimple Support Center: Does SwipeSimple support receipt printers?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-does-swipesimple-support-receipt-printers.txt"
+  },
+  {
+   "id": "s41",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011980973-How-do-I-enable-customer-signatures",
+   "title": "SwipeSimple Support Center: How do I enable customer signatures?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-enable-customer-signatures.txt"
+  },
+  {
+   "id": "s42",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011804813-How-can-I-manage-signature-prompts-sales-tax-and-tip-settings-from-SwipeSimple-Dashboard",
+   "title": "SwipeSimple Support Center: How can I manage signature prompts, sales tax, and tip settings from SwipeSimple Dashboard?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-can-i-manage-signature-prompts-sales-tax-.txt"
+  },
+  {
+   "id": "s43",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011880014-Tipping-with-SwipeSimple",
+   "title": "SwipeSimple Support Center: Tipping with SwipeSimple",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-tipping-with-swipesimple.txt"
+  },
+  {
+   "id": "s44",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/19386278125207-How-do-I-view-tips-I-have-accepted",
+   "title": "SwipeSimple Support Center: How do I view tips I have accepted?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-view-tips-i-have-accepted.txt"
+  },
+  {
+   "id": "s45",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011881374-Voiding-a-transaction",
+   "title": "SwipeSimple Support Center: Voiding a transaction",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-voiding-a-transaction.txt"
+  },
+  {
+   "id": "s46",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011881134-Refunding-a-transaction-on-SwipeSimple-Mobile-Application",
+   "title": "SwipeSimple Support Center: Refunding a transaction on SwipeSimple Mobile Application",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-refunding-a-transaction-on-swipesimple-mobile.txt"
+  },
+  {
+   "id": "s47",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/25515456712087-FAQ-Refunds-in-SwipeSimple",
+   "title": "SwipeSimple Support Center: FAQ: Refunds in SwipeSimple",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-faq-refunds-in-swipesimple.txt"
+  },
+  {
+   "id": "s48",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011707914-Can-I-process-voids-and-refunds-from-SwipeSimple-Dashboard",
+   "title": "SwipeSimple Support Center: Can I process voids and refunds from SwipeSimple Dashboard?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-i-process-voids-and-refunds-from-swipesim.txt"
+  },
+  {
+   "id": "s49",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/25515278421911-How-do-I-refund-a-transaction-from-SwipeSimple-Dashboard",
+   "title": "SwipeSimple Support Center: How do I refund a transaction from SwipeSimple Dashboard?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-refund-a-transaction-from-swipesimpl.txt"
+  },
+  {
+   "id": "s50",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360033904613-Transaction-History-on-Mobile",
+   "title": "SwipeSimple Support Center: Transaction History on Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-transaction-history-on-mobile.txt"
+  },
+  {
+   "id": "s51",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/4402058249367-Current-Batch-Screen",
+   "title": "SwipeSimple Support Center: Current Batch Screen",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-current-batch-screen.txt"
+  },
+  {
+   "id": "s52",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011707534-Batch-Reports-Daily-Transaction-Reports",
+   "title": "SwipeSimple Support Center: Batch Reports & Daily Transaction Reports",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-batch-reports-daily-transaction-reports.txt"
+  },
+  {
+   "id": "s53",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011883334-Why-don-t-I-see-my-money-in-my-account",
+   "title": "SwipeSimple Support Center: Why don't I see my money in my account?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-why-don-t-i-see-my-money-in-my-account.txt"
+  },
+  {
+   "id": "s54",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/27301760407191-How-do-I-update-my-bank-account-for-funding",
+   "title": "SwipeSimple Support Center: How do I update my bank account for funding?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-update-my-bank-account-for-funding.txt"
+  },
+  {
+   "id": "s55",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011981373-Whom-do-I-contact-about-statements-pricing-and-fees",
+   "title": "SwipeSimple Support Center: Whom do I contact about statements, pricing, and fees?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-whom-do-i-contact-about-statements-pricing-an.txt"
+  },
+  {
+   "id": "s56",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/41242022628119-How-do-I-find-my-account-number-or-Merchant-ID",
+   "title": "SwipeSimple Support Center: How do I find my account number or Merchant ID",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-how-do-i-find-my-account-number-or-merchant-i.txt"
+  },
+  {
+   "id": "s57",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011981813-I-can-t-access-a-setting-on-my-account-How-do-I-get-this-setting-updated",
+   "title": "SwipeSimple Support Center: I can't access a setting on my account. How do I get this setting updated?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-i-can-t-access-a-setting-on-my-account-how-do.txt"
+  },
+  {
+   "id": "s58",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011804573-Will-my-app-sync-automatically-to-my-dashboard",
+   "title": "SwipeSimple Support Center: Will my app sync automatically to my dashboard?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-will-my-app-sync-automatically-to-my-dashboar.txt"
+  },
+  {
+   "id": "s59",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011880954-Can-I-restrict-my-employee-s-user-settings",
+   "title": "SwipeSimple Support Center: Can I restrict my employee’s user settings?",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-can-i-restrict-my-employee-s-user-settings.txt"
+  },
+  {
+   "id": "s60",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360058153733-Alerts",
+   "title": "SwipeSimple Support Center: Alerts",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-alerts.txt"
+  },
+  {
+   "id": "s61",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360033788573-Save-card-for-future-use",
+   "title": "SwipeSimple Support Center: Save card for future use",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-save-card-for-future-use.txt"
+  },
+  {
+   "id": "s62",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011977273-Manage-your-Items-on-the-SwipeSimple-Mobile-App",
+   "title": "SwipeSimple Support Center: Manage your Items on the SwipeSimple Mobile App",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-manage-your-items-on-the-swipesimple-mobile-a.txt"
+  },
+  {
+   "id": "s63",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/44170921189655-Barcode-Scanning-on-the-SwipeSimple-Mobile-App",
+   "title": "SwipeSimple Support Center: Barcode Scanning on the SwipeSimple Mobile App",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-barcode-scanning-on-the-swipesimple-mobile-ap.txt"
+  },
+  {
+   "id": "s64",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/20627708091031-Invoices-on-Mobile",
+   "title": "SwipeSimple Support Center: Invoices on Mobile",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-invoices-on-mobile.txt"
+  },
+  {
+   "id": "s65",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/77/",
+   "title": "Paysafe Help Center: How can I troubleshoot my SwipeSimple reader?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q77.txt"
+  },
+  {
+   "id": "s66",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/75/",
+   "title": "Paysafe Help Center: How do I pair my SwipeSimple reader with my device using Bluetooth?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q75.txt"
+  },
+  {
+   "id": "s67",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/76/",
+   "title": "Paysafe Help Center: How do I process transactions with my SwipeSimple app and reader?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q76.txt"
+  },
+  {
+   "id": "s68",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/230/",
+   "title": "Paysafe Help Center: How do I manage batches on my SwipeSimple reader?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q230.txt"
+  },
+  {
+   "id": "s69",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/9479964055063",
+   "title": "SwipeSimple Support Center: Account Settings",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-account-settings.txt"
+  },
+  {
+   "id": "s70",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/360011803873",
+   "title": "SwipeSimple Support Center: Managing SwipeSimple Users",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-managing-swipesimple-users.txt"
+  },
+  {
+   "id": "s71",
+   "url": "https://support.swipesimple.com/hc/en-us/articles/27413846258071",
+   "title": "SwipeSimple Support Center: Customers on Mobile - Processing Card on File Transactions",
+   "publisher": "SwipeSimple (CardFlight)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/ss-card-on-file-mobile.txt"
+  },
+  {
+   "id": "s72",
+   "url": "https://merchants.fiserv.com/en-us/products/small-business/fd150/",
+   "title": "Fiserv: FD150 Terminal and RP10 PIN Pad (product page and FAQ)",
+   "publisher": "Fiserv (First Data Merchant Services)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/fiserv-fd150-page.txt"
+  },
+  {
+   "id": "s73",
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/Retail_Restaurant/FD_130_150_Sale/",
+   "title": "Fiserv MAVE: FD 130/150 Sale (Chip / Contactless / Swipe)",
+   "publisher": "Fiserv (First Data Merchant Services)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/mave-sale.txt"
+  },
+  {
+   "id": "s74",
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/Retail_Restaurant/FD_130_150_Refund/",
+   "title": "Fiserv MAVE: FD 130/150 Refund",
+   "publisher": "Fiserv (First Data Merchant Services)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/mave-refund.txt"
+  },
+  {
+   "id": "s75",
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/Retail_Restaurant/FD_130_150_Open_Tab/",
+   "title": "Fiserv MAVE: FD 130/150 Open Tab",
+   "publisher": "Fiserv (First Data Merchant Services)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/mave-opentab.txt"
+  },
+  {
+   "id": "s76",
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/TeleCheck_ValueLink/FD_130_150_Gift_Balance_Inquiry/",
+   "title": "Fiserv MAVE: FD 130/150 Gift: Balance Inquiry",
+   "publisher": "Fiserv (First Data Merchant Services)",
+   "tier": 1,
+   "local": "raw/fiserv-swipesimple/mave-gift-balance.txt"
+  },
+  {
+   "id": "s77",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/266/",
+   "title": "Paysafe Help Center: My First Data terminal shows Datawire Error 1007 (VXN Error 52/53). What should I do?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q266.txt"
+  },
+  {
+   "id": "s78",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/267/",
+   "title": "Paysafe Help Center: How do I manually settle a batch on my First Data (FD) terminal?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q267.txt"
+  },
+  {
+   "id": "s79",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/268/",
+   "title": "Paysafe Help Center: How do I delete a batch on my First Data FD130/ FD150 terminal?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q268.txt"
+  },
+  {
+   "id": "s80",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/269/",
+   "title": "Paysafe Help Center: How do I change the date and time on the FD130/FD150?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q269.txt"
+  },
+  {
+   "id": "s81",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/270/",
+   "title": "Paysafe Help Center: How do I perform a Ping test on the FD130/FD150?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q270.txt"
+  },
+  {
+   "id": "s82",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/271/",
+   "title": "Paysafe Help Center: How do I set up my Wi-Fi on the FD130/FD150?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q271.txt"
+  },
+  {
+   "id": "s83",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/272/",
+   "title": "Paysafe Help Center: How do I perform a keypad test on my FD130/FD150 terminal?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q272.txt"
+  },
+  {
+   "id": "s84",
+   "url": "https://faq.paysafe.com/pos-devices/support/question/273/",
+   "title": "Paysafe Help Center: Where can I find the device ID of my FD130/ FD150 terminal?",
+   "publisher": "Paysafe",
+   "tier": 2,
+   "local": "raw/fiserv-swipesimple/paysafe-q273.txt"
+  }
+ ],
+ "entries": [
+  {
+   "id": "fiserv-swipesimple-b350-light-none",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: no lights at all after pressing the power button",
+   "steps": [
+    "The battery is likely dead, so charge the reader.",
+    "Plug it into a wall outlet to charge, rather than a handheld battery pack or a computer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "If there are no lights flashing on your card reader after pressing the power button, the battery of the card reader is likely dead and the device will need to be charged."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-blue-on",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: blue light on steadily (light above the Bluetooth symbol)",
+   "steps": [
+    "Nothing to fix: the reader is connected to your phone or tablet and ready to take a card payment."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Blue LED on - The reader is connected to your device and ready to accept a credit card payment"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-blue-flashing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: blue light flashing (light above the Bluetooth symbol)",
+   "steps": [
+    "The reader is in standby: it is waiting to be connected over Bluetooth, or Bluetooth has disconnected.",
+    "Start a sale in the SwipeSimple app so the app connects to the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Blue LED flashing - standby mode / waiting to be connected to Bluetooth or Bluetooth is disconnected"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-red-on",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: red light on steadily (light above the battery symbol)",
+   "steps": [
+    "Nothing to fix: the battery is fully charged."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Red LED on - the battery is fully charged"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-red-slow",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: red light flashing slowly (light above the battery symbol)",
+   "steps": [
+    "The reader is not charging, but the battery is not low.",
+    "Plug it in if you want it to charge."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Red LED slow-flashing - battery is not charging but not low"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-red-quick",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: red light flashing quickly (light above the battery symbol)",
+   "steps": [
+    "The battery is low or critically low.",
+    "Charge the reader, ideally from a wall outlet."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "Red LED quick-flashing - low battery / critical low battery"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-charge-wall-outlet",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "power",
+   "kind": "fix",
+   "title": "B350: where to plug the reader in to charge",
+   "steps": [
+    "Charge the reader from a wall outlet.",
+    "Avoid charging from a handheld battery pack or a computer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s1",
+   "quote": "SwipeSimple recommends plugging carder readers into a wall outlet for charging, rather than a handheld battery pack or computer."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-poweron",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: flashes blue and shows solid red when you hold the power button",
+   "steps": [
+    "This is the normal power-on pattern for a B350.",
+    "Continue with pairing in the SwipeSimple app."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Press and hold the power button on the reader until it flashes blue (B250) or flashes blue and solid red (B350)."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-light-reset-colors",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350: lights flash a series of colors after a reset",
+   "steps": [
+    "This is normal after a reset.",
+    "Wait for the lights to return to normal standby; the reader is then reset."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "After 15-20 seconds, release the button and the lights will flash a series of colors then return to normal standby mode."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-msg-tap-dip-swipe",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App shows \"Tap, Dip, or Swipe\" with the reader image",
+   "steps": [
+    "Nothing to fix: the reader is connected and ready.",
+    "Have the customer tap, insert or swipe the card."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "When it says 'Tap, Dip, or Swipe' with the reader image, your reader is ready."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-first-pairing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "install",
+   "title": "B350: pair the reader for the first time",
+   "steps": [
+    "Charge the reader with the included cable plugged into a power adapter; a full charge may take up to two hours.",
+    "Download the SwipeSimple app from the App Store or Google Play Store.",
+    "Turn Bluetooth on on your phone or tablet.",
+    "Press and hold the reader's power button until it flashes blue and shows solid red.",
+    "Open the SwipeSimple app, enter an amount and tap Checkout.",
+    "When asked if you will use a reader, choose Yes.",
+    "Grant all the permissions the app asks for.",
+    "Wait while SwipeSimple finds and pairs with the nearby reader on its own.",
+    "When the app says \"Tap, Dip, or Swipe\" with the reader image, the reader is ready."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "SwipeSimple will find and pair with nearby readers automatically."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-not-in-phone-bluetooth",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350: do not pair the reader in the phone's own Bluetooth settings",
+   "steps": [
+    "Pair the reader inside the SwipeSimple app, not in the phone or tablet's Bluetooth settings.",
+    "If this is the first time, follow the first-time pairing steps in the app."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "SwipeSimple card readers pair directly to your SwipeSimple application rather than connecting in your mobile device's bluetooth settings."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-no-computers",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "B350: the reader cannot be paired with a computer or laptop",
+   "steps": [
+    "Use the reader with a phone or tablet only.",
+    "To take payments on a computer, use the SwipeSimple Virtual Terminal instead."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Card readers are designed to pair with mobile devices only. Computers and laptops are unsupported for hardware pairing."
+  },
+  {
+   "id": "fiserv-swipesimple-app-check-version",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "how-to",
+   "title": "SwipeSimple app: check which app version you are running",
+   "steps": [
+    "Open the SwipeSimple app.",
+    "Tap the menu icon (three horizontal lines).",
+    "Look at the bottom left corner of the sidebar for the version number.",
+    "If an update is available, update the app from the App Store or Google Play Store."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "open the SwipeSimple app, tap the menu icon (three horizontal lines), and look at the bottom left corner of the sidebar"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-pairing-permissions-prompt",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350 will not connect: let the app check Bluetooth and permissions",
+   "steps": [
+    "Open the SwipeSimple app; it checks Bluetooth and the other permissions it needs by itself.",
+    "If the app asks you to turn something on, follow those prompts before going further."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "It will automatically check for Bluetooth and any other required permissions. If anything needs to be enabled, the app will prompt you"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-paired-to-another-device",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350 will not connect: it may already be paired to another phone or tablet",
+   "steps": [
+    "A Bluetooth reader can only connect to one device at a time.",
+    "On the other device, open its Bluetooth settings and look for the reader in the paired devices list.",
+    "If it is there, tap it and choose \"Forget This Device\" or \"Unpair\".",
+    "Keep the reader powered on and close to your device, then connect it through the SwipeSimple app."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "If it's there, tap it and select \"Forget This Device\" or \"Unpair.\""
+  },
+  {
+   "id": "fiserv-swipesimple-b350-pairing-ios",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350 does not connect on an iPhone or iPad",
+   "steps": [
+    "Make sure the reader is on and fully charged.",
+    "Make sure the reader is not paired in the device's own Bluetooth settings.",
+    "In SwipeSimple go to Settings > Device Pairing.",
+    "Make sure Use Bluetooth Reader is switched on.",
+    "Check that the reader appears in the list of available readers and tap it to pair.",
+    "Open the device Settings, scroll to the list of apps and choose SwipeSimple.",
+    "Make sure Bluetooth, Microphone and Local Network are enabled for SwipeSimple.",
+    "If the reader still does not appear during a transaction, reset the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Ensure that Bluetooth, Microphone, and Local Network is enabled for SwipeSimple"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-pairing-android",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350 does not connect on an Android phone or tablet",
+   "steps": [
+    "Make sure the reader is on and fully charged.",
+    "Make sure the reader is not paired in the device's own Bluetooth settings.",
+    "In SwipeSimple go to Settings > Device Pairing.",
+    "Make sure Use Bluetooth Reader is switched on.",
+    "Check that the reader appears in the list of available readers and tap it to pair.",
+    "Open the device Settings, go to Apps and choose SwipeSimple.",
+    "Go to Permissions and change any disallowed permission to allowed.",
+    "If the reader still does not appear, open the device settings and go to Location: if it is off turn it on; if it is on, turn it off and back on.",
+    "If the reader still does not appear during a transaction, reset the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "If reader still does not appear as option during transaction, try enabling the location on the device"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-factory-reset",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "frozen",
+   "kind": "fix",
+   "title": "B350: reset the reader",
+   "steps": [
+    "Hold the power button down.",
+    "After 15 to 20 seconds, release the button.",
+    "The lights flash a series of colors and then return to normal standby.",
+    "The reader is now reset."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s2",
+   "quote": "Is your card reader a B350? [Moby/5500]",
+   "note": "The article heads this section \"Card Reader Factory Reset\". The paperclip-in-the-hole method on the same page is for the older B200/B250, not the B350. Our sheet mentions a reset button on the bottom of the reader; the maker's B350 steps use the power button."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-pair-from-new-charge",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "how-to",
+   "title": "B350: connect a reader by starting a sale",
+   "steps": [
+    "Start a transaction from the New Charge screen and follow the prompts.",
+    "Choose Yes when asked if you plan to use a reader.",
+    "Allow Bluetooth permissions.",
+    "As long as the reader is nearby and powered on, SwipeSimple connects to it and sets it as your default reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "As long as a SwipeSimple card reader is nearby and powered on, SwipeSimple will automatically connect and set your default reader."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-pair-from-settings",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "how-to",
+   "title": "B350: pair a reader from Device Pairing settings",
+   "steps": [
+    "Open the SwipeSimple menu and go to Settings.",
+    "Tap Device Pairing to see the card readers and printers your device can connect to.",
+    "Make sure Use Bluetooth Reader is enabled so the reader can pair during a transaction.",
+    "Tap the reader name in the list to pair it and set it as the default reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "To pair and set a reader as the default reader for your device, simply tap on the reader name as listed in Device Pairing"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-serial-last-four",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "B350: tell several readers apart in the app",
+   "steps": [
+    "In Device Pairing, the four digits shown for a reader are the last four digits of its serial number.",
+    "If you use more than one reader, label each reader with those four digits."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "the four digits represent the last four digits of your card reader’s serial number"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-multiple-readers",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "B350: using more than one reader or more than one phone",
+   "steps": [
+    "One phone or tablet can have several readers paired and saved, but only one reader is actively connected at a time.",
+    "One reader can only be connected to one device at a time, so the same reader cannot be used on two devices at once."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "A single device can have multiple card readers paired and saved, but only one reader can be actively connected at a time."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-paired-in-bt-settings-issues",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350 keeps losing connection after being paired in the phone's Bluetooth settings",
+   "steps": [
+    "Readers paired in the device's Bluetooth settings, instead of directly in SwipeSimple, may have connection problems.",
+    "Pair the reader inside the SwipeSimple app instead."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "Bluetooth card readers that are paired in a device's bluetooth settings rather than directly in SwipeSimple may experience connectivity issues."
+  },
+  {
+   "id": "fiserv-swipesimple-app-printer-default-test",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "SwipeSimple app: set a default receipt printer and print a test receipt",
+   "steps": [
+    "In the app go to Settings > Device Pairing.",
+    "Tap the printer to select it, then tap Set Default Printer.",
+    "To print a test receipt, select the printer and tap Print Test Receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s3",
+   "quote": "To set a default printer, select the printer by tapping on it and then tap Set Default Printer. To print a test receipt select a printer and tap Print Test Receipt."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-stay-connected-what",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "B350: what \"Stay Connected\" does",
+   "steps": [
+    "With Stay Connected on, the reader stays connected after a transaction and is ready at once for the next one.",
+    "The reader disconnects by itself after one hour of inactivity.",
+    "It is on by default in SwipeSimple mobile version 7.22 and above."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "The reader will automatically disconnect after one hour of inactivity"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-stay-connected-setting",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "how-to",
+   "title": "B350: choose Stay Connected or Disconnect after each sale",
+   "steps": [
+    "From the main menu open Settings, then Device Pairing.",
+    "With Use Bluetooth Reader turned on, tap After Transactions.",
+    "Choose Stay Connected or Disconnect."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "With Use Bluetooth Reader turned on, tap After Transactions to choose whether your reader should Stay Connected or Disconnect.",
+   "note": "Same steps on iOS and Android."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-share-reader-between-phones",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "B350: one reader shared between several phones or tablets",
+   "steps": [
+    "Set After Transactions to Disconnect instead of Stay Connected.",
+    "Disconnecting makes the reader available to pair with another device right away."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "Disconnecting ensures the reader is available for pairing with another device right away."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-stay-connected-compat",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "Stay Connected works on the B350 only",
+   "steps": [
+    "Stay Connected is supported on B350 readers.",
+    "The older B250 and B200 readers always disconnect between transactions."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s4",
+   "quote": "B250 and B200 are legacy readers and will always disconnect between transactions."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-msg-firmware-needed",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App message: a firmware update is needed for the card reader",
+   "steps": [
+    "Tap the Update Firmware button and follow the instructions.",
+    "Allow up to ten minutes and keep a stable network connection.",
+    "Do the update as soon as you can so the reader keeps working properly."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Follow instructions to perform the firmware update by tapping on the ‘Update Firmware’ button. A firmware update may take up to ten minutes and requires a stable network connection."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-firmware-update-later",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "how-to",
+   "title": "B350: update the reader's firmware later from Settings",
+   "steps": [
+    "Install the latest version of SwipeSimple from the App Store or Google Play Store.",
+    "Open the app and go to Settings > Device Pairing.",
+    "Plug the reader into a power source and select it from the list.",
+    "Follow the on-screen prompts to update the firmware.",
+    "After you tap Update Firmware, the whole process takes less than 15 minutes."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Plug your card reader into a power source and select it from the list"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-firmware-update-conditions",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "fix",
+   "title": "B350: make sure a firmware update succeeds",
+   "steps": [
+    "Keep the reader plugged into a power source.",
+    "Make sure the phone or tablet has a network connection.",
+    "Keep the reader powered on.",
+    "Keep the SwipeSimple app open on the phone or tablet until the update finishes.",
+    "When the update is complete, carry on taking payments."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s5",
+   "quote": "Keep the SwipeSimple Mobile App open on your iOS or Android device"
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-emv-unavailable",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App message: \"Swipe Card - EMV Unavailable\"",
+   "steps": [
+    "This is an information message: chip (dip) and tap payments are not available with this reader on this account.",
+    "Follow the prompt above the reader image and swipe the card instead.",
+    "If chip and tap should work on your account, contact us to check how the account is set up."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s6",
+   "quote": "This message is an informative message that conveys EMV transactions, otherwise referred to as dip and tap transactions, are not available for processing with the respective hardware.",
+   "note": "The article says accounts set up on Global East Direct or Elavon never support EMV in SwipeSimple, so the message always shows there."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-emv-unavailable-update",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App message: \"Swipe Card - EMV Unavailable\" with \"Update Firmware\"",
+   "steps": [
+    "The reader's firmware is out of date.",
+    "Run the firmware update the app offers.",
+    "After the update, chip and tap should work again on the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s6",
+   "quote": "If an accompanying message displays on the screen to ‘Update Firmware,’ performing this update should bring dip and tap functionality back to your card reader."
+  },
+  {
+   "id": "fiserv-swipesimple-app-emv-unavailable-processor",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Chip and tap never available: account on a processor that does not support EMV in SwipeSimple",
+   "steps": [
+    "If the SwipeSimple account is set up on Global East Direct or Elavon, chip and tap are not supported and the EMV Unavailable message always shows.",
+    "Swipe cards instead.",
+    "Contact us if you need chip and tap acceptance."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s6",
+   "quote": "If a SwipeSimple account is configured to process under Global East Direct or Elavon, it will not support EMV transactions and this informative message will always display."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-charge-cable",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "power",
+   "kind": "how-to",
+   "title": "B350: charge the reader with a cable",
+   "steps": [
+    "Charge the reader with the USB-C cable that came in the box.",
+    "If you have lost it, any USB-C cable will charge a B350."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s7",
+   "quote": "you can use any Micro-USB cable to charge your B200 or B250 card reader, or any USB-C cable to charge your B350 card reader"
+  },
+  {
+   "id": "fiserv-swipesimple-cradle-setup",
+   "devices": [
+    "swipesimple-b350",
+    "acc-b350-cradle"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "B350 charging stand: set it up and seat the reader",
+   "steps": [
+    "Place the B350 into the charging stand with the SwipeSimple logo facing up.",
+    "Press the reader down firmly into the cradle until you feel and hear it click into place.",
+    "Connect the stand's USB-C cable to a power source.",
+    "Setup is complete when the LED indicator blinks red and blue.",
+    "A full charge typically takes around three hours."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "Press the reader down firmly into the cradle until you feel and hear it click into place — this confirms it is securely seated and making contact with the charging connector.",
+   "note": "Our sheet says a full charge takes up to two hours; the maker says about three hours on the B350 stand (two hours is its figure for cable charging and for the B250 stand)."
+  },
+  {
+   "id": "fiserv-swipesimple-cradle-light-red-blue",
+   "devices": [
+    "swipesimple-b350",
+    "acc-b350-cradle"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "B350 in its charging stand: LED blinks red and blue",
+   "steps": [
+    "Nothing to fix: this shows the stand is set up and the reader is seated on the charging connector.",
+    "Leave it to charge; a full charge typically takes around three hours."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "Setup is complete when the LED indicator blinks red and blue. A full charge typically takes around three hours."
+  },
+  {
+   "id": "fiserv-swipesimple-cradle-not-charging-seat",
+   "devices": [
+    "swipesimple-b350",
+    "acc-b350-cradle"
+   ],
+   "topic": "power",
+   "kind": "fix",
+   "title": "B350 is not charging in its stand",
+   "steps": [
+    "Put the reader in the stand with the SwipeSimple logo facing up.",
+    "Press it down firmly until you feel and hear a click, so it makes contact with the charging connector.",
+    "Check that the stand's USB-C cable is connected to a power source.",
+    "Look for the LED blinking red and blue."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "1. Place the B350 reader into the charging stand with the SwipeSimple logo facing up."
+  },
+  {
+   "id": "fiserv-swipesimple-cradle-not-interchangeable",
+   "devices": [
+    "swipesimple-b350",
+    "acc-b350-cradle"
+   ],
+   "topic": "power",
+   "kind": "reference",
+   "title": "Charging stands are model-specific",
+   "steps": [
+    "Each reader model needs its own charging stand; they are not interchangeable.",
+    "Check which reader model you have before getting a stand."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s8",
+   "quote": "Please note that each card reader model will require a specific charging stand and they are not interchangeable."
+  },
+  {
+   "id": "fiserv-swipesimple-cradle-what-it-is",
+   "devices": [
+    "swipesimple-b350",
+    "acc-b350-cradle"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "B350 charging stand: what it does and where to get one",
+   "steps": [
+    "The optional countertop stand keeps the reader charged and steady while you take payments, and tilts it upward.",
+    "SwipeSimple does not sell the stands itself; ask us for one."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s9",
+   "quote": "This portable countertop charging stand will keep your reader charged and stabilized while completing transactions and features an upward tilt that makes it easy to accept payments.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-in-the-box",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "B350: what comes in the box",
+   "steps": [
+    "The Ingenico B350 comes with a pocket-sized troubleshooting guide and a USB-C charging cable."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s10",
+   "quote": "Accessories included with Ingenico B350:",
+   "note": "A charging stand is not included."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-not-tied-to-account",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "B350: readers are not tied to one SwipeSimple account",
+   "steps": [
+    "A SwipeSimple reader can be used with more than one SwipeSimple account.",
+    "A reader can be moved between devices, but it can only be connected to one device at a time."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s11",
+   "quote": "our SwipeSimple card readers can be used interchangeably between multiple SwipeSimple accounts"
+  },
+  {
+   "id": "fiserv-swipesimple-app-only-swipesimple-readers",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Only SwipeSimple-labeled readers work with the SwipeSimple app",
+   "steps": [
+    "Use a SwipeSimple-labeled card reader; other readers will not process card-present payments in the app.",
+    "The A200 reader has not been supported since September 30, 2024.",
+    "Readers cannot be paired to a desktop computer or the Virtual Terminal."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s12",
+   "quote": "only SwipeSimple labeled card readers will accept and process card present transactions with the SwipeSimple mobile application"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-contactless-symbol",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Tap payments: which readers take contactless cards and mobile wallets",
+   "steps": [
+    "A reader that shows the contactless symbol (four curved lines getting bigger from left to right) can take tap payments and mobile wallets.",
+    "Tap to Pay without a reader works on iPhone only; it is not available on Android."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s13",
+   "quote": "Card readers that display the contactless payments symbol are able to accept payments via tap to pay mobile wallets."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-setup-after-welcome-email",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "install",
+   "kind": "install",
+   "title": "SwipeSimple: getting started after the welcome email",
+   "steps": [
+    "Follow the instructions in the SwipeSimple Welcome Email to sign in; the account is then ready to take transactions.",
+    "To connect the reader, follow the pocket user guide packed with the reader.",
+    "If you need help connecting it, contact us."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s14",
+   "quote": "Follow the instructions in your SwipeSimple Welcome Email to sign in and your account will be ready to accept transactions!"
+  },
+  {
+   "id": "fiserv-swipesimple-app-find-msp-contact",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "SwipeSimple: find your provider's phone number inside the app",
+   "steps": [
+    "In the mobile app, open the sidebar menu and choose Settings.",
+    "In the Support section, tap the first option, which is the name of your Merchant Service Provider; the phone number is listed there.",
+    "On SwipeSimple Web, click the question mark in the bottom right corner and choose Learning and Support."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s14",
+   "quote": "In the Support section, select the first option which is the name of your Merchant Service Provider and you will find their phone number listed."
+  },
+  {
+   "id": "fiserv-swipesimple-app-os-requirements",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "reference",
+   "title": "SwipeSimple app: phone or tablet software needed",
+   "steps": [
+    "The device should run iOS 16.0 or higher, or Android 10.0 or higher.",
+    "Keep the app updated so all features are available."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s15",
+   "quote": "Ensure that the device is running the latest software version iOS 16.0 or higher (iOS)",
+   "note": "Tier 1. A Paysafe help page gives much older minimums (iOS 9.0 / Android 4.4.0); see the separate tier 2 entry."
+  },
+  {
+   "id": "fiserv-swipesimple-app-update-ios",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "how-to",
+   "title": "SwipeSimple app: update it on an iPhone or iPad",
+   "steps": [
+    "Open the App Store.",
+    "Tap your profile icon at the top right.",
+    "Scroll down to Available Updates.",
+    "Tap Update next to SwipeSimple."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s15",
+   "quote": "Scroll down to the \"Available Updates\" section. If a SwipeSimple update is available, you'll see the SwipeSimple icon in the list of apps with pending updates."
+  },
+  {
+   "id": "fiserv-swipesimple-app-update-android",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "how-to",
+   "title": "SwipeSimple app: update it on an Android device",
+   "steps": [
+    "Open the Google Play Store app.",
+    "Tap the menu icon (three horizontal lines) at the top left.",
+    "Choose My apps & games.",
+    "Open the Updates tab.",
+    "Tap Update next to SwipeSimple."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s15",
+   "quote": "Navigate to the \"Updates\" tab to view available updates for your installed apps."
+  },
+  {
+   "id": "fiserv-swipesimple-app-auto-updates",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "how-to",
+   "title": "SwipeSimple app: turn on automatic app updates",
+   "steps": [
+    "Enable automatic app updates in the Google Play Store on Android or the App Store on iOS so the app stays current."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s15",
+   "quote": "Enable automatic app updates in the Google Play store for Android devices or in the iOS App Store for iOS device"
+  },
+  {
+   "id": "fiserv-swipesimple-app-first-login",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "install",
+   "title": "SwipeSimple: get your login and sign in the first time",
+   "steps": [
+    "After the account is set up you get a Welcome Email from noreply@swipesimple.com with a secure link.",
+    "Use the link to create your account password.",
+    "The password must be at least 15 characters, and recently used passwords cannot be reused.",
+    "On the login screen type your email address and select Next, then enter your password and select Sign In."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s16",
+   "quote": "Passwords must be a minimum of 15 characters and recently used passwords cannot be reused."
+  },
+  {
+   "id": "fiserv-swipesimple-app-log-out",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "how-to",
+   "title": "SwipeSimple app: log out",
+   "steps": [
+    "Open the side menu.",
+    "Tap Log Out at the bottom."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s16",
+   "quote": "To log out of your account, open the side menu and tap Log Out at the bottom."
+  },
+  {
+   "id": "fiserv-swipesimple-app-locked-out",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "fix",
+   "title": "SwipeSimple: locked out after too many failed logins",
+   "steps": [
+    "Wait at least 15 minutes after your last attempt before trying again.",
+    "Then reset your password and log in with the new one so you are not locked out again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s16",
+   "quote": "You'll need to wait at least 15 minutes since your last attempt before trying again."
+  },
+  {
+   "id": "fiserv-swipesimple-app-forgot-password-app",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "how-to",
+   "title": "SwipeSimple: reset a forgotten password from the app",
+   "steps": [
+    "On the app's login page select Forgot Password.",
+    "Enter your SwipeSimple login email address.",
+    "Open the email you receive and click the link to reset your password.",
+    "Choose a new password of at least 15 characters that you have not used recently.",
+    "You need access to the email account linked to your SwipeSimple login."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s17",
+   "quote": "From the app, select Forgot Password from the login page."
+  },
+  {
+   "id": "fiserv-swipesimple-app-forgot-password-web",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "how-to",
+   "title": "SwipeSimple: reset a forgotten password on SwipeSimple.com",
+   "steps": [
+    "On SwipeSimple.com select the login button at the top right.",
+    "Enter your email and click Next.",
+    "Click Forgot Password.",
+    "Enter the email address for your SwipeSimple login and click Continue.",
+    "Follow the instructions in the message you receive to create a new password."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s17",
+   "quote": "From there, you will see an option called \"Forgot Password,\" which you can click on."
+  },
+  {
+   "id": "fiserv-swipesimple-app-locked-out-still",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "fix",
+   "title": "SwipeSimple: still cannot log in after a lockout",
+   "steps": [
+    "Wait at least 15 to 20 minutes after the last failed attempt.",
+    "Reset your password.",
+    "If you still cannot log in, contact us for help."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s17",
+   "quote": "If you need assistance with logging in after a lockout, please get in touch with your merchant service provider.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-welcome-email-missing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "fix",
+   "title": "SwipeSimple: cannot find the Welcome Email",
+   "steps": [
+    "Check your inbox's spam filters.",
+    "Look for a message from noreply@swipesimple.com.",
+    "Your username is the email address registered to the account."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s18",
+   "quote": "If you're having trouble locating the welcome email, we recommend checking your inbox’s spam filters. It is sent from noreply@swipesimple.com."
+  },
+  {
+   "id": "fiserv-swipesimple-app-menu-sections",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple app: what is in the side menu",
+   "steps": [
+    "Tap the icon at the upper left, or swipe in from the left edge, to open the sidebar menu.",
+    "The menu holds New Charge, Account Overview, Transaction History, Item Catalog, Invoices, Customers, Settings and Support.",
+    "Tap a name to go to that section."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s19",
+   "quote": "In addition to using the icon to open the menu, users can swipe from the left hand side to open the menu."
+  },
+  {
+   "id": "fiserv-swipesimple-app-demo-mode",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: practise in demo mode",
+   "steps": [
+    "On the log-in screen, choose demo mode instead of logging in.",
+    "Demo mode simulates the app without processing real transactions, which is useful for training new users."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s19",
+   "quote": "The SwipeSimple Mobile App has a demo mode feature to simulate the SwipeSimple mobile experience without actually processing transactions."
+  },
+  {
+   "id": "fiserv-swipesimple-app-account-overview",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple app: Account Overview totals",
+   "steps": [
+    "Open Account Overview from the menu to see total charges, number of successful charges, average charge, tax collected and tip collected.",
+    "Choose Today, the last 7 days or the last 30 days.",
+    "The figures are for the Merchant Account selected under Settings > Merchant Accounts; Member users only see their own transactions."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s20",
+   "quote": "This account overview will reflect transactions processed on the selected Merchant Account in your Mobile application (Settings > Merchant Accounts)."
+  },
+  {
+   "id": "fiserv-swipesimple-app-first-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app with B350: run a sale",
+   "steps": [
+    "Type an amount on the Quick Item tab of the Sale screen, or pick an item from the Items tab.",
+    "Tap the Charge button.",
+    "Connect your SwipeSimple card reader to the phone or tablet.",
+    "Tap, dip or swipe the card when the app prompts.",
+    "Select Receipt to enter an email address or phone number and send a receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "Tap, Dip, or Swipe your card or payment device when prompted by the app.",
+   "note": "The maker suggests a $0.01 test transaction for the first try. Tap C to clear the amount."
+  },
+  {
+   "id": "fiserv-swipesimple-b350-how-to-dip",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "B350: insert a chip card correctly",
+   "steps": [
+    "Put the card into the enclosed slot on the reader chip-first.",
+    "Keep the chip facing the top of the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "process the transaction by dipping the card in the enclosed slot on the reader ship-first with the chip facing the top of the reader"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-how-to-swipe",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "B350: swipe a card correctly",
+   "steps": [
+    "Swipe only when the app prompts you to (a card with no chip, or a reader that does not support chip).",
+    "Run the card through the open-ended slot with the magnetic stripe facing the back of the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "run the card through the open ended slot on the reader with the magnetic stripe facing the back of the reader"
+  },
+  {
+   "id": "fiserv-swipesimple-b350-how-to-tap",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "B350: take a tap (contactless) payment",
+   "steps": [
+    "When the customer has a contactless card or phone, have them tap it on the reader.",
+    "Google Pay and Apple Pay work the same way."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "Tap the card or mobile device on the reader to process a transaction."
+  },
+  {
+   "id": "fiserv-swipesimple-app-tap-dip-depends",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Tap or chip not offered: it depends on the reader and the merchant account",
+   "steps": [
+    "Whether tap and chip are available depends on the card reader hardware and on the merchant account used for processing.",
+    "If they are missing and you expect them, contact us to check the account setup."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "Tap and Dip capabilities depend on the card reader hardware and Merchant Account used for payment processing."
+  },
+  {
+   "id": "fiserv-swipesimple-app-no-split-tender",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple: no split payments",
+   "steps": [
+    "Each transaction can use only one payment method.",
+    "If a customer wants to pay with two cards, or part cash and part card, run each part as a separate transaction."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "SwipeSimple does not support split tender — each transaction can only be processed with a single payment method."
+  },
+  {
+   "id": "fiserv-swipesimple-app-vt-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple on a computer: take a payment in the Virtual Terminal",
+   "steps": [
+    "Select the Virtual Terminal tab on the left.",
+    "Enter the amount, card number, expiration date, CVV and billing zip code.",
+    "Select the Charge button.",
+    "Enter an email address or phone number to send a receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "Enter the amount, card number, expiration date, CVV, and billing zip code"
+  },
+  {
+   "id": "fiserv-swipesimple-app-edit-customer-after-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: add customer details after a sale",
+   "steps": [
+    "On the transaction results screen tap Details, then tap the customer name.",
+    "Add a phone number, email or address, or change the name, and save.",
+    "Later sales on the same card fill in that phone number or email when you send a receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s21",
+   "quote": "From the transaction results screen, tap Details, then tap on the Customer name."
+  },
+  {
+   "id": "fiserv-swipesimple-app-quick-item-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: quick sale without the item catalog (Quick Item)",
+   "steps": [
+    "Enter the amount on the number pad shown after you log in.",
+    "For more than one item, tap the \"+\" at the bottom left to put the first Quick Item in the cart and add another.",
+    "Tap Cart to review, or tap Checkout to start the sale.",
+    "Choose the payment method: card, cash, or card on file (if enabled).",
+    "For a card, connect a card reader, use Tap to Pay on iPhone, or tap Keyed Entry on the next screen.",
+    "On the results screen tap Receipt to send a receipt by email or text."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s22",
+   "quote": "To review the transaction details before checkout, tap the Cart button or click the Checkout button at the bottom of the screen to begin the sale immediately."
+  },
+  {
+   "id": "fiserv-swipesimple-app-quick-item-tax",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: charge sales tax on a Quick Item",
+   "steps": [
+    "Set up a tax rate on the account and turn on both Collect Tax and Quick Item Tax in Account Settings on the SwipeSimple Dashboard.",
+    "In the mobile app you can also go to Settings > Sales tax to edit tax rates and turn Collect Tax on.",
+    "With one tax rate the total updates by itself; with several you are asked which one to apply at checkout."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s22",
+   "quote": "Click on Settings > Sales tax to edit tax rates and toggle Collect Tax on."
+  },
+  {
+   "id": "fiserv-swipesimple-app-choose-tax-rate",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: choose a tax rate at checkout",
+   "steps": [
+    "If you have several tax rates, pick the one to use on the screen that appears, or choose not to apply tax.",
+    "Tap next; the total updates.",
+    "Only taxable items in the cart get the tax."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s23",
+   "quote": "If you have multiple tax rates, a screen will show up, giving you the option to choose the tax rate you want to use."
+  },
+  {
+   "id": "fiserv-swipesimple-app-item-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: run a sale using catalog items",
+   "steps": [
+    "Tap the Items tab to see the catalog; use the search bar to find an item by name or price.",
+    "Tap an item to add it to the sale; tap it again to add another of the same.",
+    "Open the Cart tab to review the items before finalizing."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s24",
+   "quote": "To add items from the list to the sale, select the items by tapping on them."
+  },
+  {
+   "id": "fiserv-swipesimple-app-dynamic-price-item",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple app: item shows DYNAMIC instead of a price",
+   "steps": [
+    "The item is set up for dynamic pricing.",
+    "Tap it and enter a unit price; it is then added to the cart.",
+    "If the item has modifiers or item-level tax, those prompts appear after you enter the price."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s24",
+   "quote": "In your item list, a dynamically priced item shows DYNAMIC in place of a price."
+  },
+  {
+   "id": "fiserv-swipesimple-app-cart-edit",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: change quantity, price or remove an item in the cart",
+   "steps": [
+    "Tap the Cart tab.",
+    "Tap an item and use - or + to change the quantity.",
+    "To change a price, tap the Unit Price, change the amount and confirm; this changes the price for this sale only.",
+    "To remove an item, tap it and select Remove Item.",
+    "To empty the cart, select Clear Cart."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s25",
+   "quote": "You can remove an item by tapping on it and selecting \"Remove Item.\" To clear the entire cart, select the \"Clear Cart\" button."
+  },
+  {
+   "id": "fiserv-swipesimple-app-no-zero-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple: a $0 sale is not possible",
+   "steps": [
+    "A sale needs at least one line item worth at least $0.01.",
+    "A line item can be reduced to $0 by hand or with a discount, but the whole sale cannot be $0."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s25",
+   "quote": "You must have at least one line item for a minimum value of $.01 to complete the sale."
+  },
+  {
+   "id": "fiserv-swipesimple-app-edit-price-version",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "fix",
+   "title": "SwipeSimple app: cannot edit a price at checkout",
+   "steps": [
+    "Editing a price at checkout needs SwipeSimple V7.24.0 or higher on iOS, or V7.27.0 or higher on Android.",
+    "Update the app if yours is older."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s25",
+   "quote": "Important Note: Editing price at checkout requires a minimum version of SwipeSimple"
+  },
+  {
+   "id": "fiserv-swipesimple-app-quick-item-rename",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: rename a Quick Item in the cart",
+   "steps": [
+    "Tap the Quick Item, enter a new name and select Rename.",
+    "The new name shows on the digital receipt but does not create a catalog item or appear in item reporting."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s25",
+   "quote": "A Quick Item can be renamed; tap on your selected Quick Item, enter a new name, and then select “Rename.”"
+  },
+  {
+   "id": "fiserv-swipesimple-app-reference-number",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: add a reference number or note to a sale",
+   "steps": [
+    "On the Cart tab tap + Add Ref #.",
+    "Type the reference number or short note.",
+    "It shows in Transaction History and on the Transaction Details page; it can also be shown on digital receipts via Account Settings > Receipts."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s26",
+   "quote": "From the Cart tab, tap + Add Ref # to add a reference number or transaction note to the sale.",
+   "note": "This article says up to 64 characters; the cart article says up to 255 but subject to truncation."
+  },
+  {
+   "id": "fiserv-swipesimple-app-keyed-entry",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: key in a card by hand (Keyed Entry)",
+   "steps": [
+    "On the reader connection screen select Keyed Entry.",
+    "Enter the card number, expiration date, CVV and name.",
+    "Fill in the AVS section: zip code, address, city and state.",
+    "When the required fields are complete the Charge button becomes active."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s27",
+   "quote": "On the reader connection screen, select Keyed Entry.",
+   "note": "Keyed entry only appears if the SwipeSimple account is configured for keyed transactions."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-keyed-field-red",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Keyed Entry: a field is highlighted in red and Charge is not active",
+   "steps": [
+    "A required field is missing or the card details are incorrect.",
+    "Fill in or correct the field highlighted in red.",
+    "Card number and expiration date are always required; other fields may be required on your account."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s27",
+   "quote": "If a required field is missing or card details are incorrect, the app indicates which field still needs input, by highlighting the field in red."
+  },
+  {
+   "id": "fiserv-swipesimple-app-keyed-not-available",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "fix",
+   "title": "SwipeSimple app: no Keyed Entry option",
+   "steps": [
+    "Keyed entry is only available if the SwipeSimple account is configured for keyed transactions.",
+    "Contact us to have keyed entry enabled."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s27",
+   "quote": "If your SwipeSimple account is configured for keyed transactions, you can enter card details manually in the SwipeSimple application instead of using a reader or tap to pay."
+  },
+  {
+   "id": "fiserv-swipesimple-app-cash-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: record a cash sale",
+   "steps": [
+    "On the payment screen tap Cash.",
+    "Enter the amount tendered and tap Process.",
+    "The app shows the change due, the total and the amount tendered."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s28",
+   "quote": "Enter tendered amount and tap on “Process”."
+  },
+  {
+   "id": "fiserv-swipesimple-app-cash-cannot-disable",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple app: the Cash option cannot be turned off",
+   "steps": [
+    "There is no setting to disable the cash option.",
+    "If you do not take cash, make sure staff choose the card option when processing a sale."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s28",
+   "quote": "There is not a setting to disable the cash option in SwipeSimple mobile."
+  },
+  {
+   "id": "fiserv-swipesimple-app-ttp-requirements",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "Tap to Pay on iPhone (no reader): what is required",
+   "steps": [
+    "An iPhone running iOS 17.4 or higher; iPads are not supported.",
+    "An Apple Account signed in on the device and a passcode enabled.",
+    "A participating Merchant Service Provider; contact us to ask if it is enabled.",
+    "It is available in the 50 states only, not in US territories, and not on Android."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s29",
+   "quote": "An iPhone running iOS 17.4 or higher."
+  },
+  {
+   "id": "fiserv-swipesimple-app-ttp-enable",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "Tap to Pay on iPhone: turn it on",
+   "steps": [
+    "An Admin user sees a prompt to enable it the first time they log in; follow the on-screen prompts.",
+    "To do it later, go to Settings > Tap to Pay on iPhone.",
+    "You will be asked to link an Apple ID during setup."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s29",
+   "quote": "If you don't want to set it up right now, click \"Not now\" and choose to set it up later in Settings > Tap to Pay on iPhone."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-ttp-member-notice",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Member user sees a Tap to Pay on iPhone notice but cannot enable it",
+   "steps": [
+    "Only an Admin user can enable Tap to Pay on iPhone.",
+    "Ask your account admin to enable it."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s29",
+   "quote": "If you're a member-level user, you'll see a notice about Tap to Pay on iPhone, but you cannot enable it, so reach out to your account admin for help if you want to use this feature."
+  },
+  {
+   "id": "fiserv-swipesimple-app-ttp-use",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "how-to",
+   "title": "Tap to Pay on iPhone: use it during a sale",
+   "steps": [
+    "Enter the amount and select Card at checkout.",
+    "Choose Tap to Pay on iPhone; it is always under the Keyed Entry button in the checkout flow.",
+    "If you do not want the Bluetooth reader prompt, switch it in Settings > Device Pairing > Use Bluetooth Reader; that setting does not need to be on for Tap to Pay on iPhone."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s29",
+   "quote": "you can always find it under the Keyed Entry button on the checkout flow"
+  },
+  {
+   "id": "fiserv-swipesimple-app-result-approved",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Transaction result: Approved",
+   "steps": [
+    "The transaction was successful.",
+    "Tap Details if you need the transaction details, or to void or refund it."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s30",
+   "quote": "An Approved result typically indicates that the transaction was successful."
+  },
+  {
+   "id": "fiserv-swipesimple-app-result-declined",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Transaction result: Declined",
+   "steps": [
+    "The transaction was rejected.",
+    "Check with the cardholder.",
+    "If that does not explain it, contact us to find the reason for the decline."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s30",
+   "quote": "A Declined results indicates that the transaction was rejected.",
+   "note": "The results article only defines the result; the advice to check with the cardholder and then contact the provider is from SwipeSimple's AVS article."
+  },
+  {
+   "id": "fiserv-swipesimple-app-result-error",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Transaction result: Error",
+   "steps": [
+    "Something went wrong in the processing."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s30",
+   "quote": "An Errored result indicates that something went wrong in the processing.",
+   "note": "The source only defines the result; it gives no fix."
+  },
+  {
+   "id": "fiserv-swipesimple-app-declines-contact",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "decline",
+   "kind": "fix",
+   "title": "SwipeSimple: transactions are declining",
+   "steps": [
+    "Declines can happen for many reasons; check with the cardholder first.",
+    "If that does not explain it, contact us so we can find the reason for the decline."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s31",
+   "quote": "If you've already checked with the cardholder, please contact your Merchant Service Provider for assistance is determining the reason for the decline.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-address-required",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Keyed, invoice or saved-card payment: the billing address field shows as required",
+   "steps": [
+    "Address verification (AVS) is required on your account.",
+    "Enter the cardholder's billing address to process the payment.",
+    "AVS is switched on or off by the provider, not by the merchant; contact us if it needs changing."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s31",
+   "quote": "If the address field shows as required during a transaction, it must be filled out to process the payment."
+  },
+  {
+   "id": "fiserv-swipesimple-app-avs-international",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "decline",
+   "kind": "how-to",
+   "title": "SwipeSimple: enter a non-US billing address when AVS is required",
+   "steps": [
+    "Enter the street address and postal code.",
+    "Leave the State or Territory and Zip Code fields blank.",
+    "AVS verification only applies to US-based cards."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s31",
+   "quote": "the merchant will need to enter the street address and postal code, leaving the State or Territory & Zip Code fields blank"
+  },
+  {
+   "id": "fiserv-swipesimple-app-international-cards",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "SwipeSimple: international cards",
+   "steps": [
+    "SwipeSimple is designed for merchants taking transactions in the United States.",
+    "Cards issued abroad can be accepted if they are Visa, Mastercard, American Express or Discover."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s32",
+   "quote": "International issued cards can be accepted and processed as long as they are issued by a supported payment network such as Visa, Mastercard, American Express, and Discover."
+  },
+  {
+   "id": "fiserv-swipesimple-app-card-brands",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "SwipeSimple: which card brands are accepted",
+   "steps": [
+    "SwipeSimple supports tap, dip, swipe and keyed transactions on Visa, Mastercard, American Express and Discover.",
+    "If one of these brands will not process, the limit may be outside SwipeSimple; contact us to check the account."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s33",
+   "quote": "If you're having an issue with processing a transaction using one of these card brands, there may be limitations imposed outside of the scope of SwipeSimple."
+  },
+  {
+   "id": "fiserv-swipesimple-app-prepaid-cards",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "decline",
+   "kind": "reference",
+   "title": "SwipeSimple: prepaid and gift cards",
+   "steps": [
+    "Prepaid cards on Visa, Mastercard, American Express or Discover can be processed.",
+    "The card must have enough balance for the full amount, because partial authorization is not supported.",
+    "Store-specific (private-label) gift card programs are not supported."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s34",
+   "quote": "The card must have sufficient balance to cover the full transaction amount, as SwipeSimple does not support partial payment authorization."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-selected-merchant-account",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App error: \"Unfortunately the selected Merchant Account can't process transactions. Please choose another one in Settings > Merchant Account.\"",
+   "steps": [
+    "Tap the menu button at the upper left to open the sidebar menu.",
+    "Choose Settings and tap Merchant Accounts; the current one has a checkmark.",
+    "Select the correct Merchant Account for this device.",
+    "If the error stays, or you cannot change the account, close the SwipeSimple app, reopen it and repeat the steps."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s35",
+   "quote": "Unfortunately the selected Merchant Account can't process transactions. Please choose another one in Settings > Merchant Account."
+  },
+  {
+   "id": "fiserv-swipesimple-app-offline-what",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "SwipeSimple app: what Offline Mode does",
+   "steps": [
+    "Offline Mode lets the mobile app keep taking payments when the internet is unreliable or unavailable.",
+    "Each transaction is stored on the device and processed later, so it could still decline.",
+    "Collect contact details from customers paying in Offline Mode in case you need another payment later.",
+    "It is a temporary setting: turn it off when the connection is stable again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "Transactions are stored for later processing instead of run immediately. This means the transaction could decline."
+  },
+  {
+   "id": "fiserv-swipesimple-app-offline-limits",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "SwipeSimple Offline Mode: limits",
+   "steps": [
+    "Only keyed entry or swipe work offline; chip (dip) and tap do not.",
+    "At most 50 transactions per offline session.",
+    "A maximum offline transaction amount can be set in Account Settings; the highest allowed is $999.00."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "Offline Mode supports keyed entry or swipe only. Dip (EMV) and tap (NFC) are not available in offline mode."
+  },
+  {
+   "id": "fiserv-swipesimple-app-offline-turn-on",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "SwipeSimple app: turn Offline Mode on",
+   "steps": [
+    "Open the left-hand menu and go to Settings > Offline Mode.",
+    "Or accept the app's prompt to enter Offline Mode when it appears."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "Manually enabled by opening the left-hand menu and navigating to Settings > Offline Mode."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-offline-prompt-checkout",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App prompts you to enter Offline Mode at checkout",
+   "steps": [
+    "The app has detected no internet connection.",
+    "Accept to store the payment and process it later, or restore the connection first.",
+    "Remember that offline payments can only be keyed or swiped."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "The app prompts you to enter Offline Mode at checkout when it detects no connection."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-offline-prompt-upload",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App prompts you to enter Offline Mode after a transaction fails to upload",
+   "steps": [
+    "A transaction failed to upload during processing because of the connection.",
+    "Enter Offline Mode to keep taking payments, or fix the connection."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "The app prompts you to enter Offline Mode if a transaction fails to upload during processing."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-offline-banner",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Red banner at the top of the SwipeSimple app",
+   "steps": [
+    "The app is in Offline Mode.",
+    "To leave it, tap the red banner and choose \"Yes, Exit\" when asked.",
+    "The banner disappears and the app returns to online mode."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "To exit Offline Mode, click the red banner at the top of the screen. A prompt will appear asking if you want to exit Offline Mode."
+  },
+  {
+   "id": "fiserv-swipesimple-app-offline-pending",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "SwipeSimple app: process payments taken in Offline Mode",
+   "steps": [
+    "Offline payments are listed in the Pending Transactions tab in the main menu.",
+    "Once the phone or tablet has a stable connection, exit Offline Mode.",
+    "SwipeSimple then tries to process the stored transactions.",
+    "Check Transaction History for the result of each one."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "Transactions taken in Offline Mode will be displayed in a Pending Transactions tab in the main menu."
+  },
+  {
+   "id": "fiserv-swipesimple-app-offline-preemptive",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "SwipeSimple app: sales fail or error in a place with poor signal",
+   "steps": [
+    "Turn Offline Mode on in Settings before you start, so sales do not error or fail on an unstable connection.",
+    "Turn it off again when the connection is stable."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s36",
+   "quote": "Merchants may want to enable Offline Mode pre-emptively in known service issue areas to ensure that transactions do not error or fail due to intermittent network connection."
+  },
+  {
+   "id": "fiserv-swipesimple-app-receipt-send",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: give the customer a receipt",
+   "steps": [
+    "Tap Receipt after the sale.",
+    "Enter the customer's email address or phone number to send it by email or text.",
+    "To print paper receipts, connect a printer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s37",
+   "quote": "Enter your customer’s Email address or Phone number to send a receipt as an email or text."
+  },
+  {
+   "id": "fiserv-swipesimple-app-receipt-resend",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: send or print a receipt later (reprint)",
+   "steps": [
+    "Go to Transaction History.",
+    "Select the transaction.",
+    "Select Receipt at the bottom of the screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s37",
+   "quote": "To send or print a receipt later, go to Transaction History and select the specific transaction you would like to issue a receipt for."
+  },
+  {
+   "id": "fiserv-swipesimple-app-receipt-auto-print",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "SwipeSimple app: print receipts automatically after every sale",
+   "steps": [
+    "Open the app, go to Settings and select Receipt Printing.",
+    "Choose None, One or Two receipts.",
+    "Set a default printer first; the printer must be available for receipts to print automatically."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s38",
+   "quote": "Please note that you must set a default printer prior to taking transactions, and the selected printer must be available in order for paper receipts to be generated automatically."
+  },
+  {
+   "id": "fiserv-swipesimple-app-receipt-customize",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple: customize receipts",
+   "steps": [
+    "On the SwipeSimple Dashboard go to Account Settings and click the Receipts tab.",
+    "For digital receipts set the logo, header color, merchant account name, address, reference number, header and footer.",
+    "For paper receipts set the header, footer and the default number of copies (0, 1 or 2)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s39",
+   "quote": "From the SwipeSimple Dashboard, go to Account Settings and click on the Receipts tab."
+  },
+  {
+   "id": "fiserv-swipesimple-app-supported-printers",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "printer",
+   "kind": "reference",
+   "title": "SwipeSimple app: which receipt printers work",
+   "steps": [
+    "The recommended printer is the Star Micronics TSP143IIIU (USB), which works with iOS and Android devices.",
+    "The Star TSP143IIIBi, mPOP and SM-L200 are still supported for existing users but are no longer made.",
+    "Contact us to buy a supported printer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s40",
+   "quote": "if you are new to SwipeSimple and are looking to purchase a printer, please choose the TSP143IIIU"
+  },
+  {
+   "id": "fiserv-swipesimple-app-signature-setting",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: turn the signature prompt on or off",
+   "steps": [
+    "Tap the menu button and go to Settings > Signature.",
+    "Choose Always, Never or Above $25.",
+    "The processor may override this for some cards."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s41",
+   "quote": "The signature prompt has three options to choose from: Always, Never or Above $25."
+  },
+  {
+   "id": "fiserv-swipesimple-app-signature-line-paper",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "printer",
+   "kind": "how-to",
+   "title": "SwipeSimple: add a signature line to paper receipts from a mobile printer",
+   "steps": [
+    "On the SwipeSimple Dashboard, add an underscore line to the receipt footer."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s41",
+   "quote": "mobile users with a supported printer that wish to include a signature line on the paper receipt have the option of adding an underscore line on the receipt footer"
+  },
+  {
+   "id": "fiserv-swipesimple-app-transaction-settings-dashboard",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple Dashboard: change signature, tax and tip settings",
+   "steps": [
+    "Go to Account Settings and select the Transactions tab.",
+    "Edit Signature Settings, Tax Settings and Tip Settings.",
+    "The change applies to the account on all devices."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s42",
+   "quote": "Go to Account Settings  and select the Transactions tab. Here you will be able to edit Signature Settings, Tax Settings, and Tip Settings."
+  },
+  {
+   "id": "fiserv-swipesimple-app-tip-enable-app",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "tips",
+   "kind": "how-to",
+   "title": "SwipeSimple app: turn on the tip prompt",
+   "steps": [
+    "In the app go to Settings > Tip.",
+    "Switch Prompt for Tip on.",
+    "Edit the three default tip percentages if you wish (15%, 18% and 20% by default).",
+    "The customer also sees Custom and No Tip options."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s43",
+   "quote": "To enable the tip settings within the SwipeSimple apps, navigate to Settings>Tip."
+  },
+  {
+   "id": "fiserv-swipesimple-app-tip-enable-dashboard",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "tips",
+   "kind": "how-to",
+   "title": "SwipeSimple Dashboard: change tip settings",
+   "steps": [
+    "Go to Account Settings > Transactions > Tip Settings.",
+    "Set Prompt for Tip to Yes or No.",
+    "Edit the three default tip levels by clicking into each field."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s43",
+   "quote": "To change the tip settings within the SwipeSimple dashboard, navigate to Account Settings>Transactions>Tip Settings."
+  },
+  {
+   "id": "fiserv-swipesimple-app-tip-rounding",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "tips",
+   "kind": "reference",
+   "title": "SwipeSimple: tip percentages are rounded and cannot be removed",
+   "steps": [
+    "Tip rates are rounded to the nearest 0.5% (14.3 becomes 14.5%).",
+    "The percentage suggestions cannot be disabled."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s43",
+   "quote": "Tip rates will be rounded to the nearest 0.5% (e.g., 14.3 will round to 14.5%). Tip percentage suggestions cannot be disabled."
+  },
+  {
+   "id": "fiserv-swipesimple-app-tip-not-working",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "tips",
+   "kind": "fix",
+   "title": "SwipeSimple: tips are not working as expected",
+   "steps": [
+    "Check the tip settings in the app under Settings > Tip.",
+    "If it still does not behave as expected, contact us."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s43",
+   "quote": "Don’t know which setting you have enabled or tips not working as expected? Contact your Merchant Service Provider or SwipeSimple for support.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-tip-reporting",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "tips",
+   "kind": "how-to",
+   "title": "SwipeSimple: see the tips you have taken",
+   "steps": [
+    "As an Admin user, open Transaction History on the SwipeSimple Dashboard and enable the Tip Amount column under Configure Table View.",
+    "Or use the Users Report to see total tips per user for a date range."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s44",
+   "quote": "they can use the Users Report to see a total of tips accepted by each user in a given date range"
+  },
+  {
+   "id": "fiserv-swipesimple-app-void",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "SwipeSimple app: void a transaction",
+   "steps": [
+    "Open the sidebar menu and go to Transactions.",
+    "Select the transaction you want to void.",
+    "Tap Void."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s45",
+   "quote": "Select the transaction you wish to void. Tap Void to void your selected transaction."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-void-missing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "No Void option shown on a transaction",
+   "steps": [
+    "The transaction can no longer be voided because it is in a batch that has started to settle.",
+    "Issue a refund instead; the refund option stays available."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s45",
+   "quote": "Once a transaction is included in a batch and the settlement process has begun, it is unable to be voided. The refund option will continue to be available."
+  },
+  {
+   "id": "fiserv-swipesimple-app-void-invoice",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "SwipeSimple: voiding a payment that paid an invoice",
+   "steps": [
+    "The invoice goes back to Unpaid once the void is processed.",
+    "You can then resend the invoice, mark it as paid, or void it from the Invoices tab."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s45",
+   "quote": "that invoice will automatically return to Unpaid status once the void is processed"
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-full",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "SwipeSimple app: refund a transaction in full",
+   "steps": [
+    "Tap the three lines at the top left to open the menu.",
+    "Select Transaction History.",
+    "Find the transaction by scrolling or with the search bar, and tap it.",
+    "Tap Issue Refund; the original amount is filled in.",
+    "Select Refund."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s46",
+   "quote": "Tap \"Issue Refund\". Upon selecting the Refund option, the original transaction amount is pre-filled. Select \"Refund\" to process the refund."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-partial",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "SwipeSimple app: refund part of a transaction",
+   "steps": [
+    "Open the menu and select Transaction History.",
+    "Find and tap the transaction.",
+    "Tap Issue Refund.",
+    "Type the amount you want to refund in place of the pre-filled amount.",
+    "Select Refund."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s46",
+   "quote": "Next, type in the amount you'd like refunded before selecting \"Refund\" to finalize the transaction."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-mistake-void",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "fix",
+   "title": "SwipeSimple: a refund was made by mistake",
+   "steps": [
+    "A refund can be voided up to 24 hours after it was processed, before your next daily batch.",
+    "Select the transaction number for the refund.",
+    "Select the Void button.",
+    "If no Void option is shown, the void period has expired."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s46",
+   "quote": "If an error was made when processing a refund, the refund can be voided (up to 24 hours after it was originally processed) before your next daily batch."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-after",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "SwipeSimple: what happens after a refund",
+   "steps": [
+    "The refund shows as a new record in Transaction History.",
+    "It settles in your next batch.",
+    "How long it takes to reach the customer depends on their card-issuing bank.",
+    "After a partial refund, go back to the original transaction if you need to refund the rest."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s46",
+   "quote": "After your refund is processed, it will settle in your next batch."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-admin-only",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "SwipeSimple: only Admin users can refund",
+   "steps": [
+    "Refunds can only be done by an Admin user.",
+    "A Member user needs an Admin to process the refund."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s47",
+   "quote": "Only Admin Users can perform refunds In SwipeSimple."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-refund-declined",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "A refund comes back declined",
+   "steps": [
+    "The customer's bank or card issuer cannot process the refund.",
+    "Common reasons: the customer's account is closed or frozen, or the card cannot accept refunds (for example a prepaid card).",
+    "A refund cannot be sent to a different card.",
+    "Contact us for the next steps."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s47",
+   "quote": "A few common reasons a refund may be declined are the customer's bank account is closed or frozen, or the customer's card cannot accept refunds, such as prepaid cards.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-refund-over-year",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Error when refunding a transaction more than a year old",
+   "steps": [
+    "Card information is erased after one calendar year, so the refund cannot be done in SwipeSimple.",
+    "Contact us to process the refund outside SwipeSimple."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s47",
+   "quote": "If the transaction you are trying to refund is dated over a year, you will receive an error.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-cant-find",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "fix",
+   "title": "SwipeSimple: cannot find the transaction to refund",
+   "steps": [
+    "A filter may be applied to the transaction list.",
+    "Open the filters with the blue button next to the search bar and adjust them."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s47",
+   "quote": "There may be a filter applied to your transaction report. Filters are located by clicking the blue button next to the search bar."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-different-card",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "SwipeSimple: a refund cannot go to a different card",
+   "steps": [
+    "A refund must be linked to an earlier transaction completed in SwipeSimple.",
+    "There is no way to refund to a different card number or a transaction made outside SwipeSimple."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s47",
+   "quote": "There is no option to initiate a refund to a different card number or transaction completed outside of SwipeSimple."
+  },
+  {
+   "id": "fiserv-swipesimple-app-refund-void-refund",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "SwipeSimple: can a refund be voided?",
+   "steps": [
+    "Yes, while the refund is still open in a batch and has not settled.",
+    "A Void button shows on that refund in Transaction History."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s47",
+   "quote": "As long as a refund is open in a batch and has not settled, a void button will appear in the transaction history item for that refund."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-void-refund",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "SwipeSimple Dashboard: void or refund a transaction",
+   "steps": [
+    "Go to the Transactions page and select the TRANSACTION # of the transaction.",
+    "Select Issue Refund or Void.",
+    "For a refund, enter the amount to refund (the full amount for a full refund)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s48",
+   "quote": "Go to the Transactions page and select the TRANSACTION # for the transaction you would like to modify. Select either Issue Refund or Void."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-void-24h",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "reference",
+   "title": "SwipeSimple Dashboard: voids are only possible for 24 hours",
+   "steps": [
+    "A transaction can only be voided up to 24 hours after it was taken.",
+    "If no Void option is shown, the void period has expired; issue a refund instead."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s48",
+   "quote": "Please note that you can only void a transaction up to 24 hours after it was originally taken. If the Void option is not displayed, the void period has expired."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-refund-find",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "fix",
+   "title": "SwipeSimple Dashboard: the transaction to refund is not in the list",
+   "steps": [
+    "The Transactions page shows the last 30 days by default.",
+    "Click the filters button to the left of the search bar and change the date range."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s49",
+   "quote": "By default, SwipeSimple will display transactions taken in the last 30 days."
+  },
+  {
+   "id": "fiserv-swipesimple-app-history",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: look up a past transaction",
+   "steps": [
+    "Open Transaction History; the most recent transactions are at the top.",
+    "Pull down and release to refresh the list.",
+    "Tap a transaction to see its details.",
+    "From there you can issue a full or partial refund or send a receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s50",
+   "quote": "Pull and release the screen to refresh list of transactions. Tap on any transaction to view transaction details."
+  },
+  {
+   "id": "fiserv-swipesimple-app-history-scope",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "fix",
+   "title": "SwipeSimple app: a transaction is missing from Transaction History",
+   "steps": [
+    "History only shows the merchant account currently selected in Settings.",
+    "Member users see only their own transactions; Admin users see all transactions on the selected merchant account."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s50",
+   "quote": "The transaction history shows the transactions for the merchant account you currently have selected in Settings."
+  },
+  {
+   "id": "fiserv-swipesimple-app-history-decline-reason",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "decline",
+   "kind": "how-to",
+   "title": "SwipeSimple app: find why a transaction was declined",
+   "steps": [
+    "Open the transaction in Transaction History.",
+    "Look in Transaction Details, which includes the Decline Reason, the Auth Code and the AVS Result."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s50",
+   "quote": "Method (Keyed, Tapped, Dipped, Swiped, On File)",
+   "note": "The Transaction Details list in this article includes \"Decline Reason\"."
+  },
+  {
+   "id": "fiserv-swipesimple-app-current-batch",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "SwipeSimple app: see what is in the current batch",
+   "steps": [
+    "Open the side menu of the app.",
+    "Tap Current Batch.",
+    "The screen shows the batch total, the tip total, the refund total and your scheduled batch time."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s51",
+   "quote": "Click on the option called \"Current Batch\".",
+   "note": "Only for SwipeSimple Mobile V6.3.0 and above on accounts processing through Global Payments or Fiserv Omaha."
+  },
+  {
+   "id": "fiserv-swipesimple-app-close-batch",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "SwipeSimple app: close the batch by hand",
+   "steps": [
+    "Open the side menu and tap Current Batch.",
+    "Tap Close Batch at the top right.",
+    "Confirm that you want to close the batch early.",
+    "SwipeSimple still tries to close the batch again at the scheduled time; sales made after your manual close settle then."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s51",
+   "quote": "If you decide to close it early, SwipeSimple will attempt to close the batch again at the scheduled batch time."
+  },
+  {
+   "id": "fiserv-swipesimple-app-batch-50-limit",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "fix",
+   "title": "SwipeSimple app: Current Batch total looks too low",
+   "steps": [
+    "The Current Batch screen only shows the most recent 50 transactions.",
+    "If the batch has more than 50, the total only reflects the ones shown."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s51",
+   "quote": "If your current batch contains more than 50 transactions, the total will only reflect the visible transactions in a batch."
+  },
+  {
+   "id": "fiserv-swipesimple-app-batch-time-change",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "fix",
+   "title": "SwipeSimple: change the automatic batch time",
+   "steps": [
+    "Contact us to change the automatic batch time, or to find out which processor the account uses."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s51",
+   "quote": "If you want to change your automatic batch time or find out which processor your account uses, you should contact your Merchant Service Provider.",
+   "note": "Tier 1. A Paysafe help page says the merchant can change it in the dashboard under Account Settings > Reports; see the tier 2 entry. SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-current-batch-missing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "fix",
+   "title": "SwipeSimple app: no Current Batch option in the menu",
+   "steps": [
+    "Current Batch needs SwipeSimple Mobile V6.3.0 or above.",
+    "It is only available on accounts that process through Global Payments or Fiserv Omaha.",
+    "Update the app; if it is still missing, contact us to check the processor."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s51",
+   "quote": "This feature is only available for merchants using SwipeSimple Mobile Application V6.3.0 and above who process through Global Payments or Fiserv Omaha."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-batch-reports-setup",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "SwipeSimple: get batch or daily reports by email",
+   "steps": [
+    "Log in to the SwipeSimple dashboard.",
+    "Go to Account Settings > Reports.",
+    "Enter the recipients' email addresses; recipients must be SwipeSimple users."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s52",
+   "quote": "To configure Reports, login to your SwipeSimple dashboard, go to Account Settings > Reports and enter the respective recipients’ emails."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-batch-report-timing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "reference",
+   "title": "SwipeSimple: when a Batch Report arrives",
+   "steps": [
+    "A Batch Report is generated and sent within an hour of the batch closing.",
+    "You get one each time you close the batch.",
+    "If you close early, SwipeSimple closes again at the automatic time and sends a new report if more transactions were taken."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s52",
+   "quote": "Batch Reports are generated and sent out within an hour of when your batch is closed."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-daily-report-mismatch",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "fix",
+   "title": "SwipeSimple: Daily Transaction Report does not match the deposit",
+   "steps": [
+    "The report time may not match the time the processor settles the batch.",
+    "Change the report time in Account Settings > Reports on the SwipeSimple reporting dashboard.",
+    "Transactions taken after the report time go on the next day's report."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s52",
+   "quote": "Your Daily Transaction Report may not match your deposit report if your report time does not match the time that your processor settles your batch."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-reports-view",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "SwipeSimple Dashboard: view and export daily reports",
+   "steps": [
+    "Go to Reports.",
+    "Click Select a date range and choose a range.",
+    "Filter by Merchant Account if needed.",
+    "Click a report to open it; it shows Summary, Card Details and Cash Details.",
+    "Click Send or Export at the top right to email it or export a .csv."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s52",
+   "quote": "You may send this report to other users via email or export it in .csv by clicking on Send or Export on the top right."
+  },
+  {
+   "id": "fiserv-swipesimple-app-funding-missing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple: money has not arrived in the bank account",
+   "steps": [
+    "Deposits are managed by the company you signed up through, not by SwipeSimple.",
+    "Contact us: we can see how and when deposits are made to your bank account."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s53",
+   "quote": "Your Merchant Service Provider will have access to your account details and will be able to answer any questions regarding how you are funded, including how and when deposits are made to your bank account.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-change-bank-account",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple: change the bank account deposits go to",
+   "steps": [
+    "This cannot be changed in SwipeSimple.",
+    "Contact us to update the deposit account."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s54",
+   "quote": "Your transaction funding and banking deposit account will be managed by the company through which you initially signed up for SwipeSimple.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-fees-contact",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "SwipeSimple: questions about statements, pricing and fees",
+   "steps": [
+    "SwipeSimple pricing and fees are billed by the company you signed up through.",
+    "Contact us with questions about pricing and fees."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s55",
+   "quote": "Merchants who signed up through one of our partners will be billed for SwipeSimple through their Merchant Service Provider.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-merchant-id",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "SwipeSimple: where to find the Merchant ID",
+   "steps": [
+    "The Merchant ID is not shown anywhere in the SwipeSimple app.",
+    "It was issued by the company you signed up through; contact us for it."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s56",
+   "quote": "is not displayed or available in the SwipeSimple application",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-setting-locked",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple: a setting cannot be opened or changed",
+   "steps": [
+    "Some settings are managed by the provider and not by the merchant.",
+    "Contact us to have the setting changed."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s57",
+   "quote": "There may be settings on your merchant account that are managed directly by your merchant service provider.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-app-sync-not-showing",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "SwipeSimple: changes are not showing between the app and the dashboard",
+   "steps": [
+    "Check that the device has an active internet connection.",
+    "Log out and log back in.",
+    "Changes made while offline sync once the connection is restored."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s58",
+   "quote": "Check that your device has an active internet connection"
+  },
+  {
+   "id": "fiserv-swipesimple-app-user-roles",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "reference",
+   "title": "SwipeSimple: Admin and Member users",
+   "steps": [
+    "Admin users see everything: reports, account settings and all users' transactions; they can run sales, refunds and voids.",
+    "Member users can run sales and void items in their own transaction history only; they have no access to reports, account settings or other users' transactions.",
+    "There are no other roles."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s59",
+   "quote": "Member Users can only view and manage their own transactions."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-alerts",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "SwipeSimple Dashboard: get an email alert for each transaction",
+   "steps": [
+    "Click Account Settings > Alerts.",
+    "Enable the alerts you want, such as an email each time a transaction is made.",
+    "Click Update Settings.",
+    "Only email addresses registered as SwipeSimple users on the account can receive alerts."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s60",
+   "quote": "To set up Alerts in SwipeSimple, click on Account Settings > Alerts."
+  },
+  {
+   "id": "fiserv-swipesimple-app-save-card",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: save a customer's card for later",
+   "steps": [
+    "Enable the feature in Settings under Save Card.",
+    "Before running the card, tick the Save Card checkbox.",
+    "Saved cards can be used with the Virtual Terminal and Scheduled Payments, and on mobile when Card on File Transactions is enabled."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s61",
+   "quote": "Enable this feature in the Settings section under Save Card."
+  },
+  {
+   "id": "fiserv-swipesimple-app-item-create",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: add an item to the catalog",
+   "steps": [
+    "Go to the Item Catalog, tap New and select Create Item.",
+    "Enter the title and price, and optionally SKU, tax, modifier groups and category.",
+    "To track stock, switch on Track Inventory and enter the quantity on hand.",
+    "Only Admin users can create, edit or delete items."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s62",
+   "quote": "To add a new item, go to the Item Catalog, tap New and select Create Item."
+  },
+  {
+   "id": "fiserv-swipesimple-app-item-delete",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: delete an item from the catalog",
+   "steps": [
+    "Select the item in the Item Catalog.",
+    "Tap Delete Item, then Confirm Delete Item.",
+    "The item is removed on all devices on the account and on the Dashboard."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s62",
+   "quote": "Tap Delete Item, then Confirm Delete Item."
+  },
+  {
+   "id": "fiserv-swipesimple-app-item-image-size",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "fix",
+   "title": "SwipeSimple app: an item image will not upload",
+   "steps": [
+    "Images larger than 500kb must be resized to a smaller file before uploading.",
+    "Square (1:1) images look best."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s62",
+   "quote": "Images larger than 500kb must be resized to smaller files before uploading."
+  },
+  {
+   "id": "fiserv-swipesimple-app-barcode-scan-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple iOS app: scan a barcode to add an item to a sale",
+   "steps": [
+    "Open New Charge and go to the Items tab.",
+    "Tap the barcode icon to the left of the Search field.",
+    "Point the iPhone camera at the barcode; a matching item is added to the cart.",
+    "Scan again to add another of the same item."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s63",
+   "quote": "Open New Charge, go to the Items tab, and tap the barcode icon to the left of the Search field",
+   "note": "iOS app only: needs SwipeSimple 8.1.0 for iOS or higher and iOS 18 or higher, on the Standard or Premium plan."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-scanned-not-found",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App message: \"The scanned item wasn't found in your catalog. Set the item price to add it to your cart.\"",
+   "steps": [
+    "No catalog item has a SKU matching the barcode.",
+    "Enter a price to add it as a Quick Item, or scan again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s63",
+   "quote": "The scanned item wasn't found in your catalog. Set the item price to add it to your cart."
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-item-not-found",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Barcode scan returns \"Item not found\"",
+   "steps": [
+    "Check that the item exists in your Item Catalog.",
+    "Check that its barcode is saved in the item's SKU field.",
+    "Scan again or search for the item by hand."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s63",
+   "quote": "If scanning returns \"Item not found,\" confirm that the item exists in your Item Catalog and that its barcode is saved in the SKU field."
+  },
+  {
+   "id": "fiserv-swipesimple-app-barcode-camera-wont-open",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple iOS app: the camera does not open for barcode scanning",
+   "steps": [
+    "SwipeSimple may not have permission to use the camera.",
+    "Open the iPhone Settings app, go to Apps, scroll to SwipeSimple and turn on Camera."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s63",
+   "quote": "Open the iPhone Settings app, navigate to Apps, scroll to SwipeSimple, and turn on Camera permissions."
+  },
+  {
+   "id": "fiserv-swipesimple-app-barcode-no-scanner",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple iOS app: no barcode scanner option",
+   "steps": [
+    "Make sure the Item Catalog has at least one item; the scan option only appears after that.",
+    "Barcode scanning is on the iOS app only, needs SwipeSimple 8.1.0 or higher and iOS 18 or higher, and is part of the Standard and Premium plans."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s63",
+   "quote": "If you don't see the scanner option, make sure you have at least one item in your item catalog first."
+  },
+  {
+   "id": "fiserv-swipesimple-app-barcode-duplicate-sku",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple iOS app: scanning adds the wrong item",
+   "steps": [
+    "If more than one item shares the same SKU, the app adds the first match it finds.",
+    "Keep SKUs unique in the catalog."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s63",
+   "quote": "If more than one item shares the same SKU, SwipeSimple adds the first match it finds."
+  },
+  {
+   "id": "fiserv-swipesimple-app-invoice-create",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: create and send an invoice",
+   "steps": [
+    "Open Invoices from the sidebar menu and tap the + at the upper right.",
+    "Enter the customer's name and a phone number or email (saved customers fill in as you type).",
+    "Add items from the catalog or a custom item.",
+    "Optionally open Invoice Details to set a due date, tax, discount or note.",
+    "Tap the arrow at the top right to review, then tap Send Invoice."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s64",
+   "quote": "To create a new invoice within the Mobile App, tap the '+' button on the upper right corner of the Invoices screen and follow these steps:"
+  },
+  {
+   "id": "fiserv-swipesimple-app-msg-invoice-undeliverable",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "App message that an invoice could not be delivered to a phone number",
+   "steps": [
+    "Check the customer's contact information.",
+    "Resend the invoice to a new phone number or to an email address.",
+    "An email that cannot be delivered is not detected: the invoice just stays unpaid."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s64",
+   "quote": "If an invoice cannot be delivered to a phone number, you will immediately see a message in the mobile app."
+  },
+  {
+   "id": "fiserv-swipesimple-app-invoice-manage",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: edit, resend, void or mark an invoice as paid",
+   "steps": [
+    "Tap the invoice in the Invoices list to open its details.",
+    "For an unpaid invoice, tap Edit (top right) to change it and then Send Updated Invoice, or choose void or resend.",
+    "If the customer paid another way, such as cash or check, mark the invoice as paid."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s64",
+   "quote": "From the details screen, you can edit (top right), void or resend unpaid invoices."
+  },
+  {
+   "id": "fiserv-swipesimple-app-invoice-statuses",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "SwipeSimple invoices: what each status means",
+   "steps": [
+    "Unpaid: sent and awaiting payment.",
+    "Paid: paid through SwipeSimple.",
+    "Marked as Paid: payment collected outside SwipeSimple and marked by hand.",
+    "Past Due: the due date has passed and it is still unpaid.",
+    "Voided: voided from the Invoices tab and no longer payable.",
+    "A paid invoice goes back to Unpaid if its payment is voided before settlement."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s64",
+   "quote": "Marked as Paid: Payment was collected outside SwipeSimple (cash, check, etc.) and manually marked"
+  },
+  {
+   "id": "fiserv-swipesimple-p-b350-troubleshoot",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "SwipeSimple reader not working: general checklist (Paysafe)",
+   "steps": [
+    "Make sure Bluetooth is on on your device.",
+    "Make sure the reader is fully charged.",
+    "Keep the reader and the device within 15 feet of each other.",
+    "Restart the reader and find it again in the Select Reader list in the app.",
+    "Use the reset button at the bottom of the reader to reboot it.",
+    "Make sure the SwipeSimple app is up to date."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s65",
+   "quote": "Restart the reader and then find it again in the “Select Reader” list within the app.",
+   "note": "Tier 2. Mentions a reset button at the bottom of the reader; the maker's B350 reset steps use the power button."
+  },
+  {
+   "id": "fiserv-swipesimple-p-b350-card-orientation",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "card-read",
+   "kind": "fix",
+   "title": "SwipeSimple reader: card will not read (Paysafe)",
+   "steps": [
+    "Make sure a chip card is fully inserted with the chip facing front.",
+    "When swiping, make sure the magnetic stripe faces back."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s65",
+   "quote": "Ensure the EMV card is fully inserted with the chip facing front.",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-b350-cant-find-reader",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "fix",
+   "title": "SwipeSimple app cannot find the reader (Paysafe)",
+   "steps": [
+    "Make sure the latest SwipeSimple app is installed.",
+    "Make sure the reader has been charged for at least 2 hours.",
+    "Keep the device and the reader within 10 to 15 feet of each other.",
+    "Make sure Bluetooth is on.",
+    "Press and hold the power button to restart the reader.",
+    "If the reader is paired to another device, \"forget\" it in that device's Bluetooth settings and try again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s65",
+   "quote": "Press and hold the power button to restart your card reader in case you cannot find it in the SwipeSimple app.",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-app-os-requirements",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "update",
+   "kind": "reference",
+   "title": "SwipeSimple app: minimum phone software (Paysafe figure)",
+   "steps": [
+    "Paysafe says the device should run iOS 9.0 and above or Android 4.4.0 and above."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s65",
+   "quote": "Confirm that your device is running on iOS version 9.0 and above/Android version 4.4.0 and above",
+   "note": "Tier 2 and likely out of date: SwipeSimple's own help centre says iOS 16.0 / Android 10.0 or higher. Prefer the tier 1 entry."
+  },
+  {
+   "id": "fiserv-swipesimple-p-b350-range",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "pairing",
+   "kind": "reference",
+   "title": "SwipeSimple reader: no re-pairing needed, but stay in range (Paysafe)",
+   "steps": [
+    "After the first connection the reader does not need pairing before each use.",
+    "The app detects the reader during a sale as long as both are within 10 to 15 feet of each other."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s66",
+   "quote": "the SwipeSimple app will automatically detect your Swift reader during a sale or transaction as long as both devices are within 10-15 feet from each other",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-b350-light-green",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "SwipeSimple reader: LEDs turn green (Paysafe)",
+   "steps": [
+    "Nothing to fix: the transaction has been processed."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s67",
+   "quote": "The LEDs on the reader will turn green when the transaction has been processed.",
+   "note": "Tier 2. SwipeSimple's own light guide does not list a green light for the B350."
+  },
+  {
+   "id": "fiserv-swipesimple-p-b350-sale",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app and reader: run a card sale (Paysafe)",
+   "steps": [
+    "In the app, enter the sale amount and select Charge.",
+    "Chip card: insert it with the chip facing front until you are prompted to remove it.",
+    "Card without a chip: swipe it with the magnetic stripe facing back.",
+    "Contactless: tap the card or smartphone on the reader."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s67",
+   "quote": "For EMV cards, insert the card with the chip facing front until you are prompted to remove it.",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-app-autobatch-time",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "SwipeSimple: set or change the auto-batch time (Paysafe)",
+   "steps": [
+    "Log in to the SwipeSimple reporting dashboard.",
+    "Go to Account Settings.",
+    "Open the Reports tab.",
+    "Adjust the batch time setting and save."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s68",
+   "quote": "Adjust the setting for your batch time and save.",
+   "note": "Tier 2, and it disagrees with SwipeSimple's own article, which says to contact the Merchant Service Provider to change the automatic batch time (the dashboard setting there is the report time)."
+  },
+  {
+   "id": "fiserv-swipesimple-p-app-autobatch-default",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "batch",
+   "kind": "reference",
+   "title": "SwipeSimple: the batch closes automatically every day (Paysafe)",
+   "steps": [
+    "Automatic settlement is on by default.",
+    "Transactions are closed and sent for processing daily at a pre-set time, usually every 24 hours."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s68",
+   "quote": "By default, your automatic settlement or auto-close is enabled, ensuring transactions are automatically closed and sent for processing daily at a pre-determined time (usually every 24 hours).",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-offline-enable",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "SwipeSimple Dashboard: allow Offline Mode and set its limit",
+   "steps": [
+    "On the SwipeSimple Dashboard open Account Settings, then the Transactions section.",
+    "Turn on Allow Offline Mode.",
+    "Set Max Amount to limit the size of offline transactions."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "Max Amount: This field sets a maximum limit on transactions performed while in Offline Mode. This can be set to 0.00 for no limit.",
+   "note": "This article says 0.00 means no limit; the Offline Mode article says the maximum allowed amount is $999.00. Both are SwipeSimple (tier 1)."
+  },
+  {
+   "id": "fiserv-swipesimple-app-offline-30-days",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "SwipeSimple Offline Mode: reconnect within 30 days",
+   "steps": [
+    "Stored offline transactions are processed for approval or decline when the internet is restored.",
+    "The connection must be restored within 30 days or the transactions may be lost.",
+    "There is a limit of 50 transactions per network outage."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "Connection must be restored within 30 days or the transactions may be lost"
+  },
+  {
+   "id": "fiserv-swipesimple-dash-settings-apply-next-launch",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple: a dashboard setting change is not showing in the app",
+   "steps": [
+    "Transaction settings changed on the dashboard set the defaults for all devices.",
+    "They show in the SwipeSimple app the next time the app is launched, so close and reopen the app."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "Changes will be reflected in the SwipeSimple application at next launch"
+  },
+  {
+   "id": "fiserv-swipesimple-dash-company-name-change",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple: change the business name shown on receipts",
+   "steps": [
+    "The company name (DBA) at the top of receipts cannot be edited by the merchant.",
+    "Contact us to change it."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s69",
+   "quote": "To edit this name, you will need to contact your Merchant Service Provider for support.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-reply-to",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "SwipeSimple: let customers reply to emailed receipts",
+   "steps": [
+    "Emails from SwipeSimple are sent from noreply@swipesimple.com.",
+    "On the Dashboard, in Account Settings > General, set a Reply-To Address; customer replies then go to that address."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "If you would like for your customers to be able to respond to your emails sent from SwipeSimple, you can set your preferred email address here"
+  },
+  {
+   "id": "fiserv-swipesimple-dash-receipt-logo",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "fix",
+   "title": "SwipeSimple: receipt logo will not upload or looks wrong",
+   "steps": [
+    "The logo file must be under 500 kB.",
+    "PNG transparency is not kept on the receipt.",
+    "The logo only affects digital receipts, not printed ones."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "File size must be under 500 kB. PNG transparency is not preserved on the receipt."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-receipt-alert-copy",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "SwipeSimple: email yourself a copy of every receipt",
+   "steps": [
+    "On the Dashboard open Account Settings > Alerts.",
+    "Tick \"Each time a transaction is made send a copy of the receipt\" and choose the email addresses.",
+    "The addresses must belong to SwipeSimple users on the account."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "Each time a transaction is made send a copy of the receipt: This will email a receipt to the selected users for each transaction."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-automatic-adjustments",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "SwipeSimple: cash discount (Automatic Adjustments) settings",
+   "steps": [
+    "If the account uses Automatic Adjustments as part of a cash discounting program, the settings show in Account Settings.",
+    "The merchant cannot edit them; contact us to change them.",
+    "If the account is not enabled for Automatic Adjustments, the settings do not appear."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s69",
+   "quote": "If you use Automatic Adjustments as part of your Merchant Service Provider's cash discounting program, you will see the Automatic Adjustment settings here.",
+   "note": "SwipeSimple says to contact the Merchant Service Provider; for our merchants that is us."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-phone-website-prompt",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "SwipeSimple prompts you to add a phone number or website",
+   "steps": [
+    "A business phone number or website is missing from the account.",
+    "Add it when prompted, or on the Dashboard under Account Settings > General (phone number is 10 digits)."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s69",
+   "quote": "SwipeSimple will prompt you to add the missing information."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-add-user",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "how-to",
+   "title": "SwipeSimple: add a login for an employee",
+   "steps": [
+    "On SwipeSimple Web open the Users page from the sidebar.",
+    "Click Add New User at the top right and fill in the form.",
+    "Choose the role: Admin or Member.",
+    "A password is generated and emailed to the new user, who is asked to change it at first sign-in.",
+    "If you cannot add users, contact us."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s70",
+   "quote": "To add a new user, click the \"Add New User\" button at the top right-hand corner of the page."
+  },
+  {
+   "id": "fiserv-swipesimple-dash-remove-user",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "password",
+   "kind": "how-to",
+   "title": "SwipeSimple: remove or edit a user, or reset their password",
+   "steps": [
+    "On the Users page click the user's email address.",
+    "Change the email, role or name and click Update User; a password reset can also be started here.",
+    "To remove the user, click Delete User."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s70",
+   "quote": "Click Delete User to remove the user from your SwipeSimple account."
+  },
+  {
+   "id": "fiserv-swipesimple-app-member-cannot-refund",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "refund-void",
+   "kind": "fix",
+   "title": "SwipeSimple: an employee cannot refund",
+   "steps": [
+    "Member users can take payments and view and void their own transactions only.",
+    "Member users cannot process refunds; an Admin user has to do it."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s70",
+   "quote": "Member users cannot process refunds."
+  },
+  {
+   "id": "fiserv-swipesimple-app-card-on-file-charge",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "SwipeSimple app: charge a saved card (Card on File)",
+   "steps": [
+    "Enable it first: in the app go to Settings > Card on File.",
+    "When processing a transaction select Card on File.",
+    "Choose the customer from the list.",
+    "Select the saved card to charge.",
+    "Complete the transaction and tap the receipt button to send a receipt."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s71",
+   "quote": "Select the ‘Card on File’ option when processing a transaction."
+  },
+  {
+   "id": "fiserv-swipesimple-app-card-on-file-no-tip",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "tips",
+   "kind": "reference",
+   "title": "SwipeSimple: no tip prompt on a Card on File payment",
+   "steps": [
+    "Tipping is unavailable on Card on File transactions.",
+    "An extra amount can be added as a Quick Item before charging, but it will not show in tip reporting."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s71",
+   "quote": "Tipping is unavailable with this feature as tipping requires a customer to be present and/or communicate and approve a tip amount."
+  },
+  {
+   "id": "fiserv-swipesimple-app-saved-card-number-changed",
+   "devices": [
+    "swipesimple-b350"
+   ],
+   "topic": "daily-use",
+   "kind": "fix",
+   "title": "SwipeSimple: a customer's saved card number has changed",
+   "steps": [
+    "A saved card number cannot be edited; only details such as expiration date or billing address can.",
+    "Log in to SwipeSimple web, select Customers and find the customer.",
+    "On the Cards tab select +Add a new card and fill in the fields.",
+    "Delete the old card from the same tab."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s71",
+   "quote": "Note that the card number is not editable once saved"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-pin-entry",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "FD150: where the customer enters a PIN",
+   "steps": [
+    "The customer can enter the PIN on the FD150 itself.",
+    "If an RP10 PIN pad is attached, the customer can enter it there instead."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s72",
+   "quote": "Yes, the customer can enter their PIN on the FD150 itself or via"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-rp10-optional",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "install",
+   "kind": "reference",
+   "title": "FD150: the RP10 PIN pad is optional",
+   "steps": [
+    "The FD150 works on its own.",
+    "It can run credit and debit transactions without a PIN pad."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s72",
+   "quote": "No. You can use the FD150 terminal independently and run credit"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-contactless-wallets",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "FD150: tap payments and mobile wallets are accepted",
+   "steps": [
+    "The FD150 can take NFC payments such as Apple Pay and Samsung Pay, other mobile wallets and contactless cards."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s72",
+   "quote": "Yes. It can accept NFC payments like Apple PayTM, Samsung Pay, and"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-ebt-supported",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "daily-use",
+   "kind": "reference",
+   "title": "FD150: EBT is accepted",
+   "steps": [
+    "The FD150 accepts electronic benefits transfer (EBT) transactions."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s72",
+   "quote": "Yes. The FD150 accepts electronic benefits transfer (EBT)"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-multi-merchant",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "other",
+   "kind": "reference",
+   "title": "FD150: more than one merchant account on one terminal",
+   "steps": [
+    "The FD150 supports multi-merchant processing, so one terminal can process for more than one merchant account.",
+    "Contact us to have this set up."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "client-services",
+   "source": "s72",
+   "quote": "more than one merchant account using a single terminal"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-connections",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "reference",
+   "title": "FD150: ways it can connect",
+   "steps": [
+    "The FD150 connects to the network over IP (Ethernet), dial-up or Wi-Fi.",
+    "It has three USB ports."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s72",
+   "quote": "Uses IP, dial-up, or Wi-Fi to connect to the network."
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-sale",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "FD150: run a sale (chip, tap or swipe)",
+   "steps": [
+    "Touch Sale.",
+    "Key in the amount and press Enter.",
+    "If tips are enabled, key in the tip amount and press Enter, or press Cancel to skip.",
+    "Swipe, tap or insert the card.",
+    "If the terminal asks after a swipe, select Credit or Debit.",
+    "If asked, enter the Clerk/Server number and press Enter.",
+    "If asked for a PIN, have the customer enter it, or leave it blank and press Enter to bypass.",
+    "With a chip card, remove the card when the terminal prompts.",
+    "Wait while the terminal gets an approval code.",
+    "Choose whether to print a customer copy: touch No or Yes.",
+    "The terminal returns to the main screen by itself."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s73",
+   "quote": "Swipe, Tap, or Insert the card into the terminal"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-pin-bypass-contactless",
+   "devices": [
+    "fd150",
+    "rp10"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "FD150: PIN bypass does not work on tap payments",
+   "steps": [
+    "On a swiped or inserted card the PIN can be left blank and Enter pressed to bypass it.",
+    "PIN bypass is not allowed on a contactless (tap) payment."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s73",
+   "quote": "Note: PIN Bypass is not allowed on contactless"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-chip-remove-prompt",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "card-read",
+   "kind": "reference",
+   "title": "FD150: prompt to remove the chip card before it connects",
+   "steps": [
+    "This is normal on a chip transaction.",
+    "Remove the card when prompted; the terminal then connects to the host for approval."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s73",
+   "quote": "Note: If chip entry then the terminal will prompt to remove the card before it connects out to the host"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-refund",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "refund-void",
+   "kind": "how-to",
+   "title": "FD150: refund a card",
+   "steps": [
+    "Touch Other.",
+    "Touch Refund.",
+    "Key in the amount and press Enter.",
+    "Swipe, tap or insert the card, or type the card number and press Enter.",
+    "If the terminal asks after a swipe, select Credit.",
+    "If asked, enter the Clerk/Server number and press Enter.",
+    "With a chip card, remove the card when the terminal prompts.",
+    "Wait while the terminal gets an approval code.",
+    "Choose whether to print a customer copy: touch No or Yes.",
+    "The terminal returns to the main screen by itself."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s74",
+   "quote": "Swipe, Tap, or Insert the card into the terminal or type in the card number and press Enter"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-open-tab",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "FD150 (restaurant): open a tab",
+   "steps": [
+    "Touch Other.",
+    "Touch More.",
+    "Touch Tabs.",
+    "Touch Open.",
+    "Enter the tab amount and press Enter.",
+    "Swipe, tap or insert the card, or type the card number.",
+    "If asked after a swipe, touch Credit.",
+    "If asked, enter the SERVER number and press Enter.",
+    "If asked for a PIN, enter it or leave it blank and press Enter.",
+    "Wait while the terminal gets an approval code.",
+    "Choose whether to print a customer copy: touch No or Yes.",
+    "The terminal goes back to the main screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s75",
+   "quote": "Enter desired Tab amount and press Enter"
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-open-tab-needs-close",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "batch",
+   "kind": "reference",
+   "title": "FD150: an open tab must be closed to get paid",
+   "steps": [
+    "Opening a tab does not capture the funds.",
+    "Do a Close Tab to capture them."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s75",
+   "quote": "Note: A Close Tab function will need to be performed to capture funds."
+  },
+  {
+   "id": "fiserv-swipesimple-fd150-gift-balance",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "daily-use",
+   "kind": "how-to",
+   "title": "FD150: check a gift card balance",
+   "steps": [
+    "Touch Other.",
+    "Touch Gift Card.",
+    "Touch Balance Inquiry.",
+    "Swipe the card, or key in the card number and press Enter.",
+    "The terminal connects out and prints a receipt with the balance.",
+    "The terminal returns to the main screen by itself."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s76",
+   "quote": "The terminal will communicate out to verify and print a receipt with the balance"
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-datawire-1007",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "Datawire Error 1007 (also shown as VXN Error 52/53)",
+   "steps": [
+    "The terminal cannot communicate with the host.",
+    "Check that the date and time on the main screen are correct.",
+    "If they are, make sure you have a stable internet connection.",
+    "Power the terminal off, unplug the Ethernet cable for about 30 seconds, plug it back in, then power the terminal on.",
+    "If the error still appears, try a different Ethernet cable or another port on your router."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s77",
+   "quote": "Datawire Error 1007 (also shown as VXN Error 52/53) indicates that your terminal is unable to communicate with the host.",
+   "note": "Tier 2 (Paysafe). The page gives typical causes as incorrect terminal settings, outdated applications or network connectivity issues."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-settle",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "First Data terminal: settle the batch by hand (Paysafe)",
+   "steps": [
+    "Go to the terminal's main screen.",
+    "Select Close or Close Batch, depending on the model.",
+    "Confirm by selecting OK on the touch screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s78",
+   "quote": "Depending on your model, select “Close” or “Close Batch.”",
+   "note": "Tier 2. Fiserv's own FD 130/150 steps reach Close Batch through the Other button."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-delete-batch",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "batch",
+   "kind": "how-to",
+   "title": "FD150: delete a batch (Paysafe)",
+   "steps": [
+    "From the idle screen tap the orange tools icon.",
+    "Select Settings.",
+    "Tap Credit, then choose Delete Batch.",
+    "Enter the password and press the green key.",
+    "When the terminal asks \"Delete Pre-Auth Batch\", select No.",
+    "Press the red key 3 times to return to the idle screen."
+   ],
+   "merchant_can_do": false,
+   "escalate_to": "tech",
+   "source": "s79",
+   "quote": "Tap on Credit and then choose Delete Batch",
+   "note": "Tier 2. Possible default passwords listed: 990712; 766130; 123123; 123456. The page says this step might also require an FD-generated daily password.",
+   "sensitive": "password"
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-msg-delete-preauth-batch",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "FD150 prompt: \"Delete Pre-Auth Batch\"",
+   "steps": [
+    "This prompt appears after a batch has been deleted.",
+    "Select No."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s79",
+   "quote": "After the batch is deleted, the terminal will prompt “Delete Pre‑Auth Batch”, select No",
+   "note": "Tier 2 (Paysafe)."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-date-time",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "FD150: change the date and time (Paysafe)",
+   "steps": [
+    "From the idle screen tap the orange tools icon.",
+    "Select Date/Time.",
+    "Enter the date as MMDDYYYY and press the green key.",
+    "Enter the time in military format (HHMMSS) and press the green key again.",
+    "Press the red key once to return to the idle screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s80",
+   "quote": "Enter the time in military format (HHMMSS) and press the green key again",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-ping",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "FD150: run a ping test to check the internet connection (Paysafe)",
+   "steps": [
+    "From the idle screen tap the orange tools icon.",
+    "Select Lan and then Ping.",
+    "For the IP address, type www.yahoo.com and press the green key.",
+    "A successful test shows four responses with a time in ms.",
+    "Press the red key three times to return to the main screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s81",
+   "quote": "If the test is successful, the terminal will show four responses with XXms",
+   "note": "Tier 2. Our sheet describes running Ping from the Wi-Fi settings; this page uses the Lan menu."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-ping-none",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "error-code",
+   "kind": "error-code",
+   "title": "FD150 ping test shows \"NONE\"",
+   "steps": [
+    "The ping test failed: the terminal is not reaching the internet.",
+    "Check the network cable and your internet connection, then run the test again."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s81",
+   "quote": "If the test fails, the terminal will display “NONE” instead of XXms",
+   "note": "Tier 2. The page only says NONE means the test failed; checking the cable and connection comes from the same publisher's Datawire 1007 page."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-wifi-setup",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "how-to",
+   "title": "FD150: connect to Wi-Fi (Paysafe)",
+   "steps": [
+    "From the idle screen, tap the orange tools icon.",
+    "Select Wi-Fi, then choose Security.",
+    "Enter the security password and press the green key.",
+    "In the Security field, select the correct security level for the network.",
+    "Enter the Wi-Fi password in the Key field.",
+    "Enter the network name (SSID) and press the green key.",
+    "Confirm the changes by selecting Yes.",
+    "The terminal reboots to apply the settings."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s82",
+   "quote": "In the Security field, select the correct security level for the network",
+   "note": "Tier 2. The page does not say what the \"security password\" is."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-wifi-special-chars",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "connect",
+   "kind": "fix",
+   "title": "FD150: Wi-Fi name or password has characters the keypad cannot type (Paysafe)",
+   "steps": [
+    "Connect a USB keyboard to the terminal and type them on that.",
+    "To switch between lowercase and uppercase on the terminal, press and hold the green key and then press the ALPHA key; repeat to switch back."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s82",
+   "quote": "To switch between lowercase and uppercase letters, press and hold the green key, then press the ALPHA key.",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-keypad-test",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "frozen",
+   "kind": "how-to",
+   "title": "FD150: test the keypad when keys do not respond (Paysafe)",
+   "steps": [
+    "From the idle screen, tap the orange tools icon.",
+    "Select Diagnostics and then Keypad.",
+    "Press different keys on the terminal to test them.",
+    "Press the red key three times to return to the main screen."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s83",
+   "quote": "Select Diagnostics and then Keypad",
+   "note": "Tier 2."
+  },
+  {
+   "id": "fiserv-swipesimple-p-fd150-device-id",
+   "devices": [
+    "fd150"
+   ],
+   "topic": "other",
+   "kind": "how-to",
+   "title": "FD150: find the terminal's device ID (Paysafe)",
+   "steps": [
+    "From the idle screen, tap the orange tools icon.",
+    "Select Settings and then Credit.",
+    "Tap Parameters.",
+    "Select View Parms.",
+    "Enter the password and press the green key.",
+    "Tap Host and select Next.",
+    "The screen shows the device ID."
+   ],
+   "merchant_can_do": true,
+   "escalate_to": null,
+   "source": "s84",
+   "quote": "Tap Host and select Next",
+   "note": "Tier 2. Possible default passwords listed: 990712; 766130; 123123; 123456.",
+   "sensitive": "password"
+  }
+ ],
+ "not_found": [
+  "FD150 quick reference guide, quick set-up guide and user guide as Fiserv/First Data PDFs: not on www.firstdata.com/downloads (404) or merchants.fiserv.com; copies exist only on blocked hosts.",
+  "FD150 list of error or response messages (declines, \"No Line\", \"No Host\", host codes such as Host 74): no maker list found on any allowed host. Only Datawire 1007 / VXN 52/53 is covered, and only by Paysafe (tier 2).",
+  "FD150 reports, receipt reprint, printer and paper loading, power and tamper troubleshooting: nothing on allowed hosts.",
+  "FD150 Param Init / download steps from the maker: not found.",
+  "RP10 PIN pad: no setup or troubleshooting text on any allowed host. The Fiserv product page only says a PIN can be entered on the RP10 when attached; the Paysafe RP10 page is a link to a PDF on a blocked host.",
+  "B350 charging cradle: one SwipeSimple article only (set-up and the charging light); no troubleshooting beyond seating the reader.",
+  "B350: no official list of app error messages or decline codes; SwipeSimple documents only a handful of named messages.",
+  "B350 tamper or security alert behaviour: not documented in the SwipeSimple help centre.",
+  "The B350 \"pocket-sized troubleshooting guide\" packed with the reader: not published online in the help centre.",
+  "Fiserv MAVE FD 130/150 step pages: only Sale, Refund, Open Tab and Gift Balance Inquiry were captured. merchants.fiserv.com sends most requests to a bot check on a blocked host, so Void, Close Batch, Tip Adjust, Force, Pre/Post-Auth, Close Tab, manual-entry sale, EBT and the other gift card pages could not be saved (listed under blocked)."
+ ],
+ "blocked": [
+  {
+   "url": "https://static-or00.inbenta.com/b6e2965a19c08c9e0e6ba10d41127ac7849b16117a1ce6818e2e1039504129ad/POS%20Terminal%20QRG%20Files/First%20Data%20-%20FD150%20Quick%20Reference%20Guide-Long.pdf",
+   "what": "First Data FD150 Quick Reference Guide (long version) as linked from the Paysafe help centre: transactions, reports, settlement and messages"
+  },
+  {
+   "url": "https://static-or00.inbenta.com/b6e2965a19c08c9e0e6ba10d41127ac7849b16117a1ce6818e2e1039504129ad/POS%20Terminal%20QRG%20Files/First%20Data%20FD%20RP10%20PIN%20Pad%20QRG.pdf",
+   "what": "First Data RP10 PIN Pad quick reference / set-up guide as linked from the Paysafe help centre (the only RP10 document found)"
+  },
+  {
+   "url": "https://cdn.shopify.com/s/files/1/0398/6571/2793/files/MIS-FD150UGUIDE.pdf",
+   "what": "FD150 user guide (Wi-Fi status, optional devices such as the RP10); reseller-hosted copy of the First Data guide"
+  },
+  {
+   "url": "https://cdn.shopify.com/s/files/1/0398/6571/2793/files/fd150_quick_setup_guide.pdf",
+   "what": "First Data FD150 Terminal Quick Set-Up Guide (unboxing, cables, paper, RP10 on USB or RS-232)"
+  },
+  {
+   "url": "https://www.townebank.com/TowneBank/media/Documents-and-Policies/QuickSetUpGuideRP10PINPad.pdf",
+   "what": "First Data RP10 PIN Pad Quick Set-Up Guide (bank-hosted copy)"
+  },
+  {
+   "url": "https://irp.cdn-website.com/be8123e2/files/uploaded/Evolv_FD150_Quick_Reference_Guide_%28QRG%29_%28Proofed%29_merged_merged.pdf",
+   "what": "FD150 Quick Reference Guide, ISO-branded copy (internet connection, settlement, basic operations)"
+  },
+  {
+   "url": "https://clarkbrands.zendesk.com/hc/en-us/articles/4402393077911-FD150-RP10-Quick-Setup-Guide",
+   "what": "FD150 and RP10 quick setup guide (front and back PDFs) on a reseller help centre"
+  },
+  {
+   "url": "https://dharmamerchantservices.com/?p=5076",
+   "what": "Processor page on basic FD150 functions with a two-sided quick reference guide"
+  },
+  {
+   "url": "https://faq.paysafe.com/pos-devices/support/question/73/",
+   "what": "Paysafe SwipeSimple B350 user guide: the page is reachable but its PDF sits on static-or00.inbenta.com"
+  },
+  {
+   "url": "https://validate.perfdrive.com/",
+   "what": "Bot-check host (Radware) that merchants.fiserv.com redirects most requests to; allowing it would let the Fiserv pages below load"
+  },
+  {
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/Retail_Restaurant/",
+   "what": "Fiserv MAVE FD 130/150 step-by-step pages (tier 1) not captured because of the bot check: Sale (Manual Entry), Void, Settlement / Close Batch, Ticket Only / Force, Pre-Auth, Post-Auth, Close Tab, Tip Adjust and the EBT transactions. Sub-pages follow the pattern .../Retail_Restaurant/FD_130_150_Void/, FD_130_150_Tip_Adjust/, FD_130_150_Post-Auth/, FD_130_150_Settlement_Close/"
+  },
+  {
+   "url": "https://merchants.fiserv.com/en-us/mave/FD_Terminals/TeleCheck_ValueLink/",
+   "what": "Fiserv MAVE FD 130/150 gift card (ValueLink) and check (TeleCheck ECA) step pages: Activate, Redeem, Reload, Cash Out, Balance Transfer, gift and check close batch (only Gift Balance Inquiry was captured)"
+  },
+  {
+   "url": "https://merchants.fiserv.com/en-us/customer-center/merchants/frequent-support-topics/",
+   "what": "Fiserv \"Frequent Support Topics\" / basic terminal questions page linked from the FD150 product page; not captured because of the bot check"
+  }
+ ]
+}

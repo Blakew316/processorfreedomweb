@@ -1,0 +1,767 @@
+[
+ {
+  "id": "clover-station-duo",
+  "brand": "clover",
+  "type": "pos",
+  "name": "Clover Station Duo",
+  "model": "Clover Station Duo (Gen 2)",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-station-solo",
+  "brand": "clover",
+  "type": "pos",
+  "name": "Clover Station Solo",
+  "model": "Clover Station Solo",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-mini",
+  "brand": "clover",
+  "type": "pos",
+  "name": "Clover Mini",
+  "model": "Clover Mini (Gen 3)",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-flex",
+  "brand": "clover",
+  "type": "handheld",
+  "name": "Clover Flex V4",
+  "model": "Clover Flex V4",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-flex-pocket",
+  "brand": "clover",
+  "type": "handheld",
+  "name": "Clover Flex Pocket",
+  "model": "Clover Flex Pocket",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-compact",
+  "brand": "clover",
+  "type": "terminal",
+  "name": "Clover Compact",
+  "model": "Clover Compact",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-go",
+  "brand": "clover",
+  "type": "mobile",
+  "name": "Clover Go",
+  "model": "Clover Go",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-kiosk",
+  "brand": "clover",
+  "type": "kiosk",
+  "name": "Clover Kiosk",
+  "model": "Clover Kiosk + Kiosk Mini",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "clover-kds",
+  "brand": "clover",
+  "type": "kds",
+  "name": "Clover Kitchen Display (KDS)",
+  "model": "Clover KDS 14\" / 24\"",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "dejavoo-p1",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo P1",
+  "model": "Dejavoo P1",
+  "flyer": "assets/flyers/dejavoo-p1.pdf",
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-p3",
+  "brand": "dejavoo",
+  "type": "handheld",
+  "name": "Dejavoo P3",
+  "model": "Dejavoo P3",
+  "flyer": "assets/flyers/dejavoo-p3.pdf",
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-p5",
+  "brand": "dejavoo",
+  "type": "mobile",
+  "name": "Dejavoo P5 mPOS",
+  "model": "Dejavoo P5",
+  "flyer": "assets/flyers/dejavoo-p5.pdf",
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-p8",
+  "brand": "dejavoo",
+  "type": "handheld",
+  "name": "Dejavoo P8",
+  "model": "Dejavoo P8 (P8 Dual available)",
+  "flyer": "assets/flyers/dejavoo-p8.pdf",
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-p17",
+  "brand": "dejavoo",
+  "type": "pinpad",
+  "name": "Dejavoo P17",
+  "model": "Dejavoo P17",
+  "flyer": "assets/flyers/dejavoo-p17.pdf",
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-p18",
+  "brand": "dejavoo",
+  "type": "pos",
+  "name": "Dejavoo P18",
+  "model": "Dejavoo P18",
+  "flyer": "assets/flyers/dejavoo-p18.pdf",
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-z6",
+  "brand": "dejavoo",
+  "type": "pinpad",
+  "name": "Dejavoo Z6",
+  "model": "Dejavoo Z6",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-z8",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo Z8",
+  "model": "Dejavoo Z8",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-z9",
+  "brand": "dejavoo",
+  "type": "handheld",
+  "name": "Dejavoo Z9",
+  "model": "Dejavoo Z9",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-z11",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo Z11",
+  "model": "Dejavoo Z11",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-qd1",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo QD1",
+  "model": "Dejavoo QD1",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-qd2",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo QD2",
+  "model": "Dejavoo QD2",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-qd3",
+  "brand": "dejavoo",
+  "type": "pinpad",
+  "name": "Dejavoo QD3",
+  "model": "Dejavoo QD3",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-qd4",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo QD4",
+  "model": "Dejavoo QD4",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-qd5",
+  "brand": "dejavoo",
+  "type": "terminal",
+  "name": "Dejavoo QD5",
+  "model": "Dejavoo QD5",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-p12",
+  "brand": "dejavoo",
+  "type": "mobile",
+  "name": "Dejavoo P12",
+  "model": "Dejavoo P12",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "dejavoo-dejapaypro-d1",
+  "brand": "dejavoo",
+  "type": "pos",
+  "name": "DejaPayPro D1",
+  "model": "Dejavoo DejaPayPro D1 Android Cloud Register",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ },
+ {
+  "id": "valor-vl100pro",
+  "brand": "valor",
+  "type": "terminal",
+  "name": "Valor VL100 Pro",
+  "model": "Valor PayTech VL100 Pro",
+  "flyer": "assets/flyers/valor-vl100pro-quickguide.pdf",
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vl550",
+  "brand": "valor",
+  "type": "handheld",
+  "name": "Valor VL550",
+  "model": "Valor PayTech VL550",
+  "flyer": "assets/flyers/valor-vl550.pdf",
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vp550e",
+  "brand": "valor",
+  "type": "terminal",
+  "name": "Valor VP550E",
+  "model": "Valor PayTech VP550E",
+  "flyer": "assets/flyers/valor-vp550e.pdf",
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vp800",
+  "brand": "valor",
+  "type": "pos",
+  "name": "Valor VP800",
+  "model": "Valor PayTech VP800",
+  "flyer": "assets/flyers/valor-vp800.pdf",
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vp100",
+  "brand": "valor",
+  "type": "terminal",
+  "name": "Valor VP100",
+  "model": "Valor PayTech VP100",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vp300pro",
+  "brand": "valor",
+  "type": "pinpad",
+  "name": "Valor VP300 Pro",
+  "model": "Valor PayTech VP300 Pro",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vp350",
+  "brand": "valor",
+  "type": "terminal",
+  "name": "Valor VP350",
+  "model": "Valor PayTech VP350",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vp550c",
+  "brand": "valor",
+  "type": "terminal",
+  "name": "Valor VP550C",
+  "model": "Valor PayTech VP550C",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vl110",
+  "brand": "valor",
+  "type": "terminal",
+  "name": "Valor VL110",
+  "model": "Valor PayTech VL110",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-vl300",
+  "brand": "valor",
+  "type": "pinpad",
+  "name": "Valor VL300",
+  "model": "Valor PayTech VL300",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "valor-rckt",
+  "brand": "valor",
+  "type": "mobile",
+  "name": "Valor RCKT",
+  "model": "Valor PayTech RCKT (VP400 RCKT)",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "pax-a920pro",
+  "brand": "pax",
+  "type": "handheld",
+  "name": "PAX A920 Pro",
+  "model": "PAX A920 Pro",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-a920max",
+  "brand": "pax",
+  "type": "handheld",
+  "name": "PAX A920 Max",
+  "model": "PAX A920 Max",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-a800",
+  "brand": "pax",
+  "type": "terminal",
+  "name": "PAX A800",
+  "model": "PAX A800",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-a80",
+  "brand": "pax",
+  "type": "terminal",
+  "name": "PAX A80",
+  "model": "PAX A80",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-a77",
+  "brand": "pax",
+  "type": "handheld",
+  "name": "PAX A77",
+  "model": "PAX A77",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-aries8",
+  "brand": "pax",
+  "type": "terminal",
+  "name": "PAX Aries8",
+  "model": "PAX Aries8",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-a30",
+  "brand": "pax",
+  "type": "pinpad",
+  "name": "PAX A30",
+  "model": "PAX A30",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-a35",
+  "brand": "pax",
+  "type": "pinpad",
+  "name": "PAX A35",
+  "model": "PAX A35",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-q25",
+  "brand": "pax",
+  "type": "pinpad",
+  "name": "PAX Q25",
+  "model": "PAX Q25",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-elys-station",
+  "brand": "pax",
+  "type": "pos",
+  "name": "PAX Elys Workstation",
+  "model": "PAX Elys Workstation L1400",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "pax-elys-tablet",
+  "brand": "pax",
+  "type": "pos",
+  "name": "PAX Elys Tablet",
+  "model": "PAX Elys Tablet A3700",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "fd150",
+  "brand": "fiserv",
+  "type": "terminal",
+  "name": "Fiserv FD150",
+  "model": "Fiserv / First Data FD150",
+  "flyer": null,
+  "supportKey": "fiserv"
+ },
+ {
+  "id": "rp10",
+  "brand": "fiserv",
+  "type": "pinpad",
+  "name": "Fiserv RP10",
+  "model": "Fiserv / First Data RP10",
+  "flyer": null,
+  "supportKey": "fiserv"
+ },
+ {
+  "id": "swipesimple-b350",
+  "brand": "swipesimple",
+  "type": "mobile",
+  "name": "SwipeSimple B350",
+  "model": "SwipeSimple B350 (CardFlight)",
+  "flyer": null,
+  "supportKey": "swipesimple"
+ },
+ {
+  "id": "basil-core",
+  "brand": "paradise",
+  "type": "pos",
+  "name": "Basil Core",
+  "model": "Basil View bundle · Dejavoo P18",
+  "flyer": "assets/flyers/paradise-pos.pdf",
+  "supportKey": "basil"
+ },
+ {
+  "id": "basil-serve",
+  "brand": "paradise",
+  "type": "pos",
+  "name": "Basil Serve",
+  "model": "Basil View Plus bundle · Dejavoo P18 + kitchen printer",
+  "flyer": "assets/flyers/paradise-pos.pdf",
+  "supportKey": "basil"
+ },
+ {
+  "id": "basil-pro",
+  "brand": "paradise",
+  "type": "pos",
+  "name": "Basil Pro",
+  "model": "Basil View Pro bundle · Dejavoo P18 + P8",
+  "flyer": "assets/flyers/paradise-pos.pdf",
+  "supportKey": "basil"
+ },
+ {
+  "id": "paradise-pos",
+  "brand": "paradisepos",
+  "type": "pos",
+  "name": "Paradise POS",
+  "model": "Paradise POS",
+  "flyer": "assets/flyers/paradise-pos.pdf",
+  "supportKey": "paradise"
+ },
+ {
+  "id": "genius-pos",
+  "brand": "genius",
+  "type": "pos",
+  "name": "Genius POS",
+  "model": "Genius POS",
+  "flyer": null,
+  "supportKey": "genius"
+ },
+ {
+  "id": "korona-pos",
+  "brand": "korona",
+  "type": "pos",
+  "name": "Korona POS",
+  "model": "Korona POS",
+  "flyer": null,
+  "supportKey": "korona"
+ },
+ {
+  "id": "hotsauce-pos",
+  "brand": "hotsauce",
+  "type": "pos",
+  "name": "HotSauce POS",
+  "model": "HotSauce POS",
+  "flyer": null,
+  "supportKey": "hotsauce"
+ },
+ {
+  "id": "pos-on-iphone",
+  "brand": "union",
+  "type": "pos",
+  "name": "POS on iPhone (Union)",
+  "model": "Union POS on iPhone (BYOD)",
+  "flyer": "assets/flyers/pos-on-iphone.pdf",
+  "supportKey": "union"
+ },
+ {
+  "id": "acc-star-tsp143iv",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "Star TSP143IV",
+  "model": "Star Micronics TSP143IV (TSP100 series)",
+  "flyer": null,
+  "supportKey": "star"
+ },
+ {
+  "id": "acc-epson-tmu220",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "Epson TM-U220",
+  "model": "Epson TM-U220II impact kitchen printer",
+  "flyer": null,
+  "supportKey": "epson"
+ },
+ {
+  "id": "acc-epson-tmm30iii",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "Epson TM-m30III",
+  "model": "Epson TM-m30III thermal receipt printer",
+  "flyer": null,
+  "supportKey": "epson"
+ },
+ {
+  "id": "acc-brother-ql1110nwb",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "Brother QL-1110NWB",
+  "model": "Brother QL-1110NWB wide-format label printer",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "acc-star-cd4-16",
+  "brand": "accessory",
+  "type": "drawer",
+  "name": "Star CD4-16 Cash Drawer",
+  "model": "Star Micronics CD4-1616 16\" cash drawer (black)",
+  "flyer": null,
+  "supportKey": "star"
+ },
+ {
+  "id": "acc-zebra-ds2208",
+  "brand": "accessory",
+  "type": "scanner",
+  "name": "Zebra DS2208",
+  "model": "Zebra DS2208 corded 2D barcode scanner",
+  "flyer": null,
+  "supportKey": "zebra"
+ },
+ {
+  "id": "acc-zebra-ds2278",
+  "brand": "accessory",
+  "type": "scanner",
+  "name": "Zebra DS2278",
+  "model": "Zebra DS2278 cordless 2D scanner with cradle",
+  "flyer": null,
+  "supportKey": "zebra"
+ },
+ {
+  "id": "acc-weight-scale",
+  "brand": "accessory",
+  "type": "scale",
+  "name": "Weight Scale",
+  "model": "CAS SW-series retail scale (SW-1 / SW-5 / SW-10 / SW-20)",
+  "flyer": null,
+  "supportKey": "cas"
+ },
+ {
+  "id": "acc-bump-bar",
+  "brand": "accessory",
+  "type": "bumpbar",
+  "name": "Bump Bar",
+  "model": "Bump Bar (KB9000) — programmable kitchen bump bar",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "acc-elys-printer",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "PAX Elys Printer",
+  "model": "PAX Elys T3180 thermal receipt printer",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "acc-elys-scanner",
+  "brand": "accessory",
+  "type": "scanner",
+  "name": "PAX Elys Eye Scanner",
+  "model": "PAX Elys Eye T3200 wireless barcode scanner",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "acc-clover-cash-drawer",
+  "brand": "accessory",
+  "type": "drawer",
+  "name": "Clover Cash Drawer",
+  "model": "Clover Cash Drawer (RJ11)",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "acc-clover-mini-swivel",
+  "brand": "accessory",
+  "type": "mount",
+  "name": "Clover Mini Swivel",
+  "model": "Clover Mini Swivel Base",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "acc-clover-kds-stand",
+  "brand": "accessory",
+  "type": "mount",
+  "name": "Clover KDS Countertop Stand",
+  "model": "Clover KDS Countertop Stand (100 mm VESA)",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "acc-clover-kds-wall-mount",
+  "brand": "accessory",
+  "type": "mount",
+  "name": "Clover KDS Wall Mount",
+  "model": "Clover KDS Wall Mount (100 mm VESA arm)",
+  "flyer": null,
+  "supportKey": "clover"
+ },
+ {
+  "id": "acc-receipt-printer",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "Receipt Printer",
+  "model": "Star TSP100III / TSP100IIILAN · Epson TM-L90 thermal receipt printer",
+  "flyer": null,
+  "supportKey": "star"
+ },
+ {
+  "id": "acc-kitchen-printer",
+  "brand": "accessory",
+  "type": "printer",
+  "name": "Kitchen Printer",
+  "model": "Star TSP100III / SP700 · Epson TM-L90 / TM-U220II",
+  "flyer": null,
+  "supportKey": "star"
+ },
+ {
+  "id": "acc-cash-drawer",
+  "brand": "accessory",
+  "type": "drawer",
+  "name": "Cash Drawer",
+  "model": "16\" cash drawer",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "acc-barcode-scanner",
+  "brand": "accessory",
+  "type": "scanner",
+  "name": "Barcode Scanner",
+  "model": "Zebra DS9308 / DS2208",
+  "flyer": null,
+  "supportKey": "zebra"
+ },
+ {
+  "id": "acc-kds",
+  "brand": "accessory",
+  "type": "kds",
+  "name": "Kitchen Display (KDS)",
+  "model": "Clover KDS 14\" / 24\" · Basil 22\" kitchen display",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "acc-pin-pad",
+  "brand": "accessory",
+  "type": "pinpad",
+  "name": "External PIN Pad",
+  "model": "Valor VP300 / VP300 Pro / VL300 · PAX A30 / A35 / Q25 · Dejavoo Z6 / QD3 / QD5 / P17 · Fiserv RP10",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "acc-b350-cradle",
+  "brand": "accessory",
+  "type": "dock",
+  "name": "SwipeSimple B350 Charging Cradle",
+  "model": "SwipeSimple B350 charging cradle",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "acc-pax-charging-base",
+  "brand": "accessory",
+  "type": "dock",
+  "name": "PAX S920 Charging Base",
+  "model": "PAX S920 charging base",
+  "flyer": null,
+  "supportKey": "pax"
+ },
+ {
+  "id": "acc-network",
+  "brand": "accessory",
+  "type": "network",
+  "name": "Network / Connectivity",
+  "model": "Merchant router / access point · Ethernet or Wi-Fi 2.4 & 5 GHz",
+  "flyer": null,
+  "supportKey": null
+ },
+ {
+  "id": "valor-vt",
+  "brand": "vt",
+  "type": "vt",
+  "name": "Valor Virtual Terminal",
+  "model": "Valor PayTech Virtual Terminal",
+  "flyer": null,
+  "supportKey": "valor"
+ },
+ {
+  "id": "dejavoo-ipospays-vt",
+  "brand": "vt",
+  "type": "vt",
+  "name": "Dejavoo iPOSPays Virtual Terminal",
+  "model": "Dejavoo iPOSpays Virtual Terminal / Cloud POS",
+  "flyer": null,
+  "supportKey": "dejavoo"
+ }
+]
